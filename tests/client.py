@@ -183,8 +183,10 @@ class Console(Cmd):
         print('')
         print('    Usage:')
         print('        login <username>  - switch user')
+        print('        hello             - handshake with station')
         print('        call <username>   - change receiver to another user or "station"')
         print('        send <text>       - send message')
+        print('        exit              - terminate')
         print('')
 
     def do_help(self, arg):
@@ -199,7 +201,7 @@ class Console(Cmd):
         print('Bye!')
         return True
 
-    def do_handshake(self, arg):
+    def do_hello(self, arg):
         command = dimp.handshake_start_command(session=client.session_key)
         print('handshake with "%s": %s' % (self.receiver, command))
         client.send(receiver=self.receiver, content=command)
