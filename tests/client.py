@@ -11,9 +11,7 @@
 import sys
 import os
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+from cmd import Cmd
 
 import socket
 from threading import Thread
@@ -22,6 +20,10 @@ import dimp
 
 from mkm.immortals import *
 from dkd.transform import json_str, json_dict
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 
 from station.config import station
 from station.transceiver import barrack, store
@@ -148,41 +150,57 @@ class Client:
             print('**** Command: %s, Message: %s ****' % (content['command'], content['message']))
 
 
-def console(receiver: dimp.ID):
+class Console(Cmd):
 
-    while True:
+    prompt = '[DIM] > '
+    intro = 'Welcome to DIM world!'
 
-        data = input('[DIM] Type message: ')
-        if len(data) == 0:
-            print('Input nothing, terminated.')
-            break
+    def __init__(self):
+        super().__init__()
+        self.receiver = None
 
-        if data == 'send to station':
-            receiver = station.identifier
-            print('send to: %s' % receiver)
-            continue
-        elif data == 'send to moki':
-            receiver = moki_id
-            print('send to: %s' % receiver)
-            continue
-        elif data == 'send to hulk':
-            receiver = hulk_id
-            print('send to: %s' % receiver)
-            continue
-        elif data == 'login moki':
-            sender = name_list['moki']['ID']
+    def show_usage(self):
+        print('')
+        print('    Usage:')
+        print('        login <username>  - switch user')
+        print('        call <username>   - change receiver to another user or "station"')
+        print('        send <text>       - send message')
+        print('')
+
+    def do_help(self, arg):
+        self.show_usage()
+
+    def emptyline(self):
+        self.show_usage()
+        print('You(%s) are talking with "%s" now.' % (client.user.identifier, self.receiver))
+
+    def do_exit(self):
+        client.close()
+        print('Bye!')
+        return True
+
+    def do_login(self, identifier: dimp.ID):
+        if identifier in name_list:
+            sender = name_list[identifier]['ID']
             client.switch_user(identifier=sender)
-            print('login: %s' % sender)
-            continue
-        elif data == 'login hulk':
-            sender = name_list['hulk']['ID']
-            client.switch_user(identifier=sender)
-            print('login: %s' % sender)
-            continue
+            print('login as %s' % sender)
+        else:
+            print('unknown user: %s' % identifier)
 
-        # Message
-        content = dimp.TextContent.new(text=data)
-        client.send(receiver=receiver, content=content)
+    def do_call(self, identifier: dimp.ID):
+        if identifier == 'station':
+            self.receiver = station.identifier
+            print('talking with station (%s)' % self.receiver)
+        elif identifier in name_list:
+            self.receiver = name_list[identifier]['ID']
+            print('talking with %s' % self.receiver)
+        else:
+            print('unknown user: %s' % identifier)
+
+    def do_send(self, msg: str):
+        if len(msg) > 0:
+            content = dimp.TextContent.new(text=msg)
+            client.send(receiver=self.receiver, content=content)
 
 
 if __name__ == '__main__':
@@ -192,4 +210,10 @@ if __name__ == '__main__':
     client = Client(identifier=moki_id)
     client.connect(host=station.host, port=station.port)
 
-    console(receiver=hulk_id)
+    try:
+        cmd = Console()
+        cmd.receiver = station.identifier
+
+        cmd.cmdloop()
+    except:
+        exit(0)
