@@ -10,7 +10,7 @@ from dimp.commands import handshake_again_command, handshake_success_command
 from station.config import station
 from station.transceiver import transceiver
 from station.session import Session
-from station.database import store_message
+from station.database import database
 
 
 class DIMRequestHandler(BaseRequestHandler):
@@ -82,11 +82,11 @@ class DIMRequestHandler(BaseRequestHandler):
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.ReliableMessage:
         print('message to: ', msg.envelope.receiver)
-        store_message(msg=msg)
+        database.store_message(msg=msg)
         content = dimp.CommandContent.new(command='response')
-        content['message'] = 'OK!'
+        content['message'] = 'Sent OK!'
         env = dimp.Envelope(sender=station.identifier, receiver=msg.envelope.sender)
-        msg = dimp.InstantMessage.new(content=content,envelope=env)
+        msg = dimp.InstantMessage.new(content=content, envelope=env)
         msg = transceiver.encrypt(msg=msg)
         msg = transceiver.sign(msg=msg)
         return msg
