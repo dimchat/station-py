@@ -7,10 +7,7 @@ import dimp
 
 from dimp.commands import handshake_again_command, handshake_success_command
 
-from station.config import station
-from station.transceiver import transceiver
-from station.session import Session
-from station.database import database
+from station.config import station, session_server, database
 
 
 class DIMRequestHandler(BaseRequestHandler):
@@ -18,78 +15,85 @@ class DIMRequestHandler(BaseRequestHandler):
     def setup(self):
         print(station, 'set up')
 
-    def receive(self):
+    def receive(self) -> list:
         data = b''
         while True:
             part = self.request.recv(1024)
             data += part
             if len(part) < 1024:
                 break
-        return data
+        # split message(s)
+        messages = []
+        if len(data) > 0:
+            array = data.decode('utf-8').splitlines()
+            for line in array:
+                msg = json_dict(line)
+                msg = dimp.ReliableMessage(msg)
+                messages.append(msg)
+        return messages
 
     def handle(self):
-        address, pid = self.client_address
-        print('%s(pid: %s) connected!' % (address, pid))
+        print('client (%s:%s) connected!' % self.client_address)
 
         while True:
-            data = self.receive()
-            if len(data) == 0:
-                print('%s(pid: %s) closed!' % (address, pid))
+            messages = self.receive()
+            if len(messages) == 0:
+                print('client (%s:%s) exit!' % self.client_address)
                 break
-            data = json_dict(data)
-            r_msg = dimp.ReliableMessage(data)
-            # process message
-            if r_msg.envelope.receiver == station.identifier:
-                response = self.process(msg=r_msg)
-            else:
-                # save message for other users
-                response = self.save(msg=r_msg)
-            if response:
-                response = json_str(response)
-                self.request.sendall(response.encode('utf-8'))
-                print('response to %s(pid: %s): %s' % (address, pid, response))
+            for r_msg in messages:
+                sender = r_msg.envelope.sender
+                receiver = r_msg.envelope.receiver
+                # check session
+                if receiver == station.identifier:
+                    # process message
+                    print('*** message from client (%s:%s)...' % self.client_address)
+                    content = station.unpack(msg=r_msg)
+                    print('    content: %s', content)
+                    response = self.process(sender=sender, content=content)
+                elif not session_server.valid(sender, self.client_address):
+                    # handshake
+                    print('*** handshake with client (%s:%s)...' % self.client_address)
+                    response = self.handshake(sender=sender)
+                else:
+                    # save message for other users
+                    print('@@@ message from "%s" to "%s"...' % (sender, receiver))
+                    response = self.save(msg=r_msg)
+                # pack and response
+                if response:
+                    print('*** response to client (%s:%s)...' % self.client_address)
+                    print('    content: %s', response)
+                    msg = station.pack(receiver=sender, content=response)
+                    self.request.sendall(json_str(msg).encode('utf-8'))
 
-    def process(self, msg: dimp.ReliableMessage) -> dimp.ReliableMessage:
-        sender = msg.envelope.sender
-        msg = transceiver.verify(msg)
-        msg = transceiver.decrypt(msg)
-        content = msg.content
-        print('received message content: ', content)
-        response = None
+    def process(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         if content.type == dimp.MessageType.Command:
             if content['command'] == 'handshake':
-                if 'session' in content:
-                    session = content['session']
-                else:
-                    session = None
-                current = Session.session(identifier=sender)
-                if session == current.session_key:
-                    response = handshake_success_command()
-                else:
-                    response = handshake_again_command(session=current.session_key)
+                return self.handshake(sender=sender, content=content)
+            else:
+                print('Unknown command: ', content)
         else:
-            response = content
-        # packing response
-        if response:
-            env = dimp.Envelope(sender=station.identifier, receiver=sender)
-            msg = dimp.InstantMessage.new(content=response, envelope=env)
-            msg = transceiver.encrypt(msg)
-            msg = transceiver.sign(msg)
-            return msg
-        else:
-            print('Unknown request:', content)
-            return None
+            # response client with the same message
+            return content
 
-    def save(self, msg: dimp.ReliableMessage) -> dimp.ReliableMessage:
+    def handshake(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+        if content and 'session' in content:
+            session = content['session']
+        else:
+            session = None
+        current = session_server.session(identifier=sender)
+        if session == current.session_key:
+            # session verified
+            current.client_address = self.client_address
+            return handshake_success_command()
+        else:
+            return handshake_again_command(session=current.session_key)
+
+    def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('message to: ', msg.envelope.receiver)
         database.store_message(msg=msg)
         content = dimp.CommandContent.new(command='response')
         content['message'] = 'Sent OK!'
-        env = dimp.Envelope(sender=station.identifier, receiver=msg.envelope.sender)
-        msg = dimp.InstantMessage.new(content=content, envelope=env)
-        msg = transceiver.encrypt(msg=msg)
-        msg = transceiver.sign(msg=msg)
-        return msg
+        return content
 
     def finish(self):
         print(station, 'finish')

@@ -25,13 +25,12 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import station
-from station.transceiver import barrack, store
+from station.config import station, database
 
 
 name_list = {
-    'moki': {'ID': moki_id, 'SK': moki_sk},
-    'hulk': {'ID': hulk_id, 'SK': hulk_sk},
+    'moki': {'ID': moki.identifier, 'SK': moki.privateKey},
+    'hulk': {'ID': hulk.identifier, 'SK': hulk.privateKey},
 }
 
 
@@ -43,11 +42,11 @@ def load_users():
         id1 = dimp.ID(item['ID'])
         sk1 = dimp.PrivateKey(item['SK'])
         user = dimp.User(identifier=id1, private_key=sk1)
-        barrack.accounts[id1] = user
+        database.accounts[id1] = user
         print('load user: ', user)
 
     # add station as an account
-    barrack.accounts[station.identifier] = station
+    database.accounts[station.identifier] = station
     print('load station: ', station)
 
 
@@ -69,6 +68,7 @@ def receive_handler(cli):
 
 
 def send_handler(cli):
+    # print('---------------- %s' % cli)
     pass
 
 
@@ -84,14 +84,17 @@ class Client:
         self.thread_receive = None
         self.thread_send = None
         self.running = False
+        # session
+        self.session_key = None
+        self.handshake = False
 
     def switch_user(self, identifier: dimp.ID):
-        if identifier in barrack.accounts:
-            self.user = barrack.accounts[identifier]
+        if identifier in database.accounts:
+            self.user = database.accounts[identifier]
             self.trans = dimp.Transceiver(account=self.user,
                                           private_key=self.user.privateKey,
-                                          barrack=barrack,
-                                          store=store)
+                                          barrack=database,
+                                          store=database)
         else:
             raise LookupError('User not found: ' + identifier)
 
@@ -123,11 +126,11 @@ class Client:
             self.sock.close()
 
     def send(self, receiver: dimp.ID, content: dimp.Content):
-        account = barrack.account(receiver)
+        account = database.account(receiver)
         if account is None:
             raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
-        password = store.symmetric_key(receiver=receiver)
+        password = database.symmetric_key(receiver=receiver)
         # packing message
         i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
         s_msg = i_msg.encrypt(password=password, public_key=account.publicKey)
@@ -143,11 +146,28 @@ class Client:
         self.receive(sender=msg.envelope.sender, content=msg.content)
 
     def receive(self, sender: dimp.ID, content: dimp.Content):
-        print('received from %s: %s' % (sender, content))
         if content.type == dimp.MessageType.Text:
-            print('**** Text: %s ****' % content['text'])
+            self.show(sender=sender, content=content)
         elif content.type == dimp.MessageType.Command:
-            print('**** Command: %s, Message: %s ****' % (content['command'], content['message']))
+            self.execute(sender=sender, content=content)
+        else:
+            print('\r***** Received from "%s": %s' % (sender, content))
+        # show prompt
+        console.stdout.write(console.prompt)
+        console.stdout.flush()
+
+    def show(self, sender: dimp.ID, content: dimp.Content):
+        print('\r***** Message from "%s": %s' % (sender.name, content['text']))
+
+    def execute(self, sender: dimp.ID, content: dimp.Content):
+        print('\r***** Command from "%s": %s (%s)' % (sender.name, content['command'], content))
+        if 'handshake' == content['command']:
+            if 'DIM?' == content['message']:
+                self.session_key = content['session']
+                print('      handshake again with new session key: %s' % self.session_key)
+            elif 'DIM!' == content['message']:
+                self.handshake = True
+                print('      handshake OK!')
 
 
 class Console(Cmd):
@@ -174,28 +194,33 @@ class Console(Cmd):
         self.show_usage()
         print('You(%s) are talking with "%s" now.' % (client.user.identifier, self.receiver))
 
-    def do_exit(self):
+    def do_exit(self, arg):
         client.close()
         print('Bye!')
         return True
 
-    def do_login(self, identifier: dimp.ID):
-        if identifier in name_list:
-            sender = name_list[identifier]['ID']
+    def do_handshake(self, arg):
+        command = dimp.handshake_start_command(session=client.session_key)
+        print('handshake with "%s": %s' % (self.receiver, command))
+        client.send(receiver=self.receiver, content=command)
+
+    def do_login(self, name: str):
+        if name in name_list:
+            sender = name_list[name]['ID']
             client.switch_user(identifier=sender)
             print('login as %s' % sender)
         else:
-            print('unknown user: %s' % identifier)
+            print('unknown user: %s' % name)
 
-    def do_call(self, identifier: dimp.ID):
-        if identifier == 'station':
+    def do_call(self, name: str):
+        if name == 'station':
             self.receiver = station.identifier
             print('talking with station (%s)' % self.receiver)
-        elif identifier in name_list:
-            self.receiver = name_list[identifier]['ID']
+        elif name in name_list:
+            self.receiver = name_list[name]['ID']
             print('talking with %s' % self.receiver)
         else:
-            print('unknown user: %s' % identifier)
+            print('unknown user: %s' % name)
 
     def do_send(self, msg: str):
         if len(msg) > 0:
@@ -207,13 +232,10 @@ if __name__ == '__main__':
 
     load_users()
 
-    client = Client(identifier=moki_id)
+    client = Client(identifier=moki.identifier)
     client.connect(host=station.host, port=station.port)
 
-    try:
-        cmd = Console()
-        cmd.receiver = station.identifier
+    console = Console()
+    console.receiver = station.identifier
 
-        cmd.cmdloop()
-    except:
-        exit(0)
+    console.cmdloop()
