@@ -38,11 +38,14 @@ class Station(dimp.Station):
     DIM Network Server
 """
 
+host = '127.0.0.1'
+port = 9394
+
 station_id = dimp.ID(s001_id)
 station_sk = dimp.PrivateKey(s001_sk)
 station_pk = station_sk.publicKey
 
-station = Station(identifier=station_id, public_key=station_pk, host='127.0.0.1', port=9394)
+station = Station(identifier=station_id, public_key=station_pk, host=host, port=port)
 station.privateKey = station_sk
 
 """

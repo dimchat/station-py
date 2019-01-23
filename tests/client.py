@@ -28,22 +28,26 @@ sys.path.append(rootPath)
 from station.config import station, database
 
 
-name_list = {
-    'moki': {'ID': moki.identifier, 'SK': moki.privateKey},
-    'hulk': {'ID': hulk.identifier, 'SK': hulk.privateKey},
+identifier_map = {
+    'moki': moki.identifier,
+    'hulk': hulk.identifier,
 }
 
 
 def load_users():
 
     # loading
-    for key in name_list:
-        item = name_list[key]
-        id1 = dimp.ID(item['ID'])
-        sk1 = dimp.PrivateKey(item['SK'])
-        user = dimp.User(identifier=id1, private_key=sk1)
-        database.accounts[id1] = user
-        print('load user: ', user)
+    id1 = dimp.ID(moki_id)
+    sk1 = dimp.PrivateKey(moki_sk)
+    user1 = dimp.User(identifier=id1, private_key=sk1)
+    database.accounts[id1] = user1
+    print('load user: ', user1)
+
+    id2 = dimp.ID(hulk_id)
+    sk2 = dimp.PrivateKey(hulk_sk)
+    user2 = dimp.User(identifier=id2, private_key=sk2)
+    database.accounts[id2] = user2
+    print('load user: ', user2)
 
     # add station as an account
     database.accounts[station.identifier] = station
@@ -179,22 +183,21 @@ class Console(Cmd):
         super().__init__()
         self.receiver = None
 
-    def show_usage(self):
+    def emptyline(self):
         print('')
         print('    Usage:')
         print('        login <username>  - switch user')
+        print('        logout            - clear session')
         print('        hello             - handshake with station')
         print('        call <username>   - change receiver to another user or "station"')
         print('        send <text>       - send message')
         print('        exit              - terminate')
         print('')
-
-    def do_help(self, arg):
-        self.show_usage()
-
-    def emptyline(self):
-        self.show_usage()
-        print('You(%s) are talking with "%s" now.' % (client.user.identifier, self.receiver))
+        if client.user:
+            if self.receiver:
+                print('You(%s) are talking with "%s" now.' % (client.user.identifier, self.receiver))
+            else:
+                print('%s is login in' % client.user.identifier)
 
     def do_exit(self, arg):
         client.close()
@@ -202,30 +205,45 @@ class Console(Cmd):
         return True
 
     def do_hello(self, arg):
-        command = dimp.handshake_start_command(session=client.session_key)
-        print('handshake with "%s": %s' % (self.receiver, command))
-        client.send(receiver=self.receiver, content=command)
+        if client.user is None:
+            print('login first')
+        else:
+            command = dimp.handshake_start_command(session=client.session_key)
+            print('handshake with "%s": %s' % (self.receiver, command))
+            client.send(receiver=self.receiver, content=command)
 
     def do_login(self, name: str):
-        if name in name_list:
-            sender = name_list[name]['ID']
+        if name in identifier_map:
+            sender = identifier_map[name]
             client.switch_user(identifier=sender)
             print('login as %s' % sender)
         else:
             print('unknown user: %s' % name)
 
+    def do_logout(self, arg):
+        if client.user is None:
+            print('not login yet')
+        else:
+            print('%s logout' % client.user.identifier)
+            client.user = None
+            client.session_key = None
+
     def do_call(self, name: str):
-        if name == 'station':
+        if client.user is None:
+            print('login first')
+        elif name == 'station':
             self.receiver = station.identifier
             print('talking with station (%s)' % self.receiver)
-        elif name in name_list:
-            self.receiver = name_list[name]['ID']
+        elif name in identifier_map:
+            self.receiver = identifier_map[name]
             print('talking with %s' % self.receiver)
         else:
             print('unknown user: %s' % name)
 
     def do_send(self, msg: str):
-        if len(msg) > 0:
+        if client.user is None:
+            print('login first')
+        elif len(msg) > 0:
             content = dimp.TextContent.new(text=msg)
             client.send(receiver=self.receiver, content=content)
 

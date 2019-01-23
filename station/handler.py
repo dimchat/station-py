@@ -13,7 +13,7 @@ from station.config import station, session_server, database
 class DIMRequestHandler(BaseRequestHandler):
 
     def setup(self):
-        print(station, 'set up')
+        print(station, 'set up with', self.client_address)
 
     def receive(self) -> list:
         data = b''
