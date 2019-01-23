@@ -120,7 +120,7 @@ class DIMRequestHandler(BaseRequestHandler):
             return dimp.handshake_again_command(session=current.session_key)
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        print('message to: %s' % msg.envelope.receiver)
+        print('%s sent message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))
         database.store_message(msg=msg)
         content = dimp.CommandContent.new(command='response')
         content['message'] = 'Sent OK!'

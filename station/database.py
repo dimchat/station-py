@@ -66,6 +66,8 @@ class Database(dimp.Barrack, dimp.KeyStore):
                     print('read %d byte(s) from %s for %s' % (len(data), filename, identifier))
                     if data is not None:
                         msg = dimp.ReliableMessage(json_dict(data))
+                    else:
+                        msg = None
                     os.remove(path)
                     return msg
 

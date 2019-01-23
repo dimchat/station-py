@@ -200,9 +200,12 @@ class Console(Cmd):
         if client.user is None:
             print('login first')
         else:
+            receiver = self.receiver
+            self.receiver = station.identifier
             command = dimp.handshake_start_command(session=client.session_key)
             print('handshake with "%s": %s' % (self.receiver, command))
             client.send(receiver=self.receiver, content=command)
+            self.receiver = receiver
 
     def do_login(self, name: str):
         if name in identifier_map:
