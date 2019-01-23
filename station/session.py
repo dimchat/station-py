@@ -35,7 +35,7 @@ class Session:
     def __init__(self, identifier: dimp.ID):
         super().__init__()
         self.identifier = identifier
-        self.client_address = None
+        self.request = None
         self.session_key = hex_encode(bytes(numpy.random.bytes(32)))
 
 
@@ -53,8 +53,8 @@ class SessionServer:
             self.sessions[identifier] = sess
             return sess
 
-    def valid(self, identifier: dimp.ID, client_address) -> bool:
+    def valid(self, identifier: dimp.ID, request) -> bool:
         if identifier not in self.sessions:
             return False
         sess = self.sessions[identifier]
-        return sess.client_address == client_address
+        return sess.request == request

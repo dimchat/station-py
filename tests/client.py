@@ -67,17 +67,11 @@ def receive_handler(cli):
                 data += part
                 if len(part) < 1024:
                     break
-        if len(data) == 0:
-            continue
         # split message(s)
-        array = data.decode('utf-8').splitlines()
-        for msg in array:
-            cli.receive_data(msg)
-
-
-def send_handler(cli):
-    # print('---------------- %s' % cli)
-    pass
+        if len(data) > 0:
+            array = data.decode('utf-8').splitlines()
+            for msg in array:
+                cli.receive_data(msg)
 
 
 class Client:
@@ -90,7 +84,6 @@ class Client:
         # socket
         self.sock = None
         self.thread_receive = None
-        self.thread_send = None
         self.running = False
         # session
         self.session_key = None
@@ -118,15 +111,10 @@ class Client:
         if self.thread_receive is None:
             self.thread_receive = Thread(target=receive_handler, args=(self,))
             self.thread_receive.start()
-        if self.thread_send is None:
-            self.thread_send = Thread(target=send_handler, args=(self,))
-            self.thread_send.start()
 
     def close(self):
         # stop thread
         self.running = False
-        if self.thread_send:
-            self.thread_send = None
         if self.thread_receive:
             self.thread_receive = None
         # disconnect the socket

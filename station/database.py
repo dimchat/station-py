@@ -28,6 +28,8 @@ import time
 
 import dimp
 
+from station.utils import json_dict, json_str
+
 
 class Database(dimp.Barrack, dimp.KeyStore):
 
@@ -49,9 +51,23 @@ class Database(dimp.Barrack, dimp.KeyStore):
         filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
         path = directory + '/' + filename + '.msg'
         with open(path, 'w') as file:
-            file.write('%s\n' % msg)
+            file.write(json_str(msg))
         print('msg write into file: ', path)
         return True
+
+    def load_message(self, identifier: dimp.ID) -> dimp.ReliableMessage:
+        directory = self.base_dir + 'accounts/' + identifier.address + '/messages'
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                path = os.path.join(directory, filename)
+                if path[-4:] == '.msg':
+                    with open(path, 'r') as f:
+                        data = f.read()
+                    print('read %d byte(s) from %s for %s' % (len(data), filename, identifier))
+                    if data is not None:
+                        msg = dimp.ReliableMessage(json_dict(data))
+                    os.remove(path)
+                    return msg
 
     def account(self, identifier: dimp.ID) -> dimp.Account:
         if identifier in self.accounts:

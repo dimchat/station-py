@@ -33,6 +33,11 @@ from station.config import station, session_server, database
 
 class DIMRequestHandler(BaseRequestHandler):
 
+    def __init__(self, request, client_address, server):
+        super().__init__(request=request, client_address=client_address, server=server)
+        # remote user ID
+        self.identifier = None
+
     def setup(self):
         print(self, 'set up with', self.client_address)
 
@@ -53,6 +58,9 @@ class DIMRequestHandler(BaseRequestHandler):
                 messages.append(msg)
         return messages
 
+    def send(self, msg: dimp.ReliableMessage):
+        self.request.sendall(json_str(msg).encode('utf-8'))
+
     def handle(self):
         print('client (%s:%s) connected!' % self.client_address)
 
@@ -69,9 +77,9 @@ class DIMRequestHandler(BaseRequestHandler):
                     # process message
                     print('*** message from client (%s:%s)...' % self.client_address)
                     content = station.unpack(msg=r_msg)
-                    print('    content: %s', content)
+                    print('    content: %s' % content)
                     response = self.process(sender=sender, content=content)
-                elif not session_server.valid(sender, self.client_address):
+                elif not session_server.valid(sender, self):
                     # handshake
                     print('*** handshake with client (%s:%s)...' % self.client_address)
                     response = self.handshake(sender=sender)
@@ -82,9 +90,9 @@ class DIMRequestHandler(BaseRequestHandler):
                 # pack and response
                 if response:
                     print('*** response to client (%s:%s)...' % self.client_address)
-                    print('    content: %s', response)
+                    print('    content: %s' % response)
                     msg = station.pack(receiver=sender, content=response)
-                    self.request.sendall(json_str(msg).encode('utf-8'))
+                    self.send(msg=msg)
 
     def process(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         if content.type == dimp.MessageType.Command:
@@ -104,17 +112,23 @@ class DIMRequestHandler(BaseRequestHandler):
         current = session_server.session(identifier=sender)
         if session == current.session_key:
             # session verified
-            current.client_address = self.client_address
+            print('connect current request to session', sender, self.client_address)
+            self.identifier = sender
+            current.request = self
             return dimp.handshake_success_command()
         else:
             return dimp.handshake_again_command(session=current.session_key)
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        print('message to: ', msg.envelope.receiver)
+        print('message to: %s' % msg.envelope.receiver)
         database.store_message(msg=msg)
         content = dimp.CommandContent.new(command='response')
         content['message'] = 'Sent OK!'
         return content
 
     def finish(self):
+        if self.identifier:
+            print('disconnect current request from session', self.identifier, self.client_address)
+            current = session_server.session(identifier=self.identifier)
+            current.request = None
         print(self, 'finish')

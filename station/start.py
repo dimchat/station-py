@@ -32,6 +32,8 @@
 """
 
 from socketserver import TCPServer, ThreadingTCPServer
+from threading import Thread
+from time import sleep
 
 import sys
 import os
@@ -40,13 +42,38 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import station, load_users
+from station.config import load_users, database, session_server, station
 from station.handler import DIMRequestHandler
+
+
+def session_scanner(ss, db):
+    while True:
+        # scan sessions
+        sessions = ss.sessions.copy()
+        for identifier in sessions:
+            sess = sessions[identifier]
+            if sess.request:
+                # if session connected, scan messages for it
+                while True:
+                    msg = db.load_message(identifier=identifier)
+                    if msg:
+                        sess.request.send(msg)
+                        sleep(0.5)
+                    else:
+                        # no message found
+                        break
+            sleep(1.0)
+        sleep(2.0)
 
 
 if __name__ == '__main__':
 
     load_users()
+
+    # start transponder
+    scanner = Thread(target=session_scanner, args=(session_server, database))
+    print('starting scanner')
+    scanner.start()
 
     # start TCP server
     TCPServer.allow_reuse_address = True
