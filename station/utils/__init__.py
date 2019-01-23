@@ -23,38 +23,29 @@
 # SOFTWARE.
 # ==============================================================================
 
-import numpy
+"""
+    Utilities
+    ~~~~~~~~~
 
-import dimp
+    I'm too lazy to write codes for demo project, so I borrow some utils here
+    from the dimp packages, but I don't suggest you to do it also, because
+    I won't promise these private utils will not be changed. Hia hia~ :P
+                                             -- Albert Moky @ Jan. 23, 2019
+"""
 
-from station.utils import hex_encode
+from dkd.transform import json_dict, json_str
+
+from station.utils.hex import hex_encode, hex_decode
+
+# Immortal Accounts data for test
+from mkm.immortals import moki_id, moki_pk, moki_sk, moki_meta, moki
+from mkm.immortals import hulk_id, hulk_pk, hulk_sk, hulk_meta, hulk
 
 
-class Session:
+__all__ = [
+    'json_dict', 'json_str',
+    'hex_encode', 'hex_decode',
 
-    def __init__(self, identifier: dimp.ID):
-        super().__init__()
-        self.identifier = identifier
-        self.client_address = None
-        self.session_key = hex_encode(bytes(numpy.random.bytes(32)))
-
-
-class SessionServer:
-
-    def __init__(self):
-        super().__init__()
-        self.sessions = {}
-
-    def session(self, identifier: dimp.ID) -> Session:
-        if identifier in self.sessions:
-            return self.sessions[identifier]
-        else:
-            sess = Session(identifier=identifier)
-            self.sessions[identifier] = sess
-            return sess
-
-    def valid(self, identifier: dimp.ID, client_address) -> bool:
-        if identifier not in self.sessions:
-            return False
-        sess = self.sessions[identifier]
-        return sess.client_address == client_address
+    'moki_id', 'moki_pk', 'moki_sk', 'moki_meta', 'moki',
+    'hulk_id', 'hulk_pk', 'hulk_sk', 'hulk_meta', 'hulk',
+]

@@ -1,4 +1,27 @@
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
 
 """
     Configuration
@@ -9,9 +32,11 @@
 
 import dimp
 
-from station.gsp_s001 import *
 from station.session import SessionServer
 from station.database import Database
+
+from station.utils import *
+from station.gsp_s001 import *
 
 
 class Station(dimp.Station):
@@ -61,6 +86,20 @@ session_server = SessionServer()
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
 database = Database()
+
+
+def load_users():
+    # load moki
+    user1 = dimp.User(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
+    database.accounts[user1.identifier] = user1
+    print('load user: ', user1)
+    # load hulk
+    user2 = dimp.User(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
+    database.accounts[user2.identifier] = user2
+    print('load user: ', user2)
+    # load station
+    database.accounts[station.identifier] = station
+    print('load station: ', station)
 
 """
     Transceiver

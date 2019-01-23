@@ -1,9 +1,10 @@
 # Decentralized Instant Messaging Station (Python)
 
-Demo project for [pypi/dimp](https://pypi.org/project/dimp/) package.
-Source code is here:
+Demo project for [pypi/dimp](https://pypi.org/project/dimp/) packages.
 
-1. [DIMP Package (core-py)](https://github.com/dimchat/core-py)
+Source codes:
+
+1. [DIM Protocol (core-py)](https://github.com/dimchat/core-py)
 2. [Message Module (dkd-py)](https://github.com/dimchat/dkd-py)
 3. [Account Module (mkm-py)](https://github.com/dimchat/mkm-py)
 

@@ -1,19 +1,40 @@
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
 
 from socketserver import BaseRequestHandler
 
-from dkd.transform import json_dict, json_str
 import dimp
 
-from dimp.commands import handshake_again_command, handshake_success_command
-
+from station.utils import json_str, json_dict
 from station.config import station, session_server, database
 
 
 class DIMRequestHandler(BaseRequestHandler):
 
     def setup(self):
-        print(station, 'set up with', self.client_address)
+        print(self, 'set up with', self.client_address)
 
     def receive(self) -> list:
         data = b''
@@ -84,9 +105,9 @@ class DIMRequestHandler(BaseRequestHandler):
         if session == current.session_key:
             # session verified
             current.client_address = self.client_address
-            return handshake_success_command()
+            return dimp.handshake_success_command()
         else:
-            return handshake_again_command(session=current.session_key)
+            return dimp.handshake_again_command(session=current.session_key)
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('message to: ', msg.envelope.receiver)
@@ -96,4 +117,4 @@ class DIMRequestHandler(BaseRequestHandler):
         return content
 
     def finish(self):
-        print(station, 'finish')
+        print(self, 'finish')

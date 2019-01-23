@@ -1,5 +1,28 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
 
 """
     DIM Client
@@ -8,9 +31,6 @@
     Simple client for testing
 """
 
-import sys
-import os
-
 from cmd import Cmd
 
 import socket
@@ -18,14 +38,15 @@ from threading import Thread
 
 import dimp
 
-from mkm.immortals import *
-from dkd.transform import json_str, json_dict
+import sys
+import os
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import station, database
+from station.config import station, database, load_users
+from station.utils import *
 
 
 identifier_map = {
@@ -34,35 +55,18 @@ identifier_map = {
 }
 
 
-def load_users():
-
-    # loading
-    id1 = dimp.ID(moki_id)
-    sk1 = dimp.PrivateKey(moki_sk)
-    user1 = dimp.User(identifier=id1, private_key=sk1)
-    database.accounts[id1] = user1
-    print('load user: ', user1)
-
-    id2 = dimp.ID(hulk_id)
-    sk2 = dimp.PrivateKey(hulk_sk)
-    user2 = dimp.User(identifier=id2, private_key=sk2)
-    database.accounts[id2] = user2
-    print('load user: ', user2)
-
-    # add station as an account
-    database.accounts[station.identifier] = station
-    print('load station: ', station)
-
-
 def receive_handler(cli):
     while cli.running:
         # read data
         data = b''
+        part = b''
         while cli.running:
-            part = cli.sock.recv(1024)
-            data += part
-            if len(part) < 1024:
-                break
+            try:
+                part = cli.sock.recv(1024)
+            finally:
+                data += part
+                if len(part) < 1024:
+                    break
         if len(data) == 0:
             continue
         # split message(s)
@@ -155,7 +159,7 @@ class Client:
         elif content.type == dimp.MessageType.Command:
             self.execute(sender=sender, content=content)
         else:
-            print('\r***** Received from "%s": %s' % (sender, content))
+            print('\r***** Message content from "%s": %s' % (sender, content))
         # show prompt
         console.stdout.write(console.prompt)
         console.stdout.flush()

@@ -1,5 +1,28 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
 
 """
     DIM Station
@@ -8,6 +31,8 @@
     DIM network server node
 """
 
+from socketserver import TCPServer, ThreadingTCPServer
+
 import sys
 import os
 
@@ -15,28 +40,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from socketserver import TCPServer, ThreadingTCPServer
-
-from mkm.immortals import *
-import dimp
-
-from station.config import station, database
+from station.config import station, load_users
 from station.handler import DIMRequestHandler
-
-
-def load_users():
-
-    id1 = dimp.ID(moki_id)
-    sk1 = dimp.PrivateKey(moki_sk)
-    user1 = dimp.User(identifier=id1, private_key=sk1)
-    database.accounts[id1] = user1
-    print('load user: ', user1)
-
-    id2 = dimp.ID(hulk_id)
-    sk2 = dimp.PrivateKey(hulk_sk)
-    user2 = dimp.User(identifier=id2, private_key=sk2)
-    database.accounts[id2] = user2
-    print('load user: ', user2)
 
 
 if __name__ == '__main__':

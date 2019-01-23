@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+    Station Data File
+"""
+
 s001_id = 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'
 
 s001_meta = {
