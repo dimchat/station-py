@@ -219,8 +219,10 @@ class Console(Cmd):
     def do_login(self, name: str):
         if name in identifier_map:
             sender = identifier_map[name]
-        else:
+        elif len(name) > 30:
             sender = dimp.ID(name)
+        else:
+            sender = None
         if sender:
             client.switch_user(identifier=sender)
             print('login as %s' % sender)
