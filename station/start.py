@@ -44,36 +44,56 @@ sys.path.append(rootPath)
 
 from station.config import database, session_server, station
 from station.config import load_accounts
-from station.handler import DIMRequestHandler
+from station.handler import RequestHandler
 
 
-def session_scanner(ss, db):
-    while True:
-        # scan sessions
-        sessions = ss.sessions.copy()
-        for identifier in sessions:
-            request = sessions[identifier].request
-            if request:
-                # if session connected, scan messages for it
-                messages = db.load_messages(identifier=identifier)
-                for msg in messages:
-                    request.send(msg)
-        # sleep 1 second for next loop
-        sleep(1.0)
+class SessionScanningThread(Thread):
+
+    def __init__(self, ss, db):
+        super().__init__()
+        self.running = False
+        self.session_server = ss
+        self.database = db
+
+    def run(self):
+        print('scanning session(s)...')
+        self.running = True
+        while self.running:
+            try:
+                # scan session(s)
+                sessions = self.session_server.sessions.copy()
+                for identifier in sessions:
+                    request = sessions[identifier].request
+                    if request:
+                        # if session connected, scan messages for it
+                        messages = self.database.load_messages(identifier=identifier)
+                        if messages:
+                            for msg in messages:
+                                request.send(msg)
+            finally:
+                # sleep 1 second for next loop
+                sleep(1.0)
+        print('session scanner stopped!')
 
 
 if __name__ == '__main__':
     load_accounts()
 
-    # start transponder
-    scanner = Thread(target=session_scanner, args=(session_server, database))
-    print('starting scanner')
+    # start Session Scanning thread
+    scanner = SessionScanningThread(session_server, database)
     scanner.start()
 
-    # start TCP server
-    TCPServer.allow_reuse_address = True
-    server_address = (station.host, station.port)
-    server = ThreadingTCPServer(server_address=server_address,
-                                RequestHandlerClass=DIMRequestHandler)
-    print('server (%s:%s) is listening...' % server_address)
-    server.serve_forever()
+    # start TCP Server
+    try:
+        TCPServer.allow_reuse_address = True
+        server = ThreadingTCPServer(server_address=(station.host, station.port),
+                                    RequestHandlerClass=RequestHandler)
+        print('server (%s:%s) is listening...' % (station.host, station.port))
+        server.serve_forever()
+    except KeyboardInterrupt as err:
+        print(err)
+        server.socket.close()
+    finally:
+        scanner.running = False
+        server.shutdown()
+        print('======== station shutdown!')

@@ -68,7 +68,6 @@ class Database(dimp.Barrack, dimp.KeyStore):
 
     def load_messages(self, identifier: dimp.ID) -> list:
         directory = self.directory('accounts/' + identifier.address + '/messages')
-        messages = []
         files = os.listdir(directory)
         files = sorted(files)
         for filename in files:
@@ -77,15 +76,11 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 with open(path, 'r') as file:
                     data = file.read()
                 print('read %d byte(s) from %s' % (len(data), filename))
-                if data:
-                    array = str(data).splitlines()
-                    for line in array:
-                        msg = json_dict(line)
-                        msg = dimp.ReliableMessage(msg)
-                        messages.append(msg)
+                lines = str(data).splitlines()
+                messages = [dimp.ReliableMessage(json_dict(line)) for line in lines]
                 print('got %d message(s) for %s, removing %s' % (len(messages), identifier, path))
                 os.remove(path)
-        return messages
+                return messages
 
     """
         Meta file for Accounts

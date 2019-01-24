@@ -31,7 +31,7 @@ from station.utils import json_str, json_dict
 from station.config import station, session_server, database
 
 
-class DIMRequestHandler(BaseRequestHandler):
+class RequestHandler(BaseRequestHandler):
 
     def __init__(self, request, client_address, server):
         super().__init__(request=request, client_address=client_address, server=server)
@@ -49,14 +49,8 @@ class DIMRequestHandler(BaseRequestHandler):
             if len(part) < 1024:
                 break
         # split message(s)
-        messages = []
-        if len(data) > 0:
-            array = data.decode('utf-8').splitlines()
-            for line in array:
-                msg = json_dict(line)
-                msg = dimp.ReliableMessage(msg)
-                messages.append(msg)
-        return messages
+        lines = data.decode('utf-8').splitlines()
+        return [dimp.ReliableMessage(json_dict(line)) for line in lines]
 
     def send(self, msg: dimp.ReliableMessage):
         data = json_str(msg) + '\n'
