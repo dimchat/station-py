@@ -59,7 +59,9 @@ class DIMRequestHandler(BaseRequestHandler):
         return messages
 
     def send(self, msg: dimp.ReliableMessage):
-        self.request.sendall(json_str(msg).encode('utf-8'))
+        data = json_str(msg) + '\n'
+        data = data.encode('utf-8')
+        self.request.sendall(data)
 
     def handle(self):
         print('client (%s:%s) connected!' % self.client_address)

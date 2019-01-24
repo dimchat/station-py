@@ -43,52 +43,74 @@ class Database(dimp.Barrack, dimp.KeyStore):
         self.received_keys = {}
         self.sent_keys = {}
 
+    def directory(self, sub_dir: str) -> str:
+        path = self.base_dir + sub_dir
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return path
+
+    """
+        Reliable message for Receivers
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
+        file path: 'dim/accounts/{ADDRESS}/messages/*.msg'
+    """
+
     def store_message(self, msg: dimp.ReliableMessage) -> bool:
         receiver = msg.envelope.receiver
-        directory = self.base_dir + 'accounts/' + receiver.address + '/messages'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        directory = self.directory('accounts/' + receiver.address + '/messages')
         filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
         path = directory + '/' + filename + '.msg'
-        with open(path, 'w') as file:
-            file.write(json_str(msg))
+        with open(path, 'a') as file:
+            file.write(json_str(msg) + '\n')
             print('msg write into file: ', path)
         return True
 
-    def load_message(self, identifier: dimp.ID) -> dimp.ReliableMessage:
-        directory = self.base_dir + 'accounts/' + identifier.address + '/messages'
-        if os.path.exists(directory):
-            for filename in os.listdir(directory):
-                path = os.path.join(directory, filename)
-                if path[-4:] == '.msg':
-                    with open(path, 'r') as file:
-                        data = file.read()
-                    print('read %d byte(s) from %s for %s' % (len(data), filename, identifier))
-                    if data is not None:
-                        msg = dimp.ReliableMessage(json_dict(data))
-                    else:
-                        msg = None
-                    os.remove(path)
-                    return msg
+    def load_messages(self, identifier: dimp.ID) -> list:
+        directory = self.directory('accounts/' + identifier.address + '/messages')
+        messages = []
+        files = os.listdir(directory)
+        files = sorted(files)
+        for filename in files:
+            path = os.path.join(directory, filename)
+            if path[-4:] == '.msg':
+                with open(path, 'r') as file:
+                    data = file.read()
+                print('read %d byte(s) from %s' % (len(data), filename))
+                if data:
+                    array = str(data).splitlines()
+                    for line in array:
+                        msg = json_dict(line)
+                        msg = dimp.ReliableMessage(msg)
+                        messages.append(msg)
+                print('got %d message(s) for %s, removing %s' % (len(messages), identifier, path))
+                os.remove(path)
+        return messages
+
+    """
+        Meta file for Accounts
+        ~~~~~~~~~~~~~~~~~~~~~~
+
+        file path: 'dim/accounts/{ADDRESS}/messages/meta.js'
+    """
 
     def save_meta(self, identifier: dimp.ID, meta: dimp.Meta) -> bool:
         if not meta.match_identifier(identifier):
             print('meta not match %s: %s, IGNORE!' %(identifier, meta))
             return False
-        directory = self.base_dir + 'accounts/' + identifier.address
+        directory = self.directory('accounts/' + identifier.address)
         path = directory + '/meta.js'
         if os.path.exists(path):
-            print('meta file already exists, no need to update %s, IGNORE!' % path)
+            print('meta file exists: %s, update IGNORE!' % path)
         else:
-            if not os.path.exists(directory):
-                os.makedirs(directory)
             with open(path, 'w') as file:
                 file.write(json_str(meta))
                 print('meta write into file: ', path)
         return True
 
     def load_meta(self, identifier: dimp.ID) -> dimp.Meta:
-        path = self.base_dir + 'accounts/' + identifier.address + '/meta.js'
+        directory = self.directory('accounts/' + identifier.address)
+        path = directory + '/meta.js'
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
@@ -100,8 +122,50 @@ class Database(dimp.Barrack, dimp.KeyStore):
                         raise ValueError('meta not match %s: %s' % (identifier, meta))
                 else:
                     raise AssertionError('meta file empty: %s' % path)
+
+    """
+        Private Key file for Users
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        file path: 'dim/private/{ADDRESS}/private_key.js'
+    """
+
+    def save_private_key(self, identifier: dimp.ID, private_key: dimp.PrivateKey) -> bool:
+        meta = self.load_meta(identifier=identifier)
+        if meta is None:
+            print('meta not found: %s' % identifier)
+            return False
+        elif not meta.key.match(private_key=private_key):
+            print('private key not match %s: %s' %(identifier, private_key))
+            return False
         else:
-            raise LookupError('meta not found: %s' % identifier)
+            directory = self.directory('private/' + identifier.address)
+            path = directory + '/private_key.js'
+            if os.path.exists(path):
+                print('private key file exists: %s, update IGNORE!' % path)
+            else:
+                with open(path, 'w') as file:
+                    file.write(json_str(private_key))
+                    print('private key write into file: ', path)
+            return True
+
+    def load_private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
+        directory = self.directory('private/' + identifier.address)
+        path = directory + '/private_key.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+                if data:
+                    return dimp.PrivateKey(json_dict(data))
+                else:
+                    raise AssertionError('private key file empty: %s' % path)
+
+    """
+        Barrack
+        ~~~~~~~
+        
+        Account/Group factory
+    """
 
     def account(self, identifier: dimp.ID) -> dimp.Account:
         if identifier in self.accounts:
@@ -109,17 +173,28 @@ class Database(dimp.Barrack, dimp.KeyStore):
         else:
             meta = self.load_meta(identifier=identifier)
             if meta:
-                a = dimp.Account(identifier=identifier, public_key=meta.key)
-                self.accounts[identifier] = a
-                return a
+                sk = self.load_private_key(identifier=identifier)
+                if sk:
+                    user = dimp.User(identifier=identifier, private_key=sk)
+                else:
+                    user = dimp.Account(identifier=identifier, public_key=meta.key)
+                self.accounts[identifier] = user
+                return user
             else:
-                raise LookupError('Account not found: ' + identifier)
+                raise LookupError('Account meta not found: ' + identifier)
 
     def group(self, identifier: dimp.ID) -> dimp.Group:
         if identifier in self.groups:
             return self.groups[identifier]
         else:
             raise LookupError('Group not found: ' + identifier)
+
+    """
+        Key Store
+        ~~~~~~~~~
+        
+        Memory cache for reused passwords (symmetric key)
+    """
 
     def symmetric_key(self, sender: dimp.ID=None, receiver: dimp.ID=None) -> dimp.SymmetricKey:
         if sender:

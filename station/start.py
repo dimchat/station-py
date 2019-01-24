@@ -42,7 +42,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import load_users, database, session_server, station
+from station.config import database, session_server, station
+from station.config import load_accounts
 from station.handler import DIMRequestHandler
 
 
@@ -51,24 +52,18 @@ def session_scanner(ss, db):
         # scan sessions
         sessions = ss.sessions.copy()
         for identifier in sessions:
-            sess = sessions[identifier]
-            if sess.request:
+            request = sessions[identifier].request
+            if request:
                 # if session connected, scan messages for it
-                while True:
-                    msg = db.load_message(identifier=identifier)
-                    if msg:
-                        sess.request.send(msg)
-                        sleep(0.2)
-                    else:
-                        # no message found
-                        break
-            sleep(0.5)
+                messages = db.load_messages(identifier=identifier)
+                for msg in messages:
+                    request.send(msg)
+        # sleep 1 second for next loop
         sleep(1.0)
 
 
 if __name__ == '__main__':
-
-    load_users()
+    load_accounts()
 
     # start transponder
     scanner = Thread(target=session_scanner, args=(session_server, database))

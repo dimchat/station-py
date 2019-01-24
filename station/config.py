@@ -93,18 +93,21 @@ session_server = SessionServer()
 database = Database()
 
 
-def load_users():
-    # load moki
-    user1 = dimp.User(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
-    database.accounts[user1.identifier] = user1
-    print('load user: ', user1)
-    # load hulk
-    user2 = dimp.User(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
-    database.accounts[user2.identifier] = user2
-    print('load user: ', user2)
-    # load station
+def load_accounts():
+    print('======== loading accounts')
+
+    print('loading immortal user: ', moki_id)
+    database.save_meta(identifier=dimp.ID(moki_id), meta=dimp.Meta(moki_meta))
+    database.save_private_key(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
+
+    print('loading immortal user: ', hulk_id)
+    database.save_meta(identifier=dimp.ID(hulk_id), meta=dimp.Meta(hulk_meta))
+    database.save_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
+
+    print('loading station: ', station)
     database.accounts[station.identifier] = station
-    print('load station: ', station)
+
+    print('======== loaded')
 
 
 """

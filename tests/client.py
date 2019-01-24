@@ -45,7 +45,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import station, database, load_users
+from station.config import station, database
+from station.config import load_accounts
 from station.utils import *
 
 
@@ -90,8 +91,9 @@ class Client:
         self.handshake = False
 
     def switch_user(self, identifier: dimp.ID):
-        if identifier in database.accounts:
-            self.user = database.accounts[identifier]
+        user = database.account(identifier=identifier)
+        if user:
+            self.user = user
             self.trans = dimp.Transceiver(account=self.user,
                                           private_key=self.user.privateKey,
                                           barrack=database,
@@ -169,7 +171,7 @@ class Client:
 class Console(Cmd):
 
     prompt = '[DIM] > '
-    intro = 'Welcome to DIM world!'
+    intro = '\n\tWelcome to DIM world!\n'
 
     def __init__(self):
         super().__init__()
@@ -244,8 +246,7 @@ class Console(Cmd):
 
 
 if __name__ == '__main__':
-
-    load_users()
+    load_accounts()
 
     client = Client(identifier=moki.identifier)
     client.connect(host=station.host, port=station.port)
