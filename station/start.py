@@ -34,6 +34,7 @@
 from socketserver import TCPServer, ThreadingTCPServer
 from threading import Thread
 from time import sleep
+from json import JSONDecodeError
 
 import sys
 import os
@@ -66,10 +67,18 @@ class SessionScanningThread(Thread):
                     request = sessions[identifier].request
                     if request:
                         # if session connected, scan messages for it
-                        messages = self.database.load_messages(identifier=identifier)
+                        messages = self.database.load_messages(identifier)
                         if messages:
                             for msg in messages:
                                 request.send(msg)
+            except IOError as err:
+                print('session scanning IO error:', err)
+            except JSONDecodeError as err:
+                print('session scanning decode error:', err)
+            except TypeError as err:
+                print('session scanning type error:', err)
+            except ValueError as err:
+                print('session scanning value error:', err)
             finally:
                 # sleep 1 second for next loop
                 sleep(1.0)
@@ -90,10 +99,8 @@ if __name__ == '__main__':
                                     RequestHandlerClass=RequestHandler)
         print('server (%s:%s) is listening...' % (station.host, station.port))
         server.serve_forever()
-    except KeyboardInterrupt as err:
-        print(err)
-        server.socket.close()
+    except KeyboardInterrupt as ex:
+        print('~~~~~~~~', ex)
     finally:
         scanner.running = False
-        server.shutdown()
         print('======== station shutdown!')

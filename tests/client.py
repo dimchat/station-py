@@ -159,7 +159,8 @@ class Client:
         print('***** Message from "%s": %s' % (sender.name, content['text']))
 
     def execute(self, sender: dimp.ID, content: dimp.Content):
-        if 'handshake' == content['command']:
+        command = content['command']
+        if 'handshake' == command:
             message = content['message']
             if 'DIM!' == message:
                 self.handshake = True
@@ -169,8 +170,12 @@ class Client:
                 print('##### handshake again with new session key: %s' % self.session_key)
                 if 'DIM?' != message:
                     raise ValueError('command error: %s' % content)
+        elif 'meta' == command:
+            response = database.process_meta_command(content=content)
+            if response:
+                self.send(receiver=sender, content=response)
         else:
-            print('unknown command from "%s": %s (%s)' % (sender.name, content['command'], content))
+            print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
 
 
 class Console(Cmd):
@@ -252,6 +257,10 @@ class Console(Cmd):
         else:
             receiver = dimp.ID(name)
             if receiver:
+                # query meta for receiver
+                content = dimp.meta_command(identifier=receiver)
+                client.send(receiver=station.identifier, content=content)
+                # switch receiver
                 self.receiver = receiver
                 print('talking with %s now!' % self.receiver)
             else:

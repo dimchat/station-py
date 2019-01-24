@@ -40,6 +40,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         print(self, 'set up with', self.client_address)
+        self.identifier = None
 
     def receive(self) -> list:
         data = b''
@@ -75,45 +76,50 @@ class RequestHandler(BaseRequestHandler):
                 # check session
                 if receiver == station.identifier:
                     # process message (handshake first)
-                    content = station.decrypt(msg=s_msg)
+                    content = station.decrypt(s_msg)
                     print('*** message from client (%s:%s)...' % self.client_address)
                     print('    content: %s' % content)
                     response = self.process(sender=sender, content=content)
                 elif not session_server.valid(sender, self):
                     # handshake
                     print('*** handshake with client (%s:%s)...' % self.client_address)
-                    response = self.handshake(sender=sender)
+                    response = self.handshake(sender)
                 else:
                     # save message for other users
                     print('@@@ message from "%s" to "%s"...' % (sender, receiver))
-                    response = self.save(msg=r_msg)
+                    response = self.save(r_msg)
                 # pack and response
                 if response:
                     print('*** response to client (%s:%s)...' % self.client_address)
                     print('    content: %s' % response)
                     msg = station.pack(receiver=sender, content=response)
-                    self.send(msg=msg)
+                    self.send(msg)
 
     def process(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         if content.type == dimp.MessageType.Command:
-            if content['command'] == 'handshake':
-                return self.handshake(sender=sender, content=content)
+            command = content['command']
+            if 'handshake' == command:
+                # handshake protocol
+                return self.handshake(sender, content=content)
+            elif 'meta' == command:
+                # meta protocol
+                return database.process_meta_command(content=content)
             else:
                 print('Unknown command: ', content)
         else:
             # response client with the same message
             return content
 
-    def handshake(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+    def handshake(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         if content and 'session' in content:
-            session = content['session']
+            session_key = content['session']
         else:
-            session = None
-        current = session_server.session(identifier=sender)
-        if session == current.session_key:
+            session_key = None
+        current = session_server.session(identifier=identifier)
+        if session_key == current.session_key:
             # session verified
-            print('connect current request to session', sender, self.client_address)
-            self.identifier = sender
+            print('connect current request to session', identifier, self.client_address)
+            self.identifier = identifier
             current.request = self
             return dimp.handshake_success_command()
         else:
@@ -121,9 +127,9 @@ class RequestHandler(BaseRequestHandler):
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('%s sent message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))
-        database.store_message(msg=msg)
-        content = dimp.CommandContent.new(command='response')
-        content['message'] = 'Sent OK!'
+        database.store_message(msg)
+        content = dimp.CommandContent.new(command='receipt')
+        content['message'] = 'Message received!'
         return content
 
     def finish(self):

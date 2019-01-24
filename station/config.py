@@ -66,8 +66,13 @@ class Station(dimp.Station):
 
 """
     DIM Network Server
+    ~~~~~~~~~~~~~~~~~~
+    
+    1. ID
+    2. Private Key
+    3. Host (IP)
+    4. Port (9394)
 """
-
 host = '127.0.0.1'
 port = 9394
 
@@ -78,12 +83,14 @@ station_pk = station_sk.publicKey
 station = Station(identifier=station_id, public_key=station_pk, host=host, port=port)
 station.privateKey = station_sk
 
+
 """
     Session Server
     ~~~~~~~~~~~~~~
     for login user
 """
 session_server = SessionServer()
+
 
 """
     Database

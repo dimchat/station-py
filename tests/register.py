@@ -36,7 +36,6 @@ import unittest
 import dimp
 
 from mkm.utils import base64_encode
-from dkd.transform import json_str
 
 import sys
 import os
