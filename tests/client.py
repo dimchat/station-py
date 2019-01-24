@@ -144,28 +144,33 @@ class Client:
         self.receive(sender=msg.envelope.sender, content=msg.content)
 
     def receive(self, sender: dimp.ID, content: dimp.Content):
+        console.stdout.write('\r')
         if content.type == dimp.MessageType.Text:
             self.show(sender=sender, content=content)
         elif content.type == dimp.MessageType.Command:
             self.execute(sender=sender, content=content)
         else:
-            print('\r***** Message content from "%s": %s' % (sender, content))
+            print('***** Message content from "%s": %s' % (sender, content))
         # show prompt
         console.stdout.write(console.prompt)
         console.stdout.flush()
 
     def show(self, sender: dimp.ID, content: dimp.Content):
-        print('\r***** Message from "%s": %s' % (sender.name, content['text']))
+        print('***** Message from "%s": %s' % (sender.name, content['text']))
 
     def execute(self, sender: dimp.ID, content: dimp.Content):
-        print('\r***** Command from "%s": %s (%s)' % (sender.name, content['command'], content))
         if 'handshake' == content['command']:
-            if 'DIM?' == content['message']:
-                self.session_key = content['session']
-                print('      handshake again with new session key: %s' % self.session_key)
-            elif 'DIM!' == content['message']:
+            message = content['message']
+            if 'DIM!' == message:
                 self.handshake = True
-                print('      handshake OK!')
+                print('##### handshake OK!')
+            else:
+                self.session_key = content['session']
+                print('##### handshake again with new session key: %s' % self.session_key)
+                if 'DIM?' != message:
+                    raise ValueError('command error: %s' % content)
+        else:
+            print('unknown command from "%s": %s (%s)' % (sender.name, content['command'], content))
 
 
 class Console(Cmd):
@@ -176,14 +181,16 @@ class Console(Cmd):
     def __init__(self):
         super().__init__()
         self.receiver = None
+        self.do_login(client.user.identifier)
+        self.do_call('station')
 
     def emptyline(self):
         print('')
         print('    Usage:')
-        print('        login <username>  - switch user')
+        print('        login <ID>        - switch user')
         print('        logout            - clear session')
         print('        hello             - handshake with station')
-        print('        call <username>   - change receiver to another user or "station"')
+        print('        call <ID>         - change receiver to another user or "station"')
         print('        send <text>       - send message')
         print('        exit              - terminate')
         print('')
@@ -205,15 +212,19 @@ class Console(Cmd):
             receiver = self.receiver
             self.receiver = station.identifier
             command = dimp.handshake_start_command(session=client.session_key)
-            print('handshake with "%s": %s' % (self.receiver, command))
+            print('handshake with "%s"...' % self.receiver)
             client.send(receiver=self.receiver, content=command)
             self.receiver = receiver
 
     def do_login(self, name: str):
         if name in identifier_map:
             sender = identifier_map[name]
+        else:
+            sender = dimp.ID(name)
+        if sender:
             client.switch_user(identifier=sender)
             print('login as %s' % sender)
+            self.prompt = Console.prompt + sender.name + '$ '
         else:
             print('unknown user: %s' % name)
 
@@ -224,18 +235,25 @@ class Console(Cmd):
             print('%s logout' % client.user.identifier)
             client.user = None
             client.session_key = None
+        self.receiver = None
+        self.prompt = Console.prompt
 
     def do_call(self, name: str):
         if client.user is None:
             print('login first')
         elif name == 'station':
             self.receiver = station.identifier
-            print('talking with station (%s)' % self.receiver)
+            print('talking with station(%s) now!' % self.receiver)
         elif name in identifier_map:
             self.receiver = identifier_map[name]
-            print('talking with %s' % self.receiver)
+            print('talking with %s now!' % self.receiver)
         else:
-            print('unknown user: %s' % name)
+            receiver = dimp.ID(name)
+            if receiver:
+                self.receiver = receiver
+                print('talking with %s now!' % self.receiver)
+            else:
+                print('unknown user: %s' % name)
 
     def do_send(self, msg: str):
         if client.user is None:

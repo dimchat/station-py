@@ -35,6 +35,18 @@ import unittest
 
 import dimp
 
+from mkm.utils import base64_encode
+from dkd.transform import json_str
+
+import sys
+import os
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+
+from station.database import Database
+
 
 def number_string(number: int):
     string = '%010d' % number
@@ -51,37 +63,65 @@ class AccountTestCase(unittest.TestCase):
         #
 
         seed = 'moky'
-        prefix = None
-        suffix = 9527
+        prefix = 0
+        suffix = 0
         network = dimp.NetworkID.Main
 
         print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
 
         # seed = 'gsp-s002'
         # prefix = 110
-        # suffix = None
+        # suffix = 0
         # network = dimp.NetworkID.Station
         #
         # print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
 
+        data = seed.encode('utf-8')
+        sk: dimp.PrivateKey = None
+
         for index in range(0, 10000):
+
+            # generate private key
             sk = dimp.PrivateKey.generate({'algorithm': 'RSA'})
-            meta = dimp.Meta.generate(seed, sk)
-            # self.assertTrue(meta.key.match(sk))
-
-            id1 = meta.generate_identifier(network=network)
-            # self.assertTrue(meta.match_identifier(id1))
-
-            number = id1.number
-            if (prefix and number // 10000000 == prefix) or (suffix and number % 10000 == suffix):
-                print('---- Mission Accomplished! ----')
-                print('[% 4d] %s : %s' % (index, number_string(id1.number), id1))
-                print('**** meta:\n', meta)
-                print('**** private key:\n', sk)
-                break
+            ct = sk.sign(data)
+            # generate address
+            address = dimp.Address.generate(fingerprint=ct, network=network)
+            number = address.number
 
             if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):
-                print('[% 4d] %s : %s' % (index, number_string(id1.number), id1))
+                print('[% 5d] %s : %s@%s' % (index, number_string(number), seed, address))
+
+            if prefix and number // 10000000 == prefix:
+                continue
+
+            if suffix and number % 10000 == suffix:
+                continue
+
+            print('**** GOT IT!')
+            meta = {
+                'version': dimp.Meta.DefaultVersion,
+                'seed': seed,
+                'key': sk.publicKey,
+                'fingerprint': base64_encode(ct),
+            }
+            meta = dimp.Meta(meta)
+            id1 = meta.generate_identifier(network=network)
+            print('[% 5d] %s : %s' % (index, number_string(number), id1))
+
+            choice = ''
+            while choice not in ['y', 'n']:
+                choice = input('Save it (y/n)? ')
+
+            if choice == 'y':
+                print('---- Mission Accomplished! ----')
+                print('**** ID:', id1, 'number:', number_string(id1.number))
+                print('**** meta:\n', meta)
+                print('**** private key:\n', sk)
+
+                database = Database()
+                database.save_meta(identifier=id1, meta=meta)
+                database.save_private_key(identifier=id1, private_key=sk)
+                break
 
 
 if __name__ == '__main__':
