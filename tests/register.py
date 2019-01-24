@@ -46,10 +46,23 @@ class AccountTestCase(unittest.TestCase):
     def test_register(self):
         print('\n---------------- %s' % self)
 
-        seed = 'gsp-s001'
-        network = dimp.NetworkID.Station
+        #
+        #  register parameters
+        #
 
-        number_prefix = 110
+        seed = 'moky'
+        prefix = None
+        suffix = 9527
+        network = dimp.NetworkID.Main
+
+        print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
+
+        # seed = 'gsp-s002'
+        # prefix = 110
+        # suffix = None
+        # network = dimp.NetworkID.Station
+        #
+        # print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
 
         for index in range(0, 10000):
             sk = dimp.PrivateKey.generate({'algorithm': 'RSA'})
@@ -59,15 +72,16 @@ class AccountTestCase(unittest.TestCase):
             id1 = meta.generate_identifier(network=network)
             # self.assertTrue(meta.match_identifier(id1))
 
-            if id1.number // 10000000 == number_prefix:
+            number = id1.number
+            if (prefix and number // 10000000 == prefix) or (suffix and number % 10000 == suffix):
                 print('---- Mission Accomplished! ----')
-                print('[% 3d] %s : %s' % (index, number_string(id1.number), id1))
+                print('[% 4d] %s : %s' % (index, number_string(id1.number), id1))
                 print('**** meta:\n', meta)
                 print('**** private key:\n', sk)
                 break
 
-            if index % 10 == 0:
-                print('[% 3d] %s : %s' % (index, number_string(id1.number), id1))
+            if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):
+                print('[% 4d] %s : %s' % (index, number_string(id1.number), id1))
 
 
 if __name__ == '__main__':
