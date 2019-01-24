@@ -51,8 +51,13 @@ class Station(dimp.Station):
         msg = transceiver.sign(msg)
         return msg
 
-    def unpack(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        msg = transceiver.verify(msg)
+    def verify(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
+        if 'meta' in msg:
+            # save meta for sender
+            database.save_meta(identifier=msg.envelope.sender, meta=msg.meta)
+        return transceiver.verify(msg)
+
+    def decrypt(self, msg: dimp.SecureMessage) -> dimp.Content:
         msg = msg.trim(self.identifier)
         msg = transceiver.decrypt(msg)
         content = msg.content

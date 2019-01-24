@@ -70,13 +70,17 @@ class DIMRequestHandler(BaseRequestHandler):
                 print('client (%s:%s) exit!' % self.client_address)
                 break
             for r_msg in messages:
-                sender = r_msg.envelope.sender
-                receiver = r_msg.envelope.receiver
+                s_msg = station.verify(r_msg)
+                if s_msg is None:
+                    print('!!! message verify error: %s' % r_msg)
+                    continue
+                sender = s_msg.envelope.sender
+                receiver = s_msg.envelope.receiver
                 # check session
                 if receiver == station.identifier:
-                    # process message
+                    # process message (handshake first)
+                    content = station.decrypt(msg=s_msg)
                     print('*** message from client (%s:%s)...' % self.client_address)
-                    content = station.unpack(msg=r_msg)
                     print('    content: %s' % content)
                     response = self.process(sender=sender, content=content)
                 elif not session_server.valid(sender, self):

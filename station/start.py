@@ -58,12 +58,12 @@ def session_scanner(ss, db):
                     msg = db.load_message(identifier=identifier)
                     if msg:
                         sess.request.send(msg)
-                        sleep(0.5)
+                        sleep(0.2)
                     else:
                         # no message found
                         break
-            sleep(1.0)
-        sleep(2.0)
+            sleep(0.5)
+        sleep(1.0)
 
 
 if __name__ == '__main__':
