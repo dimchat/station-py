@@ -69,14 +69,14 @@ class SessionScanningThread(Thread):
                         if messages:
                             for msg in messages:
                                 request_handler.send(msg)
-            except IOError as err:
-                print('session scanning IO error:', err)
-            except JSONDecodeError as err:
-                print('session scanning decode error:', err)
-            except TypeError as err:
-                print('session scanning type error:', err)
-            except ValueError as err:
-                print('session scanning value error:', err)
+            except IOError as error:
+                print('session scanning IO error:', error)
+            except JSONDecodeError as error:
+                print('session scanning decode error:', error)
+            except TypeError as error:
+                print('session scanning type error:', error)
+            except ValueError as error:
+                print('session scanning value error:', error)
             finally:
                 # sleep 1 second for next loop
                 sleep(1.0)

@@ -27,7 +27,7 @@ from socketserver import BaseRequestHandler
 
 import dimp
 
-from .utils import json_str, json_dict
+from .utils import json_str, json_dict, hex_encode
 from .config import station, session_server, database
 
 
@@ -50,8 +50,24 @@ class RequestHandler(BaseRequestHandler):
             if len(part) < 1024:
                 break
         # split message(s)
-        lines = data.decode('utf-8').splitlines()
-        return [dimp.ReliableMessage(json_dict(line)) for line in lines]
+        messages = []
+        try:
+            data = data.decode('utf-8')
+        except UnicodeDecodeError as error:
+            print('decode error:', data)
+            messages.append({'data': data, 'error': error})
+            return messages
+        # one line one message
+        lines = data.splitlines()
+        for line in lines:
+            try:
+                msg = dimp.ReliableMessage(json_dict(line))
+            except ValueError as error:
+                print('value error:', line)
+                messages.append({'data': line, 'error': error})
+                continue
+            messages.append(msg)
+        return messages
 
     def send(self, msg: dimp.ReliableMessage):
         data = json_str(msg) + '\n'
@@ -67,6 +83,10 @@ class RequestHandler(BaseRequestHandler):
                 print('client (%s:%s) exit!' % self.client_address)
                 break
             for r_msg in messages:
+                if 'error' in r_msg:
+                    self.process_raw_data(r_msg)
+                    continue
+                # unpack
                 s_msg = station.verify(r_msg)
                 if s_msg is None:
                     print('!!! message verify error: %s' % r_msg)
@@ -94,6 +114,12 @@ class RequestHandler(BaseRequestHandler):
                     print('    content: %s' % response)
                     msg = station.pack(receiver=sender, content=response)
                     self.send(msg)
+
+    def process_raw_data(self, info: dict):
+        print('received:', info)
+        data = info['data']
+        # data = data.encode('utf-8')
+        self.request.sendall(data)
 
     def process(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         if content.type == dimp.MessageType.Command:
