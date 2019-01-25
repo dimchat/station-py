@@ -32,11 +32,11 @@
 
 import dimp
 
-from station.session import SessionServer
-from station.database import Database
+from .session import SessionServer
+from .database import Database
 
-from station.utils import *
-from station.gsp_s001 import *
+from .utils import *
+from .gsp_s001 import *
 
 
 class Station(dimp.Station):
@@ -82,6 +82,7 @@ station_pk = station_sk.publicKey
 
 station = Station(identifier=station_id, public_key=station_pk, host=host, port=port)
 station.privateKey = station_sk
+station.running = False
 
 
 """

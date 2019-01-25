@@ -52,25 +52,23 @@ class SessionScanningThread(Thread):
 
     def __init__(self, ss, db):
         super().__init__()
-        self.running = False
         self.session_server = ss
         self.database = db
 
     def run(self):
         print('scanning session(s)...')
-        self.running = True
-        while self.running:
+        while station.running:
             try:
                 # scan session(s)
                 sessions = self.session_server.sessions.copy()
                 for identifier in sessions:
-                    request = sessions[identifier].request
-                    if request:
+                    request_handler = sessions[identifier].request_handler
+                    if request_handler:
                         # if session connected, scan messages for it
                         messages = self.database.load_messages(identifier)
                         if messages:
                             for msg in messages:
-                                request.send(msg)
+                                request_handler.send(msg)
             except IOError as err:
                 print('session scanning IO error:', err)
             except JSONDecodeError as err:
@@ -88,6 +86,8 @@ class SessionScanningThread(Thread):
 if __name__ == '__main__':
     load_accounts()
 
+    station.running = True
+
     # start Session Scanning thread
     scanner = SessionScanningThread(session_server, database)
     scanner.start()
@@ -102,5 +102,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt as ex:
         print('~~~~~~~~', ex)
     finally:
-        scanner.running = False
+        station.running = False
         print('======== station shutdown!')

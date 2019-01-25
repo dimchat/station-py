@@ -27,8 +27,8 @@ from socketserver import BaseRequestHandler
 
 import dimp
 
-from station.utils import json_str, json_dict
-from station.config import station, session_server, database
+from .utils import json_str, json_dict
+from .config import station, session_server, database
 
 
 class RequestHandler(BaseRequestHandler):
@@ -61,7 +61,7 @@ class RequestHandler(BaseRequestHandler):
     def handle(self):
         print('client (%s:%s) connected!' % self.client_address)
 
-        while True:
+        while station.running:
             messages = self.receive()
             if len(messages) == 0:
                 print('client (%s:%s) exit!' % self.client_address)
@@ -120,7 +120,7 @@ class RequestHandler(BaseRequestHandler):
             # session verified
             print('connect current request to session', identifier, self.client_address)
             self.identifier = identifier
-            current.request = self
+            current.request_handler = self
             return dimp.handshake_success_command()
         else:
             return dimp.handshake_again_command(session=current.session_key)
@@ -135,6 +135,9 @@ class RequestHandler(BaseRequestHandler):
     def finish(self):
         if self.identifier:
             print('disconnect current request from session', self.identifier, self.client_address)
+            response = dimp.TextContent.new(text='Bye!')
+            msg = station.pack(receiver=self.identifier, content=response)
+            self.send(msg)
             current = session_server.session(identifier=self.identifier)
-            current.request = None
+            current.request_handler = None
         print(self, 'finish')

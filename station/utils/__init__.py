@@ -35,7 +35,7 @@
 
 from dkd.transform import json_dict, json_str
 
-from station.utils.hex import hex_encode, hex_decode
+from .hex import hex_encode, hex_decode
 
 # Immortal Accounts data for test
 from mkm.immortals import moki_id, moki_pk, moki_sk, moki_meta, moki

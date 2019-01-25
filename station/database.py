@@ -28,7 +28,7 @@ import time
 
 import dimp
 
-from station.utils import json_dict, json_str
+from .utils import json_dict, json_str
 
 
 class Database(dimp.Barrack, dimp.KeyStore):
