@@ -130,6 +130,11 @@ class RequestHandler(BaseRequestHandler):
             elif 'meta' == command:
                 # meta protocol
                 return database.process_meta_command(content=content)
+            elif 'users' == command:
+                sessions = session_server.sessions.copy()
+                users = [identifier for identifier in sessions if sessions[identifier].request_handler]
+                response = dimp.TextContent.new(text=json_str(users))
+                return response
             else:
                 print('Unknown command: ', content)
         else:

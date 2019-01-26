@@ -192,10 +192,11 @@ class Console(Cmd):
     def emptyline(self):
         print('')
         print('    Usage:')
-        print('        login <ID>        - switch user')
+        print('        login <ID>        - switch user (must say "hello" twice after login)')
         print('        logout            - clear session')
-        print('        hello             - handshake with station')
-        print('        call <ID>         - change receiver to another user or "station"')
+        print('        hello             - handshake with the current station')
+        print('        show users        - list online users')
+        print('        call <ID>         - change receiver to another user (or "station")')
         print('        send <text>       - send message')
         print('        exit              - terminate')
         print('')
@@ -272,6 +273,13 @@ class Console(Cmd):
         elif len(msg) > 0:
             content = dimp.TextContent.new(text=msg)
             client.send(receiver=self.receiver, content=content)
+
+    def do_show(self, name: str):
+        if 'users' == name:
+            command = dimp.CommandContent.new(command='users')
+            client.send(receiver=station.identifier, content=command)
+        else:
+            print('I don\'t understand.')
 
 
 if __name__ == '__main__':
