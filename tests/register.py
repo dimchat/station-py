@@ -63,7 +63,7 @@ class AccountTestCase(unittest.TestCase):
 
         seed = 'moky'
         prefix = 0
-        suffix = 0
+        suffix = 9527
         network = dimp.NetworkID.Main
 
         print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
@@ -90,10 +90,10 @@ class AccountTestCase(unittest.TestCase):
             if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):
                 print('[% 5d] %s : %s@%s' % (index, number_string(number), seed, address))
 
-            if prefix and number // 10000000 == prefix:
+            if prefix and number // 10000000 != prefix:
                 continue
 
-            if suffix and number % 10000 == suffix:
+            if suffix and number % 10000 != suffix:
                 continue
 
             print('**** GOT IT!')
