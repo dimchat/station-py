@@ -122,27 +122,6 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 else:
                     raise AssertionError('meta file empty: %s' % path)
 
-    def process_meta_command(self, content: dimp.Content) -> dimp.Content:
-        identifier = dimp.ID(content['identifier'])
-        if 'meta' in content:
-            # received a meta for ID
-            meta = dimp.Meta(content['meta'])
-            if self.save_meta(identifier=identifier, meta=meta):
-                # meta saved
-                command = dimp.CommandContent.new(command='receipt')
-                command['message'] = 'Meta for %s received!' % identifier
-                return command
-            else:
-                # meta not match
-                return dimp.TextContent.new(text='Meta not match %s!' % identifier)
-        else:
-            # querying meta for ID
-            meta = self.load_meta(identifier=identifier)
-            if meta:
-                return dimp.meta_command(identifier=identifier, meta=meta)
-            else:
-                return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
-
     """
         Private Key file for Users
         ~~~~~~~~~~~~~~~~~~~~~~~~~~

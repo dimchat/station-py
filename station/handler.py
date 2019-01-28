@@ -27,8 +27,9 @@ from socketserver import BaseRequestHandler
 
 import dimp
 
-from .utils import json_str, json_dict, hex_encode
+from .utils import json_str, json_dict
 from .config import station, session_server, database
+from .config import process_meta_command, process_users_command
 
 
 class RequestHandler(BaseRequestHandler):
@@ -103,7 +104,7 @@ class RequestHandler(BaseRequestHandler):
                 elif not session_server.valid(sender, self):
                     # handshake
                     print('*** handshake with client (%s:%s)...' % self.client_address)
-                    response = self.handshake(sender)
+                    response = self.process_handshake_command(sender)
                 else:
                     # save message for other users
                     print('@@@ message from "%s" to "%s"...' % (sender, receiver))
@@ -126,22 +127,20 @@ class RequestHandler(BaseRequestHandler):
             command = content['command']
             if 'handshake' == command:
                 # handshake protocol
-                return self.handshake(sender, content=content)
+                return self.process_handshake_command(sender, content=content)
             elif 'meta' == command:
                 # meta protocol
-                return database.process_meta_command(content=content)
+                return process_meta_command(content=content)
             elif 'users' == command:
-                sessions = session_server.sessions.copy()
-                users = [identifier for identifier in sessions if sessions[identifier].request_handler]
-                response = dimp.TextContent.new(text=json_str(users))
-                return response
+                # show online users (connected)
+                return process_users_command()
             else:
                 print('Unknown command: ', content)
         else:
             # response client with the same message
             return content
 
-    def handshake(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+    def process_handshake_command(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         if content and 'session' in content:
             session_key = content['session']
         else:
@@ -152,9 +151,9 @@ class RequestHandler(BaseRequestHandler):
             print('connect current request to session', identifier, self.client_address)
             self.identifier = identifier
             current.request_handler = self
-            return dimp.handshake_success_command()
+            return dimp.HandshakeCommand.success()
         else:
-            return dimp.handshake_again_command(session=current.session_key)
+            return dimp.HandshakeCommand.again(session=current.session_key)
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('%s sent message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))

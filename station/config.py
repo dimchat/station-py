@@ -73,7 +73,7 @@ class Station(dimp.Station):
     3. Host (IP)
     4. Port (9394)
 """
-host = '127.0.0.1'
+host = '0.0.0.0'
 port = 9394
 
 station_id = dimp.ID(s001_id)
@@ -116,6 +116,40 @@ def load_accounts():
     database.accounts[station.identifier] = station
 
     print('======== loaded')
+
+
+def process_meta_command(content: dimp.Content) -> dimp.Content:
+    cmd = dimp.MetaCommand(content)
+    identifier = cmd.identifier
+    meta = cmd.meta
+    if meta:
+        # received a meta for ID
+        if database.save_meta(identifier=identifier, meta=meta):
+            # meta saved
+            command = dimp.CommandContent.new(command='receipt')
+            command['message'] = 'Meta for %s received!' % identifier
+            return command
+        else:
+            # meta not match
+            return dimp.TextContent.new(text='Meta not match %s!' % identifier)
+    else:
+        # querying meta for ID
+        meta = database.load_meta(identifier=identifier)
+        if meta:
+            return dimp.MetaCommand.response(identifier=identifier, meta=meta)
+        else:
+            return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
+
+
+def process_users_command():
+    sessions = session_server.sessions.copy()
+    users = [identifier for identifier in sessions if sessions[identifier].request_handler]
+    count = len(users)
+    response = dimp.CommandContent.new(command='users')
+    response['message'] = '%d user(s) connected' % count
+    if count > 0:
+        response['users'] = users
+    return response
 
 
 """

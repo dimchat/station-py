@@ -46,7 +46,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from station.config import station, database
-from station.config import load_accounts
+from station.config import load_accounts, process_meta_command
 from station.utils import *
 
 
@@ -171,7 +171,7 @@ class Client:
                 if 'DIM?' != message:
                     raise ValueError('command error: %s' % content)
         elif 'meta' == command:
-            response = database.process_meta_command(content=content)
+            response = process_meta_command(content=content)
             if response:
                 self.send(receiver=sender, content=response)
         else:
@@ -217,7 +217,7 @@ class Console(Cmd):
         else:
             receiver = self.receiver
             self.receiver = station.identifier
-            command = dimp.handshake_start_command(session=client.session_key)
+            command = dimp.HandshakeCommand.start(session=client.session_key)
             print('handshake with "%s"...' % self.receiver)
             client.send(receiver=self.receiver, content=command)
             self.receiver = receiver
@@ -259,7 +259,7 @@ class Console(Cmd):
             receiver = dimp.ID(name)
             if receiver:
                 # query meta for receiver
-                content = dimp.meta_command(identifier=receiver)
+                content = dimp.MetaCommand.query(identifier=receiver)
                 client.send(receiver=station.identifier, content=content)
                 # switch receiver
                 self.receiver = receiver
