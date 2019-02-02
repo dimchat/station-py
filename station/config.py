@@ -151,7 +151,7 @@ def load_accounts():
     ~~~~~~~~~~~
     for pack/unpack messages
 """
-transceiver = dimp.Transceiver(account=station,
+transceiver = dimp.Transceiver(identifier=station.identifier,
                                private_key=station.privateKey,
                                barrack=database,
                                store=database)

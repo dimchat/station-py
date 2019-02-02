@@ -93,7 +93,7 @@ class Client:
         user = database.account(identifier=identifier)
         if user:
             self.user = user
-            self.trans = dimp.Transceiver(account=self.user,
+            self.trans = dimp.Transceiver(identifier=self.user.identifier,
                                           private_key=self.user.privateKey,
                                           barrack=database,
                                           store=database)
