@@ -28,7 +28,7 @@ import time
 
 import dimp
 
-from .utils import json_dict, json_str
+from .utils import json_dict, json_str, base64_decode
 
 
 class Database(dimp.Barrack, dimp.KeyStore):
@@ -105,7 +105,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         else:
             with open(path, 'w') as file:
                 file.write(json_str(meta))
-                print('meta write into file: ', path)
+            print('meta write into file: ', path)
         return True
 
     def load_meta(self, identifier: dimp.ID) -> dimp.Meta:
@@ -116,6 +116,47 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 data = file.read()
                 # no need to check meta again
                 return dimp.Meta(json_dict(data))
+
+    """
+        Profile for Accounts
+        ~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/public/{ADDRESS}/profile.js'
+    """
+
+    def save_profile(self, identifier: dimp.ID, profile: str, signature: str) -> bool:
+        meta = self.load_meta(identifier=identifier)
+        if meta:
+            pk = meta.key
+            data = profile.encode('utf-8')
+            sig = base64_decode(signature)
+            if not pk.verify(data, sig):
+                print('signature not match %s: %s, %s' % (identifier, profile, signature))
+                return False
+        else:
+            print('meta not found: %s, IGNORE!' % identifier)
+            return False
+        # save/update profile
+        content = {
+            'ID': identifier,
+            'profile': profile,
+            'signature': signature,
+        }
+        directory = self.directory('public', identifier)
+        path = directory + '/profile.js'
+        with open(path, 'w') as file:
+            file.write(json_str(content))
+        print('profile write into file: ', path)
+        return True
+
+    def load_profile(self, identifier: dimp.ID) -> dict:
+        directory = self.directory('public', identifier)
+        path = directory + '/profile.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+                # no need to check signature again
+                return json_dict(data)
 
     """
         Private Key file for Users
@@ -140,7 +181,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         else:
             with open(path, 'w') as file:
                 file.write(json_str(private_key))
-                print('private key write into file: ', path)
+            print('private key write into file: ', path)
         return True
 
     def load_private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:

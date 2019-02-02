@@ -172,6 +172,14 @@ class Client:
             if cmd.meta:
                 print('##### received a meta for %s' % cmd.identifier)
                 database.save_meta(identifier=cmd.identifier, meta=cmd.meta)
+        elif 'profile' == command:
+            cmd = dimp.ProfileCommand(content)
+            if cmd.profile:
+                print('##### received a profile for %s' % cmd.identifier)
+                profile = content['profile']
+                signature = content['signature']
+                print('      profile: %s' % profile)
+                database.save_profile(identifier=cmd.identifier, profile=profile, signature=signature)
         else:
             print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
 
@@ -195,6 +203,7 @@ class Console(Cmd):
         print('        hello             - handshake with the current station')
         print('        show users        - list online users')
         print('        search <number>   - search users by number')
+        print('        profile <ID>      - query profile with ID')
         print('        call <ID>         - change receiver to another user (or "station")')
         print('        send <text>       - send message')
         print('        exit              - terminate')
@@ -283,6 +292,29 @@ class Console(Cmd):
     def do_search(self, number: str):
         cmd = dimp.CommandContent.new(command='search')
         cmd['number'] = number
+        client.send(receiver=station.identifier, content=cmd)
+
+    def do_profile(self, name: str):
+        profile = None
+        if not name:
+            identifier = client.user.identifier
+        elif name == 'station':
+            identifier = station.identifier
+        elif name in identifier_map:
+            identifier = identifier_map[name]
+        elif name.find('@') > 0:
+            identifier = dimp.ID(name)
+        elif name.startswith('{') and name.endswith('}'):
+            identifier = client.user.identifier
+            profile = json_dict(name)
+        else:
+            print('I don\'t understand.')
+            return
+        if profile:
+            sk = client.user.privateKey
+            cmd = dimp.ProfileCommand.pack(identifier=identifier, private_key=sk, profile=profile)
+        else:
+            cmd = dimp.ProfileCommand.query(identifier=identifier)
         client.send(receiver=station.identifier, content=cmd)
 
 

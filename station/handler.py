@@ -130,6 +130,9 @@ class RequestHandler(BaseRequestHandler):
             elif 'meta' == command:
                 # meta protocol
                 return self.process_meta_command(content=content)
+            elif 'profile' == command:
+                # profile protocol
+                return self.process_profile_command(content=content)
             elif 'users' == command:
                 # show online users (connected)
                 return self.process_users_command()
@@ -165,9 +168,9 @@ class RequestHandler(BaseRequestHandler):
             print('received meta for %s from %s ...' % (identifier, self.identifier))
             if database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
-                command = dimp.CommandContent.new(command='receipt')
-                command['message'] = 'Meta for %s received!' % identifier
-                return command
+                response = dimp.CommandContent.new(command='receipt')
+                response['message'] = 'Meta for %s received!' % identifier
+                return response
             else:
                 # meta not match
                 return dimp.TextContent.new(text='Meta not match %s!' % identifier)
@@ -179,6 +182,32 @@ class RequestHandler(BaseRequestHandler):
                 return dimp.MetaCommand.response(identifier=identifier, meta=meta)
             else:
                 return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
+
+    def process_profile_command(self, content: dimp.Content) -> dimp.Content:
+        identifier = dimp.ID(content['ID'])
+        if 'profile' in content:
+            # received a new profile for ID
+            print('received profile for %s from %s ...' % (identifier, self.identifier))
+            profile = content['profile']
+            signature = content['signature']
+            if database.save_profile(identifier=identifier, profile=profile, signature=signature):
+                # profile saved
+                response = dimp.CommandContent.new(command='receipt')
+                response['message'] = 'Profile for %s received!' % identifier
+                return response
+            else:
+                # signature not match
+                return dimp.TextContent.new(text='Profile signature not match %s!' % identifier)
+        else:
+            # querying profile for ID
+            print('search profile of %s for %s ...' % (identifier, self.identifier))
+            info = database.load_profile(identifier=identifier)
+            if info:
+                prf = info['profile']
+                sig = info['signature']
+                return dimp.ProfileCommand.response(identifier=identifier, profile=prf, signature=sig)
+            else:
+                return dimp.TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
     def process_users_command(self) -> dimp.Content:
         print('get online user(s) for %s ...' % self.identifier)
@@ -229,17 +258,17 @@ class RequestHandler(BaseRequestHandler):
         elif number > 0:
             results = database.search(number=number)
             users = list(results.keys())
-        content = dimp.CommandContent.new(command='search')
-        content['users'] = users
-        content['results'] = results
-        return content
+        response = dimp.CommandContent.new(command='search')
+        response['users'] = users
+        response['results'] = results
+        return response
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('%s sent message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))
         database.store_message(msg)
-        content = dimp.CommandContent.new(command='receipt')
-        content['message'] = 'Message received!'
-        return content
+        response = dimp.CommandContent.new(command='receipt')
+        response['message'] = 'Message received!'
+        return response
 
     def finish(self):
         if self.identifier:
