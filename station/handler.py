@@ -29,7 +29,6 @@ import dimp
 
 from .utils import json_str, json_dict
 from .config import station, session_server, database
-from .config import process_meta_command, process_users_command
 
 
 class RequestHandler(BaseRequestHandler):
@@ -130,10 +129,12 @@ class RequestHandler(BaseRequestHandler):
                 return self.process_handshake_command(sender, content=content)
             elif 'meta' == command:
                 # meta protocol
-                return process_meta_command(content=content)
+                return self.process_meta_command(content=content)
             elif 'users' == command:
                 # show online users (connected)
-                return process_users_command()
+                return self.process_users_command()
+            elif 'search' == command:
+                return self.process_search_command(content=content)
             else:
                 print('Unknown command: ', content)
         else:
@@ -154,6 +155,84 @@ class RequestHandler(BaseRequestHandler):
             return dimp.HandshakeCommand.success()
         else:
             return dimp.HandshakeCommand.again(session=current.session_key)
+
+    def process_meta_command(self, content: dimp.Content) -> dimp.Content:
+        cmd = dimp.MetaCommand(content)
+        identifier = cmd.identifier
+        meta = cmd.meta
+        if meta:
+            # received a meta for ID
+            print('received meta for %s from %s ...' % (identifier, self.identifier))
+            if database.save_meta(identifier=identifier, meta=meta):
+                # meta saved
+                command = dimp.CommandContent.new(command='receipt')
+                command['message'] = 'Meta for %s received!' % identifier
+                return command
+            else:
+                # meta not match
+                return dimp.TextContent.new(text='Meta not match %s!' % identifier)
+        else:
+            # querying meta for ID
+            print('search meta of %s for %s ...' % (identifier, self.identifier))
+            meta = database.load_meta(identifier=identifier)
+            if meta:
+                return dimp.MetaCommand.response(identifier=identifier, meta=meta)
+            else:
+                return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
+
+    def process_users_command(self) -> dimp.Content:
+        print('get online user(s) for %s ...' % self.identifier)
+        sessions = session_server.sessions.copy()
+        users = [identifier for identifier in sessions if sessions[identifier].request_handler]
+        response = dimp.CommandContent.new(command='users')
+        response['message'] = '%d user(s) connected' % len(users)
+        response['users'] = users
+        return response
+
+    def process_search_command(self, content: dimp.Content) -> dimp.Content:
+        print('search for %s ...' % self.identifier)
+        identifier = None
+        number = 0
+        # keywords
+        if 'keywords' in content:
+            keyword = content['keywords']
+            # only the first keyword
+            keyword = keyword.split(',')[0]
+            keyword = keyword.split(' ')[0]
+        elif 'keyword' in content:
+            keyword = content['keyword']
+        elif 'kw' in content:
+            keyword = content['kw']
+        else:
+            keyword = None
+        # get ID/number from keywords
+        if keyword:
+            if keyword.find('@') > 0:
+                identifier = dimp.ID(keyword)
+            else:
+                keyword = keyword.replace('-', '')
+                number = int(keyword)
+        elif 'ID' in content:
+            identifier = dimp.ID(content['ID'])
+        elif 'number' in content:
+            number = content['number']
+            number = number.replace('-', '')
+            number = int(number)
+        # search results
+        users = []
+        results = {}
+        if identifier:
+            meta = database.load_meta(identifier=identifier)
+            if meta:
+                users.append(identifier)
+                results[identifier] = meta
+        elif number > 0:
+            results = database.search(number=number)
+            users = list(results.keys())
+        content = dimp.CommandContent.new(command='search')
+        content['users'] = users
+        content['results'] = results
+        return content
 
     def save(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('%s sent message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))

@@ -46,7 +46,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from station.config import station, database
-from station.config import load_accounts, process_meta_command
+from station.config import load_accounts
 from station.utils import *
 
 
@@ -88,7 +88,6 @@ class Client:
         self.running = False
         # session
         self.session_key = None
-        self.handshake = False
 
     def switch_user(self, identifier: dimp.ID):
         user = database.account(identifier=identifier)
@@ -161,19 +160,18 @@ class Client:
     def execute(self, sender: dimp.ID, content: dimp.Content):
         command = content['command']
         if 'handshake' == command:
-            message = content['message']
-            if 'DIM!' == message:
-                self.handshake = True
+            cmd = dimp.HandshakeCommand(content)
+            # message = content['message']
+            if 'DIM!' == cmd.message:
                 print('##### handshake OK!')
-            else:
-                self.session_key = content['session']
-                print('##### handshake again with new session key: %s' % self.session_key)
-                if 'DIM?' != message:
-                    raise ValueError('command error: %s' % content)
+            elif 'DIM?' == cmd.message:
+                print('##### handshake again with new session key: %s' % cmd.session)
+                self.session_key = cmd.session
         elif 'meta' == command:
-            response = process_meta_command(content=content)
-            if response:
-                self.send(receiver=sender, content=response)
+            cmd = dimp.MetaCommand(content)
+            if cmd.meta:
+                print('##### received a meta for %s' % cmd.identifier)
+                database.save_meta(identifier=cmd.identifier, meta=cmd.meta)
         else:
             print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
 
@@ -196,6 +194,7 @@ class Console(Cmd):
         print('        logout            - clear session')
         print('        hello             - handshake with the current station')
         print('        show users        - list online users')
+        print('        search <number>   - search users by number')
         print('        call <ID>         - change receiver to another user (or "station")')
         print('        send <text>       - send message')
         print('        exit              - terminate')
@@ -217,9 +216,9 @@ class Console(Cmd):
         else:
             receiver = self.receiver
             self.receiver = station.identifier
-            command = dimp.HandshakeCommand.start(session=client.session_key)
+            cmd = dimp.HandshakeCommand.start(session=client.session_key)
             print('handshake with "%s"...' % self.receiver)
-            client.send(receiver=self.receiver, content=command)
+            client.send(receiver=self.receiver, content=cmd)
             self.receiver = receiver
 
     def do_login(self, name: str):
@@ -259,8 +258,8 @@ class Console(Cmd):
             receiver = dimp.ID(name)
             if receiver:
                 # query meta for receiver
-                content = dimp.MetaCommand.query(identifier=receiver)
-                client.send(receiver=station.identifier, content=content)
+                cmd = dimp.MetaCommand.query(identifier=receiver)
+                client.send(receiver=station.identifier, content=cmd)
                 # switch receiver
                 self.receiver = receiver
                 print('talking with %s now!' % self.receiver)
@@ -276,10 +275,15 @@ class Console(Cmd):
 
     def do_show(self, name: str):
         if 'users' == name:
-            command = dimp.CommandContent.new(command='users')
-            client.send(receiver=station.identifier, content=command)
+            cmd = dimp.CommandContent.new(command='users')
+            client.send(receiver=station.identifier, content=cmd)
         else:
             print('I don\'t understand.')
+
+    def do_search(self, number: str):
+        cmd = dimp.CommandContent.new(command='search')
+        cmd['number'] = number
+        client.send(receiver=station.identifier, content=cmd)
 
 
 if __name__ == '__main__':

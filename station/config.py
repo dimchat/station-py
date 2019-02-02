@@ -30,6 +30,8 @@
     Configure Station
 """
 
+import os
+
 import dimp
 
 from .session import SessionServer
@@ -115,41 +117,33 @@ def load_accounts():
     print('loading station: ', station)
     database.accounts[station.identifier] = station
 
+    # scan all metas
+    directory = database.base_dir + 'public'
+    # get all files in messages directory and sort by filename
+    files = sorted(os.listdir(directory))
+    for filename in files:
+        path = directory + '/' + filename + '/meta.js'
+        if os.path.exists(path):
+            print('loading %s' % path)
+            with open(path, 'r') as file:
+                data = file.read()
+                # no need to check meta again
+            meta = dimp.Meta(json_dict(data))
+            identifier = meta.generate_identifier(network=dimp.NetworkID.Main)
+            if identifier in database.accounts:
+                # already exists
+                continue
+            if path.endswith(identifier.address + '/meta.js'):
+                # address matched
+                sk = database.load_private_key(identifier=identifier)
+                if sk:
+                    user = dimp.User(identifier=identifier, private_key=sk)
+                    database.accounts[identifier] = user
+                else:
+                    account = dimp.Account(identifier=identifier, public_key=meta.key)
+                    database.accounts[identifier] = account
+
     print('======== loaded')
-
-
-def process_meta_command(content: dimp.Content) -> dimp.Content:
-    cmd = dimp.MetaCommand(content)
-    identifier = cmd.identifier
-    meta = cmd.meta
-    if meta:
-        # received a meta for ID
-        if database.save_meta(identifier=identifier, meta=meta):
-            # meta saved
-            command = dimp.CommandContent.new(command='receipt')
-            command['message'] = 'Meta for %s received!' % identifier
-            return command
-        else:
-            # meta not match
-            return dimp.TextContent.new(text='Meta not match %s!' % identifier)
-    else:
-        # querying meta for ID
-        meta = database.load_meta(identifier=identifier)
-        if meta:
-            return dimp.MetaCommand.response(identifier=identifier, meta=meta)
-        else:
-            return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
-
-
-def process_users_command():
-    sessions = session_server.sessions.copy()
-    users = [identifier for identifier in sessions if sessions[identifier].request_handler]
-    count = len(users)
-    response = dimp.CommandContent.new(command='users')
-    response['message'] = '%d user(s) connected' % count
-    if count > 0:
-        response['users'] = users
-    return response
 
 
 """

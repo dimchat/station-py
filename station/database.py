@@ -73,8 +73,8 @@ class Database(dimp.Barrack, dimp.KeyStore):
         # get all files in messages directory and sort by filename
         files = sorted(os.listdir(directory))
         for filename in files:
-            path = directory + '/' + filename
-            if path[-4:] == '.msg':
+            if filename[-4:] == '.msg':
+                path = directory + '/' + filename
                 # read ONE .msg file for each receiver and remove the file immediately
                 with open(path, 'r') as file:
                     data = file.read()
@@ -97,6 +97,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if not meta.match_identifier(identifier):
             print('meta not match %s: %s, IGNORE!' % (identifier, meta))
             return False
+        # save meta as new file
         directory = self.directory('public', identifier)
         path = directory + '/meta.js'
         if os.path.exists(path):
@@ -113,14 +114,8 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                if data:
-                    meta = dimp.Meta(json_dict(data))
-                    if meta.match_identifier(identifier):
-                        return meta
-                    else:
-                        raise ValueError('meta not match %s: %s' % (identifier, meta))
-                else:
-                    raise AssertionError('meta file empty: %s' % path)
+                # no need to check meta again
+                return dimp.Meta(json_dict(data))
 
     """
         Private Key file for Users
@@ -137,16 +132,16 @@ class Database(dimp.Barrack, dimp.KeyStore):
         elif not meta.key.match(private_key=private_key):
             print('private key not match %s: %s' % (identifier, private_key))
             return False
+        # save private key as new file
+        directory = self.directory('private', identifier)
+        path = directory + '/private_key.js'
+        if os.path.exists(path):
+            print('private key file exists: %s, update IGNORE!' % path)
         else:
-            directory = self.directory('private', identifier)
-            path = directory + '/private_key.js'
-            if os.path.exists(path):
-                print('private key file exists: %s, update IGNORE!' % path)
-            else:
-                with open(path, 'w') as file:
-                    file.write(json_str(private_key))
-                    print('private key write into file: ', path)
-            return True
+            with open(path, 'w') as file:
+                file.write(json_str(private_key))
+                print('private key write into file: ', path)
+        return True
 
     def load_private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
         directory = self.directory('private', identifier)
@@ -154,10 +149,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                if data:
-                    return dimp.PrivateKey(json_dict(data))
-                else:
-                    raise AssertionError('private key file empty: %s' % path)
+                return dimp.PrivateKey(json_dict(data))
 
     """
         Barrack
@@ -219,3 +211,25 @@ class Database(dimp.Barrack, dimp.KeyStore):
     #         self.received_keys[sender] = key
     #     else:
     #         self.sent_keys[receiver] = key
+
+    """
+        Search Engine
+        ~~~~~~~~~~~~~
+        
+        Search accounts by the 'Search Number'
+    """
+
+    def search(self, number: int) -> dict:
+        identifiers = []
+        for identifier in self.accounts:
+            entity = self.accounts[identifier]
+            if entity.number == number:
+                identifiers.append(identifier)
+        # for identifier in self.groups:
+        #     entity = self.groups[identifier]
+        #     if entity.number == number:
+        #         identifiers.append(identifier)
+        results = {}
+        for identifier in identifiers:
+            results[identifier] = self.load_meta(identifier=identifier)
+        return results
