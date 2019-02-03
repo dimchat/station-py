@@ -260,17 +260,11 @@ class Database(dimp.Barrack, dimp.KeyStore):
         Search accounts by the 'Search Number'
     """
 
-    def search(self, number: int) -> dict:
-        identifiers = []
-        for identifier in self.accounts:
-            entity = self.accounts[identifier]
-            if entity.number == number:
-                identifiers.append(identifier)
-        # for identifier in self.groups:
-        #     entity = self.groups[identifier]
-        #     if entity.number == number:
-        #         identifiers.append(identifier)
+    def search(self, keyword: str, accounts: dict=None) -> dict:
+        if accounts is None:
+            accounts = self.accounts
         results = {}
-        for identifier in identifiers:
-            results[identifier] = self.load_meta(identifier=identifier)
+        for identifier in accounts:
+            if identifier.name.find(keyword) != -1 or str(identifier.number).find(keyword) != -1:
+                results[identifier] = self.load_meta(identifier)
         return results

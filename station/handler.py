@@ -220,44 +220,22 @@ class RequestHandler(BaseRequestHandler):
 
     def process_search_command(self, content: dimp.Content) -> dimp.Content:
         print('search for %s ...' % self.identifier)
-        identifier = None
-        number = 0
         # keywords
         if 'keywords' in content:
-            keyword = content['keywords']
-            # only the first keyword
-            keyword = keyword.split(',')[0]
-            keyword = keyword.split(' ')[0]
+            keywords = content['keywords']
         elif 'keyword' in content:
-            keyword = content['keyword']
+            keywords = content['keyword']
         elif 'kw' in content:
-            keyword = content['kw']
+            keywords = content['kw']
         else:
-            keyword = None
-        # get ID/number from keywords
-        if keyword:
-            if keyword.find('@') > 0:
-                identifier = dimp.ID(keyword)
-            else:
-                keyword = keyword.replace('-', '')
-                number = int(keyword)
-        elif 'ID' in content:
-            identifier = dimp.ID(content['ID'])
-        elif 'number' in content:
-            number = content['number']
-            number = number.replace('-', '')
-            number = int(number)
-        # search results
-        users = []
-        results = {}
-        if identifier:
-            meta = database.load_meta(identifier=identifier)
-            if meta:
-                users.append(identifier)
-                results[identifier] = meta
-        elif number > 0:
-            results = database.search(number=number)
-            users = list(results.keys())
+            raise ValueError('keywords not found')
+        # search for each keyword
+        keywords = keywords.split(' ')
+        results = None
+        for keyword in keywords:
+            results = database.search(keyword=keyword, accounts=results)
+        # response
+        users = list(results.keys())
         response = dimp.CommandContent.new(command='search')
         response['users'] = users
         response['results'] = results
