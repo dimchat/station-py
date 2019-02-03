@@ -289,9 +289,9 @@ class Console(Cmd):
         else:
             print('I don\'t understand.')
 
-    def do_search(self, number: str):
+    def do_search(self, keywords: str):
         cmd = dimp.CommandContent.new(command='search')
-        cmd['number'] = number
+        cmd['keywords'] = keywords
         client.send(receiver=station.identifier, content=cmd)
 
     def do_profile(self, name: str):
