@@ -191,6 +191,6 @@ class MessageProcessor:
         print('%s sent message from %s to %s' % (self.handler.identifier, msg.envelope.sender, msg.envelope.receiver))
         database.store_message(msg)
         response = dimp.CommandContent.new(command='receipt')
-        response['message'] = 'Message received!'
+        response['message'] = 'Message delivering'
         response['signature'] = msg['signature']
         return response

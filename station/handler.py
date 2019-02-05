@@ -40,14 +40,14 @@ class RequestHandler(BaseRequestHandler):
         self.processor = None
         # remote user ID
         self.identifier = None
-        # received data (maybe sent partially)
-        self.received_data = None
+        # incomplete data (maybe received partially)
+        self.incomplete_data = None
 
     def setup(self):
         print(self, 'set up with', self.client_address)
         self.processor = MessageProcessor(handler=self)
         self.identifier = None
-        self.received_data = None
+        self.incomplete_data = None
 
     def finish(self):
         if self.identifier:
@@ -57,8 +57,8 @@ class RequestHandler(BaseRequestHandler):
             self.send_message(msg)
             current = session_server.session(identifier=self.identifier)
             current.request_handler = None
-        if self.received_data is not None:
-            print('!!! incomplete data:', self.received_data.decode('utf-8'))
+        if self.incomplete_data is not None:
+            print('!!! incomplete data:', self.incomplete_data.decode('utf-8'))
         print(self, 'finish')
 
     """
@@ -73,11 +73,12 @@ class RequestHandler(BaseRequestHandler):
             if len(messages) == 0:
                 print('client (%s:%s) exit!' % self.client_address)
                 break
+            # process message(s) one by one
             for msg in messages:
-                # data error
+                # received data error
                 if 'error' in msg:
                     print('received:', msg)
-                    data = msg['data'].encode('utf-8')
+                    data = msg['data']
                     self.request.sendall(data)
                     continue
                 # process one message
@@ -89,39 +90,57 @@ class RequestHandler(BaseRequestHandler):
                     self.send_message(msg)
 
     def receive(self) -> list:
-        # check the incomplete data
-        if self.received_data is None:
-            self.received_data = b''
+        messages = []
+        # 1. check the incomplete data
+        if self.incomplete_data is None:
+            data = b''
+        else:
+            data = self.incomplete_data
+            self.incomplete_data = None
+        # 2. receive all data
         while True:
             part = self.request.recv(1024)
-            self.received_data += part
+            data += part
             if len(part) < 1024:
                 break
-        # unwrap
-        try:
-            data = self.received_data.decode('utf-8')
-            self.received_data = None
-            # if the message data was wrap by other transfer protocol,
-            # unwrap here
-        except UnicodeDecodeError as error:
-            print('decode error:', self.received_data)
-            return [{'data': self.received_data, 'error': error}]
-        # split messages (one line one message)
-        messages = []
-        lines = data.splitlines()
-        index = 0
-        for line in lines:
-            index += 1
+        # 3. split data package(s)
+        #    the received data packages maybe spliced,
+        #    if the message data was wrap by other transfer protocol,
+        #    use the right split char here
+        packages = data.split(b'\n')
+
+        # 4. unwrap each package & decode
+        count = 0
+        for pack in packages:
+            count += 1
+            if len(pack) == 0:
+                # skip empty package
+                continue
+            # one line(pack) one message
+            line = ''
             try:
+                # 4.1. unwrap message package
+                #    if the message data was wrap by other transfer protocol, unwrap it here.
+                #    if the package incomplete, raise ValueError.
+                data = pack
+
+                # 4.2. decode message
+                #    if incomplete data found, push it back for next time.
+                line = data.decode('utf-8')
                 msg = dimp.ReliableMessage(json_dict(line))
                 messages.append(msg)
+            except UnicodeDecodeError as error:
+                print('decode error:', error)
+                messages.append({'data': data, 'error': error})
             except ValueError as error:
-                if index == lines.count:
+                if count == packages.count:
                     # partially data, push back for next input
-                    self.received_data = line.encode('utf-8')
+                    print('incomplete data:', line)
+                    self.incomplete_data = pack
                 else:
-                    print('value error:', line)
-                    messages.append({'data': line, 'error': error})
+                    print('value error:', error)
+                    messages.append({'data': line.encode('utf-8'), 'error': error})
+        # 5. return all message(s) received
         return messages
 
     def send_message(self, msg: dimp.ReliableMessage):
