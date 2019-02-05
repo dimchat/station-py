@@ -115,6 +115,7 @@ def load_accounts():
     database.save_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
 
     print('loading station: ', station)
+    database.save_meta(identifier=dimp.ID(s001_id), meta=dimp.Meta(s001_meta))
     database.accounts[station.identifier] = station
 
     # scan all metas
