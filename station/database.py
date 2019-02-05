@@ -265,6 +265,6 @@ class Database(dimp.Barrack, dimp.KeyStore):
             accounts = self.accounts
         results = {}
         for identifier in accounts:
-            if identifier.name.find(keyword) != -1 or str(identifier.number).find(keyword) != -1:
+            if identifier.find(keyword) != -1 or str(identifier.number).find(keyword) != -1:
                 results[identifier] = self.load_meta(identifier)
         return results

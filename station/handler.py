@@ -57,6 +57,8 @@ class RequestHandler(BaseRequestHandler):
             self.send_message(msg)
             current = session_server.session(identifier=self.identifier)
             current.request_handler = None
+        if self.received_data is not None:
+            print('!!! incomplete data:', self.received_data.decode('utf-8'))
         print(self, 'finish')
 
     """
@@ -87,7 +89,7 @@ class RequestHandler(BaseRequestHandler):
                     self.send_message(msg)
 
     def receive(self) -> list:
-        # check the unfinished data
+        # check the incomplete data
         if self.received_data is None:
             self.received_data = b''
         while True:
@@ -115,7 +117,7 @@ class RequestHandler(BaseRequestHandler):
                 messages.append(msg)
             except ValueError as error:
                 if index == lines.count:
-                    # not finished data, push back for next input
+                    # partially data, push back for next input
                     self.received_data = line.encode('utf-8')
                 else:
                     print('value error:', line)
