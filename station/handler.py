@@ -100,7 +100,7 @@ class RequestHandler(BaseRequestHandler):
             data = self.incomplete_data
             self.incomplete_data = None
         # 2. receive all data
-        while True:
+        while station.running:
             part = self.request.recv(1024)
             data += part
             if len(part) < 1024:
@@ -134,7 +134,7 @@ class RequestHandler(BaseRequestHandler):
                 print('decode error:', error)
                 messages.append({'data': data, 'error': error})
             except ValueError as error:
-                if count == packages.count:
+                if len(packages) == count:
                     # partially data, push back for next input
                     print('incomplete data:', line)
                     self.incomplete_data = pack

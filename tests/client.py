@@ -57,22 +57,49 @@ identifier_map = {
 
 
 def receive_handler(cli):
+    incomplete_data = None
     while cli.running:
         # read data
-        data = b''
-        part = b''
+        if incomplete_data is None:
+            data = b''
+        else:
+            data = incomplete_data
+            incomplete_data = None
+        # read all data
         while cli.running:
             try:
                 part = cli.sock.recv(1024)
-            finally:
                 data += part
                 if len(part) < 1024:
                     break
-        # split message(s)
-        if len(data) > 0:
-            array = data.decode('utf-8').splitlines()
-            for msg in array:
-                cli.receive_data(msg)
+            except OSError:
+                break
+        # split package(s)
+        packages = data.split(b'\n')
+        count = 0
+        for pack in packages:
+            count += 1
+            if len(pack) == 0:
+                # skip empty package
+                continue
+            # one line(pack) one message
+            line = ''
+            try:
+                # unwrap message package
+                data = pack
+
+                # decode message
+                line = data.decode('utf-8')
+                cli.receive_message(json_dict(line))
+            except UnicodeDecodeError as error:
+                print('decode error:', error)
+            except ValueError as error:
+                if len(packages) == count:
+                    # partially data, push back for next input
+                    print('incomplete data: %d bytes' % len(line))
+                    incomplete_data = pack
+                else:
+                    print('value error:', error, 'line:', line)
 
 
 class Client:
@@ -135,14 +162,13 @@ class Client:
         # send out message
         self.sock.sendall(json_str(r_msg).encode('utf-8'))
 
-    def receive_data(self, data: str):
-        data = json_dict(data)
-        msg = dimp.ReliableMessage(data)
-        msg = self.trans.verify(msg)
-        msg = self.trans.decrypt(msg)
-        self.receive(sender=msg.envelope.sender, content=msg.content)
+    def receive_message(self, msg: dict):
+        r_msg = dimp.ReliableMessage(msg)
+        s_msg = self.trans.verify(r_msg)
+        i_msg = self.trans.decrypt(s_msg)
+        self.receive_content(sender=i_msg.envelope.sender, content=i_msg.content)
 
-    def receive(self, sender: dimp.ID, content: dimp.Content):
+    def receive_content(self, sender: dimp.ID, content: dimp.Content):
         console.stdout.write('\r')
         if content.type == dimp.MessageType.Text:
             self.show(sender=sender, content=content)
