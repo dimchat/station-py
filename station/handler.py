@@ -69,19 +69,21 @@ class RequestHandler(BaseRequestHandler):
 
         while station.running:
             # receive and unwrap messages
-            messages = self.receive()
-            if len(messages) == 0:
+            packages = self.receive()
+            if len(packages) == 0:
                 print('client (%s:%s) exit!' % self.client_address)
                 break
             # process message(s) one by one
-            for msg in messages:
+            for pack in packages:
                 # received data error
-                if 'error' in msg:
-                    print('received:', msg)
-                    data = msg['data']
-                    self.request.sendall(data)
+                if 'error' in pack:
+                    # TODO: handle error pack
+                    print('!!! received error data package:', pack)
+                    # data = pack['data']
+                    # self.request.sendall(data)
                     continue
                 # process one message
+                msg = dimp.ReliableMessage(pack)
                 response = self.processor.process(msg)
                 if response:
                     print('*** response to client (%s:%s)...' % self.client_address)
@@ -127,8 +129,7 @@ class RequestHandler(BaseRequestHandler):
                 # 4.2. decode message
                 #    if incomplete data found, push it back for next time.
                 line = data.decode('utf-8')
-                msg = dimp.ReliableMessage(json_dict(line))
-                messages.append(msg)
+                messages.append(json_dict(line))
             except UnicodeDecodeError as error:
                 print('decode error:', error)
                 messages.append({'data': data, 'error': error})
