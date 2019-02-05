@@ -265,6 +265,13 @@ class Database(dimp.Barrack, dimp.KeyStore):
             accounts = self.accounts
         results = {}
         for identifier in accounts:
-            if identifier.find(keyword) != -1 or str(identifier.number).find(keyword) != -1:
-                results[identifier] = self.load_meta(identifier)
+            network = identifier.address.network
+            if not network.is_person() and not network.is_group():
+                # ignore
+                continue
+            if identifier.find(keyword) < 0 and str(identifier.number).find(keyword) < 0:
+                # not match
+                continue
+            # got it
+            results[identifier] = self.load_meta(identifier)
         return results
