@@ -60,7 +60,7 @@ class MessageProcessor:
                 print('*** message from client (%s:%s)...' % self.handler.client_address)
                 print('    content: %s' % content)
                 return content
-        elif not session_server.valid(sender, self):
+        elif not session_server.valid(sender, self.handler):
             # session invalid, handshake first
             #    NOTICE: if the client try to send message to another user before handshake,
             #            the message will be lost!
@@ -100,7 +100,7 @@ class MessageProcessor:
             # session verified
             print('connect current request to session', identifier, self.handler.client_address)
             self.handler.identifier = identifier
-            current.request_handler = self
+            current.request_handler = self.handler
             return dimp.HandshakeCommand.success()
         else:
             return dimp.HandshakeCommand.again(session=current.session_key)
