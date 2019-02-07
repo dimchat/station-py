@@ -40,14 +40,11 @@ class RequestHandler(BaseRequestHandler):
         self.processor = None
         # remote user ID
         self.identifier = None
-        # incomplete data (maybe received partially)
-        self.incomplete_data = None
 
     def setup(self):
         print(self, 'set up with', self.client_address)
         self.processor = MessageProcessor(handler=self)
         self.identifier = None
-        self.incomplete_data = None
 
     def finish(self):
         if self.identifier:
@@ -57,92 +54,76 @@ class RequestHandler(BaseRequestHandler):
             self.send_message(msg)
             current = session_server.session(identifier=self.identifier)
             current.request_handler = None
-        if self.incomplete_data is not None:
-            print('!!! incomplete data:', self.incomplete_data.decode('utf-8'))
-        print(self, 'finish')
+        print(self, 'finish', self.client_address)
 
     """
-        main entrance
+        DIM Request Handler
     """
     def handle(self):
         print('client (%s:%s) connected!' % self.client_address)
-
+        incomplete_data = None
         while station.running:
-            # receive and unwrap messages
-            packages = self.receive()
-            if len(packages) == 0:
+            # 1. receive all data
+            data = b''
+            while True:
+                part = self.request.recv(1024)
+                data += part
+                if len(part) < 1024:
+                    break
+            if len(data) == 0:
                 print('client (%s:%s) exit!' % self.client_address)
                 break
-            # process message(s) one by one
-            for pack in packages:
-                # received data error
-                if 'error' in pack:
-                    # TODO: handle error pack
-                    print('!!! received error data package:', pack)
-                    # data = pack['data']
-                    # self.request.sendall(data)
+
+            # 2. check incomplete data
+            if incomplete_data is not None:
+                data = incomplete_data + data
+                incomplete_data = None
+
+            # 3. process package(s) one by one
+            #    the received data packages maybe spliced,
+            #    if the message data was wrap by other transfer protocol,
+            #    use the right split char(s) to split it
+            while len(data) > 0:
+                # 3.1. split data package(s)
+                # TODO: split TCP spliced package(s)
+                pos = data.find(b'\n')
+                if pos < 0:
+                    # partially data, push back for next loop
+                    print('incomplete data:', data)
+                    incomplete_data = data
+                    break
+
+                # 3.2. got one complete package
+                pack = data[:pos+1]
+                data = data[pos+1:]
+                if pos == 0 or pack.isspace():
+                    print('empty package, skip it')
                     continue
-                # process one message
-                msg = dimp.ReliableMessage(pack)
+
+                # 3.3. unwrap & decode message
+                try:
+                    # TODO: unwrap the package
+                    #    if the message data was wrap by other transfer protocol, unwrap it here.
+                    #    if the package incomplete, raise ValueError.
+                    msg = pack[:pos]
+
+                    # decode the JsON string to dictionary
+                    #    if the msg data error, raise ValueError.
+                    msg = msg.decode('utf-8')
+                    msg = json_dict(msg)
+                except ValueError as error:
+                    # TODO: handle error pack
+                    print('!!! received message error:', error)
+                    continue
+
+                # 3.4. process the message
+                msg = dimp.ReliableMessage(msg)
                 response = self.processor.process(msg)
                 if response:
                     print('*** response to client (%s:%s)...' % self.client_address)
                     print('    content: %s' % response)
                     msg = station.pack(receiver=msg.envelope.sender, content=response)
                     self.send_message(msg)
-
-    def receive(self) -> list:
-        messages = []
-        # 1. check the incomplete data
-        if self.incomplete_data is None:
-            data = b''
-        else:
-            data = self.incomplete_data
-            self.incomplete_data = None
-        # 2. receive all data
-        while station.running:
-            part = self.request.recv(1024)
-            data += part
-            if len(part) < 1024:
-                break
-        # 3. split data package(s)
-        #    the received data packages maybe spliced,
-        #    if the message data was wrap by other transfer protocol,
-        #    use the right split char here
-        packages = data.split(b'\n')
-
-        # 4. unwrap each package & decode
-        count = 0
-        for pack in packages:
-            count += 1
-            if len(pack) == 0:
-                # skip empty package
-                continue
-            # one line(pack) one message
-            line = ''
-            try:
-                # 4.1. unwrap message package
-                #    if the message data was wrap by other transfer protocol, unwrap it here.
-                #    if the package incomplete, raise ValueError.
-                data = pack
-
-                # 4.2. decode message
-                #    if incomplete data found, push it back for next time.
-                line = data.decode('utf-8')
-                messages.append(json_dict(line))
-            except UnicodeDecodeError as error:
-                print('decode error:', error)
-                messages.append({'data': data, 'error': error})
-            except ValueError as error:
-                if len(packages) == count:
-                    # partially data, push back for next input
-                    print('incomplete data:', line)
-                    self.incomplete_data = pack
-                else:
-                    print('value error:', error)
-                    messages.append({'data': line.encode('utf-8'), 'error': error})
-        # 5. return all message(s) received
-        return messages
 
     def send_message(self, msg: dimp.ReliableMessage):
         data = json_str(msg) + '\n'

@@ -160,7 +160,8 @@ class Client:
         s_msg = i_msg.encrypt(password=password, public_key=account.publicKey)
         r_msg = s_msg.sign(private_key=self.user.privateKey)
         # send out message
-        self.sock.sendall(json_str(r_msg).encode('utf-8'))
+        pack = json_str(r_msg) + '\n'
+        self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
         r_msg = dimp.ReliableMessage(msg)
