@@ -207,6 +207,14 @@ class Client:
                 signature = content['signature']
                 print('      profile: %s' % profile)
                 database.save_profile(identifier=cmd.identifier, profile=profile, signature=signature)
+        elif 'search' == command:
+            print('##### received search response')
+            if 'users' in content:
+                users = content['users']
+                print('      users:', json_str(users))
+            if 'results' in content:
+                results = content['results']
+                print('      results:', json_str(results))
         else:
             print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
 

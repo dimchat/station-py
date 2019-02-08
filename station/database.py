@@ -273,5 +273,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 # not match
                 continue
             # got it
-            results[identifier] = self.load_meta(identifier)
+            meta = self.load_meta(identifier)
+            if meta:
+                results[identifier] = meta
         return results
