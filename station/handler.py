@@ -30,6 +30,7 @@ import dimp
 from .utils import json_str, json_dict
 from .config import station, session_server
 from .processor import MessageProcessor
+from .mars import NetMsgHead, NetMsg
 
 
 class RequestHandler(BaseRequestHandler):
@@ -61,10 +62,9 @@ class RequestHandler(BaseRequestHandler):
     """
     def handle(self):
         print('client (%s:%s) connected!' % self.client_address)
-        incomplete_data = None
+        data = b''
         while station.running:
-            # 1. receive all data
-            data = b''
+            # receive all data
             while True:
                 part = self.request.recv(1024)
                 data += part
@@ -74,58 +74,115 @@ class RequestHandler(BaseRequestHandler):
                 print('client (%s:%s) exit!' % self.client_address)
                 break
 
-            # 2. check incomplete data
-            if incomplete_data is not None:
-                data = incomplete_data + data
-                incomplete_data = None
-
-            # 3. process package(s) one by one
+            # process package(s) one by one
             #    the received data packages maybe spliced,
             #    if the message data was wrap by other transfer protocol,
             #    use the right split char(s) to split it
             while len(data) > 0:
-                # 3.1. split data package(s)
-                # TODO: split TCP spliced package(s)
-                pos = data.find(b'\n')
-                if pos < 0:
-                    # partially data, push back for next loop
-                    print('incomplete data:', data)
-                    incomplete_data = data
-                    break
 
-                # 3.2. got one complete package
-                pack = data[:pos+1]
-                data = data[pos+1:]
-                if pos == 0 or pack.isspace():
-                    print('empty package, skip it')
-                    continue
-
-                # 3.3. unwrap & decode message
+                # (Protocol A) Tencent mars?
+                mars = False
+                head = None
                 try:
-                    # TODO: unwrap the package
-                    #    if the message data was wrap by other transfer protocol, unwrap it here.
-                    #    if the package incomplete, raise ValueError.
-                    msg = pack[:pos]
-
-                    # decode the JsON string to dictionary
-                    #    if the msg data error, raise ValueError.
-                    msg = msg.decode('utf-8')
-                    msg = json_dict(msg)
+                    head = NetMsgHead(data=data)
+                    if head.client_version == 200:
+                        # OK, it seems be a mars package!
+                        mars = True
                 except ValueError as error:
-                    # TODO: handle error pack
-                    print('!!! received message error:', error)
+                    print('not mars message pack:', error)
+                # check mars head
+                if mars:
+                    print('@@@ msg via mars, len: %d+%d' % (head.head_length, head.body_length))
+                    # check completion
+                    pack_len = head.head_length + head.body_length
+                    if pack_len > len(data):
+                        # partially data, keep it for next loop
+                        print('incomplete data:', data)
+                        break
+                    # cut out the first package from received data
+                    pack = data[:pack_len]
+                    data = data[pack_len:]
+                    # process mars package
+                    if head.cmd_id == 6:
+                        print('@@@ receive NOOP package: seq=%d' % head.seq)
+                        # TODO: handle NOOP request
+                        print('    response:', pack)
+                        self.request.sendall(pack)
+                    elif head.body_length > 0:
+                        print('@@@ processing package: cmd=%d, seq=%d' % (head.cmd_id, head.seq))
+                        body = pack[head.head_length:]
+                        # array = body.splitlines()
+                        # for pack in array:
+                        #     msg = self.process_message(pack)
+                        #     if msg:
+                        #         self.send_mars_msg(msg, head)
+                        #     else:
+                        #         self.send_mars_err(pack, head)
+                        msg = self.process_message(body)
+                        if msg:
+                            self.send_mars_msg(msg, head)
+                        else:
+                            self.send_mars_err(pack, head)
+                    # mars OK
                     continue
 
-                # 3.4. process the message
-                msg = dimp.ReliableMessage(msg)
-                response = self.processor.process(msg)
-                if response:
-                    print('*** response to client (%s:%s)...' % self.client_address)
-                    print('    content: %s' % response)
-                    msg = station.pack(receiver=msg.envelope.sender, content=response)
-                    self.send_message(msg)
+                # (Protocol B) raw data with no wrap?
+                if data.startswith(b'{"') and data.find(b'\0') < 0:
+                    # check completion
+                    pos = data.find(b'\n')
+                    if pos < 0:
+                        # partially data, keep it for next loop
+                        print('incomplete data:', data)
+                        break
+                    # cut out the first package from received data
+                    pack = data[:pos+1]
+                    data = data[pos+1:]
+                    msg = self.process_message(pack)
+                    if msg:
+                        self.send_message(msg)
+                    else:
+                        self.send_error(pack)
+                    # raw data OK
+                    continue
+
+                # (Protocol ?)
+                # TODO: split and unwrap data package(s)
+                print('!!! unknown protocol:', data)
+                data = b''
+                # raise AssertionError('unknown protocol')
+
+    def process_message(self, pack: bytes) -> dimp.ReliableMessage:
+        # decode the JsON string to dictionary
+        #    if the msg data error, raise ValueError.
+        try:
+            msg = json_dict(pack.decode('utf-8'))
+            msg = dimp.ReliableMessage(msg)
+            response = self.processor.process(msg)
+            if response:
+                print('*** response to client (%s:%s)...' % self.client_address)
+                print('    content: %s' % response)
+                return station.pack(receiver=msg.envelope.sender, content=response)
+        except Exception as error:
+            print('!!! receive message package: %s, error:%s' % (pack, error))
+
+    def send_mars_msg(self, msg: dimp.ReliableMessage, head: NetMsgHead):
+        body = json_str(msg).encode('utf-8')
+        pack = NetMsg(cmd_id=head.cmd_id, seq=head.seq + 1, body=body)
+        print('    response:', pack)
+        self.request.sendall(pack)
+
+    def send_mars_err(self, pack: bytes, head: NetMsgHead):
+        # TODO: handle error request
+        pack = NetMsg(cmd_id=head.cmd_id, seq=head.seq + 1, body=pack)
+        print('    response:', pack)
+        self.request.sendall(pack)
 
     def send_message(self, msg: dimp.ReliableMessage):
         data = json_str(msg) + '\n'
         data = data.encode('utf-8')
         self.request.sendall(data)
+
+    def send_error(self, pack: bytes):
+        # TODO: handle error request
+        print('!!!error:', pack)
+        self.request.sendall(pack)
