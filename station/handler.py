@@ -52,7 +52,7 @@ class RequestHandler(BaseRequestHandler):
             print('disconnect current request from session', self.identifier, self.client_address)
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
-            self.send_message(msg)
+            self.push_message(msg)
             current = session_server.session(identifier=self.identifier)
             current.request_handler = None
         print(self, 'finish', self.client_address)
@@ -85,9 +85,10 @@ class RequestHandler(BaseRequestHandler):
                 head = None
                 try:
                     head = NetMsgHead(data=data)
-                    if head.client_version == 200:
+                    if head.version == 200:
                         # OK, it seems be a mars package!
                         mars = True
+                        self.push_message = self.push_mars_message
                 except ValueError as error:
                     print('not mars message pack:', error)
                 # check mars head
@@ -102,32 +103,15 @@ class RequestHandler(BaseRequestHandler):
                     # cut out the first package from received data
                     pack = data[:pack_len]
                     data = data[pack_len:]
-                    # process mars package
-                    if head.cmd_id == 6:
-                        print('@@@ receive NOOP package: seq=%d' % head.seq)
-                        # TODO: handle NOOP request
-                        print('    response:', pack)
-                        self.request.sendall(pack)
-                    elif head.body_length > 0:
-                        print('@@@ processing package: cmd=%d, seq=%d' % (head.cmd_id, head.seq))
-                        body = pack[head.head_length:]
-                        # array = body.splitlines()
-                        # for pack in array:
-                        #     msg = self.process_message(pack)
-                        #     if msg:
-                        #         self.send_mars_msg(msg, head)
-                        #     else:
-                        #         self.send_mars_err(pack, head)
-                        msg = self.process_message(body)
-                        if msg:
-                            self.send_mars_msg(msg, head)
-                        else:
-                            self.send_mars_err(pack, head)
+                    self.handle_mars_package(pack)
                     # mars OK
                     continue
 
                 # (Protocol B) raw data with no wrap?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
+                    # OK, it seems be a raw package!
+                    self.push_message = self.push_raw_message
+
                     # check completion
                     pos = data.find(b'\n')
                     if pos < 0:
@@ -137,11 +121,7 @@ class RequestHandler(BaseRequestHandler):
                     # cut out the first package from received data
                     pack = data[:pos+1]
                     data = data[pos+1:]
-                    msg = self.process_message(pack)
-                    if msg:
-                        self.send_message(msg)
-                    else:
-                        self.send_error(pack)
+                    self.handle_raw_package(pack)
                     # raw data OK
                     continue
 
@@ -151,38 +131,74 @@ class RequestHandler(BaseRequestHandler):
                 data = b''
                 # raise AssertionError('unknown protocol')
 
-    def process_message(self, pack: bytes) -> dimp.ReliableMessage:
+    def handle_mars_package(self, pack: bytes):
+        pack = NetMsg(pack)
+        head = pack.head
+        print('@@@ processing package: cmd=%d, seq=%d' % (head.cmd, head.seq))
+        if head.cmd == 3:
+            # TODO: handle SEND_MSG request
+            if head.body_length == 0:
+                raise ValueError('messages not found')
+            # maybe more than one message in a pack
+            lines = pack.body.splitlines()
+            body = b''
+            for line in lines:
+                if line.isspace():
+                    print('ignore empty message')
+                    continue
+                response = self.process_message(line)
+                if response:
+                    msg = json_str(response) + '\n'
+                    body = body + msg.encode('utf-8')
+            data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+            print('    mars response:', data)
+            self.request.sendall(data)
+        elif head.cmd == 6:
+            # TODO: handle NOOP request
+            print('    receive NOOP package, response:', pack)
+            self.request.sendall(pack)
+        else:
+            # TODO: handle Unknown request
+            print('    unknown package:', pack)
+            self.request.sendall(pack)
+
+    def handle_raw_package(self, pack: bytes):
+        response = self.process_message(pack)
+        if response:
+            msg = json_str(response) + '\n'
+            data = msg.encode('utf-8')
+            self.request.sendall(data)
+        else:
+            print('!!! error:', pack)
+            self.request.sendall(pack)
+
+    def process_message(self, pack: bytes):
         # decode the JsON string to dictionary
         #    if the msg data error, raise ValueError.
         try:
             msg = json_dict(pack.decode('utf-8'))
             msg = dimp.ReliableMessage(msg)
-            response = self.processor.process(msg)
-            if response:
+            res = self.processor.process(msg)
+            if res:
                 print('*** response to client (%s:%s)...' % self.client_address)
-                print('    content: %s' % response)
-                return station.pack(receiver=msg.envelope.sender, content=response)
+                print('    content: %s' % res)
+                return station.pack(receiver=msg.envelope.sender, content=res)
         except Exception as error:
             print('!!! receive message package: %s, error:%s' % (pack, error))
 
-    def send_mars_msg(self, msg: dimp.ReliableMessage, head: NetMsgHead):
-        body = json_str(msg).encode('utf-8')
-        pack = NetMsg(cmd_id=head.cmd_id, seq=head.seq + 1, body=body)
-        print('    response:', pack)
-        self.request.sendall(pack)
-
-    def send_mars_err(self, pack: bytes, head: NetMsgHead):
-        # TODO: handle error request
-        pack = NetMsg(cmd_id=head.cmd_id, seq=head.seq + 1, body=pack)
-        print('    response:', pack)
-        self.request.sendall(pack)
-
-    def send_message(self, msg: dimp.ReliableMessage):
+    def push_mars_message(self, msg: dimp.ReliableMessage):
         data = json_str(msg) + '\n'
-        data = data.encode('utf-8')
+        body = data.encode('utf-8')
+        # kPushMessageCmdId = 10001
+        # PUSH_DATA_TASK_ID = 0
+        data = NetMsg(cmd=10001, seq=0, body=body)
+        print('### pushing mars message:', data)
         self.request.sendall(data)
 
-    def send_error(self, pack: bytes):
-        # TODO: handle error request
-        print('!!!error:', pack)
-        self.request.sendall(pack)
+    def push_raw_message(self, msg: dimp.ReliableMessage):
+        data = json_str(msg) + '\n'
+        data = data.encode('utf-8')
+        print('### pushing message:', data)
+        self.request.sendall(data)
+
+    push_message = push_raw_message

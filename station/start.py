@@ -68,7 +68,7 @@ class SessionScanningThread(Thread):
                         messages = self.database.load_messages(identifier)
                         if messages:
                             for msg in messages:
-                                request_handler.send_message(msg)
+                                request_handler.push_message(msg)
             except IOError as error:
                 print('session scanning IO error:', error)
             except JSONDecodeError as error:

@@ -41,24 +41,24 @@ class NetMsgHead(bytes):
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         data structure:
-            head_length    - 4 bytes
-            client_version - 4 bytes
-            cmd_id         - 4 bytes
-            seq            - 4 bytes
-            body_len       - 4 bytes
-            options        - variable length (head_length - 20)
+            head_length - 4 bytes
+            version     - 4 bytes
+            cmd         - 4 bytes
+            seq         - 4 bytes
+            body_len    - 4 bytes
+            options     - variable length (head_length - 20)
     """
 
     def __new__(cls, data: bytes=None,
-                client_version: int = 200, cmd_id: int=0, seq: int=0, options: bytes=None, body: bytes=None):
+                version: int = 200, cmd: int=0, seq: int=0, options: bytes=None, body: bytes=None):
         """
 
-        :param data:
-        :param client_version:
-        :param cmd_id:
-        :param seq:
-        :param options:
-        :param body:
+        :param data:    msg pack head data (if data is None, use other parameters to create msg head)
+        :param version: client version
+        :param cmd:     cmd id
+        :param seq:     serial number
+        :param options: extra parameters
+        :param body:    msg body
         :return:
         """
         if data:
@@ -71,13 +71,15 @@ class NetMsgHead(bytes):
                 raise ValueError('net message pack data length error:', data_len)
             # get fields
             head_len = read_int(data, 0)
-            client_version = read_int(data, 4)
-            cmd_id = read_int(data, 8)
+            version = read_int(data, 4)
+            cmd = read_int(data, 8)
             seq = read_int(data, 12)
             body_len = read_int(data, 16)
             # check head length
             if MIN_HEAD_LEN <= head_len < data_len:
+                # cut head
                 data = data[:head_len]
+                # data_len = head_len
             elif head_len > data_len:
                 raise ValueError('net message pack head length error:', head_len)
             # get options
@@ -85,6 +87,9 @@ class NetMsgHead(bytes):
                 options = None
             else:
                 options = data[MIN_HEAD_LEN:]
+            # check body length
+            if body_len < 0:
+                raise ValueError('net message pack body length error:', body_len)
         else:
             if options:
                 head_len = MIN_HEAD_LEN + len(options)
@@ -96,19 +101,17 @@ class NetMsgHead(bytes):
                 body_len = 0
             data = b''
             data = append_int(data, head_len)
-            data = append_int(data, client_version)
-            data = append_int(data, cmd_id)
+            data = append_int(data, version)
+            data = append_int(data, cmd)
             data = append_int(data, seq)
             data = append_int(data, body_len)
             if options:
                 data = data + options
-            if body:
-                data = data
         # create net message head
         self = super().__new__(cls, data)
         self.head_length = head_len
-        self.client_version = client_version
-        self.cmd_id = cmd_id
+        self.version = version
+        self.cmd = cmd
         self.seq = seq
         self.body_length = body_len
         self.options = options
@@ -119,14 +122,13 @@ class NetMsg(bytes):
 
     def __new__(cls, data: bytes=None,
                 head: bytes=None,
-                client_version: int = 200, cmd_id: int = 0, seq: int = 0, options: bytes = None,
-                body: bytes=None):
+                version: int=200, cmd: int=0, seq: int=0, options: bytes=None, body: bytes=None):
         """
 
-        :param data:
-        :param head:
-        :param client_version:
-        :param cmd_id:
+        :param data:    msg pack data (if data is None, use other parameters to create msg pack)
+        :param head:    msg pack head data (if head is None, use other parameters to create msg head)
+        :param version:
+        :param cmd:
         :param seq:
         :param options:
         :param body:
@@ -143,30 +145,32 @@ class NetMsg(bytes):
             pack_len = head.head_length + head.body_length
             data_len = len(data)
             if pack_len < data_len:
-                print('cut tail')
+                # cut package
                 data = data[:pack_len]
+                # data_len = pack_len
+            elif pack_len > data_len:
+                raise ValueError('data length error:', data_len)
             # get body
             if head.body_length == 0:
                 body = None
-            elif pack_len <= len(data):
+            else:
                 body = data[head.head_length:]
-            else:
-                raise ValueError('body length error:', head.body_length)
-        else:
-            if head:
-                head = NetMsgHead(head)
-            else:
-                head = NetMsgHead(client_version=client_version, cmd_id=cmd_id, seq=seq,
-                                  options=options, body=body)
+        elif head:
+            head = NetMsgHead(head)
             if body:
                 if head.body_length == len(body):
-                    data = head + body
+                    data = head + data
                 else:
                     raise ValueError('body length error:', head.body_length)
-            elif head.body_length == 0:
-                data = head
             else:
-                raise ValueError('body length error:', head.body_length)
+                data = head
+        else:
+            # if head is None, use other parameters to create head
+            head = NetMsgHead(version=version, cmd=cmd, seq=seq, options=options, body=body)
+            if body:
+                data = head + body
+            else:
+                data = head
         # create net message package
         self = super().__new__(cls, data)
         self.head = head
