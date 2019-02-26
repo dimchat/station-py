@@ -84,7 +84,7 @@ class AccountTestCase(unittest.TestCase):
             sk = dimp.PrivateKey.generate({'algorithm': 'RSA'})
             ct = sk.sign(data)
             # generate address
-            address = dimp.Address.generate(fingerprint=ct, network=network)
+            address = dimp.Address(fingerprint=ct, network=network)
             number = address.number
 
             if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):

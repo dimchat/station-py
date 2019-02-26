@@ -183,6 +183,7 @@ class MessageProcessor:
         # response
         users = list(results.keys())
         response = dimp.CommandContent.new(command='search')
+        response['message'] = '%d user(s) found' % len(users)
         response['users'] = users
         response['results'] = results
         return response
