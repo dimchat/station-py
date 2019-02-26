@@ -150,9 +150,13 @@ class RequestHandler(BaseRequestHandler):
                 if response:
                     msg = json_str(response) + '\n'
                     body = body + msg.encode('utf-8')
-            data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-            print('    mars response:', data)
-            self.request.sendall(data)
+            if body:
+                data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+                print('    mars response:', data)
+                self.request.sendall(data)
+            else:
+                # TODO: handle error message
+                print('    nothing to response')
         elif head.cmd == 6:
             # TODO: handle NOOP request
             print('    receive NOOP package, response:', pack)
