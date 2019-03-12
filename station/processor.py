@@ -131,6 +131,15 @@ class MessageProcessor:
 
     def process_profile_command(self, content: dimp.Content) -> dimp.Content:
         identifier = dimp.ID(content['ID'])
+        if 'meta' in content:
+            meta = content['meta']
+            meta = dimp.Meta(meta)
+            print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
+            if database.save_meta(identifier=identifier, meta=meta):
+                # meta saved
+                print('meta saved for %s.' % identifier)
+            else:
+                print('meta not match %s!' % identifier)
         if 'profile' in content:
             # received a new profile for ID
             print('received profile for %s from %s ...' % (identifier, self.handler.identifier))
