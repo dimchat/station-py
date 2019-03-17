@@ -186,7 +186,8 @@ class RequestHandler(BaseRequestHandler):
             if res:
                 print('*** response to client (%s:%s)...' % self.client_address)
                 print('    content: %s' % res)
-                return station.pack(receiver=msg.envelope.sender, content=res)
+                receiver = dimp.ID(msg.envelope.sender)
+                return station.pack(receiver=receiver, content=res)
         except Exception as error:
             print('!!! receive message package: %s, error:%s' % (pack, error))
 

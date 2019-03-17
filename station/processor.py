@@ -46,8 +46,8 @@ class MessageProcessor:
             response['signature'] = msg.signature
             return response
         # check receiver & session
-        sender = s_msg.envelope.sender
-        receiver = s_msg.envelope.receiver
+        sender = dimp.ID(s_msg.envelope.sender)
+        receiver = dimp.ID(s_msg.envelope.receiver)
         if receiver == station.identifier:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
             content = station.decrypt(s_msg)
@@ -111,6 +111,7 @@ class MessageProcessor:
         meta = cmd.meta
         if meta:
             # received a meta for ID
+            meta = dimp.Meta(meta)
             print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
             if database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
@@ -123,7 +124,7 @@ class MessageProcessor:
         else:
             # querying meta for ID
             print('search meta of %s for %s ...' % (identifier, self.handler.identifier))
-            meta = database.load_meta(identifier=identifier)
+            meta = database.meta(identifier=identifier)
             if meta:
                 return dimp.MetaCommand.response(identifier=identifier, meta=meta)
             else:
@@ -145,7 +146,7 @@ class MessageProcessor:
             print('received profile for %s from %s ...' % (identifier, self.handler.identifier))
             profile = content['profile']
             signature = content['signature']
-            if database.save_profile(identifier=identifier, profile=profile, signature=signature):
+            if database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
                 # profile saved
                 response = dimp.CommandContent.new(command='receipt')
                 response['message'] = 'Profile for %s received!' % identifier
@@ -156,7 +157,7 @@ class MessageProcessor:
         else:
             # querying profile for ID
             print('search profile of %s for %s ...' % (identifier, self.handler.identifier))
-            info = database.load_profile(identifier=identifier)
+            info = database.profile(identifier=identifier)
             if info:
                 prf = info['profile']
                 sig = info['signature']

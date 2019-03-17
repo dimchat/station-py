@@ -123,7 +123,7 @@ class Client:
             self.trans = dimp.Transceiver(identifier=self.user.identifier,
                                           private_key=self.user.privateKey,
                                           barrack=database,
-                                          store=database)
+                                          key_store=database)
         else:
             raise LookupError('User not found: ' + identifier)
 
@@ -154,20 +154,18 @@ class Client:
         if account is None:
             raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
-        password = database.symmetric_key(receiver=receiver)
         # packing message
         i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
-        s_msg = i_msg.encrypt(password=password, public_key=account.publicKey)
-        r_msg = s_msg.sign(private_key=self.user.privateKey)
+        r_msg = self.trans.encrypt_sign(i_msg)
         # send out message
         pack = json_str(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
         r_msg = dimp.ReliableMessage(msg)
-        s_msg = self.trans.verify(r_msg)
-        i_msg = self.trans.decrypt(s_msg)
-        self.receive_content(sender=i_msg.envelope.sender, content=i_msg.content)
+        i_msg = self.trans.verify_decrypt(r_msg)
+        sender = dimp.ID(i_msg.envelope.sender)
+        self.receive_content(sender=sender, content=i_msg.content)
 
     def receive_content(self, sender: dimp.ID, content: dimp.Content):
         console.stdout.write('\r')
@@ -198,7 +196,8 @@ class Client:
             cmd = dimp.MetaCommand(content)
             if cmd.meta:
                 print('##### received a meta for %s' % cmd.identifier)
-                database.save_meta(identifier=cmd.identifier, meta=cmd.meta)
+                identifier = dimp.ID(cmd.identifier)
+                database.save_meta(identifier=identifier, meta=cmd.meta)
         elif 'profile' == command:
             cmd = dimp.ProfileCommand(content)
             if cmd.profile:
@@ -206,7 +205,8 @@ class Client:
                 profile = content['profile']
                 signature = content['signature']
                 print('      profile: %s' % profile)
-                database.save_profile(identifier=cmd.identifier, profile=profile, signature=signature)
+                identifier = dimp.ID(cmd.identifier)
+                database.save_profile_signature(identifier=identifier, profile=profile, signature=signature)
         elif 'search' == command:
             print('##### received search response')
             if 'users' in content:
@@ -356,8 +356,13 @@ class Console(Cmd):
 if __name__ == '__main__':
     load_accounts()
 
+    host = '127.0.0.1'
+    # host = '149.129.93.227'  # selvn
+    # host = '124.156.108.150'  # dimchat
+    port = 9394
+
     client = Client(identifier=moki.identifier)
-    client.connect(host=station.host, port=station.port)
+    client.connect(host=host, port=port)
 
     console = Console()
     console.receiver = station.identifier

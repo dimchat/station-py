@@ -41,6 +41,22 @@ from .utils import *
 from .gsp_s001 import *
 
 
+"""
+    Session Server
+    ~~~~~~~~~~~~~~
+    for login user
+"""
+session_server = SessionServer()
+
+
+"""
+    Database
+    ~~~~~~~~
+    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
+"""
+database = Database()
+
+
 class Station(dimp.Station):
 
     # def __init__(self, identifier: dimp.ID, public_key: dimp.PublicKey, host: str, port: int=9394):
@@ -48,21 +64,26 @@ class Station(dimp.Station):
 
     def pack(self, receiver: dimp.ID, content: dimp.Content) -> dimp.ReliableMessage:
         env = dimp.Envelope(sender=self.identifier, receiver=receiver)
-        msg = dimp.InstantMessage.new(content=content, envelope=env)
-        msg = transceiver.encrypt(msg)
-        msg = transceiver.sign(msg)
-        return msg
+        i_msg = dimp.InstantMessage.new(content=content, envelope=env)
+        r_msg = transceiver.encrypt_sign(i_msg)
+        return r_msg
 
     def verify(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
-        if 'meta' in msg:
+        meta = msg.meta
+        if meta is not None:
+            meta = dimp.Meta(meta)
+            identifier = dimp.ID(msg.envelope.sender)
             # save meta for sender
-            database.save_meta(identifier=msg.envelope.sender, meta=msg.meta)
-        return transceiver.verify(msg)
+            database.save_meta(identifier=identifier, meta=meta)
+        if msg.delegate is None:
+            msg.delegate = transceiver
+        return msg.verify()
 
     def decrypt(self, msg: dimp.SecureMessage) -> dimp.Content:
-        msg = msg.trim(self.identifier)
-        msg = transceiver.decrypt(msg)
-        content = msg.content
+        s_msg = msg.trim(self.identifier)
+        s_msg.delegate = transceiver
+        i_msg = s_msg.decrypt()
+        content = i_msg.content
         return content
 
 
@@ -82,25 +103,10 @@ station_id = dimp.ID(s001_id)
 station_sk = dimp.PrivateKey(s001_sk)
 station_pk = station_sk.publicKey
 
-station = Station(identifier=station_id, public_key=station_pk, host=host, port=port)
+station = Station(identifier=station_id, host=host, port=port)
 station.privateKey = station_sk
+station.delegate = database
 station.running = False
-
-
-"""
-    Session Server
-    ~~~~~~~~~~~~~~
-    for login user
-"""
-session_server = SessionServer()
-
-
-"""
-    Database
-    ~~~~~~~~
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
-database = Database()
 
 
 def load_accounts():
@@ -116,7 +122,8 @@ def load_accounts():
 
     print('loading station: ', station)
     database.save_meta(identifier=dimp.ID(s001_id), meta=dimp.Meta(s001_meta))
-    database.accounts[station.identifier] = station
+    # database.accounts[station.identifier] = station
+    database.retain_account(station)
 
     # scan all metas
     directory = database.base_dir + 'public'
@@ -131,18 +138,20 @@ def load_accounts():
                 # no need to check meta again
             meta = dimp.Meta(json_dict(data))
             identifier = meta.generate_identifier(network=dimp.NetworkID.Main)
-            if identifier in database.accounts:
+            if database.account(identifier=identifier):
                 # already exists
                 continue
             if path.endswith(identifier.address + '/meta.js'):
                 # address matched
-                sk = database.load_private_key(identifier=identifier)
+                sk = database.private_key(identifier=identifier)
                 if sk:
                     user = dimp.User(identifier=identifier, private_key=sk)
-                    database.accounts[identifier] = user
+                    # database.accounts[identifier] = user
+                    database.retain_account(user)
                 else:
-                    account = dimp.Account(identifier=identifier, public_key=meta.key)
-                    database.accounts[identifier] = account
+                    account = dimp.Account(identifier=identifier)
+                    # database.accounts[identifier] = account
+                    database.retain_account(account)
 
     print('======== loaded')
 
@@ -155,4 +164,4 @@ def load_accounts():
 transceiver = dimp.Transceiver(identifier=station.identifier,
                                private_key=station.privateKey,
                                barrack=database,
-                               store=database)
+                               key_store=database)
