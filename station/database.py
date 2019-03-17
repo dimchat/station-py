@@ -147,7 +147,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             file.write(json_str(content))
         print('profile write into file: ', path)
         # update memory cache
-        return self.retain_profile(profile=json_dict(profile), identifier=identifier)
+        return self.retain_profile(profile=content, identifier=identifier)
 
     def profile(self, identifier: dimp.ID) -> dict:
         profile = super().profile(identifier=identifier)
