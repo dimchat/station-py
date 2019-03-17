@@ -174,7 +174,7 @@ class RequestHandler(BaseRequestHandler):
             self.request.sendall(data)
         else:
             print('!!! error:', pack)
-            self.request.sendall(pack)
+            # self.request.sendall(pack)
 
     def process_message(self, pack: bytes):
         # decode the JsON string to dictionary

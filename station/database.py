@@ -101,7 +101,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 file.write(json_str(meta))
             print('meta write into file: ', path)
         # update memory cache
-        return super().save_meta(meta=meta, identifier=identifier)
+        return super().retain_meta(meta=meta, identifier=identifier)
 
     def meta(self, identifier: dimp.ID) -> dimp.Meta:
         meta = super().meta(identifier=identifier)
@@ -147,7 +147,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             file.write(json_str(content))
         print('profile write into file: ', path)
         # update memory cache
-        return self.save_profile(profile=json_dict(profile), identifier=identifier)
+        return self.retain_profile(profile=json_dict(profile), identifier=identifier)
 
     def profile(self, identifier: dimp.ID) -> dict:
         profile = super().profile(identifier=identifier)
@@ -187,7 +187,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 file.write(json_str(private_key))
             print('private key write into file: ', path)
         # update memory cache
-        super().save_private_key(private_key=private_key, identifier=identifier)
+        super().retain_private_key(private_key=private_key, identifier=identifier)
         return True
 
     def private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
@@ -214,7 +214,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if key is not None:
             return key
         key = dimp.SymmetricKey.generate({'algorithm': 'AES'})
-        self.save_key(key=key, sender=sender, receiver=receiver, group=group)
+        self.retain_cipher_key(key=key, sender=sender, receiver=receiver, group=group)
         return key
 
     """
