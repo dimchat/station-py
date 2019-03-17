@@ -55,6 +55,7 @@ session_server = SessionServer()
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
 database = Database()
+# database.base_dir = '/data/.dim/'
 
 
 class Station(dimp.Station):

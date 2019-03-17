@@ -187,9 +187,7 @@ class MessageProcessor:
             raise ValueError('keywords not found')
         # search for each keyword
         keywords = keywords.split(' ')
-        results = None
-        for keyword in keywords:
-            results = database.search(keyword=keyword, accounts=results)
+        results = database.search(keywords=keywords)
         # response
         users = list(results.keys())
         response = dimp.CommandContent.new(command='search')

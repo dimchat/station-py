@@ -224,21 +224,29 @@ class Database(dimp.Barrack, dimp.KeyStore):
         Search accounts by the 'Search Number'
     """
 
-    def search(self, keyword: str, accounts: dict=None) -> dict:
-        if accounts is None:
-            accounts = self.accounts
+    def search(self, keywords: list) -> dict:
         results = {}
-        for identifier in accounts:
+        max_count = 20
+        for identifier in self.accounts:
             identifier = dimp.ID(identifier)
             network = identifier.address.network
             if not network.is_person() and not network.is_group():
                 # ignore
                 continue
-            if identifier.find(keyword) < 0 and str(identifier.number).find(keyword) < 0:
-                # not match
+            match = True
+            for kw in keywords:
+                if identifier.find(kw) < 0 and str(identifier.number).find(kw) < 0:
+                    # not match
+                    match = False
+                    break
+            if not match:
                 continue
             # got it
             meta = self.meta(identifier)
             if meta:
                 results[identifier] = meta
+                # force to stop
+                max_count = max_count-1
+                if max_count <= 0:
+                    break
         return results
