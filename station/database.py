@@ -101,7 +101,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 file.write(json_str(meta))
             print('meta write into file: ', path)
         # update memory cache
-        return super().retain_meta(meta=meta, identifier=identifier)
+        return self.cache_meta(meta=meta, identifier=identifier)
 
     def meta(self, identifier: dimp.ID) -> dimp.Meta:
         meta = super().meta(identifier=identifier)
@@ -114,7 +114,10 @@ class Database(dimp.Barrack, dimp.KeyStore):
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check meta again
-                return dimp.Meta(json_dict(data))
+                meta = dimp.Meta(json_dict(data))
+                # update memory cache
+                self.cache_meta(meta=meta, identifier=identifier)
+                return meta
 
     """
         Profile for Accounts
@@ -147,12 +150,12 @@ class Database(dimp.Barrack, dimp.KeyStore):
             file.write(json_str(content))
         print('profile write into file: ', path)
         # update memory cache
-        return self.retain_profile(profile=content, identifier=identifier)
+        return self.cache_profile(profile=content, identifier=identifier)
 
     def profile(self, identifier: dimp.ID) -> dict:
-        profile = super().profile(identifier=identifier)
-        if profile is not None:
-            return profile
+        content = super().profile(identifier=identifier)
+        if content is not None:
+            return content
         # load from local storage
         directory = self.directory('public', identifier)
         path = directory + '/profile.js'
@@ -160,7 +163,10 @@ class Database(dimp.Barrack, dimp.KeyStore):
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check signature again
-                return json_dict(data)
+                content = json_dict(data)
+                # update memory cache
+                self.cache_profile(profile=content, identifier=identifier)
+                return content
 
     """
         Private Key file for Users
@@ -187,7 +193,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 file.write(json_str(private_key))
             print('private key write into file: ', path)
         # update memory cache
-        super().retain_private_key(private_key=private_key, identifier=identifier)
+        self.cache_private_key(private_key=private_key, identifier=identifier)
         return True
 
     def private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
@@ -200,7 +206,10 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                return dimp.PrivateKey(json_dict(data))
+                sk = dimp.PrivateKey(json_dict(data))
+                # update memory cache
+                self.cache_private_key(private_key=sk, identifier=identifier)
+                return sk;
 
     """
         Key Store
@@ -209,13 +218,54 @@ class Database(dimp.Barrack, dimp.KeyStore):
         Memory cache for reused passwords (symmetric key)
     """
 
-    def cipher_key(self, sender: str = None, receiver: str = None, group: str = None) -> dict:
-        key = super().cipher_key(sender=sender, receiver=receiver, group=group)
+    def cipher_key(self, sender: dimp.ID, receiver: dimp.ID) -> dimp.SymmetricKey:
+        key = super().cipher_key(sender=sender, receiver=receiver)
         if key is not None:
             return key
+        # create a new key & save it into the Key Store
         key = dimp.SymmetricKey.generate({'algorithm': 'AES'})
-        self.retain_cipher_key(key=key, sender=sender, receiver=receiver, group=group)
+        self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
         return key
+
+    def flush(self):
+        if self.dirty is False or self.user is None:
+            return
+        # write key table to persistent storage
+        directory = self.directory('public', self.user.identifier)
+        path = directory + '/keystore.js'
+        with open(path, 'w') as file:
+            file.write(self.key_table)
+        print('keystore write into file: ', path)
+        self.dirty = False
+
+    def key_exists(self, sender_address: str, receiver_address: str) -> bool:
+        key_map = self.key_table.get(sender_address)
+        if key_map is None:
+            return False
+        return receiver_address in key_map
+
+    def reload(self) -> bool:
+        if self.user is None:
+            return False
+        # load key table from persistent storage
+        directory = self.directory('public', self.user.identifier)
+        path = directory + '/keystore.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+                dict1 = json_dict(data)
+                for key1 in dict1:
+                    # key_table[sender.address] -> key_map
+                    key_map = self.key_table.get(key1)
+                    if key_map is None:
+                        key_map = {}
+                        self.key_table[key1] = key_map
+                    dict2 = dict1.get(key1)
+                    for key2 in dict2:
+                        # key_map[receiver.address] -> key
+                        key = dict2.get(key2)
+                        # update memory cache
+                        key_map[key2] = dimp.SymmetricKey(key)
 
     """
         Search Engine

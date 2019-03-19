@@ -124,7 +124,7 @@ def load_accounts():
     print('loading station: ', station)
     database.save_meta(identifier=dimp.ID(s001_id), meta=dimp.Meta(s001_meta))
     # database.accounts[station.identifier] = station
-    database.retain_account(station)
+    database.cache_account(station)
 
     # scan all metas
     directory = database.base_dir + 'public'
@@ -148,11 +148,11 @@ def load_accounts():
                 if sk:
                     user = dimp.User(identifier=identifier, private_key=sk)
                     # database.accounts[identifier] = user
-                    database.retain_account(user)
+                    database.cache_account(user)
                 else:
                     account = dimp.Account(identifier=identifier)
                     # database.accounts[identifier] = account
-                    database.retain_account(account)
+                    database.cache_account(account)
 
     print('======== loaded')
 
