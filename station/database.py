@@ -25,10 +25,11 @@
 
 import os
 import time
+import json
 
 import dimp
 
-from .utils import json_dict, json_str, base64_decode
+from .utils import base64_decode
 
 
 class Database(dimp.Barrack, dimp.KeyStore):
@@ -58,7 +59,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
         path = directory + '/' + filename + '.msg'
         with open(path, 'a') as file:
-            file.write(json_str(msg) + '\n')
+            file.write(json.dumps(msg) + '\n')
         print('msg write into file: ', path)
         return True
 
@@ -76,7 +77,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 print('read %d byte(s) from %s' % (len(data), path))
                 # ONE line ONE message, split them
                 lines = str(data).splitlines()
-                messages = [dimp.ReliableMessage(json_dict(line)) for line in lines]
+                messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
                 print('got %d message(s) for %s' % (len(messages), receiver))
                 return messages
 
@@ -98,7 +99,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             print('meta file exists: %s, update IGNORE!' % path)
         else:
             with open(path, 'w') as file:
-                file.write(json_str(meta))
+                file.write(json.dumps(meta))
             print('meta write into file: ', path)
         # update memory cache
         return self.cache_meta(meta=meta, identifier=identifier)
@@ -114,7 +115,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check meta again
-                meta = dimp.Meta(json_dict(data))
+                meta = dimp.Meta(json.loads(data))
                 # update memory cache
                 self.cache_meta(meta=meta, identifier=identifier)
                 return meta
@@ -147,7 +148,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         directory = self.directory('public', identifier)
         path = directory + '/profile.js'
         with open(path, 'w') as file:
-            file.write(json_str(content))
+            file.write(json.dumps(content))
         print('profile write into file: ', path)
         # update memory cache
         return self.cache_profile(profile=content, identifier=identifier)
@@ -163,7 +164,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check signature again
-                content = json_dict(data)
+                content = json.loads(data)
                 # update memory cache
                 self.cache_profile(profile=content, identifier=identifier)
                 return content
@@ -190,7 +191,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
             print('private key file exists: %s, update IGNORE!' % path)
         else:
             with open(path, 'w') as file:
-                file.write(json_str(private_key))
+                file.write(json.dumps(private_key))
             print('private key write into file: ', path)
         # update memory cache
         self.cache_private_key(private_key=private_key, identifier=identifier)
@@ -206,10 +207,10 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                sk = dimp.PrivateKey(json_dict(data))
+                sk = dimp.PrivateKey(json.loads(data))
                 # update memory cache
                 self.cache_private_key(private_key=sk, identifier=identifier)
-                return sk;
+                return sk
 
     """
         Key Store
@@ -253,7 +254,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                dict1 = json_dict(data)
+                dict1 = json.loads(data)
                 for key1 in dict1:
                     # key_table[sender.address] -> key_map
                     key_map = self.key_table.get(key1)
@@ -285,7 +286,7 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 continue
             match = True
             for kw in keywords:
-                if identifier.find(kw) < 0 and str(identifier.number).find(kw) < 0:
+                if identifier.find(kw) < 0 and ('%010d' % identifier.number).find(kw) < 0:
                     # not match
                     match = False
                     break

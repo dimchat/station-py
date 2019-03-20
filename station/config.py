@@ -31,6 +31,7 @@
 """
 
 import os
+import json
 
 import dimp
 
@@ -137,7 +138,7 @@ def load_accounts():
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check meta again
-            meta = dimp.Meta(json_dict(data))
+            meta = dimp.Meta(json.loads(data))
             identifier = meta.generate_identifier(network=dimp.NetworkID.Main)
             if database.account(identifier=identifier):
                 # already exists

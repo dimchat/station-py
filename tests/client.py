@@ -31,6 +31,7 @@
     Simple client for testing
 """
 
+import json
 from cmd import Cmd
 
 import socket
@@ -90,7 +91,7 @@ def receive_handler(cli):
 
                 # decode message
                 line = data.decode('utf-8')
-                cli.receive_message(json_dict(line))
+                cli.receive_message(json.loads(line))
             except UnicodeDecodeError as error:
                 print('decode error:', error)
             except ValueError as error:
@@ -158,7 +159,7 @@ class Client:
         i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
         r_msg = self.trans.encrypt_sign(i_msg)
         # send out message
-        pack = json_str(r_msg) + '\n'
+        pack = json.dumps(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
@@ -211,10 +212,10 @@ class Client:
             print('##### received search response')
             if 'users' in content:
                 users = content['users']
-                print('      users:', json_str(users))
+                print('      users:', json.dumps(users))
             if 'results' in content:
                 results = content['results']
-                print('      results:', json_str(results))
+                print('      results:', json.dumps(results))
         else:
             print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
 
@@ -341,7 +342,7 @@ class Console(Cmd):
             identifier = dimp.ID(name)
         elif name.startswith('{') and name.endswith('}'):
             identifier = client.user.identifier
-            profile = json_dict(name)
+            profile = json.loads(name)
         else:
             print('I don\'t understand.')
             return

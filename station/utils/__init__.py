@@ -33,7 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from dkd.transform import json_dict, json_str, base64_encode, base64_decode
+from dkd.transform import base64_encode, base64_decode
 
 from .hex import hex_encode, hex_decode
 
@@ -43,7 +43,7 @@ from mkm.immortals import hulk_id, hulk_pk, hulk_sk, hulk_meta, hulk
 
 
 __all__ = [
-    'json_dict', 'json_str', 'base64_encode', 'base64_decode',
+    'base64_encode', 'base64_decode',
     'hex_encode', 'hex_decode',
 
     'moki_id', 'moki_pk', 'moki_sk', 'moki_meta', 'moki',

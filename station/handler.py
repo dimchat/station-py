@@ -23,11 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
+import json
 from socketserver import BaseRequestHandler
 
 import dimp
 
-from .utils import json_str, json_dict
 from .config import station, session_server
 from .processor import MessageProcessor
 from .mars import NetMsgHead, NetMsg
@@ -148,7 +148,7 @@ class RequestHandler(BaseRequestHandler):
                     continue
                 response = self.process_message(line)
                 if response:
-                    msg = json_str(response) + '\n'
+                    msg = json.dumps(response) + '\n'
                     body = body + msg.encode('utf-8')
             if body:
                 data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
@@ -169,7 +169,7 @@ class RequestHandler(BaseRequestHandler):
     def handle_raw_package(self, pack: bytes):
         response = self.process_message(pack)
         if response:
-            msg = json_str(response) + '\n'
+            msg = json.dumps(response) + '\n'
             data = msg.encode('utf-8')
             self.request.sendall(data)
         else:
@@ -180,7 +180,7 @@ class RequestHandler(BaseRequestHandler):
         # decode the JsON string to dictionary
         #    if the msg data error, raise ValueError.
         try:
-            msg = json_dict(pack.decode('utf-8'))
+            msg = json.loads(pack.decode('utf-8'))
             msg = dimp.ReliableMessage(msg)
             res = self.processor.process(msg)
             if res:
@@ -192,7 +192,7 @@ class RequestHandler(BaseRequestHandler):
             print('!!! receive message package: %s, error:%s' % (pack, error))
 
     def push_mars_message(self, msg: dimp.ReliableMessage):
-        data = json_str(msg) + '\n'
+        data = json.dumps(msg) + '\n'
         body = data.encode('utf-8')
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
@@ -201,7 +201,7 @@ class RequestHandler(BaseRequestHandler):
         self.request.sendall(data)
 
     def push_raw_message(self, msg: dimp.ReliableMessage):
-        data = json_str(msg) + '\n'
+        data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
         print('### pushing message:', data)
         self.request.sendall(data)
