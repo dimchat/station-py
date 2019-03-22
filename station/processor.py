@@ -31,14 +31,32 @@
 """
 import dimp
 
+from .session import Session
 from .config import station, session_server, database, dispatcher, receptionist
 
 
 class MessageProcessor:
 
-    def __init__(self, handler):
+    def __init__(self, request_handler):
         super().__init__()
-        self.handler = handler
+        self.request_handler = request_handler
+
+    @property
+    def client_address(self) -> str:
+        return self.request_handler.client_address
+
+    @property
+    def identifier(self) -> dimp.ID:
+        return self.request_handler.identifier
+
+    def session_valid(self, identifier: dimp.ID) -> bool:
+        return self.request_handler.session_valid(identifier=identifier)
+
+    def clear_session(self):
+        self.request_handler.clear_session()
+
+    def reset_session(self, identifier: dimp.ID, session_key: str) -> Session:
+        return self.request_handler.reset_session(identifier=identifier, session_key=session_key)
 
     """
         main entrance
@@ -58,19 +76,19 @@ class MessageProcessor:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
             content = station.decrypt(s_msg)
             if content.type == dimp.MessageType.Command:
-                print('*** command from client (%s:%s)...' % self.handler.client_address)
+                print('*** command from client (%s:%s)...' % self.client_address)
                 print('    content: %s' % content)
                 return self.process_command(sender=sender, content=content)
             else:
                 # TEST: response client with the same message
-                print('*** message from client (%s:%s)...' % self.handler.client_address)
+                print('*** message from client (%s:%s)...' % self.client_address)
                 print('    content: %s' % content)
                 return content
-        elif not session_server.valid(sender, self.handler):
+        elif not self.session_valid(identifier=sender):
             # session invalid, handshake first
             #    NOTICE: if the client try to send message to another user before handshake,
             #            the message will be lost!
-            print('*** handshake with client (%s:%s)...' % self.handler.client_address)
+            print('*** handshake with client (%s:%s)...' % self.client_address)
             return self.process_handshake_command(sender)
         else:
             # save(deliver) message for other users
@@ -97,20 +115,23 @@ class MessageProcessor:
             print('Unknown command: ', content)
 
     def process_handshake_command(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+        # 1. clear current session
+        self.clear_session()
+        # 2. set/update session in session server with new session key
         if content and 'session' in content:
             session_key = content['session']
         else:
             session_key = None
-        current = session_server.session(identifier=identifier)
-        if session_key == current.session_key:
+        session = self.reset_session(identifier=identifier, session_key=session_key)
+        if session.valid:
             # session verified success
-            print('connect current request to session', identifier, self.handler.client_address)
+            print('connect current request to session', identifier, self.client_address)
+            # add the new guest for checking offline messages
             receptionist.add_guest(identifier=identifier)
-            self.handler.identifier = identifier
-            current.request_handler = self.handler
             return dimp.HandshakeCommand.success()
         else:
-            return dimp.HandshakeCommand.again(session=current.session_key)
+            # session key not match, ask client to sign it with the new session key
+            return dimp.HandshakeCommand.again(session=session.session_key)
 
     def process_meta_command(self, content: dimp.Content) -> dimp.Content:
         cmd = dimp.MetaCommand(content)
@@ -119,7 +140,7 @@ class MessageProcessor:
         if meta:
             # received a meta for ID
             meta = dimp.Meta(meta)
-            print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
+            print('received meta for %s from %s ...' % (identifier, self.identifier))
             if database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 response = dimp.CommandContent.new(command='receipt')
@@ -130,7 +151,7 @@ class MessageProcessor:
                 return dimp.TextContent.new(text='Meta not match %s!' % identifier)
         else:
             # querying meta for ID
-            print('search meta of %s for %s ...' % (identifier, self.handler.identifier))
+            print('search meta of %s for %s ...' % (identifier, self.identifier))
             meta = database.meta(identifier=identifier)
             if meta:
                 return dimp.MetaCommand.response(identifier=identifier, meta=meta)
@@ -142,7 +163,7 @@ class MessageProcessor:
         if 'meta' in content:
             meta = content['meta']
             meta = dimp.Meta(meta)
-            print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
+            print('received meta for %s from %s ...' % (identifier, self.identifier))
             if database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 print('meta saved for %s.' % identifier)
@@ -150,7 +171,7 @@ class MessageProcessor:
                 print('meta not match %s!' % identifier)
         if 'profile' in content:
             # received a new profile for ID
-            print('received profile for %s from %s ...' % (identifier, self.handler.identifier))
+            print('received profile for %s from %s ...' % (identifier, self.identifier))
             profile = content['profile']
             signature = content['signature']
             if database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
@@ -163,7 +184,7 @@ class MessageProcessor:
                 return dimp.TextContent.new(text='Profile signature not match %s!' % identifier)
         else:
             # querying profile for ID
-            print('search profile of %s for %s ...' % (identifier, self.handler.identifier))
+            print('search profile of %s for %s ...' % (identifier, self.identifier))
             info = database.profile(identifier=identifier)
             if info:
                 prf = info['profile']
@@ -173,16 +194,16 @@ class MessageProcessor:
                 return dimp.TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
     def process_users_command(self) -> dimp.Content:
-        print('get online user(s) for %s ...' % self.handler.identifier)
-        sessions = session_server.sessions.copy()
-        users = [identifier for identifier in sessions if sessions[identifier].request_handler]
+        print('get online user(s) for %s ...' % self.identifier)
+        sessions = session_server.valid_sessions()
+        users = [sess.identifier for sess in sessions]
         response = dimp.CommandContent.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
         return response
 
     def process_search_command(self, content: dimp.Content) -> dimp.Content:
-        print('search for %s ...' % self.handler.identifier)
+        print('search for %s ...' % self.identifier)
         # keywords
         if 'keywords' in content:
             keywords = content['keywords']
@@ -204,7 +225,7 @@ class MessageProcessor:
         return response
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        print('%s send message from %s to %s' % (self.handler.identifier, msg.envelope.sender, msg.envelope.receiver))
+        print('%s send message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))
         dispatcher.deliver(msg)
         # response to sender
         response = dimp.CommandContent.new(command='receipt')

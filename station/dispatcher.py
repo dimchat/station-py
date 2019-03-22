@@ -43,13 +43,17 @@ class Dispatcher:
         self.session_server: SessionServer = None
         self.database: Database = None
 
-    def deliver(self, msg: dimp.ReliableMessage):
+    def deliver(self, msg: dimp.ReliableMessage) -> bool:
         receiver = msg.envelope.receiver
         receiver = dimp.ID(receiver)
         handler = self.session_server.request_handler(identifier=receiver)
         if handler:
-            print('Dispatcher: %s is online, push message: %s' % (receiver, msg))
-            handler.push_message(msg)
-        else:
-            print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
-            self.database.store_message(msg)
+            identifier = handler.identifier
+            if identifier == receiver and handler.session_valid(identifier=handler.identifier):
+                print('Dispatcher: %s is online, push message: %s' % (receiver, msg))
+                handler.push_message(msg)
+                return True
+        # store in local cache file
+        print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
+        self.database.store_message(msg)
+        return False

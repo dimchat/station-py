@@ -36,6 +36,7 @@ import dimp
 
 from .mars import NetMsgHead, NetMsg
 from .processor import MessageProcessor
+from .session import Session
 
 from .config import station, session_server
 
@@ -46,22 +47,46 @@ class RequestHandler(BaseRequestHandler):
         super().__init__(request=request, client_address=client_address, server=server)
         # message processor
         self.processor = None
-        # remote user ID
-        self.identifier = None
+        # current session (with identifier as remote user ID)
+        self.session = None
+
+    def clear_session(self):
+        if self.session:
+            session_server.clear_session(session=self.session)
+            self.session = None
+
+    def reset_session(self, identifier: dimp.ID, session_key: str) -> Session:
+        sess = session_server.reset_session(identifier=identifier, session_key=session_key, request_handler=self)
+        if sess.valid:
+            self.session = sess
+        else:
+            self.session = None
+        return sess
+
+    def session_valid(self, identifier: dimp.ID=None) -> bool:
+        if self.session is None:
+            return False
+        if self.session.identifier != identifier:
+            raise AssertionError('session ID error: %s != %s' % (self.session.identifier, identifier))
+        return session_server.valid(identifier=identifier, request_handler=self)
+
+    @property
+    def identifier(self) -> dimp.ID:
+        if self.session:
+            return self.session.identifier
 
     def setup(self):
         print(self, 'set up with', self.client_address)
-        self.processor = MessageProcessor(handler=self)
-        self.identifier = None
+        self.processor = MessageProcessor(request_handler=self)
+        self.session = None
 
     def finish(self):
-        if self.identifier:
+        if self.session:
             print('disconnect current request from session', self.identifier, self.client_address)
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
-            current = session_server.session(identifier=self.identifier)
-            current.request_handler = None
+            self.clear_session()
         print(self, 'finish', self.client_address)
 
     """
