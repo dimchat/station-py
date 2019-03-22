@@ -61,27 +61,30 @@ class Receptionist(Thread):
         return self.session_server.request_handler(identifier=identifier)
 
     def run(self):
-        print('scanning session(s)...')
+        print('starting receptionist...')
         while self.station.running:
             try:
                 identifier = self.any_guest()
                 if identifier:
+                    print('receptionist: checking session for new guest %s' % identifier)
                     handler = self.request_handler(identifier=identifier)
                     if handler:
+                        print('receptionist: %s is connected, scanning messages for it' % identifier)
                         # this guest is connected, scan messages for it
                         messages = self.database.load_messages(identifier)
                         if messages:
+                            print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
                             for msg in messages:
                                 handler.push_message(msg)
             except IOError as error:
-                print('session scanning IO error:', error)
+                print('receptionist IO error:', error)
             except JSONDecodeError as error:
-                print('session scanning decode error:', error)
+                print('receptionist decode error:', error)
             except TypeError as error:
-                print('session scanning type error:', error)
+                print('receptionist type error:', error)
             except ValueError as error:
-                print('session scanning value error:', error)
+                print('receptionist value error:', error)
             finally:
                 # sleep 1 second for next loop
                 sleep(1.0)
-        print('session scanner stopped!')
+        print('receptionist exit!')
