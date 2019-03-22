@@ -52,11 +52,6 @@ class Receptionist(Thread):
     def add_guest(self, identifier: dimp.ID):
         self.guests.append(identifier)
 
-    def any_guest(self) -> dimp.ID:
-        identifier = self.guests.pop()
-        if identifier:
-            return dimp.ID(identifier)
-
     def request_handler(self, identifier: dimp.ID):
         return self.session_server.request_handler(identifier=identifier)
 
@@ -64,8 +59,8 @@ class Receptionist(Thread):
         print('starting receptionist...')
         while self.station.running:
             try:
-                identifier = self.any_guest()
-                if identifier:
+                guests = self.guests.copy()
+                for identifier in guests:
                     print('receptionist: checking session for new guest %s' % identifier)
                     handler = self.request_handler(identifier=identifier)
                     if handler:
@@ -76,6 +71,12 @@ class Receptionist(Thread):
                             print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
                             for msg in messages:
                                 handler.push_message(msg)
+                        else:
+                            print('receptionist: no message for this guest, remove it: %s' % identifier)
+                            self.guests.remove(identifier)
+                    else:
+                        print('receptionist: guest not connect, remove it: %s' % identifier);
+                        self.guests.remove(identifier)
             except IOError as error:
                 print('receptionist IO error:', error)
             except JSONDecodeError as error:

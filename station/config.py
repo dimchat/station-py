@@ -132,7 +132,7 @@ station = Station(identifier=station_id, host=station_host, port=station_port)
 station.privateKey = station_sk
 station.delegate = database
 station.transceiver = transceiver
-station.running = False
+station.running = True
 
 
 """

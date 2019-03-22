@@ -48,8 +48,6 @@ from station.handler import RequestHandler
 if __name__ == '__main__':
     load_accounts()
 
-    station.running = True
-
     # start TCP Server
     try:
         TCPServer.allow_reuse_address = True
