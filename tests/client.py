@@ -47,7 +47,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from station.config import station, database
-from station.config import load_accounts
+from station.config import load_accounts, remote_host, remote_port
 from station.utils import *
 
 
@@ -356,10 +356,6 @@ class Console(Cmd):
 
 if __name__ == '__main__':
     load_accounts()
-
-    remote_host = '127.0.0.1'
-    # remote_host = '124.156.108.150'  # dim.chat
-    remote_port = 9394
 
     client = Client(identifier=moki.identifier)
     client.connect(host=remote_host, port=remote_port)

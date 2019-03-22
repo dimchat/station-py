@@ -98,7 +98,7 @@ database = Database()
 """
     Session Server
     ~~~~~~~~~~~~~~
-    
+
     for login user
 """
 session_server = SessionServer()
@@ -107,7 +107,7 @@ session_server = SessionServer()
 """
     Transceiver
     ~~~~~~~~~~~
-    
+
     for pack/unpack messages
 """
 transceiver = dimp.Transceiver(identifier=station_id,
@@ -119,7 +119,7 @@ transceiver = dimp.Transceiver(identifier=station_id,
 """
     DIM Network Server
     ~~~~~~~~~~~~~~~~~~
-    
+
     1. ID
     2. Private Key
     3. Host (IP)
@@ -128,11 +128,15 @@ transceiver = dimp.Transceiver(identifier=station_id,
 station_host = '0.0.0.0'
 station_port = 9394
 
+remote_host = '127.0.0.1'
+# remote_host = '124.156.108.150'  # dim.chat
+remote_port = station_port
+
 station = Station(identifier=station_id, host=station_host, port=station_port)
 station.privateKey = station_sk
 station.delegate = database
 station.transceiver = transceiver
-station.running = True
+station.running = False
 
 
 """
@@ -145,7 +149,6 @@ receptionist = Receptionist()
 receptionist.database = database
 receptionist.session_server = session_server
 receptionist.station = station
-receptionist.start()
 
 
 """
@@ -172,7 +175,7 @@ def load_accounts():
 
     print('loading station: ', station_id)
     database.cache_meta(identifier=station_id, meta=station_meta)
-    # database.accounts[station.identifier] = station
+    database.cache_private_key(identifier=station_id, private_key=station_sk)
     database.cache_account(station)
 
     # scan all metas

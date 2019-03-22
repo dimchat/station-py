@@ -75,7 +75,7 @@ class Receptionist(Thread):
                             print('receptionist: no message for this guest, remove it: %s' % identifier)
                             self.guests.remove(identifier)
                     else:
-                        print('receptionist: guest not connect, remove it: %s' % identifier);
+                        print('receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
             except IOError as error:
                 print('receptionist IO error:', error)

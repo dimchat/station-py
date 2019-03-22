@@ -40,20 +40,23 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import station
-from station.config import load_accounts
 from station.handler import RequestHandler
+from station.config import station, receptionist
+from station.config import station_host, station_port, load_accounts
 
 
 if __name__ == '__main__':
     load_accounts()
 
+    station.running = True
+    receptionist.start()
+
     # start TCP Server
     try:
         TCPServer.allow_reuse_address = True
-        server = ThreadingTCPServer(server_address=(station.host, station.port),
+        server = ThreadingTCPServer(server_address=(station_host, station_port),
                                     RequestHandlerClass=RequestHandler)
-        print('server (%s:%s) is listening...' % (station.host, station.port))
+        print('server (%s:%s) is listening...' % (station_host, station_port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
         print('~~~~~~~~', ex)
