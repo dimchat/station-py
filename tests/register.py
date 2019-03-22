@@ -35,8 +35,6 @@ import unittest
 
 import dimp
 
-from mkm.utils import base64_encode
-
 import sys
 import os
 
@@ -44,6 +42,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from station.utils import base64_encode
 from station.database import Database
 
 
@@ -58,25 +57,33 @@ class AccountTestCase(unittest.TestCase):
         print('\n---------------- %s' % self)
 
         #
-        #  register parameters
+        #  prepare register parameters
         #
+        cmd = 2
+        if cmd == 1:
+            # generate SP
+            seed = 'gsp'
+            prefix = 400
+            suffix = 0
+            network = dimp.NetworkID.Provider
+            print('*** registering SP (%s) with number prefix: %d' % (seed, prefix))
+        elif cmd == 2:
+            # generate Station
+            seed = 'gsp-s002'
+            prefix = 110
+            suffix = 0
+            network = dimp.NetworkID.Station
+            print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
+        else:
+            # generate User
+            seed = 'moky'
+            prefix = 0
+            suffix = 9527
+            network = dimp.NetworkID.Main
+            print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
 
-        seed = 'moky'
-        prefix = 0
-        suffix = 9527
-        network = dimp.NetworkID.Main
-
-        print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
-
-        # seed = 'gsp-s002'
-        # prefix = 110
-        # suffix = 0
-        # network = dimp.NetworkID.Station
-        #
-        # print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
-
+        # seed
         data = seed.encode('utf-8')
-        sk: dimp.PrivateKey = None
 
         for index in range(0, 10000):
 
@@ -118,8 +125,8 @@ class AccountTestCase(unittest.TestCase):
                 print('**** private key:\n', sk)
 
                 database = Database()
-                database.save_meta(identifier=id1, meta=meta)
-                database.save_private_key(identifier=id1, private_key=sk)
+                database.cache_meta(identifier=id1, meta=meta)
+                database.cache_private_key(identifier=id1, private_key=sk)
                 break
 
 

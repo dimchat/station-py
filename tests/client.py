@@ -198,7 +198,7 @@ class Client:
             if cmd.meta:
                 print('##### received a meta for %s' % cmd.identifier)
                 identifier = dimp.ID(cmd.identifier)
-                database.save_meta(identifier=identifier, meta=cmd.meta)
+                database.cache_meta(identifier=identifier, meta=cmd.meta)
         elif 'profile' == command:
             cmd = dimp.ProfileCommand(content)
             if cmd.profile:
@@ -357,13 +357,12 @@ class Console(Cmd):
 if __name__ == '__main__':
     load_accounts()
 
-    host = '127.0.0.1'
-    # host = '149.129.93.227'  # selvn
-    # host = '124.156.108.150'  # dimchat
-    port = 9394
+    remote_host = '127.0.0.1'
+    # remote_host = '124.156.108.150'  # dim.chat
+    remote_port = 9394
 
     client = Client(identifier=moki.identifier)
-    client.connect(host=host, port=port)
+    client.connect(host=remote_host, port=remote_port)
 
     console = Console()
     console.receiver = station.identifier

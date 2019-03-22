@@ -23,14 +23,21 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Request Handler
+    ~~~~~~~~~~~~~~~
+
+    Handler for each connection
+"""
 import json
 from socketserver import BaseRequestHandler
 
 import dimp
 
-from .config import station, session_server
-from .processor import MessageProcessor
 from .mars import NetMsgHead, NetMsg
+from .processor import MessageProcessor
+
+from .config import station, session_server
 
 
 class RequestHandler(BaseRequestHandler):

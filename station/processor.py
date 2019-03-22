@@ -23,9 +23,15 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Message Processor
+    ~~~~~~~~~~~~~~~~~
+
+    Message processor for Request Handler
+"""
 import dimp
 
-from .config import station, session_server, database
+from .config import station, session_server, database, dispatcher, receptionist
 
 
 class MessageProcessor:
@@ -97,8 +103,9 @@ class MessageProcessor:
             session_key = None
         current = session_server.session(identifier=identifier)
         if session_key == current.session_key:
-            # session verified
+            # session verified success
             print('connect current request to session', identifier, self.handler.client_address)
+            receptionist.add_guest(identifier=identifier)
             self.handler.identifier = identifier
             current.request_handler = self.handler
             return dimp.HandshakeCommand.success()
@@ -113,7 +120,7 @@ class MessageProcessor:
             # received a meta for ID
             meta = dimp.Meta(meta)
             print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
-            if database.save_meta(identifier=identifier, meta=meta):
+            if database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 response = dimp.CommandContent.new(command='receipt')
                 response['message'] = 'Meta for %s received!' % identifier
@@ -136,7 +143,7 @@ class MessageProcessor:
             meta = content['meta']
             meta = dimp.Meta(meta)
             print('received meta for %s from %s ...' % (identifier, self.handler.identifier))
-            if database.save_meta(identifier=identifier, meta=meta):
+            if database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 print('meta saved for %s.' % identifier)
             else:
@@ -197,8 +204,9 @@ class MessageProcessor:
         return response
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        print('%s sent message from %s to %s' % (self.handler.identifier, msg.envelope.sender, msg.envelope.receiver))
-        database.store_message(msg)
+        print('%s send message from %s to %s' % (self.handler.identifier, msg.envelope.sender, msg.envelope.receiver))
+        dispatcher.deliver(msg)
+        # response to sender
         response = dimp.CommandContent.new(command='receipt')
         response['message'] = 'Message delivering'
         response['signature'] = msg['signature']

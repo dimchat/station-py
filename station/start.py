@@ -32,9 +32,6 @@
 """
 
 from socketserver import TCPServer, ThreadingTCPServer
-from threading import Thread
-from time import sleep
-from json import JSONDecodeError
 
 import sys
 import os
@@ -43,54 +40,15 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.config import database, session_server, station
+from station.config import station
 from station.config import load_accounts
 from station.handler import RequestHandler
-
-
-class SessionScanningThread(Thread):
-
-    def __init__(self, ss, db):
-        super().__init__()
-        self.session_server = ss
-        self.database = db
-
-    def run(self):
-        print('scanning session(s)...')
-        while station.running:
-            try:
-                # scan session(s)
-                sessions = self.session_server.sessions.copy()
-                for identifier in sessions:
-                    request_handler = sessions[identifier].request_handler
-                    if request_handler:
-                        # if session connected, scan messages for it
-                        messages = self.database.load_messages(identifier)
-                        if messages:
-                            for msg in messages:
-                                request_handler.push_message(msg)
-            except IOError as error:
-                print('session scanning IO error:', error)
-            except JSONDecodeError as error:
-                print('session scanning decode error:', error)
-            except TypeError as error:
-                print('session scanning type error:', error)
-            except ValueError as error:
-                print('session scanning value error:', error)
-            finally:
-                # sleep 1 second for next loop
-                sleep(1.0)
-        print('session scanner stopped!')
 
 
 if __name__ == '__main__':
     load_accounts()
 
     station.running = True
-
-    # start Session Scanning thread
-    scanner = SessionScanningThread(session_server, database)
-    scanner.start()
 
     # start TCP Server
     try:

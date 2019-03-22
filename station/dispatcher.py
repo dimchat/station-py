@@ -24,53 +24,32 @@
 # ==============================================================================
 
 """
-    Session Server
-    ~~~~~~~~~~~~~~
+    Message Dispatcher
+    ~~~~~~~~~~~~~~~~~~
 
-    for login user
+    A dispatcher to decide which way to deliver message.
 """
-
-import numpy
 
 import dimp
 
-from .utils import hex_encode
+from .session import SessionServer
+from .database import Database
 
 
-class Session:
-
-    def __init__(self, identifier: dimp.ID):
-        super().__init__()
-        self.identifier = identifier
-        self.request_handler = None
-        self.session_key: str = hex_encode(bytes(numpy.random.bytes(32)))
-
-
-class SessionServer:
+class Dispatcher:
 
     def __init__(self):
         super().__init__()
-        self.sessions = {}
+        self.session_server: SessionServer = None
+        self.database: Database = None
 
-    def session(self, identifier: dimp.ID) -> Session:
-        sess = self.sessions.get(identifier)
-        if sess is None:
-            sess = Session(identifier=identifier)
-            self.sessions[identifier] = sess
-        return sess
-
-    def valid(self, identifier: dimp.ID, request_handler) -> bool:
-        if identifier not in self.sessions:
-            return False
-        sess = self.sessions[identifier]
-        return sess.request_handler == request_handler
-
-    def request_handler(self, identifier: dimp.ID):
-        sess = self.sessions.get(identifier)
-        if sess:
-            return sess.request_handler
-
-    def session_key(self, identifier: dimp.ID) -> str:
-        sess = self.sessions.get(identifier)
-        if sess:
-            return sess.session_key
+    def deliver(self, msg: dimp.ReliableMessage):
+        receiver = msg.envelope.receiver
+        receiver = dimp.ID(receiver)
+        handler = self.session_server.request_handler(identifier=receiver)
+        if handler:
+            print('Dispatcher: %s is online, push message: %s' % (receiver, msg))
+            handler.push_message(msg)
+        else:
+            print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
+            self.database.store_message(msg)

@@ -36,57 +36,84 @@ import json
 import dimp
 
 from .session import SessionServer
+from .receptionist import Receptionist
+from .dispatcher import Dispatcher
 from .database import Database
 
 from .utils import *
-from .gsp_s001 import *
+from .gsp_s001 import s001_id, s001_sk, s001_meta
+
+# gsp station-001
+station_id = dimp.ID(s001_id)
+station_sk = dimp.PrivateKey(s001_sk)
+station_meta = dimp.Meta(s001_meta)
 
 
-"""
-    Session Server
-    ~~~~~~~~~~~~~~
-    for login user
-"""
-session_server = SessionServer()
+class Station(dimp.Station):
+
+    def __init__(self, identifier: dimp.ID, host: str, port: int=9394):
+        super().__init__(identifier=identifier, host=host, port=port)
+        self.transceiver: dimp.Transceiver = None
+        self.running = False
+
+    def pack(self, receiver: dimp.ID, content: dimp.Content) -> dimp.ReliableMessage:
+        """ Pack message from this station """
+        env = dimp.Envelope(sender=self.identifier, receiver=receiver)
+        i_msg = dimp.InstantMessage.new(content=content, envelope=env)
+        r_msg = self.transceiver.encrypt_sign(i_msg)
+        return r_msg
+
+    def verify(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
+        # check meta (first contact?)
+        meta = msg.meta
+        if meta is not None:
+            meta = dimp.Meta(meta)
+            identifier = dimp.ID(msg.envelope.sender)
+            # save meta for sender
+            self.delegate.cache_meta(identifier=identifier, meta=meta)
+        # message delegate
+        if msg.delegate is None:
+            msg.delegate = self.transceiver
+        return msg.verify()
+
+    def decrypt(self, msg: dimp.SecureMessage) -> dimp.Content:
+        """ Decrypt message for this station """
+        s_msg = msg.trim(self.identifier)
+        s_msg.delegate = self.transceiver
+        i_msg = s_msg.decrypt()
+        content = i_msg.content
+        return content
 
 
 """
     Database
     ~~~~~~~~
+    
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
 database = Database()
 # database.base_dir = '/data/.dim/'
 
 
-class Station(dimp.Station):
+"""
+    Session Server
+    ~~~~~~~~~~~~~~
+    
+    for login user
+"""
+session_server = SessionServer()
 
-    # def __init__(self, identifier: dimp.ID, public_key: dimp.PublicKey, host: str, port: int=9394):
-    #     super().__init__(identifier=identifier, public_key=public_key, host=host, port=port)
 
-    def pack(self, receiver: dimp.ID, content: dimp.Content) -> dimp.ReliableMessage:
-        env = dimp.Envelope(sender=self.identifier, receiver=receiver)
-        i_msg = dimp.InstantMessage.new(content=content, envelope=env)
-        r_msg = transceiver.encrypt_sign(i_msg)
-        return r_msg
-
-    def verify(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
-        meta = msg.meta
-        if meta is not None:
-            meta = dimp.Meta(meta)
-            identifier = dimp.ID(msg.envelope.sender)
-            # save meta for sender
-            database.save_meta(identifier=identifier, meta=meta)
-        if msg.delegate is None:
-            msg.delegate = transceiver
-        return msg.verify()
-
-    def decrypt(self, msg: dimp.SecureMessage) -> dimp.Content:
-        s_msg = msg.trim(self.identifier)
-        s_msg.delegate = transceiver
-        i_msg = s_msg.decrypt()
-        content = i_msg.content
-        return content
+"""
+    Transceiver
+    ~~~~~~~~~~~
+    
+    for pack/unpack messages
+"""
+transceiver = dimp.Transceiver(identifier=station_id,
+                               private_key=station_sk,
+                               barrack=database,
+                               key_store=database)
 
 
 """
@@ -98,32 +125,53 @@ class Station(dimp.Station):
     3. Host (IP)
     4. Port (9394)
 """
-host = '0.0.0.0'
-port = 9394
+station_host = '0.0.0.0'
+station_port = 9394
 
-station_id = dimp.ID(s001_id)
-station_sk = dimp.PrivateKey(s001_sk)
-station_pk = station_sk.publicKey
-
-station = Station(identifier=station_id, host=host, port=port)
+station = Station(identifier=station_id, host=station_host, port=station_port)
 station.privateKey = station_sk
 station.delegate = database
+station.transceiver = transceiver
 station.running = False
+
+
+"""
+    Station Receptionist
+    ~~~~~~~~~~~~~~~~~~~~
+
+    A message scanner for new guests who have just come in.
+"""
+receptionist = Receptionist()
+receptionist.database = database
+receptionist.session_server = session_server
+receptionist.station = station
+receptionist.start()
+
+
+"""
+    Message Dispatcher
+    ~~~~~~~~~~~~~~~~~~
+
+    A dispatcher to decide which way to deliver message.
+"""
+dispatcher = Dispatcher()
+dispatcher.session_server = session_server
+dispatcher.database = database
 
 
 def load_accounts():
     print('======== loading accounts')
 
     print('loading immortal user: ', moki_id)
-    database.save_meta(identifier=dimp.ID(moki_id), meta=dimp.Meta(moki_meta))
-    database.save_private_key(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
+    database.cache_meta(identifier=dimp.ID(moki_id), meta=dimp.Meta(moki_meta))
+    database.cache_private_key(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
 
     print('loading immortal user: ', hulk_id)
-    database.save_meta(identifier=dimp.ID(hulk_id), meta=dimp.Meta(hulk_meta))
-    database.save_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
+    database.cache_meta(identifier=dimp.ID(hulk_id), meta=dimp.Meta(hulk_meta))
+    database.cache_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
 
-    print('loading station: ', station)
-    database.save_meta(identifier=dimp.ID(s001_id), meta=dimp.Meta(s001_meta))
+    print('loading station: ', station_id)
+    database.cache_meta(identifier=station_id, meta=station_meta)
     # database.accounts[station.identifier] = station
     database.cache_account(station)
 
@@ -156,14 +204,3 @@ def load_accounts():
                     database.cache_account(account)
 
     print('======== loaded')
-
-
-"""
-    Transceiver
-    ~~~~~~~~~~~
-    for pack/unpack messages
-"""
-transceiver = dimp.Transceiver(identifier=station.identifier,
-                               private_key=station.privateKey,
-                               barrack=database,
-                               key_store=database)

@@ -23,6 +23,13 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Database
+    ~~~~~~~~
+
+    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
+"""
+
 import os
 import time
 import json
@@ -88,8 +95,8 @@ class Database(dimp.Barrack, dimp.KeyStore):
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
 
-    def save_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
-        if not meta.match_identifier(identifier):
+    def cache_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
+        if not super().cache_meta(meta=meta, identifier=identifier):
             print('meta not match %s: %s, IGNORE!' % (identifier, meta))
             return False
         # save meta as new file
@@ -101,8 +108,8 @@ class Database(dimp.Barrack, dimp.KeyStore):
             with open(path, 'w') as file:
                 file.write(json.dumps(meta))
             print('meta write into file: ', path)
-        # update memory cache
-        return self.cache_meta(meta=meta, identifier=identifier)
+        # meta cached
+        return True
 
     def meta(self, identifier: dimp.ID) -> dimp.Meta:
         meta = super().meta(identifier=identifier)
@@ -176,26 +183,21 @@ class Database(dimp.Barrack, dimp.KeyStore):
         file path: '.dim/private/{ADDRESS}/private_key.js'
     """
 
-    def save_private_key(self, private_key: dimp.PrivateKey, identifier: dimp.ID) -> bool:
-        meta = self.meta(identifier=identifier)
-        if meta is None:
-            print('meta not found: %s' % identifier)
-            return False
-        elif not meta.key.match(private_key=private_key):
-            print('private key not match %s: %s' % (identifier, private_key))
-            return False
-        # save private key as new file
-        directory = self.directory('private', identifier)
-        path = directory + '/private_key.js'
-        if os.path.exists(path):
-            print('private key file exists: %s, update IGNORE!' % path)
+    def cache_private_key(self, private_key: dimp.PrivateKey, identifier: dimp.ID) -> bool:
+        if super().cache_private_key(private_key=private_key, identifier=identifier):
+            # save private key as new file
+            directory = self.directory('private', identifier)
+            path = directory + '/private_key.js'
+            if os.path.exists(path):
+                print('private key file exists: %s, update IGNORE!' % path)
+            else:
+                with open(path, 'w') as file:
+                    file.write(json.dumps(private_key))
+                print('private key write into file: ', path)
+            return True
         else:
-            with open(path, 'w') as file:
-                file.write(json.dumps(private_key))
-            print('private key write into file: ', path)
-        # update memory cache
-        self.cache_private_key(private_key=private_key, identifier=identifier)
-        return True
+            print('cannot update private key: %s -> %s' % (private_key, identifier))
+            return False
 
     def private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
         sk = super().private_key(identifier=identifier)
