@@ -55,9 +55,11 @@ class ApplePushNotificationService:
     def push(self, identifier: str, message: str, badge: int=1) -> bool:
         tokens = self.delegate.device_tokens(identifier=identifier)
         if tokens is None:
+            print('APNs: cannot get device token for user %s' % identifier)
             return False
         success = 0
         for token in tokens:
+            print('APNs: sending notification %s to user %s with token %s' % (message, identifier, token))
             payload = Payload(alert=message, badge=badge, sound='default')
             try:
                 self.client.send_notification(token_hex=token, notification=payload, topic=self.topic)
