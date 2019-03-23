@@ -171,6 +171,7 @@ apns.delegate = database
 dispatcher = Dispatcher()
 dispatcher.session_server = session_server
 dispatcher.database = database
+dispatcher.apns = apns
 
 
 def load_accounts():
