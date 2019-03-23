@@ -60,11 +60,13 @@ class Dispatcher:
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
         self.database.store_message(msg)
         # push notification
+        account = self.database.account_create(identifier=receiver)
+        account.delegate = self.database
         sender = msg.envelope.sender
         sender = dimp.ID(sender)
-        account = dimp.Account(identifier=sender)
-        account.delegate = self.database
-        text = '%s has sent you a message.' % account.name
+        contact = self.database.account_create(identifier=sender)
+        contact.delegate = self.database
+        text = 'Dear %s: %s has sent you a message.' % (account.name, contact.name)
         # TODO: get offline messages count
         count = 1
         return self.apns.push(identifier=receiver, message=text, badge=count)

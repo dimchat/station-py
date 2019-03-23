@@ -188,7 +188,7 @@ class MessageProcessor:
         else:
             # querying profile for ID
             print('search profile of %s for %s ...' % (identifier, self.identifier))
-            info = database.profile(identifier=identifier)
+            info = database.profile_signature(identifier=identifier)
             if info:
                 prf = info['profile']
                 sig = info['signature']

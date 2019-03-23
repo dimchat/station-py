@@ -159,23 +159,31 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             file.write(json.dumps(content))
         print('profile write into file: ', path)
         # update memory cache
-        return self.cache_profile(profile=content, identifier=identifier)
+        profile = json.loads(profile)
+        return self.cache_profile(profile=profile, identifier=identifier)
 
-    def profile(self, identifier: dimp.ID) -> dict:
-        content = super().profile(identifier=identifier)
-        if content is not None:
-            return content
+    def profile_signature(self, identifier: dimp.ID) -> dict:
         # load from local storage
         directory = self.directory('public', identifier)
         path = directory + '/profile.js'
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                # no need to check signature again
                 content = json.loads(data)
-                # update memory cache
-                self.cache_profile(profile=content, identifier=identifier)
+                # no need to check signature again
                 return content
+
+    def profile(self, identifier: dimp.ID) -> dict:
+        content = super().profile(identifier=identifier)
+        if content is not None:
+            return content
+        # load from local storage
+        content = self.profile_signature(identifier=identifier)
+        if content and 'profile' in content:
+            profile = content.get('profile')
+            content = json.loads(profile)
+        self.cache_profile(profile=content, identifier=identifier)
+        return content
 
     """
         Private Key file for Users
