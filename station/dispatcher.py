@@ -34,6 +34,7 @@ import dimp
 
 from .session import SessionServer
 from .database import Database
+from .apns import ApplePushNotificationService
 
 
 class Dispatcher:
@@ -42,6 +43,7 @@ class Dispatcher:
         super().__init__()
         self.session_server: SessionServer = None
         self.database: Database = None
+        self.apns: ApplePushNotificationService = None
 
     def deliver(self, msg: dimp.ReliableMessage) -> bool:
         receiver = msg.envelope.receiver
@@ -49,6 +51,7 @@ class Dispatcher:
         handler = self.session_server.request_handler(identifier=receiver)
         if handler:
             identifier = handler.identifier
+            # if the receiver is connected, send the message to it directly
             if identifier == receiver and handler.session_valid(identifier=handler.identifier):
                 print('Dispatcher: %s is online, push message: %s' % (receiver, msg))
                 handler.push_message(msg)
@@ -56,4 +59,12 @@ class Dispatcher:
         # store in local cache file
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
         self.database.store_message(msg)
-        return False
+        # push notification
+        sender = msg.envelope.sender
+        sender = dimp.ID(sender)
+        account = dimp.Account(identifier=sender)
+        account.delegate = self.database
+        text = '%s has sent you a message.' % account.name
+        # TODO: get offline messages count
+        count = 1
+        return self.apns.push(identifier=receiver, message=text, badge=count)

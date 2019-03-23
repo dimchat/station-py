@@ -111,6 +111,9 @@ class MessageProcessor:
             return self.process_users_command()
         elif 'search' == command:
             return self.process_search_command(content=content)
+        elif 'apns' == command:
+            # post device token
+            return self.process_apns_command(content=content)
         else:
             print('Unknown command: ', content)
 
@@ -223,6 +226,16 @@ class MessageProcessor:
         response['users'] = users
         response['results'] = results
         return response
+
+    def process_apns_command(self, content: dimp.Content) -> dimp.Content:
+        identifier = content.get('ID')
+        token = content.get('device_token')
+        if identifier and token:
+            database.cache_device_token(identifier=identifier, token=token)
+            response = dimp.CommandContent.new(command='receipt')
+            response['message'] = 'Token received'
+            response['device_token'] = token
+            return response
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('%s send message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))

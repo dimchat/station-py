@@ -37,9 +37,10 @@ import json
 import dimp
 
 from .utils import base64_decode
+from .apns import IAPNsDelegate
 
 
-class Database(dimp.Barrack, dimp.KeyStore):
+class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
 
     def __init__(self):
         super().__init__()
@@ -256,19 +257,17 @@ class Database(dimp.Barrack, dimp.KeyStore):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                dict1 = json.loads(data)
-                for key1 in dict1:
-                    # key_table[sender.address] -> key_map
-                    key_map = self.key_table.get(key1)
+                table_ = json.loads(data)
+                # key_table[sender.address] -> key_map
+                for from_, map_ in table_:
+                    key_map = self.key_table.get(from_)
                     if key_map is None:
                         key_map = {}
-                        self.key_table[key1] = key_map
-                    dict2 = dict1.get(key1)
-                    for key2 in dict2:
-                        # key_map[receiver.address] -> key
-                        key = dict2.get(key2)
+                        self.key_table[from_] = key_map
+                    # key_map[receiver.address] -> key
+                    for to_, key_ in map_:
                         # update memory cache
-                        key_map[key2] = dimp.SymmetricKey(key)
+                        key_map[to_] = dimp.SymmetricKey(key_)
 
     """
         Search Engine
@@ -303,3 +302,42 @@ class Database(dimp.Barrack, dimp.KeyStore):
                 if max_count <= 0:
                     break
         return results
+
+    """
+        APNs Delegate
+        ~~~~~~~~~~~~~
+    """
+    def device_tokens(self, identifier: str) -> list:
+        directory = self.directory('private', dimp.ID(identifier))
+        path = directory + '/device.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+                device = json.loads(data)
+                return device.get('tokens')
+
+    def cache_device_token(self, identifier: str, token: str) -> bool:
+        if token is None:
+            return False
+        directory = self.directory('private', dimp.ID(identifier))
+        path = directory + '/device.js'
+        # 1. load device info
+        device = None
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+                device = json.loads(data)
+        if device is None:
+            device = {}
+        # 2. get tokens list for updating
+        tokens = device.get('tokens')
+        if tokens is None:
+            tokens = [token]
+        elif token not in tokens:
+            tokens.append(token)
+        device['tokens'] = tokens
+        # 3. save device info
+        with open(path, 'w') as file:
+            file.write(json.dumps(device))
+        print('device token flush into file: %s, %s' % (path, device))
+        return True

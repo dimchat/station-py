@@ -35,10 +35,11 @@ import json
 
 import dimp
 
+from .database import Database
 from .session import SessionServer
 from .receptionist import Receptionist
 from .dispatcher import Dispatcher
-from .database import Database
+from .apns import ApplePushNotificationService
 
 from .utils import *
 from .gsp_s001 import s001_id, s001_sk, s001_meta
@@ -149,6 +150,16 @@ receptionist = Receptionist()
 receptionist.database = database
 receptionist.session_server = session_server
 receptionist.station = station
+
+
+"""
+    Apple Push Notification service (APNs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    A service for pushing notification to offline device
+"""
+apns = ApplePushNotificationService(database.base_dir + 'private/apns.pem', use_sandbox=True)
+apns.delegate = database
 
 
 """
