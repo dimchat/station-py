@@ -32,7 +32,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-from apns2.client import APNsClient
+from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
 from apns2.payload import Payload
 
@@ -69,7 +69,7 @@ class ApplePushNotificationService:
             return False
 
     def send_notification(self, token_hex, notification, topic=None,
-                          priority='10', expiration=None, collapse_id=None) -> int:
+                          priority=NotificationPriority.Immediate, expiration=None, collapse_id=None) -> int:
         if self.client is None and self.connect() is False:
             print('APNs: cannot connect apple server, message dropped: %s' % notification)
             return -503  # Service Unavailable
