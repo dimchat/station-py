@@ -61,6 +61,11 @@ class RequestHandler(BaseRequestHandler):
             self.session = None
 
     def current_session(self, identifier: dimp.ID) -> Session:
+        # check whether the current session's identifier matched
+        if self.session is not None and self.session.identifier != identifier:
+            # user switched, clear to reset session
+            self.clear_session()
+        # get new session with identifier
         if self.session is None:
             self.session = session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
