@@ -93,7 +93,7 @@ class SessionServer:
 
     def reset_session(self, identifier: dimp.ID, session_key: str, request_handler) -> Session:
         session = self.session(identifier=identifier)
-        if session.session_key == session_key:
+        if session_key is not None and session_key == session.session_key:
             session.request_handler = request_handler
         return session
 
