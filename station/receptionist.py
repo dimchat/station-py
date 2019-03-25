@@ -52,31 +52,32 @@ class Receptionist(Thread):
     def add_guest(self, identifier: dimp.ID):
         self.guests.append(identifier)
 
-    def request_handler(self, identifier: dimp.ID):
-        return self.session_server.request_handler(identifier=identifier)
-
     def run(self):
         print('starting receptionist...')
         while self.station.running:
             try:
                 guests = self.guests.copy()
                 for identifier in guests:
+                    # 1. get all sessions of the receiver
                     print('receptionist: checking session for new guest %s' % identifier)
-                    handler = self.request_handler(identifier=identifier)
-                    if handler:
-                        print('receptionist: %s is connected, scanning messages for it' % identifier)
-                        # this guest is connected, scan messages for it
-                        messages = self.database.load_messages(identifier)
-                        if messages:
-                            print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
-                            for msg in messages:
-                                handler.push_message(msg)
-                        else:
-                            print('receptionist: no message for this guest, remove it: %s' % identifier)
-                            self.guests.remove(identifier)
-                    else:
+                    sessions = self.session_server.search(identifier=identifier)
+                    if sessions is None or len(sessions) == 0:
                         print('receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
+                        continue
+                    # 2. this guest is connected, scan new messages for it
+                    print('receptionist: %s is connected, scanning messages for it' % identifier)
+                    messages = self.database.load_messages(identifier)
+                    if messages is None or len(messages) == 0:
+                        print('receptionist: no message for this guest, remove it: %s' % identifier)
+                        self.guests.remove(identifier)
+                        continue
+                    # 3. send new messages to each session
+                    print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
+                    for sess in sessions:
+                        handler = sess.request_handler
+                        for msg in messages:
+                            handler.push_message(msg)
             except IOError as error:
                 print('receptionist IO error:', error)
             except JSONDecodeError as error:

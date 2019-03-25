@@ -31,6 +31,7 @@
 """
 
 import numpy
+import random
 
 import dimp
 
@@ -39,70 +40,71 @@ from .utils import hex_encode
 
 class Session:
 
-    def __init__(self, identifier: dimp.ID):
+    def __init__(self, identifier: dimp.ID, request_handler):
         super().__init__()
-        self.identifier = identifier
-        self.request_handler = None
+        self.identifier: dimp.ID = identifier
+        self.request_handler = request_handler
+        self.client_address = request_handler.client_address
+        # generate session key
         self.session_key: str = hex_encode(bytes(numpy.random.bytes(32)))
-
-    @property
-    def valid(self) -> bool:
-        return self.request_handler is not None
+        self.valid = False
 
 
 class SessionServer:
 
     def __init__(self):
         super().__init__()
-        self.sessions = {}
+        self.session_table = {}  # {identifier: [session]}
 
-    def session(self, identifier: dimp.ID) -> Session:
-        sess = self.sessions.get(identifier)
-        if sess is None:
-            sess = Session(identifier=identifier)
-            self.sessions[identifier] = sess
+    def session_create(self, identifier: dimp.ID, request_handler) -> Session:
+        """ Session factory """
+        # 1. get all sessions with identifier
+        sessions: list = self.session_table.get(identifier)
+        if sessions is None:
+            sessions = []
+            self.session_table[identifier] = sessions
+        else:
+            # 2. check each session with request handler
+            for sess in sessions:
+                if sess.request_handler == request_handler:
+                    # got one in cache
+                    return sess
+        # 3. create a new session
+        sess = Session(identifier=identifier, request_handler=request_handler)
+        sessions.append(sess)
         return sess
 
-    def valid(self, identifier: dimp.ID, request_handler) -> bool:
-        sess = self.sessions.get(identifier)
-        if sess is None or sess.request_handler is None:
-            return False
-        return sess.request_handler == request_handler
-
-    def valid_sessions(self) -> list:
-        sessions = self.sessions.copy()
-        return [sess for sess in sessions.values() if sess.request_handler is not None]
-
-    def clear_session(self, session: Session=None, identifier: dimp.ID=None, request_handler=None) -> bool:
+    def remove_session(self, session: Session=None, identifier: dimp.ID=None, request_handler=None):
         if session:
-            ok = self.clear_session(identifier=session.identifier, request_handler=session.request_handler)
-            session.request_handler = None
-            return ok
-        # clear by identifier
-        sess = self.sessions.get(identifier)
-        if sess is None:
-            print('no such session: %s' % identifier)
-            return False
-        if request_handler is not None and sess.request_handler is not None:
-            if sess.request_handler != request_handler:
-                print('session error: %s' % identifier)
-                return False
-        # sess.request_handler = None
-        self.sessions.pop(identifier)
-        return True
+            return self.remove_session(identifier=session.identifier, request_handler=session.request_handler)
+        # 1. check whether the session is exists
+        sessions: list = self.search(identifier=identifier, request_handler=request_handler)
+        if sessions is not None and len(sessions) == 1:
+            session = sessions[0]
+            # 2. remove it
+            sessions = self.session_table.get(identifier)
+            sessions.remove(session)
+            # no more session for this identifier, remove it
+            if len(sessions) == 0:
+                self.session_table.pop(identifier)
 
-    def reset_session(self, identifier: dimp.ID, session_key: str, request_handler) -> Session:
-        session = self.session(identifier=identifier)
-        if session_key is not None and session_key == session.session_key:
-            session.request_handler = request_handler
-        return session
+    def search(self, identifier: dimp.ID, request_handler=None) -> list:
+        """ Get session that identifier and request handler matched """
+        sessions: list = self.session_table.get(identifier)
+        # 1. if request handler not specified, return all sessions
+        if request_handler is None:
+            return sessions
+        if sessions is not None:
+            # 2. check session which has the same request handler
+            for sess in sessions:
+                if sess.request_handler == request_handler:
+                    return [sess]
 
-    def request_handler(self, identifier: dimp.ID):
-        sess = self.sessions.get(identifier)
-        if sess:
-            return sess.request_handler
-
-    def session_key(self, identifier: dimp.ID) -> str:
-        sess = self.sessions.get(identifier)
-        if sess:
-            return sess.session_key
+    def random_users(self, max_count=20) -> list:
+        array = list(self.session_table.keys())
+        count = len(array)
+        if count < 2:
+            return array
+        elif count > max_count:
+            count = max_count
+        return random.sample(array, count)

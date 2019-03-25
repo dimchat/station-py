@@ -50,30 +50,20 @@ class RequestHandler(BaseRequestHandler):
         # current session (with identifier as remote user ID)
         self.session = None
 
-    def clear_session(self):
-        if self.session:
-            session_server.clear_session(session=self.session)
-            self.session = None
-
-    def reset_session(self, identifier: dimp.ID, session_key: str) -> Session:
-        sess = session_server.reset_session(identifier=identifier, session_key=session_key, request_handler=self)
-        if sess.valid:
-            self.session = sess
-        else:
-            self.session = None
-        return sess
-
-    def session_valid(self, identifier: dimp.ID=None) -> bool:
-        if self.session is None:
-            return False
-        if self.session.identifier != identifier:
-            raise AssertionError('session ID error: %s != %s' % (self.session.identifier, identifier))
-        return session_server.valid(identifier=identifier, request_handler=self)
-
     @property
     def identifier(self) -> dimp.ID:
-        if self.session:
+        if self.session is not None:
             return self.session.identifier
+
+    def clear_session(self):
+        if self.session:
+            session_server.remove_session(session=self.session)
+            self.session = None
+
+    def current_session(self, identifier: dimp.ID) -> Session:
+        if self.session is None:
+            self.session = session_server.session_create(identifier=identifier, request_handler=self)
+        return self.session
 
     def setup(self):
         print(self, 'set up with', self.client_address)

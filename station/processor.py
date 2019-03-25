@@ -49,14 +49,11 @@ class MessageProcessor:
     def identifier(self) -> dimp.ID:
         return self.request_handler.identifier
 
-    def session_valid(self, identifier: dimp.ID) -> bool:
-        return self.request_handler.session_valid(identifier=identifier)
+    # def clear_session(self):
+    #     self.request_handler.clear_session()
 
-    def clear_session(self):
-        self.request_handler.clear_session()
-
-    def reset_session(self, identifier: dimp.ID, session_key: str) -> Session:
-        return self.request_handler.reset_session(identifier=identifier, session_key=session_key)
+    def current_session(self, identifier: dimp.ID) -> Session:
+        return self.request_handler.current_session(identifier=identifier)
 
     """
         main entrance
@@ -84,16 +81,18 @@ class MessageProcessor:
                 print('*** message from client (%s:%s)...' % self.client_address)
                 print('    content: %s' % content)
                 return content
-        elif not self.session_valid(identifier=sender):
-            # session invalid, handshake first
-            #    NOTICE: if the client try to send message to another user before handshake,
-            #            the message will be lost!
-            print('*** handshake with client (%s:%s)...' % self.client_address)
-            return self.process_handshake_command(sender)
         else:
-            # save(deliver) message for other users
-            print('@@@ message deliver from "%s" to "%s"...' % (sender, receiver))
-            return self.deliver_message(msg)
+            session = self.current_session(identifier=sender)
+            if not session.valid:
+                # session invalid, handshake first
+                #    NOTICE: if the client try to send message to another user before handshake,
+                #            the message will be lost!
+                print('*** handshake with client (%s:%s)...' % self.client_address)
+                return self.process_handshake_command(sender)
+            else:
+                # save(deliver) message for other users
+                print('@@@ message deliver from "%s" to "%s"...' % (sender, receiver))
+                return self.deliver_message(msg)
 
     def process_command(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         command = content['command']
@@ -118,16 +117,15 @@ class MessageProcessor:
             print('Unknown command: ', content)
 
     def process_handshake_command(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
-        # 1. clear current session
-        self.clear_session()
-        # 2. set/update session in session server with new session key
+        # set/update session in session server with new session key
         if content and 'session' in content:
             session_key = content['session']
         else:
             session_key = None
-        session = self.reset_session(identifier=identifier, session_key=session_key)
-        if session.valid:
+        session = self.current_session(identifier=identifier)
+        if session_key == session.session_key:
             # session verified success
+            session.valid = True
             print('connect current request to session', identifier, self.client_address)
             # add the new guest for checking offline messages
             receptionist.add_guest(identifier=identifier)
@@ -198,8 +196,7 @@ class MessageProcessor:
 
     def process_users_command(self) -> dimp.Content:
         print('get online user(s) for %s ...' % self.identifier)
-        sessions = session_server.valid_sessions()
-        users = [sess.identifier for sess in sessions]
+        users = session_server.random_users(max_count=20)
         response = dimp.CommandContent.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
@@ -228,6 +225,7 @@ class MessageProcessor:
         return response
 
     def process_apns_command(self, content: dimp.Content) -> dimp.Content:
+        print('%s send device token: %s' % (self.identifier, content))
         identifier = content.get('ID')
         token = content.get('device_token')
         if identifier and token:
