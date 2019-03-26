@@ -76,7 +76,7 @@ class RequestHandler(BaseRequestHandler):
         self.session = None
 
     def finish(self):
-        if self.session:
+        if self.session is not None:
             print('disconnect current request from session', self.identifier, self.client_address)
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)

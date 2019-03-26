@@ -49,6 +49,13 @@ class Session:
         self.session_key: str = hex_encode(bytes(numpy.random.bytes(32)))
         self.valid = False
 
+    def __str__(self):
+        clazz = self.__class__.__name__
+        identifier = self.identifier
+        address = '(%s:%d)' % self.client_address
+        key = self.session_key
+        return '<%s: %s %s %s />' % (clazz, identifier, address, key)
+
 
 class SessionServer:
 
@@ -72,6 +79,7 @@ class SessionServer:
         # 3. create a new session
         sess = Session(identifier=identifier, request_handler=request_handler)
         sessions.append(sess)
+        print('[SS] create new session: %s' % sess)
         return sess
 
     def remove_session(self, session: Session=None, identifier: dimp.ID=None, request_handler=None):
@@ -81,12 +89,17 @@ class SessionServer:
         sessions: list = self.search(identifier=identifier, request_handler=request_handler)
         if sessions is not None and len(sessions) == 1:
             session = sessions[0]
-            # 2. remove it
+            # 2. remove this session
+            print('[SS] removing session: %s' % session)
             sessions = self.session_table.get(identifier)
             sessions.remove(session)
-            # no more session for this identifier, remove it
             if len(sessions) == 0:
+                # 3. remove the user if all sessions closed
+                print('[SS] user %s is offline now' % identifier)
                 self.session_table.pop(identifier)
+        else:
+            raise AssertionError('unexpected result of searching session: (%s, %s) -> %s' %
+                                 (identifier, request_handler, sessions))
 
     def search(self, identifier: dimp.ID, request_handler=None) -> list:
         """ Get session that identifier and request handler matched """
