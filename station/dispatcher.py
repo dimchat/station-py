@@ -51,9 +51,12 @@ class Dispatcher:
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
             print('Dispatcher: %s is online(%d), push message: %s' % (receiver, len(sessions), msg))
+            success = 0
             for sess in sessions:
-                sess.request_handler.push_message(msg)
-            return True
+                if sess.request_handler.push_message(msg):
+                    success = success + 1
+            if success > 0:
+                return True
         # store in local cache file
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
         self.database.store_message(msg)

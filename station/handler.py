@@ -218,19 +218,27 @@ class RequestHandler(BaseRequestHandler):
         except Exception as error:
             print('!!! receive message package: %s, error:%s' % (pack, error))
 
-    def push_mars_message(self, msg: dimp.ReliableMessage):
+    def push_mars_message(self, msg: dimp.ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         body = data.encode('utf-8')
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
         print('### pushing mars message:', data)
-        self.request.sendall(data)
+        try:
+            self.request.sendall(data)
+            return True
+        except IOError as error:
+            print('failed to push message: %s' % error)
 
-    def push_raw_message(self, msg: dimp.ReliableMessage):
+    def push_raw_message(self, msg: dimp.ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
         print('### pushing message:', data)
-        self.request.sendall(data)
+        try:
+            self.request.sendall(data)
+            return True
+        except IOError as error:
+            print('failed to push message: %s' % error)
 
     push_message = push_raw_message
