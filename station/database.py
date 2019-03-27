@@ -71,7 +71,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         print('msg write into file: ', path)
         return True
 
-    def load_messages(self, receiver: dimp.ID) -> list:
+    def load_message_batch(self, receiver: dimp.ID) -> dict:
         directory = self.directory('public', receiver, 'messages')
         # get all files in messages directory and sort by filename
         files = sorted(os.listdir(directory))
@@ -87,7 +87,23 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 lines = str(data).splitlines()
                 messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
                 print('got %d message(s) for %s' % (len(messages), receiver))
-                return messages
+                return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
+
+    def remove_message_batch(self, batch: dict) -> bool:
+        path = batch.get('path')
+        if path is None:
+            receiver = batch.get('ID')
+            filename = batch.get('filename')
+            if receiver and filename:
+                directory = self.directory('pubic', receiver, 'messages')
+                path = directory + '/' + filename
+        if os.path.exists(path):
+            print('removing message file: %s' % path)
+            os.remove(path)
+            return True
+        else:
+            print('message file not exists: %s' % path)
+            return False
 
     """
         Meta file for Accounts

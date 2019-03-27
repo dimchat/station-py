@@ -70,35 +70,55 @@ class RequestHandler(BaseRequestHandler):
             self.session = session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
 
+    def send(self, data: bytes) -> bool:
+        try:
+            self.request.sendall(data)
+            return True
+        except IOError as error:
+            print('RequestHandler: failed to send data', error)
+            return False
+
+    def receive(self, buffer_size=1024) -> bytes:
+        try:
+            return self.request.recv(buffer_size)
+        except IOError as error:
+            print('RequestHandler: failed to receive data', error)
+
+    #
+    #
+    #
+
     def setup(self):
         print(self, 'set up with', self.client_address)
+        # message processor
         self.processor = MessageProcessor(request_handler=self)
+        # current session
         self.session = None
 
     def finish(self):
         if self.session is not None:
-            print('disconnect current request from session', self.identifier, self.client_address)
+            print('RequestHandler: disconnect current request from session', self.identifier, self.client_address)
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             self.clear_session()
-        print(self, 'finish', self.client_address)
+        print(self, 'RequestHandler: finish', self.client_address)
 
     """
         DIM Request Handler
     """
     def handle(self):
-        print('client (%s:%s) connected!' % self.client_address)
+        print('RequestHandler: client connected', self.client_address)
         data = b''
         while station.running:
             # receive all data
             while True:
-                part = self.request.recv(1024)
+                part = self.receive(1024)
                 data += part
                 if len(part) < 1024:
                     break
             if len(data) == 0:
-                print('client (%s:%s) exit!' % self.client_address)
+                print('RequestHandler: client exit:', self.client_address)
                 break
 
             # process package(s) one by one
@@ -117,7 +137,7 @@ class RequestHandler(BaseRequestHandler):
                         mars = True
                         self.push_message = self.push_mars_message
                 except ValueError as error:
-                    print('not mars message pack:', error)
+                    print('RequestHandler: not mars message pack:', error)
                 # check mars head
                 if mars:
                     print('@@@ msg via mars, len: %d+%d' % (head.head_length, head.body_length))
@@ -125,7 +145,7 @@ class RequestHandler(BaseRequestHandler):
                     pack_len = head.head_length + head.body_length
                     if pack_len > len(data):
                         # partially data, keep it for next loop
-                        print('incomplete data:', data)
+                        print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pack_len]
@@ -143,7 +163,7 @@ class RequestHandler(BaseRequestHandler):
                     pos = data.find(b'\n')
                     if pos < 0:
                         # partially data, keep it for next loop
-                        print('incomplete data:', data)
+                        print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pos+1]
@@ -154,9 +174,13 @@ class RequestHandler(BaseRequestHandler):
 
                 # (Protocol ?)
                 # TODO: split and unwrap data package(s)
-                print('!!! unknown protocol:', data)
+                print('RequestHandler: unknown protocol', data)
                 data = b''
                 # raise AssertionError('unknown protocol')
+
+    #
+    #
+    #
 
     def handle_mars_package(self, pack: bytes):
         pack = NetMsg(pack)
@@ -171,7 +195,7 @@ class RequestHandler(BaseRequestHandler):
             body = b''
             for line in lines:
                 if line.isspace():
-                    print('ignore empty message')
+                    print('RequestHandler: ignore empty message')
                     continue
                 response = self.process_message(line)
                 if response:
@@ -179,29 +203,29 @@ class RequestHandler(BaseRequestHandler):
                     body = body + msg.encode('utf-8')
             if body:
                 data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-                print('    mars response:', data)
-                self.request.sendall(data)
+                print('RequestHandler: mars response', data)
+                self.send(data)
             else:
                 # TODO: handle error message
-                print('    nothing to response')
+                print('RequestHandler: nothing to response')
         elif head.cmd == 6:
             # TODO: handle NOOP request
-            print('    receive NOOP package, response:', pack)
-            self.request.sendall(pack)
+            print('RequestHandler: receive NOOP package, response', pack)
+            self.send(pack)
         else:
             # TODO: handle Unknown request
-            print('    unknown package:', pack)
-            self.request.sendall(pack)
+            print('RequestHandler: unknown package', pack)
+            self.send(pack)
 
     def handle_raw_package(self, pack: bytes):
         response = self.process_message(pack)
         if response:
             msg = json.dumps(response) + '\n'
             data = msg.encode('utf-8')
-            self.request.sendall(data)
+            self.send(data)
         else:
-            print('!!! error:', pack)
-            # self.request.sendall(pack)
+            print('RequestHandler: process error', pack)
+            # self.send(pack)
 
     def process_message(self, pack: bytes):
         # decode the JsON string to dictionary
@@ -211,12 +235,11 @@ class RequestHandler(BaseRequestHandler):
             msg = dimp.ReliableMessage(msg)
             res = self.processor.process(msg)
             if res:
-                print('*** response to client (%s:%s)...' % self.client_address)
-                print('    content: %s' % res)
+                print('RequestHandler: response to client', self.client_address, res)
                 receiver = dimp.ID(msg.envelope.sender)
                 return station.pack(receiver=receiver, content=res)
         except Exception as error:
-            print('!!! receive message package: %s, error:%s' % (pack, error))
+            print('RequestHandler: receive message package error', error)
 
     def push_mars_message(self, msg: dimp.ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
@@ -224,21 +247,13 @@ class RequestHandler(BaseRequestHandler):
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
-        print('### pushing mars message:', data)
-        try:
-            self.request.sendall(data)
-            return True
-        except IOError as error:
-            print('failed to push message: %s' % error)
+        print('RequestHandler: pushing mars message', data)
+        return self.send(data)
 
     def push_raw_message(self, msg: dimp.ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
-        print('### pushing message:', data)
-        try:
-            self.request.sendall(data)
-            return True
-        except IOError as error:
-            print('failed to push message: %s' % error)
+        print('RequestHandler: pushing raw message', data)
+        return self.send(data)
 
     push_message = push_raw_message

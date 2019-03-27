@@ -67,17 +67,38 @@ class Receptionist(Thread):
                         continue
                     # 2. this guest is connected, scan new messages for it
                     print('receptionist: %s is connected, scanning messages for it' % identifier)
-                    messages = self.database.load_messages(identifier)
-                    if messages is None or len(messages) == 0:
+                    batch = self.database.load_message_batch(identifier)
+                    if batch is None:
                         print('receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
+                    messages = batch.get('messages')
+                    if messages is None or len(messages) == 0:
+                        raise AssertionError('message batch error: %s' % batch)
                     # 3. send new messages to each session
                     print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
-                    for sess in sessions:
-                        handler = sess.request_handler
-                        for msg in messages:
-                            handler.push_message(msg)
+                    count = 0
+                    for msg in messages:
+                        # try to push message
+                        success = 0
+                        for sess in sessions:
+                            if sess.request_handler.push_message(msg):
+                                success = success + 1
+                            else:
+                                print('receptionist: failed to push message', sess.client_address)
+                        if success > 0:
+                            # push message success (at least one)
+                            count = count + 1
+                        else:
+                            # push message failed, remove session here?
+                            break
+                    # 4. remove messages after success, or remove the guest on failed
+                    if count == len(messages):
+                        print('receptionist: a batch message(%d) pushed successfully to %s' % (count, identifier))
+                        self.database.remove_message_batch(batch)
+                    else:
+                        print('receptionist: pushing message failed, remove the guest: %s' % identifier)
+                        self.guests.remove(identifier)
             except IOError as error:
                 print('receptionist IO error:', error)
             except JSONDecodeError as error:

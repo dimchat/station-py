@@ -55,7 +55,10 @@ class Dispatcher:
             for sess in sessions:
                 if sess.request_handler.push_message(msg):
                     success = success + 1
+                else:
+                    print('Dispatcher: failed to push message', sess.client_address)
             if success > 0:
+                print('Dispatcher: message pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
@@ -67,7 +70,7 @@ class Dispatcher:
         sender = dimp.ID(sender)
         contact = self.database.account_create(identifier=sender)
         contact.delegate = self.database
-        text = 'Dear %s: %s has sent you a message.' % (account.name, contact.name)
+        text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
         # TODO: get offline messages count
         count = 1
         return self.apns.push(identifier=receiver, message=text, badge=count)

@@ -40,6 +40,11 @@ class MessageProcessor:
     def __init__(self, request_handler):
         super().__init__()
         self.request_handler = request_handler
+        self.station = station
+        self.session_server = session_server
+        self.database = database
+        self.dispatcher = dispatcher
+        self.receptionist = receptionist
 
     @property
     def client_address(self) -> str:
@@ -60,39 +65,41 @@ class MessageProcessor:
     """
     def process(self, msg: dimp.ReliableMessage) -> dimp.Content:
         # verify signature
-        s_msg = station.verify(msg)
+        s_msg = self.station.verify(msg)
         if s_msg is None:
-            print('!!! message verify error: %s' % msg)
+            print('MessageProcessor: message verify error', msg)
             response = dimp.TextContent.new(text='Signature error')
             response['signature'] = msg.signature
             return response
         # check receiver & session
         sender = dimp.ID(s_msg.envelope.sender)
         receiver = dimp.ID(s_msg.envelope.receiver)
-        if receiver == station.identifier:
+        if receiver == self.station.identifier:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
-            content = station.decrypt(s_msg)
+            content = self.station.decrypt(s_msg)
             if content.type == dimp.MessageType.Command:
-                print('*** command from client (%s:%s)...' % self.client_address)
-                print('    content: %s' % content)
+                print('MessageProcessor: command from client', self.client_address, content)
                 return self.process_command(sender=sender, content=content)
             else:
-                # TEST: response client with the same message
-                print('*** message from client (%s:%s)...' % self.client_address)
-                print('    content: %s' % content)
-                return content
+                print('MessageProcessor: message from client', self.client_address, content)
+                return self.process_dialog(sender=sender, content=content)
         else:
             session = self.current_session(identifier=sender)
             if not session.valid:
                 # session invalid, handshake first
                 #    NOTICE: if the client try to send message to another user before handshake,
                 #            the message will be lost!
-                print('*** handshake with client (%s:%s)...' % self.client_address)
+                print('MessageProcessor: handshake with client', self.client_address)
                 return self.process_handshake_command(sender)
             else:
                 # save(deliver) message for other users
-                print('@@@ message deliver from "%s" to "%s"...' % (sender, receiver))
+                print('MessageProcessor: delivering message with envelope', msg.envelope)
                 return self.deliver_message(msg)
+
+    def process_dialog(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
+        print('@@@ call NLP and response to the client', self.client_address, sender)
+        # TEST: response client with the same message here
+        return content
 
     def process_command(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         command = content['command']
@@ -114,7 +121,7 @@ class MessageProcessor:
             # post device token
             return self.process_apns_command(content=content)
         else:
-            print('Unknown command: ', content)
+            print('MessageProcessor: unknown command', content)
 
     def process_handshake_command(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         # set/update session in session server with new session key
@@ -126,9 +133,9 @@ class MessageProcessor:
         if session_key == session.session_key:
             # session verified success
             session.valid = True
-            print('connect current request to session', identifier, self.client_address)
+            print('MessageProcessor: handshake accepted', self.client_address, identifier, session_key)
             # add the new guest for checking offline messages
-            receptionist.add_guest(identifier=identifier)
+            self.receptionist.add_guest(identifier=identifier)
             return dimp.HandshakeCommand.success()
         else:
             # session key not match, ask client to sign it with the new session key
@@ -141,8 +148,8 @@ class MessageProcessor:
         if meta:
             # received a meta for ID
             meta = dimp.Meta(meta)
-            print('received meta for %s from %s ...' % (identifier, self.identifier))
-            if database.cache_meta(identifier=identifier, meta=meta):
+            print('MessageProcessor: received meta', identifier, meta)
+            if self.database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 response = dimp.CommandContent.new(command='receipt')
                 response['message'] = 'Meta for %s received!' % identifier
@@ -152,8 +159,8 @@ class MessageProcessor:
                 return dimp.TextContent.new(text='Meta not match %s!' % identifier)
         else:
             # querying meta for ID
-            print('search meta of %s for %s ...' % (identifier, self.identifier))
-            meta = database.meta(identifier=identifier)
+            print('MessageProcessor: search meta', identifier)
+            meta = self.database.meta(identifier=identifier)
             if meta:
                 return dimp.MetaCommand.response(identifier=identifier, meta=meta)
             else:
@@ -164,29 +171,29 @@ class MessageProcessor:
         if 'meta' in content:
             meta = content['meta']
             meta = dimp.Meta(meta)
-            print('received meta for %s from %s ...' % (identifier, self.identifier))
-            if database.cache_meta(identifier=identifier, meta=meta):
+            print('MessageProcessor: received meta', identifier, meta)
+            if self.database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
-                print('meta saved for %s.' % identifier)
+                print('MessageProcessor: meta cached', identifier, meta)
             else:
-                print('meta not match %s!' % identifier)
+                print('MessageProcessor: meta not match', identifier, meta)
         if 'profile' in content:
             # received a new profile for ID
-            print('received profile for %s from %s ...' % (identifier, self.identifier))
             profile = content['profile']
             signature = content['signature']
-            if database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
+            print('MessageProcessor: received profile', identifier, profile, signature)
+            if self.database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
                 # profile saved
                 response = dimp.CommandContent.new(command='receipt')
-                response['message'] = 'Profile for %s received!' % identifier
+                response['message'] = 'Profile of %s received!' % identifier
                 return response
             else:
                 # signature not match
                 return dimp.TextContent.new(text='Profile signature not match %s!' % identifier)
         else:
             # querying profile for ID
-            print('search profile of %s for %s ...' % (identifier, self.identifier))
-            info = database.profile_signature(identifier=identifier)
+            print('MessageProcessor: search profile', identifier)
+            info = self.database.profile_signature(identifier=identifier)
             if info:
                 prf = info['profile']
                 sig = info['signature']
@@ -195,15 +202,15 @@ class MessageProcessor:
                 return dimp.TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
     def process_users_command(self) -> dimp.Content:
-        print('get online user(s) for %s ...' % self.identifier)
-        users = session_server.random_users(max_count=20)
+        print('MessageProcessor: get online user(s) for', self.identifier)
+        users = self.session_server.random_users(max_count=20)
         response = dimp.CommandContent.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
         return response
 
     def process_search_command(self, content: dimp.Content) -> dimp.Content:
-        print('search for %s ...' % self.identifier)
+        print('MessageProcessor: search users for', self.identifier, content)
         # keywords
         if 'keywords' in content:
             keywords = content['keywords']
@@ -215,7 +222,7 @@ class MessageProcessor:
             raise ValueError('keywords not found')
         # search for each keyword
         keywords = keywords.split(' ')
-        results = database.search(keywords=keywords)
+        results = self.database.search(keywords=keywords)
         # response
         users = list(results.keys())
         response = dimp.CommandContent.new(command='search')
@@ -225,19 +232,19 @@ class MessageProcessor:
         return response
 
     def process_apns_command(self, content: dimp.Content) -> dimp.Content:
-        print('%s send device token: %s' % (self.identifier, content))
+        print('MessageProcessor: APNs device token', self.identifier, content)
         identifier = content.get('ID')
         token = content.get('device_token')
         if identifier and token:
-            database.cache_device_token(identifier=identifier, token=token)
+            self.database.cache_device_token(identifier=identifier, token=token)
             response = dimp.CommandContent.new(command='receipt')
             response['message'] = 'Token received'
             response['device_token'] = token
             return response
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
-        print('%s send message from %s to %s' % (self.identifier, msg.envelope.sender, msg.envelope.receiver))
-        dispatcher.deliver(msg)
+        print('MessageProcessor: deliver message', self.identifier, msg.envelope)
+        self.dispatcher.deliver(msg)
         # response to sender
         response = dimp.CommandContent.new(command='receipt')
         response['message'] = 'Message delivering'
