@@ -111,37 +111,28 @@ class MessageProcessor:
             # show online users (connected)
             return self.process_users_command()
         elif 'search' == command:
+            # search users with keyword(s)
             return self.process_search_command(content=content)
-        elif 'apns' == command:
+        elif 'broadcast' == command:
             session = self.current_session(identifier=sender)
             if not session.valid:
                 # session invalid, handshake first
                 return self.process_handshake_command(sender)
-            # post device token
-            return self.process_apns_command(content=content)
-        elif 'report' == command:
-            session = self.current_session(identifier=sender)
-            if not session.valid:
-                # session invalid, handshake first
-                return self.process_handshake_command(sender)
-            # report client status
-            return self.process_report_command(content=content)
+            # broadcast
+            return self.process_broadcast_command(content=content)
         else:
             print('MessageProcessor: unknown command', content)
 
     def process_handshake_command(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         # set/update session in session server with new session key
         print('MessageProcessor: handshake with client', self.client_address, sender)
-        if content and 'session' in content:
-            session_key = content['session']
-        else:
-            session_key = None
+        cmd = dimp.HandshakeCommand(content)
         session = self.current_session(identifier=sender)
-        if session_key == session.session_key:
+        if cmd.session == session.session_key:
             # session verified success
             session.valid = True
             session.active = True
-            print('MessageProcessor: handshake accepted', self.client_address, sender, session_key)
+            print('MessageProcessor: handshake accepted', self.client_address, sender, cmd.session)
             # add the new guest for checking offline messages
             self.receptionist.add_guest(identifier=sender)
             return dimp.HandshakeCommand.success()
@@ -159,9 +150,7 @@ class MessageProcessor:
             print('MessageProcessor: received meta', identifier, meta)
             if self.database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
-                response = dimp.CommandContent.new(command='receipt')
-                response['message'] = 'Meta for %s received!' % identifier
-                return response
+                return dimp.ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
                 # meta not match
                 return dimp.TextContent.new(text='Meta not match %s!' % identifier)
@@ -192,9 +181,7 @@ class MessageProcessor:
             print('MessageProcessor: received profile', identifier, profile, signature)
             if self.database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
                 # profile saved
-                response = dimp.CommandContent.new(command='receipt')
-                response['message'] = 'Profile of %s received!' % identifier
-                return response
+                return dimp.ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
                 # signature not match
                 return dimp.TextContent.new(text='Profile signature not match %s!' % identifier)
@@ -239,42 +226,40 @@ class MessageProcessor:
         response['results'] = results
         return response
 
-    def process_apns_command(self, content: dimp.Content) -> dimp.Content:
-        print('MessageProcessor: APNs device token', self.identifier, content)
-        identifier = content.get('ID')
-        token = content.get('device_token')
-        if identifier and token:
-            self.database.cache_device_token(identifier=identifier, token=token)
-            response = dimp.CommandContent.new(command='receipt')
-            response['message'] = 'Token received'
-            response['device_token'] = token
-            return response
-
-    def process_report_command(self, content: dimp.Content) -> dimp.Content:
-        print('MessageProcessor: client report', self.identifier, content)
-        state = content.get('state')
-        if state is not None:
-            session = self.current_session()
-            if 'background' == state:
-                session.active = False
-            elif 'foreground' == state:
-                # welcome back!
-                receptionist.add_guest(identifier=session.identifier)
-                session.active = True
-            else:
-                print('MessageProcessor: unknown state', state)
-                session.active = True
-            response = dimp.CommandContent.new(command='receipt')
-            response['message'] = 'Client state for %s received!' % session.identifier
-            return response
+    def process_broadcast_command(self, content: dimp.Content) -> dimp.Content:
+        print('MessageProcessor: client broadcast', self.identifier, content)
+        broadcast = dimp.BroadcastCommand(content)
+        title = broadcast.title
+        if 'report' == title:
+            # report client state
+            state = broadcast.get('state')
+            print('MessageProcessor: client report state', state)
+            if state is not None:
+                session = self.current_session()
+                if 'background' == state:
+                    session.active = False
+                elif 'foreground' == state:
+                    # welcome back!
+                    receptionist.add_guest(identifier=session.identifier)
+                    session.active = True
+                else:
+                    print('MessageProcessor: unknown state', state)
+                    session.active = True
+                return dimp.ReceiptCommand.receipt(message='Client state received')
+        elif 'apns' == title:
+            # report device token
+            token = content.get('device_token')
+            print('MessageProcessor: client report token', token)
+            if token is not None:
+                self.database.cache_device_token(identifier=self.identifier, token=token)
+                return dimp.ReceiptCommand.receipt(message='Token received')
         else:
-            print('MessageProcessor: unknown report content', content)
+            print('MessageProcessor: unknown broadcast content', content)
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('MessageProcessor: deliver message', self.identifier, msg.envelope)
         self.dispatcher.deliver(msg)
         # response to sender
-        response = dimp.CommandContent.new(command='receipt')
-        response['message'] = 'Message delivering'
+        response = dimp.ReceiptCommand.receipt(message='Message delivering')
         response['signature'] = msg['signature']
         return response
