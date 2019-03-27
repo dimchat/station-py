@@ -53,6 +53,9 @@ class Dispatcher:
             print('Dispatcher: %s is online(%d), push message: %s' % (receiver, len(sessions), msg))
             success = 0
             for sess in sessions:
+                if sess.valid is False or sess.active is False:
+                    print('Dispatcher: session invalid', sess)
+                    continue
                 if sess.request_handler.push_message(msg):
                     success = success + 1
                 else:

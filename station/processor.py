@@ -54,10 +54,7 @@ class MessageProcessor:
     def identifier(self) -> dimp.ID:
         return self.request_handler.identifier
 
-    # def clear_session(self):
-    #     self.request_handler.clear_session()
-
-    def current_session(self, identifier: dimp.ID) -> Session:
+    def current_session(self, identifier: dimp.ID=None) -> Session:
         return self.request_handler.current_session(identifier=identifier)
 
     """
@@ -80,21 +77,19 @@ class MessageProcessor:
             if content.type == dimp.MessageType.Command:
                 print('MessageProcessor: command from client', self.client_address, content)
                 return self.process_command(sender=sender, content=content)
-            else:
-                print('MessageProcessor: message from client', self.client_address, content)
-                return self.process_dialog(sender=sender, content=content)
-        else:
-            session = self.current_session(identifier=sender)
-            if not session.valid:
-                # session invalid, handshake first
-                #    NOTICE: if the client try to send message to another user before handshake,
-                #            the message will be lost!
-                print('MessageProcessor: handshake with client', self.client_address)
-                return self.process_handshake_command(sender)
-            else:
-                # save(deliver) message for other users
-                print('MessageProcessor: delivering message with envelope', msg.envelope)
-                return self.deliver_message(msg)
+            # talk with station?
+            print('MessageProcessor: message from client', self.client_address, content)
+            return self.process_dialog(sender=sender, content=content)
+        # check session valid
+        session = self.current_session(identifier=sender)
+        if not session.valid:
+            # session invalid, handshake first
+            # NOTICE: if the client try to send message to another user before handshake,
+            #         the message will be lost!
+            return self.process_handshake_command(sender)
+        # deliver message for receiver
+        print('MessageProcessor: delivering message with envelope', msg.envelope)
+        return self.deliver_message(msg)
 
     def process_dialog(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
         print('@@@ call NLP and response to the client', self.client_address, sender)
@@ -105,7 +100,7 @@ class MessageProcessor:
         command = content['command']
         if 'handshake' == command:
             # handshake protocol
-            return self.process_handshake_command(sender, content=content)
+            return self.process_handshake_command(sender=sender, content=content)
         elif 'meta' == command:
             # meta protocol
             return self.process_meta_command(content=content)
@@ -118,24 +113,37 @@ class MessageProcessor:
         elif 'search' == command:
             return self.process_search_command(content=content)
         elif 'apns' == command:
+            session = self.current_session(identifier=sender)
+            if not session.valid:
+                # session invalid, handshake first
+                return self.process_handshake_command(sender)
             # post device token
             return self.process_apns_command(content=content)
+        elif 'report' == command:
+            session = self.current_session(identifier=sender)
+            if not session.valid:
+                # session invalid, handshake first
+                return self.process_handshake_command(sender)
+            # report client status
+            return self.process_report_command(content=content)
         else:
             print('MessageProcessor: unknown command', content)
 
-    def process_handshake_command(self, identifier: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+    def process_handshake_command(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         # set/update session in session server with new session key
+        print('MessageProcessor: handshake with client', self.client_address, sender)
         if content and 'session' in content:
             session_key = content['session']
         else:
             session_key = None
-        session = self.current_session(identifier=identifier)
+        session = self.current_session(identifier=sender)
         if session_key == session.session_key:
             # session verified success
             session.valid = True
-            print('MessageProcessor: handshake accepted', self.client_address, identifier, session_key)
+            session.active = True
+            print('MessageProcessor: handshake accepted', self.client_address, sender, session_key)
             # add the new guest for checking offline messages
-            self.receptionist.add_guest(identifier=identifier)
+            self.receptionist.add_guest(identifier=sender)
             return dimp.HandshakeCommand.success()
         else:
             # session key not match, ask client to sign it with the new session key
@@ -241,6 +249,21 @@ class MessageProcessor:
             response['message'] = 'Token received'
             response['device_token'] = token
             return response
+
+    def process_report_command(self, content: dimp.Content) -> dimp.Content:
+        print('MessageProcessor: client report', self.identifier, content)
+        state = content.get('state')
+        if state is not None:
+            session = self.current_session()
+            if 'background' == state:
+                session.active = False
+            else:
+                session.active = True
+            response = dimp.CommandContent.new(command='receipt')
+            response['message'] = 'Client state for %s received!' % session.identifier
+            return response
+        else:
+            print('MessageProcessor: unknown report command', content)
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('MessageProcessor: deliver message', self.identifier, msg.envelope)

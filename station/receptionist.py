@@ -53,39 +53,42 @@ class Receptionist(Thread):
         self.guests.append(identifier)
 
     def run(self):
-        print('starting receptionist...')
+        print('Receptionist: starting...')
         while self.station.running:
             try:
                 guests = self.guests.copy()
                 for identifier in guests:
                     # 1. get all sessions of the receiver
-                    print('receptionist: checking session for new guest %s' % identifier)
+                    print('Receptionist: checking session for new guest %s' % identifier)
                     sessions = self.session_server.search(identifier=identifier)
                     if sessions is None or len(sessions) == 0:
-                        print('receptionist: guest not connect, remove it: %s' % identifier)
+                        print('Receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
                     # 2. this guest is connected, scan new messages for it
-                    print('receptionist: %s is connected, scanning messages for it' % identifier)
+                    print('Receptionist: %s is connected, scanning messages for it' % identifier)
                     batch = self.database.load_message_batch(identifier)
                     if batch is None:
-                        print('receptionist: no message for this guest, remove it: %s' % identifier)
+                        print('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
                     messages = batch.get('messages')
                     if messages is None or len(messages) == 0:
                         raise AssertionError('message batch error: %s' % batch)
                     # 3. send new messages to each session
-                    print('receptionist: got %d message(s) for %s' % (len(messages), identifier))
+                    print('Receptionist: got %d message(s) for %s' % (len(messages), identifier))
                     count = 0
                     for msg in messages:
                         # try to push message
                         success = 0
                         for sess in sessions:
+                            if sess.valid is False or sess.active is False:
+                                print('Receptionist: session invalid', sess)
+                                continue
                             if sess.request_handler.push_message(msg):
                                 success = success + 1
                             else:
-                                print('receptionist: failed to push message', sess.client_address)
+                                print('Receptionist: failed to push message', sess.client_address)
                         if success > 0:
                             # push message success (at least one)
                             count = count + 1
@@ -94,20 +97,20 @@ class Receptionist(Thread):
                             break
                     # 4. remove messages after success, or remove the guest on failed
                     if count == len(messages):
-                        print('receptionist: a batch message(%d) pushed successfully to %s' % (count, identifier))
+                        print('Receptionist: a batch message(%d) pushed successfully to %s' % (count, identifier))
                         self.database.remove_message_batch(batch)
                     else:
-                        print('receptionist: pushing message failed, remove the guest: %s' % identifier)
+                        print('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)
             except IOError as error:
-                print('receptionist IO error:', error)
+                print('Receptionist: IO error', error)
             except JSONDecodeError as error:
-                print('receptionist decode error:', error)
+                print('Receptionist: decode error', error)
             except TypeError as error:
-                print('receptionist type error:', error)
+                print('Receptionist: type error', error)
             except ValueError as error:
-                print('receptionist value error:', error)
+                print('Receptionist: value error', error)
             finally:
                 # sleep 1 second for next loop
                 sleep(1.0)
-        print('receptionist exit!')
+        print('Receptionist: exit!')

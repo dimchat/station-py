@@ -55,19 +55,19 @@ class RequestHandler(BaseRequestHandler):
         if self.session is not None:
             return self.session.identifier
 
-    def clear_session(self):
-        if self.session:
+    def current_session(self, identifier: dimp.ID=None) -> Session:
+        # check whether the current session's identifier matched
+        if identifier is None:
+            return self.session
+        if self.session is not None:
+            # current session belongs to the same user
+            if self.session.identifier == identifier:
+                return self.session
+            # user switched, clear current session
             session_server.remove_session(session=self.session)
             self.session = None
-
-    def current_session(self, identifier: dimp.ID) -> Session:
-        # check whether the current session's identifier matched
-        if self.session is not None and self.session.identifier != identifier:
-            # user switched, clear to reset session
-            self.clear_session()
         # get new session with identifier
-        if self.session is None:
-            self.session = session_server.session_create(identifier=identifier, request_handler=self)
+        self.session = session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
 
     def send(self, data: bytes) -> bool:
@@ -101,7 +101,9 @@ class RequestHandler(BaseRequestHandler):
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
-            self.clear_session()
+            # clear current session
+            session_server.remove_session(session=self.session)
+            self.session = None
         print(self, 'RequestHandler: finish', self.client_address)
 
     """

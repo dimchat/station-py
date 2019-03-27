@@ -48,13 +48,13 @@ class Session:
         # generate session key
         self.session_key: str = hex_encode(bytes(numpy.random.bytes(32)))
         self.valid = False
+        self.active = True  # when the client entered background, it should be set to False
 
     def __str__(self):
         clazz = self.__class__.__name__
-        identifier = self.identifier
-        address = '(%s:%d)' % self.client_address
-        key = self.session_key
-        return '<%s: %s %s %s />' % (clazz, identifier, address, key)
+        address = '(%s,%d)' % self.client_address
+        return '<%s:%s %s|%s valid=%d active=%d />' % (clazz, self.session_key, address,
+                                                        self.identifier, self.valid, self.active)
 
 
 class SessionServer:
