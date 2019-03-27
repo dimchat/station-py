@@ -86,7 +86,7 @@ class MessageProcessor:
             # session invalid, handshake first
             # NOTICE: if the client try to send message to another user before handshake,
             #         the message will be lost!
-            return self.process_handshake_command(sender)
+            return self.process_handshake(sender)
         # deliver message for receiver
         print('MessageProcessor: delivering message with envelope', msg.envelope)
         return self.deliver_message(msg)
@@ -100,7 +100,7 @@ class MessageProcessor:
         command = content['command']
         if 'handshake' == command:
             # handshake protocol
-            return self.process_handshake_command(sender=sender, content=content)
+            return self.process_handshake(sender=sender, content=content)
         elif 'meta' == command:
             # meta protocol
             return self.process_meta_command(content=content)
@@ -117,22 +117,25 @@ class MessageProcessor:
             session = self.current_session(identifier=sender)
             if not session.valid:
                 # session invalid, handshake first
-                return self.process_handshake_command(sender)
+                return self.process_handshake(sender)
             # broadcast
             return self.process_broadcast_command(content=content)
         else:
             print('MessageProcessor: unknown command', content)
 
-    def process_handshake_command(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+    def process_handshake(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
         # set/update session in session server with new session key
         print('MessageProcessor: handshake with client', self.client_address, sender)
-        cmd = dimp.HandshakeCommand(content)
+        if content is None:
+            session_key = None
+        else:
+            session_key = content.get('session')
         session = self.current_session(identifier=sender)
-        if cmd.session == session.session_key:
+        if session_key == session.session_key:
             # session verified success
             session.valid = True
             session.active = True
-            print('MessageProcessor: handshake accepted', self.client_address, sender, cmd.session)
+            print('MessageProcessor: handshake accepted', self.client_address, sender, session_key)
             # add the new guest for checking offline messages
             self.receptionist.add_guest(identifier=sender)
             return dimp.HandshakeCommand.success()
@@ -247,7 +250,7 @@ class MessageProcessor:
                     session.active = True
                 return dimp.ReceiptCommand.receipt(message='Client state received')
         elif 'apns' == title:
-            # report device token
+            # submit device token for APNs
             token = content.get('device_token')
             print('MessageProcessor: client report token', token)
             if token is not None:
