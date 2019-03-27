@@ -257,13 +257,18 @@ class MessageProcessor:
             session = self.current_session()
             if 'background' == state:
                 session.active = False
+            elif 'foreground' == state:
+                # welcome back!
+                receptionist.add_guest(identifier=session.identifier)
+                session.active = True
             else:
+                print('MessageProcessor: unknown state', state)
                 session.active = True
             response = dimp.CommandContent.new(command='receipt')
             response['message'] = 'Client state for %s received!' % session.identifier
             return response
         else:
-            print('MessageProcessor: unknown report command', content)
+            print('MessageProcessor: unknown report content', content)
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('MessageProcessor: deliver message', self.identifier, msg.envelope)
