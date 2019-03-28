@@ -59,6 +59,15 @@ class ApplePushNotificationService:
         # counting offline messages
         self.badge_table = {}
 
+    def badge(self, identifier: str) -> int:
+        num = self.badge_table.get(identifier)
+        if num is None:
+            num = 1
+        else:
+            num = num + 1
+        self.badge_table[identifier] = num
+        return num
+
     def clear_badge(self, identifier: str) -> bool:
         if identifier in self.badge_table:
             self.badge_table.pop(identifier)
@@ -100,16 +109,12 @@ class ApplePushNotificationService:
         if tokens is None:
             print('APNs: cannot get device token for user %s' % identifier)
             return False
-        badge = self.badge_table.get(identifier)
-        if badge is None:
-            badge = 1
-        else:
-            badge = badge + 1
         # 2. send
+        badge = self.badge(identifier)
+        payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:
             print('APNs: sending notification %s to user %s with token %s' % (message, identifier, token))
-            payload = Payload(alert=message, badge=badge, sound='default')
             # first try
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable
@@ -125,7 +130,6 @@ class ApplePushNotificationService:
                 success = success + 1
         if success > 0:
             print('APNs: sending notification success:%d badge=%d, %s' % (success, badge, identifier))
-            self.badge_table[identifier] = badge
             return True
 
 
