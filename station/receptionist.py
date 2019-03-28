@@ -48,6 +48,7 @@ class Receptionist(Thread):
         self.database: Database = None
         self.session_server: SessionServer = None
         self.station = None
+        self.apns = None
 
     def add_guest(self, identifier: dimp.ID):
         self.guests.append(identifier)
@@ -71,6 +72,7 @@ class Receptionist(Thread):
                     if batch is None:
                         print('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
+                        self.apns.clear_badge(identifier=identifier)
                         continue
                     messages = batch.get('messages')
                     if messages is None or len(messages) == 0:

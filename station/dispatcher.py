@@ -74,6 +74,4 @@ class Dispatcher:
         contact = self.database.account_create(identifier=sender)
         contact.delegate = self.database
         text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
-        # TODO: get offline messages count
-        count = 1
-        return self.apns.push(identifier=receiver, message=text, badge=count)
+        return self.apns.push(identifier=receiver, message=text)

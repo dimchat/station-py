@@ -56,6 +56,13 @@ class ApplePushNotificationService:
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
         self.delegate = None  # IAPNsDelegate
+        # counting offline messages
+        self.badge_table = {}
+
+    def clear_badge(self, identifier: str) -> bool:
+        if identifier in self.badge_table:
+            self.badge_table.pop(identifier)
+            return True
 
     def connect(self) -> bool:
         try:
@@ -87,12 +94,17 @@ class ApplePushNotificationService:
             print('APNs: failed to push notification: %s, error %s' % (notification, error))
             return -400  # Bad Request
 
-    def push(self, identifier: str, message: str, badge: int=1) -> bool:
+    def push(self, identifier: str, message: str) -> bool:
         # 1. check
         tokens = self.delegate.device_tokens(identifier=identifier)
         if tokens is None:
             print('APNs: cannot get device token for user %s' % identifier)
             return False
+        badge = self.badge_table.get(identifier)
+        if badge is None:
+            badge = 1
+        else:
+            badge = badge + 1
         # 2. send
         success = 0
         for token in tokens:
@@ -102,7 +114,7 @@ class ApplePushNotificationService:
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable
                 # connection failed
-                return success > 0
+                break
             elif result == -408:  # Request Timeout
                 print('APNs: Broken pipe? try to reconnect again!')
                 # reset APNs client
@@ -111,7 +123,10 @@ class ApplePushNotificationService:
                 result = self.send_notification(token_hex=token, notification=payload)
             if result == 200:  # OK
                 success = success + 1
-        return success > 0
+        if success > 0:
+            print('APNs: sending notification success:%d badge=%d, %s' % (success, badge, identifier))
+            self.badge_table[identifier] = badge
+            return True
 
 
 class IAPNsDelegate(metaclass=ABCMeta):

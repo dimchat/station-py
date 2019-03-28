@@ -141,6 +141,16 @@ station.running = False
 
 
 """
+    Apple Push Notification service (APNs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    A service for pushing notification to offline device
+"""
+apns = ApplePushNotificationService(database.base_dir + 'private/apns.pem', use_sandbox=True)
+apns.delegate = database
+
+
+"""
     Station Receptionist
     ~~~~~~~~~~~~~~~~~~~~
 
@@ -150,16 +160,7 @@ receptionist = Receptionist()
 receptionist.database = database
 receptionist.session_server = session_server
 receptionist.station = station
-
-
-"""
-    Apple Push Notification service (APNs)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    A service for pushing notification to offline device
-"""
-apns = ApplePushNotificationService(database.base_dir + 'private/apns.pem', use_sandbox=True)
-apns.delegate = database
+receptionist.apns = apns
 
 
 """
