@@ -96,10 +96,10 @@ class Receptionist(Thread):
                             # push message failed, remove session here?
                             break
                     # 4. remove messages after success, or remove the guest on failed
-                    if count == len(messages):
-                        print('Receptionist: a batch message(%d) pushed successfully to %s' % (count, identifier))
-                        self.database.remove_message_batch(batch)
-                    else:
+                    total_count = len(messages)
+                    print('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
+                    self.database.remove_message_batch(batch, removed_count=count)
+                    if count < total_count:
                         print('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)
             except IOError as error:

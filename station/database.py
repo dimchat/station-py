@@ -89,7 +89,11 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 print('got %d message(s) for %s' % (len(messages), receiver))
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
 
-    def remove_message_batch(self, batch: dict) -> bool:
+    def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
+        if removed_count <= 0:
+            print('message count to removed error:', removed_count)
+            return False
+        # 0. get message file path
         path = batch.get('path')
         if path is None:
             receiver = batch.get('ID')
@@ -97,13 +101,25 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             if receiver and filename:
                 directory = self.directory('pubic', receiver, 'messages')
                 path = directory + '/' + filename
-        if os.path.exists(path):
-            print('removing message file: %s' % path)
-            os.remove(path)
-            return True
-        else:
+        if not os.path.exists(path):
             print('message file not exists: %s' % path)
             return False
+        # 1. remove all message(s)
+        print('remove message file: %s' % path)
+        os.remove(path)
+        # 2. store the rest messages back
+        messages = batch.get('messages')
+        if messages is None:
+            return False
+        total_count = len(messages)
+        if removed_count < total_count:
+            # remove message(s) partially
+            messages = messages[:removed_count]
+            for msg in messages:
+                with open(path, 'a') as file:
+                    file.write(json.dumps(msg) + '\n')
+            print('the rest messages(%d) write back into file: ', path)
+        return True
 
     """
         Meta file for Accounts
