@@ -66,19 +66,7 @@ def hex_encode(data: bytes) -> str:
     return b2a_hex(data).decode('utf-8')
 
 
-def directory(filename: str) -> str:
-    """
-        Build directory: '/tmp/www/uploads/01/23/{filename}
-    :param filename:
-    :return:
-    """
-    sub_dir1 = filename[:2]
-    sub_dir2 = filename[2:4]
-    path = os.path.join(UPLOAD_DIRECTORY, sub_dir1, sub_dir2)
-    return path
-
-
-def save_data(data: bytes, filename: str) -> str:
+def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
     """ save encrypted data file """
     (useless, ext) = os.path.splitext(filename)
     if ext is None or data is None:
@@ -92,7 +80,7 @@ def save_data(data: bytes, filename: str) -> str:
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
     filename = '%s.%s' % (hex_encode(md5(data)), ext)
-    save_dir = directory(filename)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     path = os.path.join(save_dir, filename)
@@ -106,10 +94,10 @@ def save_data(data: bytes, filename: str) -> str:
     return render_template('response.html', code=500, message='Internal Server Error', filename=filename)
 
 
-def save_avatar(data: bytes, filename: str, identifier: str) -> str:
+def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
     """ save avatar """
     (useless, ext) = os.path.splitext(filename)
-    if ext is None or data is None or identifier is None:
+    if ext is None or data is None:
         # 417 - Expectation Failed
         msg = 'Expectation Failed'
         return render_template('response.html', code=417, message=msg, filename=filename)
@@ -119,7 +107,6 @@ def save_avatar(data: bytes, filename: str, identifier: str) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    identifier = dimp.ID(identifier)
     filename = '%s.%s' % (identifier.address, ext)
     save_dir = AVATAR_DIRECTORY
     if not os.path.exists(save_dir):
@@ -149,28 +136,31 @@ def test() -> str:
     return render_template('test.html')
 
 
-@app.route('/upload', methods=['POST'])
-def upload() -> str:
+@app.route('/<string:identifier>/upload', methods=['POST'])
+def upload(identifier: str) -> str:
+    """ upload encrypted data file or avatar """
+    # TODO: check identifier
+    identifier = dimp.ID(identifier)
+
     # check file
     file = request.files.get('file')
     if file:
         # uploading encrypted data file
-        filename = file.filename
+        filename = secure_filename(file.filename)
         data = file.read()
         if data is None or len(data) == 0:
             # 204 - No Content
             return render_template('response.html', code=204, message='No Content', filename=filename)
         # save encrypted data file
-        return save_data(data=data, filename=filename)
+        return save_data(data=data, filename=filename, identifier=identifier)
 
     # check avatar
     avatar_file = request.files.get('avatar')
     if avatar_file:
         # uploading avatar
-        identifier = request.form.get('ID')
-        filename = avatar_file.filename
+        filename = secure_filename(avatar_file.filename)
         data = avatar_file.read()
-        if data is None or len(data) == 0 or identifier is None or len(identifier) == 0:
+        if data is None or len(data) == 0:
             # 204 - No Content
             return render_template('response.html', code=204, message='No Content', filename=filename)
         # save avatar
@@ -180,11 +170,12 @@ def upload() -> str:
     return render_template('response.html', code=400, message='Bad Request')
 
 
-@app.route('/download/<path:filename>', methods=['GET'])
-def download(filename: str) -> str:
+@app.route('/download/<string:identifier>/<path:filename>', methods=['GET'])
+def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
+    identifier = dimp.ID(identifier)
     filename = secure_filename(filename)
-    save_dir = directory(filename)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
     return send_from_directory(save_dir, filename, as_attachment=True)
 
 
@@ -194,7 +185,8 @@ def avatar(identifier: str, ext: str) -> str:
     identifier = dimp.ID(identifier)
     ext = secure_filename(ext)
     filename = '%s.%s' % (identifier.address, ext)
-    return send_from_directory(AVATAR_DIRECTORY, filename, as_attachment=True)
+    save_dir = AVATAR_DIRECTORY
+    return send_from_directory(save_dir, filename, as_attachment=True)
 
 
 if __name__ == '__main__':
