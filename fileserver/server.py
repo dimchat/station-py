@@ -179,6 +179,7 @@ def download(identifier: str, filename: str) -> str:
     return send_from_directory(save_dir, filename, as_attachment=True)
 
 
+@app.route('/avatar/<string:identifier>.<string:ext>', methods=['GET'])
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
 def avatar(identifier: str, ext: str) -> str:
     """ response avatar file as attachment """
