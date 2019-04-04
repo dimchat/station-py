@@ -186,7 +186,7 @@ def avatar(identifier: str, ext: str) -> str:
     ext = secure_filename(ext)
     filename = '%s.%s' % (identifier.address, ext)
     save_dir = AVATAR_DIRECTORY
-    return send_from_directory(save_dir, filename, as_attachment=True)
+    return send_from_directory(save_dir, filename, as_attachment=False)
 
 
 if __name__ == '__main__':
