@@ -107,15 +107,20 @@ def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (identifier.address, ext)
-    save_dir = AVATAR_DIRECTORY
+    filename = '%s.%s' % (hex_encode(md5(data)), ext)
+    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     path = os.path.join(save_dir, filename)
     with open(path, 'wb') as file:
         count = file.write(data)
+    # save it as 'avatar.ext' too
+    filename2 = 'avatar.%s' % ext
+    path2 = os.path.join(save_dir, filename2)
+    with open(path2, 'wb') as file:
+        count2 = file.write(data)
     # OK
-    if count == len(data):
+    if count == len(data) and count2 == count:
         # 200 - OK
         return render_template('response.html', code=200, message='OK', filename=filename)
     # 500 - Internal Server Error
@@ -179,14 +184,20 @@ def download(identifier: str, filename: str) -> str:
     return send_from_directory(save_dir, filename, as_attachment=True)
 
 
+@app.route('/avatar/<string:identifier>/<path:filename>', methods=['GET'])
 @app.route('/avatar/<string:identifier>.<string:ext>', methods=['GET'])
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
-def avatar(identifier: str, ext: str) -> str:
+def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
     """ response avatar file as attachment """
     identifier = dimp.ID(identifier)
-    ext = secure_filename(ext)
-    filename = '%s.%s' % (identifier.address, ext)
-    save_dir = AVATAR_DIRECTORY
+    if filename is not None:
+        filename = secure_filename(filename)
+    elif ext is not None:
+        ext = secure_filename(ext)
+        filename = 'avatar.%s' % ext
+    else:
+        filename = 'avatar.png'
+    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
     return send_from_directory(save_dir, filename, as_attachment=False)
 
 
