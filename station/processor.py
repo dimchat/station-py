@@ -264,5 +264,20 @@ class MessageProcessor:
         self.dispatcher.deliver(msg)
         # response to sender
         response = dimp.ReceiptCommand.receipt(message='Message delivering')
-        response['signature'] = msg['signature']
+        # extra info
+        sender = msg.get('sender')
+        receiver = msg.get('receiver')
+        time = msg.get('time')
+        group = msg.get('group')
+        signature = msg.get('signature')
+        # envelope
+        response['sender'] = sender
+        response['receiver'] = receiver
+        if time is not None:
+            response['time'] = time
+        # group message?
+        if group is not None and group != receiver:
+            response['group'] = group
+        # signature
+        response['signature'] = signature
         return response
