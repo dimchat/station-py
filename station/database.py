@@ -32,6 +32,7 @@
 
 import os
 import time
+import random
 import json
 
 import dimp
@@ -319,7 +320,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
     def search(self, keywords: list) -> dict:
         results = {}
         max_count = 20
-        for identifier in self.accounts:
+        array = list(self.accounts.keys())
+        array = random.sample(array, len(array))
+        for identifier in array:
             identifier = dimp.ID(identifier)
             network = identifier.address.network
             if not network.is_person() and not network.is_group():
