@@ -114,13 +114,14 @@ class RequestHandler(BaseRequestHandler):
         data = b''
         while station.running:
             # receive all data
+            incomplete_length = len(data)
             while True:
                 part = self.receive(1024)
                 data += part
                 if len(part) < 1024:
                     break
-            if len(data) == 0:
-                print('RequestHandler: client exit:', self.client_address)
+            if len(data) == incomplete_length:
+                print('RequestHandler: no more data received, client exit', incomplete_length, self.client_address)
                 break
 
             # process package(s) one by one
