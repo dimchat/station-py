@@ -147,7 +147,6 @@ class RequestHandler(BaseRequestHandler):
                     pack_len = head.head_length + head.body_length
                     if pack_len > len(data):
                         # partially data, keep it for next loop
-                        # print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pack_len]
@@ -165,7 +164,6 @@ class RequestHandler(BaseRequestHandler):
                     pos = data.find(b'\n')
                     if pos < 0:
                         # partially data, keep it for next loop
-                        # print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pos+1]
