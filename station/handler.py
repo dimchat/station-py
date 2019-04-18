@@ -147,7 +147,7 @@ class RequestHandler(BaseRequestHandler):
                     pack_len = head.head_length + head.body_length
                     if pack_len > len(data):
                         # partially data, keep it for next loop
-                        print('RequestHandler: incomplete data', data)
+                        # print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pack_len]
@@ -165,7 +165,7 @@ class RequestHandler(BaseRequestHandler):
                     pos = data.find(b'\n')
                     if pos < 0:
                         # partially data, keep it for next loop
-                        print('RequestHandler: incomplete data', data)
+                        # print('RequestHandler: incomplete data', data)
                         break
                     # cut out the first package from received data
                     pack = data[:pos+1]
@@ -205,7 +205,7 @@ class RequestHandler(BaseRequestHandler):
                     body = body + msg.encode('utf-8')
             if body:
                 data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-                print('RequestHandler: mars response', data)
+                # print('RequestHandler: mars response', data)
                 self.send(data)
             else:
                 # TODO: handle error message
@@ -237,7 +237,7 @@ class RequestHandler(BaseRequestHandler):
             msg = dimp.ReliableMessage(msg)
             res = self.processor.process(msg)
             if res:
-                print('RequestHandler: response to client', self.client_address, res)
+                # print('RequestHandler: response to client', self.client_address, res)
                 receiver = dimp.ID(msg.envelope.sender)
                 return station.pack(receiver=receiver, content=res)
         except Exception as error:
@@ -249,13 +249,13 @@ class RequestHandler(BaseRequestHandler):
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
-        print('RequestHandler: pushing mars message', data)
+        # print('RequestHandler: pushing mars message', data)
         return self.send(data)
 
     def push_raw_message(self, msg: dimp.ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
-        print('RequestHandler: pushing raw message', data)
+        # print('RequestHandler: pushing raw message', data)
         return self.send(data)
 
     push_message = push_raw_message

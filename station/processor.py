@@ -88,7 +88,7 @@ class MessageProcessor:
             #         the message will be lost!
             return self.process_handshake(sender)
         # deliver message for receiver
-        print('MessageProcessor: delivering message with envelope', msg.envelope)
+        print('MessageProcessor: delivering message', msg.envelope)
         return self.deliver_message(msg)
 
     def process_dialog(self, sender: dimp.ID, content: dimp.Content) -> dimp.Content:
@@ -150,7 +150,7 @@ class MessageProcessor:
         if meta:
             # received a meta for ID
             meta = dimp.Meta(meta)
-            print('MessageProcessor: received meta', identifier, meta)
+            print('MessageProcessor: received meta', identifier)
             if self.database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 return dimp.ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
@@ -168,20 +168,19 @@ class MessageProcessor:
 
     def process_profile_command(self, content: dimp.Content) -> dimp.Content:
         identifier = dimp.ID(content['ID'])
-        if 'meta' in content:
-            meta = content['meta']
+        meta = content.get('meta')
+        if meta is not None:
             meta = dimp.Meta(meta)
-            print('MessageProcessor: received meta', identifier, meta)
             if self.database.cache_meta(identifier=identifier, meta=meta):
                 # meta saved
                 print('MessageProcessor: meta cached', identifier, meta)
             else:
                 print('MessageProcessor: meta not match', identifier, meta)
-        if 'profile' in content:
+        profile = content.get('profile')
+        if profile is not None:
             # received a new profile for ID
-            profile = content['profile']
             signature = content['signature']
-            print('MessageProcessor: received profile', identifier, profile, signature)
+            print('MessageProcessor: received profile', identifier)
             if self.database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
                 # profile saved
                 return dimp.ReceiptCommand.receipt(message='Profile of %s received!' % identifier)

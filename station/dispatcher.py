@@ -50,7 +50,7 @@ class Dispatcher:
         receiver = dimp.ID(receiver)
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            print('Dispatcher: %s is online(%d), push message: %s' % (receiver, len(sessions), msg))
+            print('Dispatcher: %s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
@@ -59,12 +59,12 @@ class Dispatcher:
                 if sess.request_handler.push_message(msg):
                     success = success + 1
                 else:
-                    print('Dispatcher: failed to push message', sess.client_address)
+                    print('Dispatcher: failed to push message via connection', sess.client_address)
             if success > 0:
                 print('Dispatcher: message pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        print('Dispatcher: %s is offline, store message: %s' % (receiver, msg))
+        print('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
         # push notification
         account = self.database.account_create(identifier=receiver)
