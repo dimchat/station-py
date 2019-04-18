@@ -155,10 +155,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                # no need to check meta again
-                meta = dimp.Meta(json.loads(data))
-                # update memory cache
-                self.cache_meta(meta=meta, identifier=identifier)
+            meta = dimp.Meta(json.loads(data))
+            # update memory cache
+            if super().cache_meta(meta=meta, identifier=identifier):
                 return meta
 
     """
@@ -202,9 +201,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                content = json.loads(data)
-                # no need to check signature again
-                return content
+            content = json.loads(data)
+            # no need to check signature again
+            return content
 
     def profile(self, identifier: dimp.ID) -> dict:
         content = super().profile(identifier=identifier)
@@ -251,9 +250,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                sk = dimp.PrivateKey(json.loads(data))
-                # update memory cache
-                self.cache_private_key(private_key=sk, identifier=identifier)
+            sk = dimp.PrivateKey(json.loads(data))
+            # update memory cache
+            if self.cache_private_key(private_key=sk, identifier=identifier):
                 return sk
 
     """
@@ -298,17 +297,17 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                table_ = json.loads(data)
-                # key_table[sender.address] -> key_map
-                for from_, map_ in table_:
-                    key_map = self.key_table.get(from_)
-                    if key_map is None:
-                        key_map = {}
-                        self.key_table[from_] = key_map
-                    # key_map[receiver.address] -> key
-                    for to_, key_ in map_:
-                        # update memory cache
-                        key_map[to_] = dimp.SymmetricKey(key_)
+            table_ = json.loads(data)
+            # key_table[sender.address] -> key_map
+            for from_, map_ in table_:
+                key_map = self.key_table.get(from_)
+                if key_map is None:
+                    key_map = {}
+                    self.key_table[from_] = key_map
+                # key_map[receiver.address] -> key
+                for to_, key_ in map_:
+                    # update memory cache
+                    key_map[to_] = dimp.SymmetricKey(key_)
 
     """
         Search Engine
@@ -356,8 +355,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                device = json.loads(data)
-                return device.get('tokens')
+            device = json.loads(data)
+            # TODO: only get the last two devices
+            return device.get('tokens')
 
     def cache_device_token(self, identifier: str, token: str) -> bool:
         if token is None:
@@ -369,7 +369,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-                device = json.loads(data)
+            device = json.loads(data)
         if device is None:
             device = {}
         # 2. get tokens list for updating
@@ -377,6 +377,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         if tokens is None:
             tokens = [token]
         elif token not in tokens:
+            # TODO: only save the last two devices
             tokens.append(token)
         device['tokens'] = tokens
         # 3. save device info
