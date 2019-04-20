@@ -24,10 +24,10 @@
 # ==============================================================================
 
 """
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
+    DIM Network Monitor
+    ~~~~~~~~~~~~~~~~~~~
 
-    A dispatcher to decide which way to deliver message.
+    A dispatcher for sending reports to administrator(s)
 """
 
 import dimp
@@ -37,42 +37,50 @@ from .database import Database
 from .apns import ApplePushNotificationService
 
 
-class Dispatcher:
+class Monitor:
 
     def __init__(self):
         super().__init__()
         self.session_server: SessionServer = None
         self.database: Database = None
         self.apns: ApplePushNotificationService = None
+        # message from the station to administrator(s)
+        self.sender: dimp.ID = None
+        self.receivers: list = []
 
-    def deliver(self, msg: dimp.ReliableMessage) -> bool:
-        receiver = msg.envelope.receiver
+    def report(self, message: str) -> int:
+        success = 0
+        for receiver in self.receivers:
+            if self.send_report(text=message, receiver=receiver):
+                success = success + 1
+        return success
+
+    def send_report(self, text: str, receiver: dimp.ID) -> bool:
+        if self.sender is None:
+            print('Monitor: sender not set yet')
+            return False
+        sender = dimp.ID(self.sender)
         receiver = dimp.ID(receiver)
+        content = dimp.TextContent.new(text=text)
+        msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            print('Dispatcher: %s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
+            print('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), msg.envelope))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
-                    print('Dispatcher: session invalid', sess)
+                    print('Monitor: session invalid', sess)
                     continue
                 if sess.request_handler.push_message(msg):
                     success = success + 1
                 else:
-                    print('Dispatcher: failed to push message via connection', sess.client_address)
+                    print('Monitor: failed to push report via connection', sess.client_address)
             if success > 0:
-                print('Dispatcher: message pushed to activated session(%d) of user: %s' % (success, receiver))
+                print('Monitor: report pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        print('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
+        print('Monitor: %s is offline, store report: %s' % (receiver, text))
         self.database.store_message(msg)
         # push notification
-        account = self.database.account_create(identifier=receiver)
-        account.delegate = self.database
-        sender = msg.envelope.sender
-        sender = dimp.ID(sender)
-        contact = self.database.account_create(identifier=sender)
-        contact.delegate = self.database
-        text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
         return self.apns.push(identifier=receiver, message=text)

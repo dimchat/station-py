@@ -38,7 +38,7 @@ from .mars import NetMsgHead, NetMsg
 from .processor import MessageProcessor
 from .session import Session
 
-from .config import station, session_server
+from .config import station, session_server, monitor
 
 
 class RequestHandler(BaseRequestHandler):
@@ -90,6 +90,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         print(self, 'set up with', self.client_address)
+        monitor.report(message='Client (%s:%s) connected' % self.client_address)
         # message processor
         self.processor = MessageProcessor(request_handler=self)
         # current session
@@ -98,12 +99,15 @@ class RequestHandler(BaseRequestHandler):
     def finish(self):
         if self.session is not None:
             print('RequestHandler: disconnect current request from session', self.identifier, self.client_address)
+            monitor.report(message='User %s logged out %s' % (self.identifier, self.client_address))
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             # clear current session
             session_server.remove_session(session=self.session)
             self.session = None
+        else:
+            monitor.report(message='Client (%s:%s) disconnected' % self.client_address)
         print(self, 'RequestHandler: finish', self.client_address)
 
     """

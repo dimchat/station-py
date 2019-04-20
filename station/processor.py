@@ -32,7 +32,7 @@
 import dimp
 
 from .session import Session
-from .config import station, session_server, database, dispatcher, receptionist
+from .config import station, session_server, database, dispatcher, receptionist, monitor
 
 
 class MessageProcessor:
@@ -136,6 +136,7 @@ class MessageProcessor:
             session.valid = True
             session.active = True
             print('MessageProcessor: handshake accepted', self.client_address, sender, session_key)
+            monitor.report(message='User %s logged in %s' % (sender, self.client_address))
             # add the new guest for checking offline messages
             self.receptionist.add_guest(identifier=sender)
             return dimp.HandshakeCommand.success()

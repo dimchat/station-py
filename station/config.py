@@ -40,6 +40,7 @@ from .session import SessionServer
 from .receptionist import Receptionist
 from .dispatcher import Dispatcher
 from .apns import ApplePushNotificationService
+from .monitor import Monitor
 
 from .utils import *
 from .gsp_s001 import s001_id, s001_sk, s001_meta
@@ -173,6 +174,20 @@ dispatcher = Dispatcher()
 dispatcher.session_server = session_server
 dispatcher.database = database
 dispatcher.apns = apns
+
+
+"""
+    DIM Network Monitor
+    ~~~~~~~~~~~~~~~~~~~
+
+    A dispatcher for sending reports to administrator(s)
+"""
+monitor = Monitor()
+monitor.session_server = session_server
+monitor.database = database
+monitor.apns = apns
+monitor.sender = station.identifier
+monitor.receivers.append(dimp.ID('moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ'))
 
 
 def load_accounts():
