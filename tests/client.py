@@ -47,9 +47,13 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from station.config import station, database
-from station.config import load_accounts, remote_host, remote_port
+from station.config import load_accounts, station_port
 from station.utils import *
 
+
+remote_host = '127.0.0.1'
+# remote_host = '124.156.108.150'  # dim.chat
+remote_port = station_port
 
 identifier_map = {
     'moki': moki.identifier,

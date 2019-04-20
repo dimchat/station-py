@@ -132,9 +132,7 @@ transceiver = dimp.Transceiver(identifier=station_id,
 station_host = '0.0.0.0'
 station_port = 9394
 
-remote_host = '127.0.0.1'
-# remote_host = '124.156.108.150'  # dim.chat
-remote_port = station_port
+station_name = 'Genesis Station'
 
 station = Station(identifier=station_id, host=station_host, port=station_port)
 station.privateKey = station_sk
@@ -208,6 +206,10 @@ def load_accounts():
     database.cache_meta(identifier=station_id, meta=station_meta)
     database.cache_private_key(identifier=station_id, private_key=station_sk)
     database.cache_account(station)
+    # store station name
+    profile = '{\"ID\":\"%s\",\"name\":\"%s\"}' % (station_id, station_name)
+    signature = base64_encode(station_sk.sign(profile.encode('utf-8')))
+    database.save_profile_signature(identifier=station_id, profile=profile, signature=signature)
 
     # scan all metas
     directory = database.base_dir + 'public'
