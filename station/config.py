@@ -32,6 +32,7 @@
 
 import os
 import json
+import time
 
 import dimp
 
@@ -60,7 +61,8 @@ class Station(dimp.Station):
 
     def pack(self, receiver: dimp.ID, content: dimp.Content) -> dimp.ReliableMessage:
         """ Pack message from this station """
-        env = dimp.Envelope(sender=self.identifier, receiver=receiver)
+        timestamp = int(time.time())
+        env = dimp.Envelope(sender=self.identifier, receiver=receiver, time=timestamp)
         i_msg = dimp.InstantMessage.new(content=content, envelope=env)
         r_msg = self.transceiver.encrypt_sign(i_msg)
         return r_msg

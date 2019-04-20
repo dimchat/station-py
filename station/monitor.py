@@ -30,6 +30,8 @@
     A dispatcher for sending reports to administrator(s)
 """
 
+import time
+
 import dimp
 
 from .session import SessionServer
@@ -62,8 +64,9 @@ class Monitor:
             return False
         sender = dimp.ID(self.sender)
         receiver = dimp.ID(receiver)
+        timestamp = int(time.time())
         content = dimp.TextContent.new(text=text)
-        i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
         r_msg = self.transceiver.encrypt_sign(i_msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
