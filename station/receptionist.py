@@ -76,7 +76,9 @@ class Receptionist(Thread):
                         continue
                     messages = batch.get('messages')
                     if messages is None or len(messages) == 0:
-                        raise AssertionError('message batch error: %s' % batch)
+                        print('Receptionist: message batch error: %s' % batch)
+                        # raise AssertionError('message batch error: %s' % batch)
+                        continue
                     # 3. send new messages to each session
                     print('Receptionist: got %d message(s) for %s' % (len(messages), identifier))
                     count = 0

@@ -69,7 +69,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         path = directory + '/' + filename + '.msg'
         with open(path, 'a') as file:
             file.write(json.dumps(msg) + '\n')
-        print('msg write into file: ', path)
+        print('[DB] msg write into file: ', path)
         return True
 
     def load_message_batch(self, receiver: dimp.ID) -> dict:
@@ -83,14 +83,26 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 with open(path, 'r') as file:
                     lines = file.readlines()
                 os.remove(path)
-                print('read %d line(s) from %s' % (len(lines), path))
-                messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
-                print('got %d message(s) for %s' % (len(messages), receiver))
+                print('[DB] read %d line(s) from %s' % (len(lines), path))
+                # messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
+                messages = []
+                for line in lines:
+                    msg = line.strip()
+                    if len(msg) == 0:
+                        print('[DB] skip empty line')
+                        continue
+                    try:
+                        msg = json.loads(msg)
+                        msg = dimp.ReliableMessage(msg)
+                        messages.append(msg)
+                    except Exception as error:
+                        print('[DB] message package error', error, line)
+                print('[DB] got %d message(s) for %s' % (len(messages), receiver))
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
 
     def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
         if removed_count <= 0:
-            print('message count to removed error:', removed_count)
+            print('[DB] message count to removed error:', removed_count)
             return False
         # 0. get message file path
         path = batch.get('path')
@@ -101,10 +113,10 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 directory = self.directory('pubic', receiver, 'messages')
                 path = directory + '/' + filename
         if not os.path.exists(path):
-            print('message file not exists: %s' % path)
+            print('[DB] message file not exists: %s' % path)
             return False
         # 1. remove all message(s)
-        print('remove message file: %s' % path)
+        print('[DB] remove message file: %s' % path)
         os.remove(path)
         # 2. store the rest messages back
         messages = batch.get('messages')
@@ -117,7 +129,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             for msg in messages:
                 with open(path, 'a') as file:
                     file.write(json.dumps(msg) + '\n')
-            print('the rest messages(%d) write back into file: ', path)
+            print('[DB] the rest messages(%d) write back into file: ', path)
         return True
 
     """
@@ -129,17 +141,17 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
 
     def cache_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
         if not super().cache_meta(meta=meta, identifier=identifier):
-            print('meta not match %s: %s, IGNORE!' % (identifier, meta))
+            print('[DB] meta not match %s: %s, IGNORE!' % (identifier, meta))
             return False
         # save meta as new file
         directory = self.directory('public', identifier)
         path = directory + '/meta.js'
         if os.path.exists(path):
-            print('meta file exists: %s, update IGNORE!' % path)
+            print('[DB] meta file exists: %s, update IGNORE!' % path)
         else:
             with open(path, 'w') as file:
                 file.write(json.dumps(meta))
-            print('meta write into file: ', path)
+            print('[DB] meta write into file: ', path)
         # meta cached
         return True
 
@@ -172,10 +184,10 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             data = profile.encode('utf-8')
             sig = base64_decode(signature)
             if not pk.verify(data, sig):
-                print('signature not match %s: %s, %s' % (identifier, profile, signature))
+                print('[DB] signature not match %s: %s, %s' % (identifier, profile, signature))
                 return False
         else:
-            print('meta not found: %s, IGNORE!' % identifier)
+            print('[DB] meta not found: %s, IGNORE!' % identifier)
             return False
         # save/update profile
         content = {
@@ -187,7 +199,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         path = directory + '/profile.js'
         with open(path, 'w') as file:
             file.write(json.dumps(content))
-        print('profile write into file: ', path)
+        print('[DB] profile write into file: ', path)
         # update memory cache
         profile = json.loads(profile)
         return self.cache_profile(profile=profile, identifier=identifier)
@@ -228,14 +240,14 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             directory = self.directory('private', identifier)
             path = directory + '/private_key.js'
             if os.path.exists(path):
-                print('private key file exists: %s, update IGNORE!' % path)
+                print('[DB] private key file exists: %s, update IGNORE!' % path)
             else:
                 with open(path, 'w') as file:
                     file.write(json.dumps(private_key))
-                print('private key write into file: ', path)
+                print('[DB] private key write into file: ', path)
             return True
         else:
-            print('cannot update private key: %s -> %s' % (private_key, identifier))
+            print('[DB] cannot update private key: %s -> %s' % (private_key, identifier))
             return False
 
     def private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
@@ -277,7 +289,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         path = directory + '/keystore.js'
         with open(path, 'w') as file:
             file.write(self.key_table)
-        print('keystore write into file: ', path)
+        print('[DB] keystore write into file: ', path)
         self.dirty = False
 
     def key_exists(self, sender_address: str, receiver_address: str) -> bool:
@@ -381,5 +393,5 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         # 3. save device info
         with open(path, 'w') as file:
             file.write(json.dumps(device))
-        print('device token flush into file: %s, %s' % (path, device))
+        print('[DB] device token flush into file: %s, %s' % (path, device))
         return True
