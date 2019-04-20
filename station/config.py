@@ -45,6 +45,7 @@ from .monitor import Monitor
 
 from .utils import *
 from .gsp_s001 import s001_id, s001_sk, s001_meta
+from .gsp_admins import administrators
 
 # gsp station-001
 station_id = dimp.ID(s001_id)
@@ -188,7 +189,9 @@ monitor.database = database
 monitor.transceiver = transceiver
 monitor.apns = apns
 monitor.sender = station.identifier
-monitor.receivers.append(dimp.ID('moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ'))
+# add admins who will receive reports
+for admin in administrators:
+    monitor.receivers.append(dimp.ID(admin))
 
 
 def load_accounts():
