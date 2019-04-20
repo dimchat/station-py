@@ -136,7 +136,7 @@ class MessageProcessor:
             session.valid = True
             session.active = True
             print('MessageProcessor: handshake accepted', self.client_address, sender, session_key)
-            monitor.report(message='User %s logged in %s' % (sender, self.client_address))
+            monitor.report(message='User logged in %s %s' % (self.client_address, sender))
             # add the new guest for checking offline messages
             self.receptionist.add_guest(identifier=sender)
             return dimp.HandshakeCommand.success()

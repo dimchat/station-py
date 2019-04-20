@@ -90,7 +90,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         print(self, 'set up with', self.client_address)
-        monitor.report(message='Client (%s:%s) connected' % self.client_address)
+        monitor.report(message='Client connected %s' % str(self.client_address))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
         # current session
@@ -99,7 +99,7 @@ class RequestHandler(BaseRequestHandler):
     def finish(self):
         if self.session is not None:
             print('RequestHandler: disconnect current request from session', self.identifier, self.client_address)
-            monitor.report(message='User %s logged out %s' % (self.identifier, self.client_address))
+            monitor.report(message='User logged out %s %s' % (self.client_address, self.identifier))
             response = dimp.TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
@@ -107,7 +107,7 @@ class RequestHandler(BaseRequestHandler):
             session_server.remove_session(session=self.session)
             self.session = None
         else:
-            monitor.report(message='Client (%s:%s) disconnected' % self.client_address)
+            monitor.report(message='Client disconnected %s' % str(self.client_address))
         print(self, 'RequestHandler: finish', self.client_address)
 
     """
