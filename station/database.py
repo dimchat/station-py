@@ -81,11 +81,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 path = directory + '/' + filename
                 # read ONE .msg file for each receiver and remove the file immediately
                 with open(path, 'r') as file:
-                    data = file.read()
+                    lines = file.readlines()
                 os.remove(path)
-                print('read %d byte(s) from %s' % (len(data), path))
-                # ONE line ONE message, split them
-                lines = str(data).splitlines()
+                print('read %d line(s) from %s' % (len(lines), path))
                 messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
                 print('got %d message(s) for %s' % (len(messages), receiver))
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
