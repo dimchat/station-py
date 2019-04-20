@@ -94,7 +94,7 @@ class Station(dimp.Station):
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
 database = Database()
-# database.base_dir = '/data/.dim/'
+database.base_dir = '/data/.dim/'
 
 
 """
@@ -185,6 +185,7 @@ dispatcher.apns = apns
 monitor = Monitor()
 monitor.session_server = session_server
 monitor.database = database
+monitor.transceiver = transceiver
 monitor.apns = apns
 monitor.sender = station.identifier
 monitor.receivers.append(dimp.ID('moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ'))

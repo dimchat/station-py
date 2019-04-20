@@ -43,6 +43,7 @@ class Monitor:
         super().__init__()
         self.session_server: SessionServer = None
         self.database: Database = None
+        self.transceiver: dimp.Transceiver = None
         self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
         self.sender: dimp.ID = None
@@ -62,17 +63,18 @@ class Monitor:
         sender = dimp.ID(self.sender)
         receiver = dimp.ID(receiver)
         content = dimp.TextContent.new(text=text)
-        msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        r_msg = self.transceiver.encrypt_sign(i_msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            print('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), msg.envelope))
+            print('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
                     print('Monitor: session invalid', sess)
                     continue
-                if sess.request_handler.push_message(msg):
+                if sess.request_handler.push_message(r_msg):
                     success = success + 1
                 else:
                     print('Monitor: failed to push report via connection', sess.client_address)
@@ -81,6 +83,6 @@ class Monitor:
                 return True
         # store in local cache file
         print('Monitor: %s is offline, store report: %s' % (receiver, text))
-        self.database.store_message(msg)
+        self.database.store_message(r_msg)
         # push notification
         return self.apns.push(identifier=receiver, message=text)
