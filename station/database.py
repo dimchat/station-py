@@ -82,7 +82,6 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                 # read ONE .msg file for each receiver and remove the file immediately
                 with open(path, 'r') as file:
                     lines = file.readlines()
-                os.remove(path)
                 print('[DB] read %d line(s) from %s' % (len(lines), path))
                 # messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
                 messages = []
@@ -98,6 +97,9 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                     except Exception as error:
                         print('[DB] message package error', error, line)
                 print('[DB] got %d message(s) for %s' % (len(messages), receiver))
+                if len(messages) == 0:
+                    print('[DB] remove empty message file', path)
+                    os.remove(path)
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
 
     def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
@@ -125,7 +127,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         total_count = len(messages)
         if removed_count < total_count:
             # remove message(s) partially
-            messages = messages[:removed_count]
+            messages = messages[removed_count:]
             for msg in messages:
                 with open(path, 'a') as file:
                     file.write(json.dumps(msg) + '\n')
