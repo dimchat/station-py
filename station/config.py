@@ -188,10 +188,10 @@ monitor.session_server = session_server
 monitor.database = database
 monitor.transceiver = transceiver
 monitor.apns = apns
+# set station as the report sender, and add admins who will receive reports
 monitor.sender = station.identifier
-# add admins who will receive reports
 for admin in administrators:
-    monitor.receivers.append(dimp.ID(admin))
+    monitor.admins.add(dimp.ID(admin))
 
 
 def load_accounts():

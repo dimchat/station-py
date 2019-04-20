@@ -49,11 +49,11 @@ class Monitor:
         self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
         self.sender: dimp.ID = None
-        self.receivers: list = []
+        self.admins: set = set()
 
     def report(self, message: str) -> int:
         success = 0
-        for receiver in self.receivers:
+        for receiver in self.admins:
             if self.send_report(text=message, receiver=receiver):
                 success = success + 1
         return success
