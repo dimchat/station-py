@@ -97,6 +97,7 @@ Edit **station/config.py**
 
 * Database directory: ```database.base_dir = '/data/.dim/'```
 * Listening port: ```station_port = 9394```
+* APNS credentials: ```apns_credentials = '/data/.dim/private/apns_dev_key.pem'```
 
 ### Check running every 10 seconds
 

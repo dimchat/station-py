@@ -147,7 +147,8 @@ station.running = False
 
     A service for pushing notification to offline device
 """
-apns = ApplePushNotificationService(database.base_dir + 'private/apns.pem', use_sandbox=True)
+apns_credentials = '/data/.dim/private/apns-key.pem'
+apns = ApplePushNotificationService(apns_credentials, use_sandbox=True)
 apns.delegate = database
 
 
