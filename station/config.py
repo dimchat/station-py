@@ -44,10 +44,11 @@ from .apns import ApplePushNotificationService
 from .monitor import Monitor
 
 from .utils import *
-from .gsp_s001 import s001_id, s001_sk, s001_meta
+from .gsp_s001 import s001_name, s001_id, s001_sk, s001_meta
 from .gsp_admins import administrators
 
 # gsp station-001
+station_name = s001_name
 station_id = dimp.ID(s001_id)
 station_sk = dimp.PrivateKey(s001_sk)
 station_meta = dimp.Meta(s001_meta)
@@ -132,8 +133,6 @@ transceiver = dimp.Transceiver(identifier=station_id,
 """
 station_host = '0.0.0.0'
 station_port = 9394
-
-station_name = 'Genesis Station'
 
 station = Station(identifier=station_id, host=station_host, port=station_port)
 station.privateKey = station_sk

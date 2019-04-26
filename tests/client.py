@@ -52,8 +52,9 @@ from station.utils import *
 
 
 remote_host = '127.0.0.1'
-# remote_host = '124.156.108.150'  # dim.chat
 remote_port = station_port
+
+database.base_dir = '/tmp/.dim/'
 
 identifier_map = {
     'moki': moki.identifier,
@@ -361,6 +362,7 @@ class Console(Cmd):
 if __name__ == '__main__':
     load_accounts()
 
+    print('connecting to %s:%d ...' % (remote_host, remote_port))
     client = Client(identifier=moki.identifier)
     client.connect(host=remote_host, port=remote_port)
 
