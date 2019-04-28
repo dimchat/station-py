@@ -362,7 +362,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         ~~~~~~~~~~~~~
     """
     def device_tokens(self, identifier: str) -> list:
-        directory = self.directory('private', dimp.ID(identifier))
+        directory = self.directory('protected', dimp.ID(identifier))
         path = directory + '/device.js'
         if os.path.exists(path):
             with open(path, 'r') as file:
@@ -374,7 +374,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
     def cache_device_token(self, identifier: str, token: str) -> bool:
         if token is None:
             return False
-        directory = self.directory('private', dimp.ID(identifier))
+        directory = self.directory('protected', dimp.ID(identifier))
         path = directory + '/device.js'
         # 1. load device info
         device = None
