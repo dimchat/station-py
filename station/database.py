@@ -36,24 +36,270 @@ import random
 import json
 
 import dimp
+from dimp.barrack import barrack
+from dimp.transceiver import transceiver
 
-from .utils import base64_decode
 from .apns import IAPNsDelegate
 
 
-class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
+class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegate, dimp.ITransceiverDelegate,
+               IAPNsDelegate):
 
     def __init__(self):
         super().__init__()
+        # memory cache
+        self.__metas = {}
+        self.__profiles = {}
+        self.__private_keys = {}
+
         self.base_dir = '/tmp/.dim/'
 
-    def directory(self, control: str, identifier: dimp.ID, sub_dir: str='') -> str:
+    def __directory(self, control: str, identifier: dimp.ID, sub_dir: str='') -> str:
         path = self.base_dir + control + '/' + identifier.address
         if sub_dir:
             path = path + '/' + sub_dir
         if not os.path.exists(path):
             os.makedirs(path)
         return path
+
+    #
+    #   IEntityDataSource
+    #
+    def meta(self, identifier: dimp.ID) -> dimp.Meta:
+        return self.load_meta(identifier=identifier)
+
+    def profile(self, identifier: dimp.ID) -> dimp.Profile:
+        # TODO: load profile from local storage
+        return self.load_profile(identifier=identifier)
+
+    #
+    #   IUserDataSource
+    #
+    def private_key_for_signature(self, identifier: dimp.ID) -> dimp.PrivateKey:
+        # TODO: load private key from keychain
+        return self.load_private_key(identifier=identifier)
+
+    def private_keys_for_decryption(self, identifier: dimp.ID) -> list:
+        # TODO: load private key from keychain
+        key = self.load_private_key(identifier=identifier)
+        return [key]
+
+    def contacts(self, identifier: dimp.ID) -> list:
+        # TODO: load contacts from local storage
+        pass
+
+    #
+    #   IGroupDataSource
+    #
+    def founder(self, identifier: dimp.ID) -> dimp.ID:
+        # TODO: load group info from local storage
+        pass
+
+    def owner(self, identifier: dimp.ID) -> dimp.ID:
+        # TODO: load group info from local storage
+        pass
+
+    def members(self, identifier: dimp.ID) -> list:
+        # TODO: load group info from local storage
+        pass
+
+    #
+    #   IBarrackDelegate
+    #
+    def account(self, identifier: dimp.ID) -> dimp.Account:
+        # TODO: create account
+        pass
+
+    def user(self, identifier: dimp.ID) -> dimp.User:
+        # TODO: create user
+        pass
+
+    def group(self, identifier: dimp.ID) -> dimp.Group:
+        # TODO: create group
+        pass
+
+    #
+    #   ITransceiverDelegate
+    #
+    def send_package(self, data: bytes, handler: dimp.ICompletionHandler) -> bool:
+        # TODO: send package data out
+        pass
+
+    def reuse_cipher_key(self, sender: dimp.ID, receiver: dimp.ID, key: dimp.SymmetricKey) -> bool:
+        # TODO: update/create cipher key
+        pass
+
+    #
+    #   IAPNsDelegate
+    #
+    def device_tokens(self, identifier: str) -> list:
+        return self.load_device_tokens(identifier=identifier)
+
+    """
+        Private Key file for Users
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/private/{ADDRESS}/private_key.js'
+    """
+
+    def save_private_key(self, private_key: dimp.PrivateKey, identifier: dimp.ID):
+        self.__private_keys[identifier.address] = private_key
+        # save private key as new file
+        directory = self.__directory('private', identifier)
+        path = directory + '/private_key.js'
+        if os.path.exists(path):
+            print('[DB] private key file exists: %s, update IGNORE!' % path)
+        else:
+            with open(path, 'w') as file:
+                file.write(json.dumps(private_key))
+            print('[DB] private key write into file: ', path)
+
+    def load_private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
+        sk = self.__private_keys.get(identifier.address)
+        if sk is None:
+            # load from local storage
+            directory = self.__directory('private', identifier)
+            path = directory + '/private_key.js'
+            if os.path.exists(path):
+                with open(path, 'r') as file:
+                    data = file.read()
+                sk = dimp.PrivateKey(json.loads(data))
+                # update memory cache
+                self.__private_keys[identifier.address] = sk
+        return sk
+
+    """
+        Meta file for entities
+        ~~~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/public/{ADDRESS}/meta.js'
+    """
+
+    def save_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
+        self.__metas[identifier.address] = meta
+        # save meta as new file
+        directory = self.__directory('public', identifier)
+        path = directory + '/meta.js'
+        if os.path.exists(path):
+            print('[DB] meta file exists: %s, update IGNORE!' % path)
+        else:
+            with open(path, 'w') as file:
+                file.write(json.dumps(meta))
+            print('[DB] meta write into file: ', path)
+        # meta cached
+        return True
+
+    def load_meta(self, identifier: dimp.ID) -> dimp.Meta:
+        meta = self.__metas.get(identifier.address)
+        if meta is None:
+            # load from local storage
+            directory = self.__directory('public', identifier)
+            path = directory + '/meta.js'
+            if os.path.exists(path):
+                with open(path, 'r') as file:
+                    data = file.read()
+                meta = dimp.Meta(json.loads(data))
+                # update memory cache
+                self.__metas[identifier.address] = meta
+        return meta
+
+    """
+        Profile for Accounts
+        ~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/public/{ADDRESS}/profile.js'
+    """
+
+    def cache_profile(self, profile: dimp.Profile) -> bool:
+        identifier = profile.identifier
+        meta = self.meta(identifier=identifier)
+        if meta is None:
+            print('[DB] meta not found: %s, IGNORE!' % identifier)
+            return False
+        if not profile.verify(meta.key):
+            print('[DB] profile signature not match: %s' % profile)
+            return False
+        # update memory cache
+        self.__profiles[identifier.address] = profile
+        return True
+
+    def save_profile(self, profile: dimp.Profile) -> bool:
+        if not self.cache_profile(profile=profile):
+            return False
+        # save/update profile
+        identifier = profile.identifier
+        directory = self.__directory('public', identifier)
+        path = directory + '/profile.js'
+        with open(path, 'w') as file:
+            file.write(json.dumps(profile))
+        print('[DB] profile write into file: ', path)
+
+    def load_profile(self, identifier: dimp.ID) -> dimp.Profile:
+        profile = self.__profiles.get(identifier.address)
+        if profile is not None:
+            return profile
+        # load from local storage
+        directory = self.__directory('public', identifier)
+        path = directory + '/profile.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+            content = json.loads(data)
+            # compatible with v1.0
+            data = content.get('data')
+            if data is None:
+                data = content.get('profile')
+                if data is not None:
+                    content['data'] = data
+                    content.pop('profile')
+            # verify & cache
+            profile = dimp.Profile(content)
+            if self.cache_profile(profile):
+                return content
+
+    """
+        Device Tokens for APNS
+        ~~~~~~~~~~~~~~~~~~~~~~
+        
+        file path: '.dim/protected/{ADDRESS}/device.js'
+    """
+
+    def load_device_tokens(self, identifier: str) -> list:
+        directory = self.__directory('protected', dimp.ID(identifier))
+        path = directory + '/device.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+            device = json.loads(data)
+            # TODO: only get the last two devices
+            return device.get('tokens')
+
+    def save_device_token(self, identifier: str, token: str) -> bool:
+        if token is None:
+            return False
+        directory = self.__directory('protected', dimp.ID(identifier))
+        path = directory + '/device.js'
+        # 1. load device info
+        device = None
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+            device = json.loads(data)
+        if device is None:
+            device = {}
+        # 2. get tokens list for updating
+        tokens = device.get('tokens')
+        if tokens is None:
+            tokens = [token]
+        elif token not in tokens:
+            # TODO: only save the last two devices
+            tokens.append(token)
+        device['tokens'] = tokens
+        # 3. save device info
+        with open(path, 'w') as file:
+            file.write(json.dumps(device))
+        print('[DB] device token flush into file: %s, %s' % (path, device))
+        return True
 
     """
         Reliable message for Receivers
@@ -64,7 +310,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
 
     def store_message(self, msg: dimp.ReliableMessage) -> bool:
         receiver = dimp.ID(msg.envelope.receiver)
-        directory = self.directory('public', receiver, 'messages')
+        directory = self.__directory('public', receiver, 'messages')
         filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
         path = directory + '/' + filename + '.msg'
         with open(path, 'a') as file:
@@ -73,7 +319,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
         return True
 
     def load_message_batch(self, receiver: dimp.ID) -> dict:
-        directory = self.directory('public', receiver, 'messages')
+        directory = self.__directory('public', receiver, 'messages')
         # get all files in messages directory and sort by filename
         files = sorted(os.listdir(directory))
         for filename in files:
@@ -112,7 +358,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             receiver = batch.get('ID')
             filename = batch.get('filename')
             if receiver and filename:
-                directory = self.directory('pubic', receiver, 'messages')
+                directory = self.__directory('pubic', receiver, 'messages')
                 path = directory + '/' + filename
         if not os.path.exists(path):
             print('[DB] message file not exists: %s' % path)
@@ -134,192 +380,59 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
             print('[DB] the rest messages(%d) write back into file: ', path)
         return True
 
-    """
-        Meta file for Accounts
-        ~~~~~~~~~~~~~~~~~~~~~~
-
-        file path: '.dim/public/{ADDRESS}/meta.js'
-    """
-
-    def cache_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
-        if not super().cache_meta(meta=meta, identifier=identifier):
-            print('[DB] meta not match %s: %s, IGNORE!' % (identifier, meta))
-            return False
-        # save meta as new file
-        directory = self.directory('public', identifier)
-        path = directory + '/meta.js'
-        if os.path.exists(path):
-            print('[DB] meta file exists: %s, update IGNORE!' % path)
-        else:
-            with open(path, 'w') as file:
-                file.write(json.dumps(meta))
-            print('[DB] meta write into file: ', path)
-        # meta cached
-        return True
-
-    def meta(self, identifier: dimp.ID) -> dimp.Meta:
-        meta = super().meta(identifier=identifier)
-        if meta is not None:
-            return meta
-        # load from local storage
-        directory = self.directory('public', identifier)
-        path = directory + '/meta.js'
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            meta = dimp.Meta(json.loads(data))
-            # update memory cache
-            if super().cache_meta(meta=meta, identifier=identifier):
-                return meta
-
-    """
-        Profile for Accounts
-        ~~~~~~~~~~~~~~~~~~~~
-
-        file path: '.dim/public/{ADDRESS}/profile.js'
-    """
-
-    def save_profile_signature(self, identifier: dimp.ID, profile: str, signature: str) -> bool:
-        meta = self.meta(identifier=identifier)
-        if meta:
-            pk = meta.key
-            data = profile.encode('utf-8')
-            sig = base64_decode(signature)
-            if not pk.verify(data, sig):
-                print('[DB] signature not match %s: %s, %s' % (identifier, profile, signature))
-                return False
-        else:
-            print('[DB] meta not found: %s, IGNORE!' % identifier)
-            return False
-        # save/update profile
-        content = {
-            'ID': identifier,
-            'profile': profile,
-            'signature': signature,
-        }
-        directory = self.directory('public', identifier)
-        path = directory + '/profile.js'
-        with open(path, 'w') as file:
-            file.write(json.dumps(content))
-        print('[DB] profile write into file: ', path)
-        # update memory cache
-        profile = json.loads(profile)
-        return self.cache_profile(profile=profile, identifier=identifier)
-
-    def profile_signature(self, identifier: dimp.ID) -> dict:
-        # load from local storage
-        directory = self.directory('public', identifier)
-        path = directory + '/profile.js'
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            content = json.loads(data)
-            # no need to check signature again
-            return content
-
-    def profile(self, identifier: dimp.ID) -> dict:
-        content = super().profile(identifier=identifier)
-        if content is not None:
-            return content
-        # load from local storage
-        content = self.profile_signature(identifier=identifier)
-        if content and 'profile' in content:
-            profile = content.get('profile')
-            content = json.loads(profile)
-        self.cache_profile(profile=content, identifier=identifier)
-        return content
-
-    """
-        Private Key file for Users
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        file path: '.dim/private/{ADDRESS}/private_key.js'
-    """
-
-    def cache_private_key(self, private_key: dimp.PrivateKey, identifier: dimp.ID) -> bool:
-        if super().cache_private_key(private_key=private_key, identifier=identifier):
-            # save private key as new file
-            directory = self.directory('private', identifier)
-            path = directory + '/private_key.js'
-            if os.path.exists(path):
-                print('[DB] private key file exists: %s, update IGNORE!' % path)
-            else:
-                with open(path, 'w') as file:
-                    file.write(json.dumps(private_key))
-                print('[DB] private key write into file: ', path)
-            return True
-        else:
-            print('[DB] cannot update private key: %s -> %s' % (private_key, identifier))
-            return False
-
-    def private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
-        sk = super().private_key(identifier=identifier)
-        if sk is not None:
-            return sk
-        # load from local storage
-        directory = self.directory('private', identifier)
-        path = directory + '/private_key.js'
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            sk = dimp.PrivateKey(json.loads(data))
-            # update memory cache
-            if self.cache_private_key(private_key=sk, identifier=identifier):
-                return sk
-
-    """
-        Key Store
-        ~~~~~~~~~
-        
-        Memory cache for reused passwords (symmetric key)
-    """
-
-    def cipher_key(self, sender: dimp.ID, receiver: dimp.ID) -> dimp.SymmetricKey:
-        key = super().cipher_key(sender=sender, receiver=receiver)
-        if key is not None:
-            return key
-        # create a new key & save it into the Key Store
-        key = dimp.SymmetricKey.generate({'algorithm': 'AES'})
-        self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
-        return key
-
-    def flush(self):
-        if self.dirty is False or self.user is None:
-            return
-        # write key table to persistent storage
-        directory = self.directory('public', self.user.identifier)
-        path = directory + '/keystore.js'
-        with open(path, 'w') as file:
-            file.write(self.key_table)
-        print('[DB] keystore write into file: ', path)
-        self.dirty = False
-
-    def key_exists(self, sender_address: str, receiver_address: str) -> bool:
-        key_map = self.key_table.get(sender_address)
-        if key_map is None:
-            return False
-        return receiver_address in key_map
-
-    def reload(self) -> bool:
-        if self.user is None:
-            return False
-        # load key table from persistent storage
-        directory = self.directory('public', self.user.identifier)
-        path = directory + '/keystore.js'
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            table_ = json.loads(data)
-            # key_table[sender.address] -> key_map
-            for from_, map_ in table_:
-                key_map = self.key_table.get(from_)
-                if key_map is None:
-                    key_map = {}
-                    self.key_table[from_] = key_map
-                # key_map[receiver.address] -> key
-                for to_, key_ in map_:
-                    # update memory cache
-                    key_map[to_] = dimp.SymmetricKey(key_)
+    # """
+    #     Key Store
+    #     ~~~~~~~~~
+    #
+    #     Memory cache for reused passwords (symmetric key)
+    # """
+    #
+    # def cipher_key(self, sender: dimp.ID, receiver: dimp.ID) -> dimp.SymmetricKey:
+    #     key = super().cipher_key(sender=sender, receiver=receiver)
+    #     if key is not None:
+    #         return key
+    #     # create a new key & save it into the Key Store
+    #     key = dimp.SymmetricKey({'algorithm': 'AES'})
+    #     self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+    #     return key
+    #
+    # def flush(self):
+    #     if self.dirty is False or self.user is None:
+    #         return
+    #     # write key table to persistent storage
+    #     directory = self.directory('public', self.user.identifier)
+    #     path = directory + '/keystore.js'
+    #     with open(path, 'w') as file:
+    #         file.write(self.key_table)
+    #     print('[DB] keystore write into file: ', path)
+    #     self.dirty = False
+    #
+    # def key_exists(self, sender_address: str, receiver_address: str) -> bool:
+    #     key_map = self.key_table.get(sender_address)
+    #     if key_map is None:
+    #         return False
+    #     return receiver_address in key_map
+    #
+    # def reload(self) -> bool:
+    #     if self.user is None:
+    #         return False
+    #     # load key table from persistent storage
+    #     directory = self.directory('public', self.user.identifier)
+    #     path = directory + '/keystore.js'
+    #     if os.path.exists(path):
+    #         with open(path, 'r') as file:
+    #             data = file.read()
+    #         table_ = json.loads(data)
+    #         # key_table[sender.address] -> key_map
+    #         for from_, map_ in table_:
+    #             key_map = self.key_table.get(from_)
+    #             if key_map is None:
+    #                 key_map = {}
+    #                 self.key_table[from_] = key_map
+    #             # key_map[receiver.address] -> key
+    #             for to_, key_ in map_:
+    #                 # update memory cache
+    #                 key_map[to_] = dimp.SymmetricKey(key_)
 
     """
         Search Engine
@@ -331,7 +444,7 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
     def search(self, keywords: list) -> dict:
         results = {}
         max_count = 20
-        array = list(self.accounts.keys())
+        array = list(barrack.accounts.keys())
         array = random.sample(array, len(array))
         for identifier in array:
             identifier = dimp.ID(identifier)
@@ -357,43 +470,12 @@ class Database(dimp.Barrack, dimp.KeyStore, IAPNsDelegate):
                     break
         return results
 
-    """
-        APNs Delegate
-        ~~~~~~~~~~~~~
-    """
-    def device_tokens(self, identifier: str) -> list:
-        directory = self.directory('protected', dimp.ID(identifier))
-        path = directory + '/device.js'
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            device = json.loads(data)
-            # TODO: only get the last two devices
-            return device.get('tokens')
 
-    def cache_device_token(self, identifier: str, token: str) -> bool:
-        if token is None:
-            return False
-        directory = self.directory('protected', dimp.ID(identifier))
-        path = directory + '/device.js'
-        # 1. load device info
-        device = None
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            device = json.loads(data)
-        if device is None:
-            device = {}
-        # 2. get tokens list for updating
-        tokens = device.get('tokens')
-        if tokens is None:
-            tokens = [token]
-        elif token not in tokens:
-            # TODO: only save the last two devices
-            tokens.append(token)
-        device['tokens'] = tokens
-        # 3. save device info
-        with open(path, 'w') as file:
-            file.write(json.dumps(device))
-        print('[DB] device token flush into file: %s, %s' % (path, device))
-        return True
+database = Database()
+
+barrack.entityDataSource = database
+barrack.userDataSource = database
+barrack.groupDataSource = database
+barrack.delegate = database
+
+transceiver.delegate = database

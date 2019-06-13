@@ -62,7 +62,7 @@ class MessageProcessor:
     """
     def process(self, msg: dimp.ReliableMessage) -> dimp.Content:
         # verify signature
-        s_msg = self.station.verify(msg)
+        s_msg = self.station.verify_message(msg)
         if s_msg is None:
             print('MessageProcessor: message verify error', msg)
             response = dimp.TextContent.new(text='Signature error')
@@ -73,7 +73,7 @@ class MessageProcessor:
         receiver = dimp.ID(s_msg.envelope.receiver)
         if receiver == self.station.identifier:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
-            content = self.station.decrypt(s_msg)
+            content = self.station.decrypt_message(s_msg)
             if content.type == dimp.MessageType.Command:
                 print('MessageProcessor: command from client', self.client_address, content)
                 return self.process_command(sender=sender, content=content)

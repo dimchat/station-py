@@ -35,8 +35,10 @@ import json
 import time
 
 import dimp
+from dimp.barrack import barrack
+from dimp.transceiver import transceiver
 
-from .database import Database
+from .database import database
 from .session import SessionServer
 from .receptionist import Receptionist
 from .dispatcher import Dispatcher
@@ -58,18 +60,18 @@ class Station(dimp.Station):
 
     def __init__(self, identifier: dimp.ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.transceiver: dimp.Transceiver = None
+        self.transceiver: dimp.Transceiver = transceiver
         self.running = False
 
     def pack(self, receiver: dimp.ID, content: dimp.Content) -> dimp.ReliableMessage:
         """ Pack message from this station """
         timestamp = int(time.time())
-        env = dimp.Envelope(sender=self.identifier, receiver=receiver, time=timestamp)
+        env = dimp.Envelope.new(sender=self.identifier, receiver=receiver, time=timestamp)
         i_msg = dimp.InstantMessage.new(content=content, envelope=env)
         r_msg = self.transceiver.encrypt_sign(i_msg)
         return r_msg
 
-    def verify(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
+    def verify_message(self, msg: dimp.ReliableMessage) -> dimp.SecureMessage:
         # check meta (first contact?)
         meta = msg.meta
         if meta is not None:
@@ -82,13 +84,32 @@ class Station(dimp.Station):
             msg.delegate = self.transceiver
         return msg.verify()
 
-    def decrypt(self, msg: dimp.SecureMessage) -> dimp.Content:
+    def decrypt_message(self, msg: dimp.SecureMessage) -> dimp.Content:
         """ Decrypt message for this station """
         s_msg = msg.trim(self.identifier)
         s_msg.delegate = self.transceiver
         i_msg = s_msg.decrypt()
         content = i_msg.content
         return content
+
+    def sign(self, data: bytes) -> bytes:
+        key = self.delegate.private_key_for_signature(identifier=self.identifier)
+        if key is not None:
+            return key.sign(data=data)
+
+    def decrypt(self, data: bytes) -> bytes:
+        keys = self.delegate.private_keys_for_decryption(identifier=self.identifier)
+        plaintext = None
+        for key in keys:
+            try:
+                plaintext = key.decrypt(data=data)
+            except ValueError:
+                # If the dat length is incorrect
+                continue
+            if plaintext is not None:
+                # decryption success
+                break
+        return plaintext
 
 
 """
@@ -97,8 +118,8 @@ class Station(dimp.Station):
     
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
-database = Database()
-database.base_dir = '/data/.dim/'
+# database = Database()
+# database.base_dir = '/data/.dim/'
 
 
 """
@@ -116,10 +137,7 @@ session_server = SessionServer()
 
     for pack/unpack messages
 """
-transceiver = dimp.Transceiver(identifier=station_id,
-                               private_key=station_sk,
-                               barrack=database,
-                               key_store=database)
+# transceiver = Transceiver()
 
 
 """
@@ -198,21 +216,27 @@ def load_accounts():
     print('======== loading accounts')
 
     print('loading immortal user: ', moki_id)
-    database.cache_meta(identifier=dimp.ID(moki_id), meta=dimp.Meta(moki_meta))
-    database.cache_private_key(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
+    database.save_meta(identifier=dimp.ID(moki_id), meta=dimp.Meta(moki_meta))
+    database.save_private_key(identifier=dimp.ID(moki_id), private_key=dimp.PrivateKey(moki_sk))
 
     print('loading immortal user: ', hulk_id)
-    database.cache_meta(identifier=dimp.ID(hulk_id), meta=dimp.Meta(hulk_meta))
-    database.cache_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
+    database.save_meta(identifier=dimp.ID(hulk_id), meta=dimp.Meta(hulk_meta))
+    database.save_private_key(identifier=dimp.ID(hulk_id), private_key=dimp.PrivateKey(hulk_sk))
 
     print('loading station: ', station_id)
-    database.cache_meta(identifier=station_id, meta=station_meta)
-    database.cache_private_key(identifier=station_id, private_key=station_sk)
-    database.cache_account(station)
+    database.save_meta(identifier=station_id, meta=station_meta)
+    database.save_private_key(identifier=station_id, private_key=station_sk)
+    barrack.cache_account(station)
     # store station name
-    profile = '{\"ID\":\"%s\",\"name\":\"%s\"}' % (station_id, station_name)
+    profile = '{\"name\":\"%s\"}' % station_name
     signature = base64_encode(station_sk.sign(profile.encode('utf-8')))
-    database.save_profile_signature(identifier=station_id, profile=profile, signature=signature)
+    profile = {
+        'ID': station_id,
+        'data': profile,
+        'signature': signature,
+    }
+    profile = dimp.Profile(profile)
+    database.save_profile(profile=profile)
 
     # scan all metas
     directory = database.base_dir + 'public'
@@ -227,19 +251,19 @@ def load_accounts():
                 # no need to check meta again
             meta = dimp.Meta(json.loads(data))
             identifier = meta.generate_identifier(network=dimp.NetworkID.Main)
-            if database.account(identifier=identifier):
+            if barrack.account(identifier=identifier):
                 # already exists
                 continue
             if path.endswith(identifier.address + '/meta.js'):
                 # address matched
-                sk = database.private_key(identifier=identifier)
+                sk = database.load_private_key(identifier=identifier)
                 if sk:
-                    user = dimp.User(identifier=identifier, private_key=sk)
+                    user = dimp.User(identifier=identifier)
                     # database.accounts[identifier] = user
-                    database.cache_account(user)
+                    barrack.cache_account(user)
                 else:
                     account = dimp.Account(identifier=identifier)
                     # database.accounts[identifier] = account
-                    database.cache_account(account)
+                    barrack.cache_account(account)
 
     print('======== loaded')

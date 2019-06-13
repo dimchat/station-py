@@ -33,6 +33,7 @@
 import time
 
 import dimp
+from dimp.transceiver import transceiver
 
 from .session import SessionServer
 from .database import Database
@@ -45,7 +46,7 @@ class Monitor:
         super().__init__()
         self.session_server: SessionServer = None
         self.database: Database = None
-        self.transceiver: dimp.Transceiver = None
+        self.transceiver: dimp.Transceiver = transceiver
         self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
         self.sender: dimp.ID = None

@@ -40,6 +40,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from dimp.keystore import keystore
+
 from station.handler import RequestHandler
 from station.config import station, receptionist
 from station.config import station_host, station_port, load_accounts
@@ -47,6 +49,8 @@ from station.config import station_host, station_port, load_accounts
 
 if __name__ == '__main__':
     load_accounts()
+
+    keystore.user = station
 
     station.running = True
     receptionist.start()

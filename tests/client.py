@@ -38,6 +38,9 @@ import socket
 from threading import Thread
 
 import dimp
+from dimp.transceiver import transceiver
+from dimp.barrack import barrack
+from dimp.keystore import keystore
 
 import sys
 import os
@@ -52,6 +55,8 @@ from station.utils import *
 
 
 remote_host = '127.0.0.1'
+# remote_host = '124.156.108.150'  # dimchat.hk
+# remote_host = '134.175.87.98'  # dimchat.gz
 remote_port = station_port
 
 database.base_dir = '/tmp/.dim/'
@@ -113,7 +118,6 @@ class Client:
     def __init__(self, identifier: dimp.ID):
         super().__init__()
         self.user = None
-        self.trans = None
         self.switch_user(identifier=identifier)
         # socket
         self.sock = None
@@ -123,13 +127,10 @@ class Client:
         self.session_key = None
 
     def switch_user(self, identifier: dimp.ID):
-        user = database.account(identifier=identifier)
+        user = barrack.user(identifier=identifier)
         if user:
             self.user = user
-            self.trans = dimp.Transceiver(identifier=self.user.identifier,
-                                          private_key=self.user.privateKey,
-                                          barrack=database,
-                                          key_store=database)
+            keystore.user = user
         else:
             raise LookupError('User not found: ' + identifier)
 
@@ -156,20 +157,21 @@ class Client:
             self.sock.close()
 
     def send(self, receiver: dimp.ID, content: dimp.Content):
-        account = database.account(receiver)
+        account = barrack.account(receiver)
         if account is None:
             raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
         # packing message
         i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
-        r_msg = self.trans.encrypt_sign(i_msg)
+        r_msg = transceiver.encrypt_sign(i_msg)
         # send out message
         pack = json.dumps(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
+        users = [self.user]
         r_msg = dimp.ReliableMessage(msg)
-        i_msg = self.trans.verify_decrypt(r_msg)
+        i_msg = transceiver.verify_decrypt(r_msg, users)
         sender = dimp.ID(i_msg.envelope.sender)
         self.receive_content(sender=sender, content=i_msg.content)
 
