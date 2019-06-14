@@ -42,6 +42,7 @@ class Dispatcher:
     def __init__(self):
         super().__init__()
         self.session_server: SessionServer = None
+        self.barrack: dimp.Barrack = None
         self.database: Database = None
         self.apns: ApplePushNotificationService = None
 
@@ -68,11 +69,11 @@ class Dispatcher:
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
         # push notification
-        account = self.database.account_create(identifier=receiver)
+        account = self.barrack.account(identifier=receiver)
         account.delegate = self.database
         sender = msg.envelope.sender
         sender = dimp.ID(sender)
-        contact = self.database.account_create(identifier=sender)
+        contact = self.barrack.account(identifier=sender)
         contact.delegate = self.database
         text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
         return self.apns.push(identifier=receiver, message=text)

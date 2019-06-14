@@ -194,27 +194,27 @@ class Client:
         command = content['command']
         if 'handshake' == command:
             cmd = dimp.HandshakeCommand(content)
-            # message = content['message']
-            if 'DIM!' == cmd.message:
+            message = cmd.message
+            if 'DIM!' == message:
                 print('##### handshake OK!')
-            elif 'DIM?' == cmd.message:
-                print('##### handshake again with new session key: %s' % cmd.session)
-                self.session_key = cmd.session
+            elif 'DIM?' == message:
+                session = cmd.session
+                print('##### handshake again with new session key: %s' % session)
+                self.session_key = session
         elif 'meta' == command:
             cmd = dimp.MetaCommand(content)
-            if cmd.meta:
-                print('##### received a meta for %s' % cmd.identifier)
-                identifier = dimp.ID(cmd.identifier)
-                database.cache_meta(identifier=identifier, meta=cmd.meta)
+            identifier = cmd.identifier
+            meta = cmd.meta
+            if meta:
+                print('##### received a meta for %s' % identifier)
+                database.save_meta(identifier=identifier, meta=meta)
         elif 'profile' == command:
             cmd = dimp.ProfileCommand(content)
-            if cmd.profile:
-                print('##### received a profile for %s' % cmd.identifier)
-                profile = content['profile']
-                signature = content['signature']
-                print('      profile: %s' % profile)
-                identifier = dimp.ID(cmd.identifier)
-                database.save_profile_signature(identifier=identifier, profile=profile, signature=signature)
+            identifier = cmd.identifier
+            profile = cmd.profile
+            if profile:
+                print('##### received a profile for %s' % identifier)
+                database.save_profile(profile=profile)
         elif 'search' == command:
             print('##### received search response')
             if 'users' in content:

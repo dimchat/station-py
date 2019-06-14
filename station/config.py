@@ -78,7 +78,7 @@ class Station(dimp.Station):
             meta = dimp.Meta(meta)
             identifier = dimp.ID(msg.envelope.sender)
             # save meta for sender
-            self.delegate.cache_meta(identifier=identifier, meta=meta)
+            self.delegate.save_meta(identifier=identifier, meta=meta)
         # message delegate
         if msg.delegate is None:
             msg.delegate = self.transceiver
@@ -191,6 +191,7 @@ receptionist.apns = apns
 """
 dispatcher = Dispatcher()
 dispatcher.session_server = session_server
+dispatcher.barrack = barrack
 dispatcher.database = database
 dispatcher.apns = apns
 

@@ -29,6 +29,7 @@
 
     Message processor for Request Handler
 """
+
 import dimp
 
 from .session import Session
@@ -100,36 +101,36 @@ class MessageProcessor:
         command = content['command']
         if 'handshake' == command:
             # handshake protocol
-            return self.process_handshake(sender=sender, content=content)
+            return self.process_handshake(sender=sender, cmd=dimp.HandshakeCommand(content))
         elif 'meta' == command:
             # meta protocol
-            return self.process_meta_command(content=content)
+            return self.process_meta_command(cmd=dimp.MetaCommand(content))
         elif 'profile' == command:
             # profile protocol
-            return self.process_profile_command(content=content)
+            return self.process_profile_command(cmd=dimp.ProfileCommand(content))
         elif 'users' == command:
             # show online users (connected)
             return self.process_users_command()
         elif 'search' == command:
             # search users with keyword(s)
-            return self.process_search_command(content=content)
+            return self.process_search_command(cmd=dimp.CommandContent(content))
         elif 'broadcast' == command:
             session = self.current_session(identifier=sender)
             if not session.valid:
                 # session invalid, handshake first
                 return self.process_handshake(sender)
             # broadcast
-            return self.process_broadcast_command(content=content)
+            return self.process_broadcast_command(cmd=dimp.BroadcastCommand(content))
         else:
             print('MessageProcessor: unknown command', content)
 
-    def process_handshake(self, sender: dimp.ID, content: dimp.Content=None) -> dimp.Content:
+    def process_handshake(self, sender: dimp.ID, cmd: dimp.HandshakeCommand=None) -> dimp.Content:
         # set/update session in session server with new session key
         print('MessageProcessor: handshake with client', self.client_address, sender)
-        if content is None:
+        if cmd is None:
             session_key = None
         else:
-            session_key = content.get('session')
+            session_key = cmd.session
         session = self.current_session(identifier=sender)
         if session_key == session.session_key:
             # session verified success
@@ -144,15 +145,14 @@ class MessageProcessor:
             # session key not match, ask client to sign it with the new session key
             return dimp.HandshakeCommand.again(session=session.session_key)
 
-    def process_meta_command(self, content: dimp.Content) -> dimp.Content:
-        cmd = dimp.MetaCommand(content)
+    def process_meta_command(self, cmd: dimp.MetaCommand) -> dimp.Content:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta:
             # received a meta for ID
             meta = dimp.Meta(meta)
             print('MessageProcessor: received meta', identifier)
-            if self.database.cache_meta(identifier=identifier, meta=meta):
+            if self.database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
                 return dimp.ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
@@ -167,22 +167,20 @@ class MessageProcessor:
             else:
                 return dimp.TextContent.new(text='Sorry, meta for %s not found.' % identifier)
 
-    def process_profile_command(self, content: dimp.Content) -> dimp.Content:
-        identifier = dimp.ID(content['ID'])
-        meta = content.get('meta')
+    def process_profile_command(self, cmd: dimp.ProfileCommand) -> dimp.Content:
+        identifier = cmd.identifier
+        meta = cmd.meta
         if meta is not None:
-            meta = dimp.Meta(meta)
-            if self.database.cache_meta(identifier=identifier, meta=meta):
+            if self.database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
                 print('MessageProcessor: meta cached', identifier, meta)
             else:
                 print('MessageProcessor: meta not match', identifier, meta)
-        profile = content.get('profile')
+        profile = cmd.profile
         if profile is not None:
             # received a new profile for ID
-            signature = content['signature']
             print('MessageProcessor: received profile', identifier)
-            if self.database.save_profile_signature(identifier=identifier, profile=profile, signature=signature):
+            if self.database.save_profile(profile=profile):
                 # profile saved
                 return dimp.ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
@@ -191,11 +189,9 @@ class MessageProcessor:
         else:
             # querying profile for ID
             print('MessageProcessor: search profile', identifier)
-            info = self.database.profile_signature(identifier=identifier)
-            if info:
-                prf = info['profile']
-                sig = info['signature']
-                return dimp.ProfileCommand.response(identifier=identifier, profile=prf, signature=sig)
+            profile = self.database.profile(identifier=identifier)
+            if profile is not None:
+                return dimp.ProfileCommand.response(identifier=identifier, profile=profile)
             else:
                 return dimp.TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
@@ -207,19 +203,19 @@ class MessageProcessor:
         response['users'] = users
         return response
 
-    def process_search_command(self, content: dimp.Content) -> dimp.Content:
-        print('MessageProcessor: search users for', self.identifier, content)
+    def process_search_command(self, cmd: dimp.CommandContent) -> dimp.Content:
+        print('MessageProcessor: search users for', self.identifier, cmd)
         # keywords
-        if 'keywords' in content:
-            keywords = content['keywords']
-        elif 'keyword' in content:
-            keywords = content['keyword']
-        elif 'kw' in content:
-            keywords = content['kw']
-        else:
-            raise ValueError('keywords not found')
+        keywords = cmd.get('keywords')
+        if keywords is None:
+            keywords = cmd.get('keyword')
+            if keywords is None:
+                keywords = cmd.get('kw')
         # search for each keyword
-        keywords = keywords.split(' ')
+        if keywords is None:
+            keywords = []
+        else:
+            keywords = keywords.split(' ')
         results = self.database.search(keywords=keywords)
         # response
         users = list(results.keys())
@@ -229,13 +225,12 @@ class MessageProcessor:
         response['results'] = results
         return response
 
-    def process_broadcast_command(self, content: dimp.Content) -> dimp.Content:
-        print('MessageProcessor: client broadcast', self.identifier, content)
-        broadcast = dimp.BroadcastCommand(content)
-        title = broadcast.title
+    def process_broadcast_command(self, cmd: dimp.BroadcastCommand) -> dimp.Content:
+        print('MessageProcessor: client broadcast', self.identifier, cmd)
+        title = cmd.title
         if 'report' == title:
             # report client state
-            state = broadcast.get('state')
+            state = cmd.get('state')
             print('MessageProcessor: client report state', state)
             if state is not None:
                 session = self.current_session()
@@ -251,13 +246,13 @@ class MessageProcessor:
                 return dimp.ReceiptCommand.receipt(message='Client state received')
         elif 'apns' == title:
             # submit device token for APNs
-            token = content.get('device_token')
+            token = cmd.get('device_token')
             print('MessageProcessor: client report token', token)
             if token is not None:
-                self.database.cache_device_token(identifier=self.identifier, token=token)
+                self.database.save_device_token(identifier=self.identifier, token=token)
                 return dimp.ReceiptCommand.receipt(message='Token received')
         else:
-            print('MessageProcessor: unknown broadcast content', content)
+            print('MessageProcessor: unknown broadcast command', cmd)
 
     def deliver_message(self, msg: dimp.ReliableMessage) -> dimp.Content:
         print('MessageProcessor: deliver message', self.identifier, msg.envelope)

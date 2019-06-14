@@ -125,8 +125,8 @@ class AccountTestCase(unittest.TestCase):
                 print('**** private key:\n', sk)
 
                 database = Database()
-                database.cache_meta(identifier=id1, meta=meta)
-                database.cache_private_key(identifier=id1, private_key=sk)
+                database.save_meta(identifier=id1, meta=meta)
+                database.save_private_key(identifier=id1, private_key=sk)
                 break
 
 
