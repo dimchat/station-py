@@ -40,15 +40,64 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from dimp.keystore import keystore
+from dimp import ID
+
+from common import keystore, database, load_accounts
+from common import s001, s001_host, s001_port
 
 from station.handler import RequestHandler
-from station.config import station, receptionist
-from station.config import station_host, station_port, load_accounts
+from station.receptionist import receptionist
+from station.monitor import monitor
+from station.apns import apns
+from station.gsp_admins import administrators
+
+
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+station = s001
+station_host = s001_host
+station_port = s001_port
+
+"""
+    Database
+    ~~~~~~~~
+
+    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
+"""
+database.base_dir = '/data/.dim/'
+
+"""
+    Apple Push Notification service (APNs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    A service for pushing notification to offline device
+"""
+apns.credentials = '/data/.dim/private/apns-key.pem'
+
+"""
+    Station Receptionist
+    ~~~~~~~~~~~~~~~~~~~~
+
+    A message scanner for new guests who have just come in.
+"""
+receptionist.station = station
+
+"""
+    DIM Network Monitor
+    ~~~~~~~~~~~~~~~~~~~
+
+    A dispatcher for sending reports to administrator(s)
+"""
+# set station as the report sender, and add admins who will receive reports
+monitor.sender = station.identifier
+for admin in administrators:
+    monitor.admins.add(ID(admin))
 
 
 if __name__ == '__main__':
-    load_accounts()
+    load_accounts(database=database)
 
     keystore.user = station
 

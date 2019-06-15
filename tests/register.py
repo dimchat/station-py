@@ -33,8 +33,6 @@
 
 import unittest
 
-import dimp
-
 import sys
 import os
 
@@ -42,8 +40,13 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from station.utils import base64_encode
-from station.database import Database
+from dimp import PrivateKey
+from dimp import NetworkID, Meta
+
+from mkm.address import BTCAddress
+
+from common import base64_encode
+from common import database
 
 
 def number_string(number: int):
@@ -65,21 +68,21 @@ class AccountTestCase(unittest.TestCase):
             seed = 'gsp'
             prefix = 400
             suffix = 0
-            network = dimp.NetworkID.Provider
+            network = NetworkID.Provider
             print('*** registering SP (%s) with number prefix: %d' % (seed, prefix))
         elif cmd == 2:
             # generate Station
             seed = 'gsp-s002'
             prefix = 110
             suffix = 0
-            network = dimp.NetworkID.Station
+            network = NetworkID.Station
             print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
         else:
             # generate User
             seed = 'moky'
             prefix = 0
             suffix = 9527
-            network = dimp.NetworkID.Main
+            network = NetworkID.Main
             print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
 
         # seed
@@ -88,10 +91,10 @@ class AccountTestCase(unittest.TestCase):
         for index in range(0, 10000):
 
             # generate private key
-            sk = dimp.PrivateKey.generate({'algorithm': 'RSA'})
+            sk = PrivateKey({'algorithm': 'RSA'})
             ct = sk.sign(data)
             # generate address
-            address = dimp.Address(fingerprint=ct, network=network)
+            address = BTCAddress.new(data=ct, network=network)
             number = address.number
 
             if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):
@@ -105,12 +108,12 @@ class AccountTestCase(unittest.TestCase):
 
             print('**** GOT IT!')
             meta = {
-                'version': dimp.Meta.DefaultVersion,
+                'version': Meta.DefaultVersion,
                 'seed': seed,
-                'key': sk.publicKey,
+                'key': sk.public_key,
                 'fingerprint': base64_encode(ct),
             }
-            meta = dimp.Meta(meta)
+            meta = Meta(meta)
             id1 = meta.generate_identifier(network=network)
             print('[% 5d] %s : %s' % (index, number_string(number), id1))
 
@@ -124,7 +127,6 @@ class AccountTestCase(unittest.TestCase):
                 print('**** meta:\n', meta)
                 print('**** private key:\n', sk)
 
-                database = Database()
                 database.save_meta(identifier=id1, meta=meta)
                 database.save_private_key(identifier=id1, private_key=sk)
                 break

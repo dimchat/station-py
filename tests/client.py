@@ -37,27 +37,27 @@ from cmd import Cmd
 import socket
 from threading import Thread
 
-import dimp
-from dimp.transceiver import transceiver
-from dimp.barrack import barrack
-from dimp.keystore import keystore
+from dimp import ID, Profile
+from dimp import MessageType, Content, CommandContent, TextContent
+from dimp import InstantMessage, ReliableMessage
+from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
-import sys
-import os
+from common import base64_encode
+from common import barrack, keystore, transceiver, database, load_accounts
+from common import s001, s001_port
+from common import moki, hulk
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
 
-from station.config import station, database
-from station.config import load_accounts, station_port
-from station.utils import *
-
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+station = s001
 
 remote_host = '127.0.0.1'
 # remote_host = '124.156.108.150'  # dimchat.hk
 # remote_host = '134.175.87.98'  # dimchat.gz
-remote_port = station_port
+remote_port = s001_port
 
 database.base_dir = '/tmp/.dim/'
 
@@ -115,7 +115,7 @@ def receive_handler(cli):
 
 class Client:
 
-    def __init__(self, identifier: dimp.ID):
+    def __init__(self, identifier: ID):
         super().__init__()
         self.user = None
         self.switch_user(identifier=identifier)
@@ -126,7 +126,7 @@ class Client:
         # session
         self.session_key = None
 
-    def switch_user(self, identifier: dimp.ID):
+    def switch_user(self, identifier: ID):
         user = barrack.user(identifier=identifier)
         if user:
             self.user = user
@@ -156,30 +156,29 @@ class Client:
         if self.sock:
             self.sock.close()
 
-    def send(self, receiver: dimp.ID, content: dimp.Content):
+    def send(self, receiver: ID, content: Content):
         account = barrack.account(receiver)
         if account is None:
             raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
         # packing message
-        i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
         r_msg = transceiver.encrypt_sign(i_msg)
         # send out message
         pack = json.dumps(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
-        users = [self.user]
-        r_msg = dimp.ReliableMessage(msg)
-        i_msg = transceiver.verify_decrypt(r_msg, users)
-        sender = dimp.ID(i_msg.envelope.sender)
+        r_msg = ReliableMessage(msg)
+        i_msg = transceiver.verify_decrypt(r_msg)
+        sender = ID(i_msg.envelope.sender)
         self.receive_content(sender=sender, content=i_msg.content)
 
-    def receive_content(self, sender: dimp.ID, content: dimp.Content):
+    def receive_content(self, sender: ID, content: Content):
         console.stdout.write('\r')
-        if content.type == dimp.MessageType.Text:
+        if content.type == MessageType.Text:
             self.show(sender=sender, content=content)
-        elif content.type == dimp.MessageType.Command:
+        elif content.type == MessageType.Command:
             self.execute(sender=sender, content=content)
         else:
             print('***** Message content from "%s": %s' % (sender, content))
@@ -187,13 +186,13 @@ class Client:
         console.stdout.write(console.prompt)
         console.stdout.flush()
 
-    def show(self, sender: dimp.ID, content: dimp.Content):
+    def show(self, sender: ID, content: Content):
         print('***** Message from "%s": %s' % (sender.name, content['text']))
 
-    def execute(self, sender: dimp.ID, content: dimp.Content):
+    def execute(self, sender: ID, content: Content):
         command = content['command']
         if 'handshake' == command:
-            cmd = dimp.HandshakeCommand(content)
+            cmd = HandshakeCommand(content)
             message = cmd.message
             if 'DIM!' == message:
                 print('##### handshake OK!')
@@ -202,14 +201,14 @@ class Client:
                 print('##### handshake again with new session key: %s' % session)
                 self.session_key = session
         elif 'meta' == command:
-            cmd = dimp.MetaCommand(content)
+            cmd = MetaCommand(content)
             identifier = cmd.identifier
             meta = cmd.meta
             if meta:
                 print('##### received a meta for %s' % identifier)
                 database.save_meta(identifier=identifier, meta=meta)
         elif 'profile' == command:
-            cmd = dimp.ProfileCommand(content)
+            cmd = ProfileCommand(content)
             identifier = cmd.identifier
             profile = cmd.profile
             if profile:
@@ -268,7 +267,7 @@ class Console(Cmd):
         else:
             receiver = self.receiver
             self.receiver = station.identifier
-            cmd = dimp.HandshakeCommand.start(session=client.session_key)
+            cmd = HandshakeCommand.start(session=client.session_key)
             print('handshake with "%s"...' % self.receiver)
             client.send(receiver=self.receiver, content=cmd)
             self.receiver = receiver
@@ -277,7 +276,7 @@ class Console(Cmd):
         if name in identifier_map:
             sender = identifier_map[name]
         elif len(name) > 30:
-            sender = dimp.ID(name)
+            sender = ID(name)
         else:
             sender = None
         if sender:
@@ -307,10 +306,10 @@ class Console(Cmd):
             self.receiver = identifier_map[name]
             print('talking with %s now!' % self.receiver)
         else:
-            receiver = dimp.ID(name)
+            receiver = ID(name)
             if receiver:
                 # query meta for receiver
-                cmd = dimp.MetaCommand.query(identifier=receiver)
+                cmd = MetaCommand.query(identifier=receiver)
                 client.send(receiver=station.identifier, content=cmd)
                 # switch receiver
                 self.receiver = receiver
@@ -322,18 +321,18 @@ class Console(Cmd):
         if client.user is None:
             print('login first')
         elif len(msg) > 0:
-            content = dimp.TextContent.new(text=msg)
+            content = TextContent.new(text=msg)
             client.send(receiver=self.receiver, content=content)
 
     def do_show(self, name: str):
         if 'users' == name:
-            cmd = dimp.CommandContent.new(command='users')
+            cmd = CommandContent.new(command='users')
             client.send(receiver=station.identifier, content=cmd)
         else:
             print('I don\'t understand.')
 
     def do_search(self, keywords: str):
-        cmd = dimp.CommandContent.new(command='search')
+        cmd = CommandContent.new(command='search')
         cmd['keywords'] = keywords
         client.send(receiver=station.identifier, content=cmd)
 
@@ -346,7 +345,7 @@ class Console(Cmd):
         elif name in identifier_map:
             identifier = identifier_map[name]
         elif name.find('@') > 0:
-            identifier = dimp.ID(name)
+            identifier = ID(name)
         elif name.startswith('{') and name.endswith('}'):
             identifier = client.user.identifier
             profile = json.loads(name)
@@ -355,14 +354,20 @@ class Console(Cmd):
             return
         if profile:
             sk = client.user.privateKey
-            cmd = dimp.ProfileCommand.pack(identifier=identifier, private_key=sk, profile=profile)
+            sig = sk.sign(profile.encode('utf-8'))
+            profile = {
+                'ID': identifier,
+                'data': profile,
+                'signature': base64_encode(sig),
+            }
+            cmd = ProfileCommand.response(identifier=identifier, profile=Profile(profile))
         else:
-            cmd = dimp.ProfileCommand.query(identifier=identifier)
+            cmd = ProfileCommand.query(identifier=identifier)
         client.send(receiver=station.identifier, content=cmd)
 
 
 if __name__ == '__main__':
-    load_accounts()
+    load_accounts(database)
 
     print('connecting to %s:%d ...' % (remote_host, remote_port))
     client = Client(identifier=moki.identifier)

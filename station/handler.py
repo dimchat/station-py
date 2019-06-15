@@ -29,16 +29,19 @@
 
     Handler for each connection
 """
+
 import json
 from socketserver import BaseRequestHandler
 
-import dimp
+from dimp import ID
+from dimp import TextContent, ReliableMessage
+
+from common import s001
 
 from .mars import NetMsgHead, NetMsg
 from .processor import MessageProcessor
-from .session import Session
-
-from .config import station, session_server, monitor
+from .session import session_server, Session
+from .monitor import monitor
 
 
 class RequestHandler(BaseRequestHandler):
@@ -51,11 +54,11 @@ class RequestHandler(BaseRequestHandler):
         self.session = None
 
     @property
-    def identifier(self) -> dimp.ID:
+    def identifier(self) -> ID:
         if self.session is not None:
             return self.session.identifier
 
-    def current_session(self, identifier: dimp.ID=None) -> Session:
+    def current_session(self, identifier: ID=None) -> Session:
         # check whether the current session's identifier matched
         if identifier is None:
             return self.session
@@ -100,7 +103,7 @@ class RequestHandler(BaseRequestHandler):
         if self.session is not None:
             print('RequestHandler: disconnect current request from session', self.identifier, self.client_address)
             monitor.report(message='User logged out %s %s' % (self.client_address, self.identifier))
-            response = dimp.TextContent.new(text='Bye!')
+            response = TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             # clear current session
@@ -237,16 +240,16 @@ class RequestHandler(BaseRequestHandler):
         #    if the msg data error, raise ValueError.
         try:
             msg = json.loads(pack.decode('utf-8'))
-            msg = dimp.ReliableMessage(msg)
+            msg = ReliableMessage(msg)
             res = self.processor.process(msg)
             if res:
                 # print('RequestHandler: response to client', self.client_address, res)
-                receiver = dimp.ID(msg.envelope.sender)
+                receiver = ID(msg.envelope.sender)
                 return station.pack(receiver=receiver, content=res)
         except Exception as error:
             print('RequestHandler: receive message package error', error)
 
-    def push_mars_message(self, msg: dimp.ReliableMessage) -> bool:
+    def push_mars_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         body = data.encode('utf-8')
         # kPushMessageCmdId = 10001
@@ -255,10 +258,17 @@ class RequestHandler(BaseRequestHandler):
         # print('RequestHandler: pushing mars message', data)
         return self.send(data)
 
-    def push_raw_message(self, msg: dimp.ReliableMessage) -> bool:
+    def push_raw_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
         # print('RequestHandler: pushing raw message', data)
         return self.send(data)
 
     push_message = push_raw_message
+
+
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+station = s001

@@ -32,24 +32,22 @@
 
 import time
 
-import dimp
-from dimp.transceiver import transceiver
+from dimp import ID
+from dimp import TextContent
+from dimp import InstantMessage
 
-from .session import SessionServer
-from .database import Database
-from .apns import ApplePushNotificationService
+from common import database, transceiver
+
+from .session import session_server
+from .apns import apns
 
 
 class Monitor:
 
     def __init__(self):
         super().__init__()
-        self.session_server: SessionServer = None
-        self.database: Database = None
-        self.transceiver: dimp.Transceiver = transceiver
-        self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
-        self.sender: dimp.ID = None
+        self.sender: ID = None
         self.admins: set = set()
 
     def report(self, message: str) -> int:
@@ -59,18 +57,18 @@ class Monitor:
                 success = success + 1
         return success
 
-    def send_report(self, text: str, receiver: dimp.ID) -> bool:
+    def send_report(self, text: str, receiver: ID) -> bool:
         if self.sender is None:
             print('Monitor: sender not set yet')
             return False
-        sender = dimp.ID(self.sender)
-        receiver = dimp.ID(receiver)
+        sender = ID(self.sender)
+        receiver = ID(receiver)
         timestamp = int(time.time())
-        content = dimp.TextContent.new(text=text)
-        i_msg = dimp.InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = self.transceiver.encrypt_sign(i_msg)
+        content = TextContent.new(text=text)
+        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
+        r_msg = transceiver.encrypt_sign(i_msg)
         # try for online user
-        sessions = self.session_server.search(identifier=receiver)
+        sessions = session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
             print('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
@@ -87,6 +85,13 @@ class Monitor:
                 return True
         # store in local cache file
         print('Monitor: %s is offline, store report: %s' % (receiver, text))
-        self.database.store_message(r_msg)
+        database.store_message(r_msg)
         # push notification
-        return self.apns.push(identifier=receiver, message=text)
+        return apns.push(identifier=receiver, message=text)
+
+
+monitor = Monitor()
+monitor.session_server = session_server
+monitor.database = database
+monitor.transceiver = transceiver
+monitor.apns = apns

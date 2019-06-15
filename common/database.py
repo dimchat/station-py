@@ -35,15 +35,19 @@ import time
 import random
 import json
 
-import dimp
-from dimp.barrack import barrack
-from dimp.transceiver import transceiver
+from dimp import SymmetricKey, PrivateKey
+from dimp import ID, Meta, Profile
+from dimp import Account, User, Group
+from dimp import IUserDataSource, IGroupDataSource, ITransceiverDataSource
 
-from .apns import IAPNsDelegate
+from dimp import ReliableMessage
+from dimp import Transceiver
+
+from .facebook import facebook, barrack
+from .keystore import keystore
 
 
-class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegate, dimp.ITransceiverDelegate,
-               IAPNsDelegate):
+class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
 
     def __init__(self):
         super().__init__()
@@ -54,7 +58,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
 
         self.base_dir = '/tmp/.dim/'
 
-    def __directory(self, control: str, identifier: dimp.ID, sub_dir: str='') -> str:
+    def __directory(self, control: str, identifier: ID, sub_dir: str = '') -> str:
         path = self.base_dir + control + '/' + identifier.address
         if sub_dir:
             path = path + '/' + sub_dir
@@ -62,70 +66,86 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             os.makedirs(path)
         return path
 
+    def cache_private_key(self, private_key: PrivateKey, identifier: ID):
+        self.__private_keys[identifier.address] = private_key
+
     #
     #   IEntityDataSource
     #
-    def meta(self, identifier: dimp.ID) -> dimp.Meta:
+    def meta(self, identifier: ID) -> Meta:
         return self.load_meta(identifier=identifier)
 
-    def profile(self, identifier: dimp.ID) -> dimp.Profile:
+    def profile(self, identifier: ID) -> Profile:
         # TODO: load profile from local storage
         return self.load_profile(identifier=identifier)
 
     #
     #   IUserDataSource
     #
-    def private_key_for_signature(self, identifier: dimp.ID) -> dimp.PrivateKey:
+    def private_key_for_signature(self, identifier: ID) -> PrivateKey:
         # TODO: load private key from keychain
         return self.load_private_key(identifier=identifier)
 
-    def private_keys_for_decryption(self, identifier: dimp.ID) -> list:
+    def private_keys_for_decryption(self, identifier: ID) -> list:
         # TODO: load private key from keychain
         key = self.load_private_key(identifier=identifier)
         return [key]
 
-    def contacts(self, identifier: dimp.ID) -> list:
+    def contacts(self, identifier: ID) -> list:
         # TODO: load contacts from local storage
         pass
 
     #
     #   IGroupDataSource
     #
-    def founder(self, identifier: dimp.ID) -> dimp.ID:
+    def founder(self, identifier: ID) -> ID:
         # TODO: load group info from local storage
         pass
 
-    def owner(self, identifier: dimp.ID) -> dimp.ID:
+    def owner(self, identifier: ID) -> ID:
         # TODO: load group info from local storage
         pass
 
-    def members(self, identifier: dimp.ID) -> list:
+    def members(self, identifier: ID) -> list:
         # TODO: load group info from local storage
         pass
 
     #
     #   IBarrackDelegate
     #
-    def account(self, identifier: dimp.ID) -> dimp.Account:
-        # TODO: create account
-        pass
+    def account(self, identifier: ID) -> Account:
+        return facebook.account(identifier=identifier)
 
-    def user(self, identifier: dimp.ID) -> dimp.User:
-        # TODO: create user
-        pass
+    def user(self, identifier: ID) -> User:
+        return facebook.user(identifier=identifier)
 
-    def group(self, identifier: dimp.ID) -> dimp.Group:
-        # TODO: create group
-        pass
+    def group(self, identifier: ID) -> Group:
+        return facebook.group(identifier=identifier)
 
     #
-    #   ITransceiverDelegate
+    #   ITransceiverDataSource
     #
-    def send_package(self, data: bytes, handler: dimp.ICompletionHandler) -> bool:
-        # TODO: send package data out
-        pass
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        self.__metas[identifier.address] = meta
+        # save meta as new file
+        directory = self.__directory('public', identifier)
+        path = directory + '/meta.js'
+        if os.path.exists(path):
+            print('[DB] meta file exists: %s, update IGNORE!' % path)
+        else:
+            with open(path, 'w') as file:
+                file.write(json.dumps(meta))
+            print('[DB] meta write into file: ', path)
+        # meta cached
+        return True
 
-    def reuse_cipher_key(self, sender: dimp.ID, receiver: dimp.ID, key: dimp.SymmetricKey) -> bool:
+    def cipher_key(self, sender: ID, receiver: ID) -> SymmetricKey:
+        return keystore.cipher_key(sender=sender, receiver=receiver)
+
+    def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID) -> bool:
+        return keystore.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+
+    def reuse_cipher_key(self, sender: ID, receiver: ID, key: SymmetricKey) -> SymmetricKey:
         # TODO: update/create cipher key
         pass
 
@@ -142,7 +162,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         file path: '.dim/private/{ADDRESS}/private_key.js'
     """
 
-    def save_private_key(self, private_key: dimp.PrivateKey, identifier: dimp.ID):
+    def save_private_key(self, private_key: PrivateKey, identifier: ID):
         self.__private_keys[identifier.address] = private_key
         # save private key as new file
         directory = self.__directory('private', identifier)
@@ -154,7 +174,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
                 file.write(json.dumps(private_key))
             print('[DB] private key write into file: ', path)
 
-    def load_private_key(self, identifier: dimp.ID) -> dimp.PrivateKey:
+    def load_private_key(self, identifier: ID) -> PrivateKey:
         sk = self.__private_keys.get(identifier.address)
         if sk is None:
             # load from local storage
@@ -163,7 +183,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             if os.path.exists(path):
                 with open(path, 'r') as file:
                     data = file.read()
-                sk = dimp.PrivateKey(json.loads(data))
+                sk = PrivateKey(json.loads(data))
                 # update memory cache
                 self.__private_keys[identifier.address] = sk
         return sk
@@ -175,21 +195,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
 
-    def save_meta(self, meta: dimp.Meta, identifier: dimp.ID) -> bool:
-        self.__metas[identifier.address] = meta
-        # save meta as new file
-        directory = self.__directory('public', identifier)
-        path = directory + '/meta.js'
-        if os.path.exists(path):
-            print('[DB] meta file exists: %s, update IGNORE!' % path)
-        else:
-            with open(path, 'w') as file:
-                file.write(json.dumps(meta))
-            print('[DB] meta write into file: ', path)
-        # meta cached
-        return True
-
-    def load_meta(self, identifier: dimp.ID) -> dimp.Meta:
+    def load_meta(self, identifier: ID) -> Meta:
         meta = self.__metas.get(identifier.address)
         if meta is None:
             # load from local storage
@@ -198,7 +204,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             if os.path.exists(path):
                 with open(path, 'r') as file:
                     data = file.read()
-                meta = dimp.Meta(json.loads(data))
+                meta = Meta(json.loads(data))
                 # update memory cache
                 self.__metas[identifier.address] = meta
         return meta
@@ -210,7 +216,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
 
-    def cache_profile(self, profile: dimp.Profile) -> bool:
+    def cache_profile(self, profile: Profile) -> bool:
         identifier = profile.identifier
         meta = self.meta(identifier=identifier)
         if meta is None:
@@ -223,7 +229,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         self.__profiles[identifier.address] = profile
         return True
 
-    def save_profile(self, profile: dimp.Profile) -> bool:
+    def save_profile(self, profile: Profile) -> bool:
         if not self.cache_profile(profile=profile):
             return False
         # save/update profile
@@ -234,7 +240,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             file.write(json.dumps(profile))
         print('[DB] profile write into file: ', path)
 
-    def load_profile(self, identifier: dimp.ID) -> dimp.Profile:
+    def load_profile(self, identifier: ID) -> Profile:
         profile = self.__profiles.get(identifier.address)
         if profile is not None:
             return profile
@@ -253,19 +259,19 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
                     content['data'] = data
                     content.pop('profile')
             # verify & cache
-            profile = dimp.Profile(content)
+            profile = Profile(content)
             if self.cache_profile(profile):
                 return content
 
     """
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
-        
+
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
 
     def load_device_tokens(self, identifier: str) -> list:
-        directory = self.__directory('protected', dimp.ID(identifier))
+        directory = self.__directory('protected', ID(identifier))
         path = directory + '/device.js'
         if os.path.exists(path):
             with open(path, 'r') as file:
@@ -277,7 +283,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
     def save_device_token(self, identifier: str, token: str) -> bool:
         if token is None:
             return False
-        directory = self.__directory('protected', dimp.ID(identifier))
+        directory = self.__directory('protected', ID(identifier))
         path = directory + '/device.js'
         # 1. load device info
         device = None
@@ -304,12 +310,12 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
     """
         Reliable message for Receivers
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        
+
         file path: '.dim/public/{ADDRESS}/messages/*.msg'
     """
 
-    def store_message(self, msg: dimp.ReliableMessage) -> bool:
-        receiver = dimp.ID(msg.envelope.receiver)
+    def store_message(self, msg: ReliableMessage) -> bool:
+        receiver = ID(msg.envelope.receiver)
         directory = self.__directory('public', receiver, 'messages')
         filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
         path = directory + '/' + filename + '.msg'
@@ -318,7 +324,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         print('[DB] msg write into file: ', path)
         return True
 
-    def load_message_batch(self, receiver: dimp.ID) -> dict:
+    def load_message_batch(self, receiver: ID) -> dict:
         directory = self.__directory('public', receiver, 'messages')
         # get all files in messages directory and sort by filename
         files = sorted(os.listdir(directory))
@@ -329,7 +335,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
                 with open(path, 'r') as file:
                     lines = file.readlines()
                 print('[DB] read %d line(s) from %s' % (len(lines), path))
-                # messages = [dimp.ReliableMessage(json.loads(line)) for line in lines]
+                # messages = [ReliableMessage(json.loads(line)) for line in lines]
                 messages = []
                 for line in lines:
                     msg = line.strip()
@@ -338,7 +344,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
                         continue
                     try:
                         msg = json.loads(msg)
-                        msg = dimp.ReliableMessage(msg)
+                        msg = ReliableMessage(msg)
                         messages.append(msg)
                     except Exception as error:
                         print('[DB] message package error', error, line)
@@ -380,64 +386,10 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             print('[DB] the rest messages(%d) write back into file: ', path)
         return True
 
-    # """
-    #     Key Store
-    #     ~~~~~~~~~
-    #
-    #     Memory cache for reused passwords (symmetric key)
-    # """
-    #
-    # def cipher_key(self, sender: dimp.ID, receiver: dimp.ID) -> dimp.SymmetricKey:
-    #     key = super().cipher_key(sender=sender, receiver=receiver)
-    #     if key is not None:
-    #         return key
-    #     # create a new key & save it into the Key Store
-    #     key = dimp.SymmetricKey({'algorithm': 'AES'})
-    #     self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
-    #     return key
-    #
-    # def flush(self):
-    #     if self.dirty is False or self.user is None:
-    #         return
-    #     # write key table to persistent storage
-    #     directory = self.directory('public', self.user.identifier)
-    #     path = directory + '/keystore.js'
-    #     with open(path, 'w') as file:
-    #         file.write(self.key_table)
-    #     print('[DB] keystore write into file: ', path)
-    #     self.dirty = False
-    #
-    # def key_exists(self, sender_address: str, receiver_address: str) -> bool:
-    #     key_map = self.key_table.get(sender_address)
-    #     if key_map is None:
-    #         return False
-    #     return receiver_address in key_map
-    #
-    # def reload(self) -> bool:
-    #     if self.user is None:
-    #         return False
-    #     # load key table from persistent storage
-    #     directory = self.directory('public', self.user.identifier)
-    #     path = directory + '/keystore.js'
-    #     if os.path.exists(path):
-    #         with open(path, 'r') as file:
-    #             data = file.read()
-    #         table_ = json.loads(data)
-    #         # key_table[sender.address] -> key_map
-    #         for from_, map_ in table_:
-    #             key_map = self.key_table.get(from_)
-    #             if key_map is None:
-    #                 key_map = {}
-    #                 self.key_table[from_] = key_map
-    #             # key_map[receiver.address] -> key
-    #             for to_, key_ in map_:
-    #                 # update memory cache
-    #                 key_map[to_] = dimp.SymmetricKey(key_)
-
     """
         Search Engine
         ~~~~~~~~~~~~~
-        
+
         Search accounts by the 'Search Number'
     """
 
@@ -447,7 +399,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
         array = list(barrack.accounts.keys())
         array = random.sample(array, len(array))
         for identifier in array:
-            identifier = dimp.ID(identifier)
+            identifier = ID(identifier)
             network = identifier.address.network
             if not network.is_person() and not network.is_group():
                 # ignore
@@ -465,7 +417,7 @@ class Database(dimp.IUserDataSource, dimp.IGroupDataSource, dimp.IBarrackDelegat
             if meta:
                 results[identifier] = meta
                 # force to stop
-                max_count = max_count-1
+                max_count = max_count - 1
                 if max_count <= 0:
                     break
         return results
@@ -478,4 +430,8 @@ barrack.userDataSource = database
 barrack.groupDataSource = database
 barrack.delegate = database
 
-transceiver.delegate = database
+transceiver = Transceiver()
+transceiver.userDataSource = database
+transceiver.groupDataSource = database
+transceiver.dataSource = database
+transceiver.delegate = facebook

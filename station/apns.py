@@ -36,6 +36,8 @@ from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
 from apns2.payload import Payload
 
+from common import database
+
 
 class ApplePushNotificationService:
 
@@ -143,3 +145,8 @@ class IAPNsDelegate(metaclass=ABCMeta):
     def device_tokens(self, identifier: str) -> list:
         """ get device tokens in hex format """
         pass
+
+
+apns_credentials = '/data/.dim/private/apns-key.pem'
+apns = ApplePushNotificationService(apns_credentials, use_sandbox=True)
+apns.delegate = database

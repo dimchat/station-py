@@ -34,10 +34,13 @@ from json import JSONDecodeError
 from threading import Thread
 from time import sleep
 
-import dimp
+from dimp import ID
 
-from .database import Database
-from .session import SessionServer
+from common import database
+from common import s001
+
+from .session import session_server
+from .apns import apns
 
 
 class Receptionist(Thread):
@@ -45,30 +48,27 @@ class Receptionist(Thread):
     def __init__(self):
         super().__init__()
         self.guests = []
-        self.database: Database = None
-        self.session_server: SessionServer = None
-        self.station = None
         self.apns = None
 
-    def add_guest(self, identifier: dimp.ID):
+    def add_guest(self, identifier: ID):
         self.guests.append(identifier)
 
     def run(self):
         print('Receptionist: starting...')
-        while self.station.running:
+        while station.running:
             try:
                 guests = self.guests.copy()
                 for identifier in guests:
                     # 1. get all sessions of the receiver
                     print('Receptionist: checking session for new guest %s' % identifier)
-                    sessions = self.session_server.search(identifier=identifier)
+                    sessions = session_server.search(identifier=identifier)
                     if sessions is None or len(sessions) == 0:
                         print('Receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
                     # 2. this guest is connected, scan new messages for it
                     print('Receptionist: %s is connected, scanning messages for it' % identifier)
-                    batch = self.database.load_message_batch(identifier)
+                    batch = database.load_message_batch(identifier)
                     if batch is None:
                         print('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
@@ -102,7 +102,7 @@ class Receptionist(Thread):
                     # 4. remove messages after success, or remove the guest on failed
                     total_count = len(messages)
                     print('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-                    self.database.remove_message_batch(batch, removed_count=count)
+                    database.remove_message_batch(batch, removed_count=count)
                     if count < total_count:
                         print('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)
@@ -118,3 +118,16 @@ class Receptionist(Thread):
                 # sleep 1 second for next loop
                 sleep(1.0)
         print('Receptionist: exit!')
+
+
+receptionist = Receptionist()
+receptionist.database = database
+receptionist.session_server = session_server
+receptionist.apns = apns
+
+
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+station = s001

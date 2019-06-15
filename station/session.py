@@ -33,16 +33,16 @@
 import numpy
 import random
 
-import dimp
+from dimp import ID
 
-from .utils import hex_encode
+from common import hex_encode
 
 
 class Session:
 
-    def __init__(self, identifier: dimp.ID, request_handler):
+    def __init__(self, identifier: ID, request_handler):
         super().__init__()
-        self.identifier: dimp.ID = identifier
+        self.identifier: ID = identifier
         self.request_handler = request_handler
         self.client_address = request_handler.client_address
         # generate session key
@@ -54,7 +54,7 @@ class Session:
         clazz = self.__class__.__name__
         address = '(%s,%d)' % self.client_address
         return '<%s:%s %s|%s valid=%d active=%d />' % (clazz, self.session_key, address,
-                                                        self.identifier, self.valid, self.active)
+                                                       self.identifier, self.valid, self.active)
 
 
 class SessionServer:
@@ -63,7 +63,7 @@ class SessionServer:
         super().__init__()
         self.session_table = {}  # {identifier: [session]}
 
-    def session_create(self, identifier: dimp.ID, request_handler) -> Session:
+    def session_create(self, identifier: ID, request_handler) -> Session:
         """ Session factory """
         # 1. get all sessions with identifier
         sessions: list = self.session_table.get(identifier)
@@ -82,7 +82,7 @@ class SessionServer:
         print('[SS] create new session: %s' % sess)
         return sess
 
-    def remove_session(self, session: Session=None, identifier: dimp.ID=None, request_handler=None):
+    def remove_session(self, session: Session=None, identifier: ID=None, request_handler=None):
         if session:
             return self.remove_session(identifier=session.identifier, request_handler=session.request_handler)
         # 1. check whether the session is exists
@@ -101,7 +101,7 @@ class SessionServer:
             raise AssertionError('unexpected result of searching session: (%s, %s) -> %s' %
                                  (identifier, request_handler, sessions))
 
-    def search(self, identifier: dimp.ID, request_handler=None) -> list:
+    def search(self, identifier: ID, request_handler=None) -> list:
         """ Get session that identifier and request handler matched """
         sessions: list = self.session_table.get(identifier)
         # 1. if request handler not specified, return all sessions
@@ -121,3 +121,6 @@ class SessionServer:
         elif count > max_count:
             count = max_count
         return random.sample(array, count)
+
+
+session_server = SessionServer()

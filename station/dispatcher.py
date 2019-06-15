@@ -30,27 +30,25 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import dimp
+from dimp import ID
+from dimp import ReliableMessage
 
-from .session import SessionServer
-from .database import Database
-from .apns import ApplePushNotificationService
+from common import database, barrack
+
+from .session import session_server
+from .apns import apns
 
 
 class Dispatcher:
 
     def __init__(self):
         super().__init__()
-        self.session_server: SessionServer = None
-        self.barrack: dimp.Barrack = None
-        self.database: Database = None
-        self.apns: ApplePushNotificationService = None
 
-    def deliver(self, msg: dimp.ReliableMessage) -> bool:
+    def deliver(self, msg: ReliableMessage) -> bool:
         receiver = msg.envelope.receiver
-        receiver = dimp.ID(receiver)
+        receiver = ID(receiver)
         # try for online user
-        sessions = self.session_server.search(identifier=receiver)
+        sessions = session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
             print('Dispatcher: %s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
             success = 0
@@ -67,13 +65,20 @@ class Dispatcher:
                 return True
         # store in local cache file
         print('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
-        self.database.store_message(msg)
+        database.store_message(msg)
         # push notification
-        account = self.barrack.account(identifier=receiver)
-        account.delegate = self.database
+        account = barrack.account(identifier=receiver)
+        account.delegate = database
         sender = msg.envelope.sender
-        sender = dimp.ID(sender)
-        contact = self.barrack.account(identifier=sender)
-        contact.delegate = self.database
+        sender = ID(sender)
+        contact = barrack.account(identifier=sender)
+        contact.delegate = database
         text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
-        return self.apns.push(identifier=receiver, message=text)
+        return apns.push(identifier=receiver, message=text)
+
+
+dispatcher = Dispatcher()
+dispatcher.session_server = session_server
+dispatcher.barrack = barrack
+dispatcher.database = database
+dispatcher.apns = apns
