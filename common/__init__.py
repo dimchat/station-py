@@ -36,6 +36,7 @@
 from dkd.utils import base64_encode, base64_decode
 
 from .hex import hex_encode, hex_decode
+from .log import Log
 
 # Immortal Accounts data for test
 from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
@@ -50,6 +51,7 @@ from .database import database, transceiver
 __all__ = [
     'base64_encode', 'base64_decode',
     'hex_encode', 'hex_decode',
+    'Log',
 
     'moki_id', 'moki_name', 'moki_pk', 'moki_sk', 'moki_meta', 'moki_profile', 'moki',
     'hulk_id', 'hulk_name', 'hulk_pk', 'hulk_sk', 'hulk_meta', 'hulk_profile', 'hulk',

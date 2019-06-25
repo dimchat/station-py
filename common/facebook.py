@@ -31,6 +31,8 @@ from dkd.utils import base64_encode
 from dimp import ID, NetworkID, Meta, Profile, Account, User, Group
 from dimp import Barrack, IBarrackDelegate
 
+from .log import Log
+
 
 class Facebook(IBarrackDelegate):
 
@@ -61,21 +63,21 @@ facebook = Facebook()
 
 
 def load_accounts(database):
-    print('======== loading accounts')
+    Log.info('======== loading accounts')
 
     from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
     from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
     from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001
 
-    print('loading immortal user: ', moki_id)
+    Log.info('loading immortal user: %s' % moki_id)
     database.save_meta(identifier=moki_id, meta=moki_meta)
     database.save_private_key(identifier=moki_id, private_key=moki_sk)
 
-    print('loading immortal user: ', hulk_id)
+    Log.info('loading immortal user: %s' % hulk_id)
     database.save_meta(identifier=hulk_id, meta=hulk_meta)
     database.save_private_key(identifier=hulk_id, private_key=hulk_sk)
 
-    print('loading station: ', s001_id)
+    Log.info('loading station: %s' % s001_id)
     database.save_meta(identifier=s001_id, meta=s001_meta)
     database.save_private_key(identifier=s001_id, private_key=s001_sk)
     barrack.cache_account(s001)
@@ -97,7 +99,7 @@ def load_accounts(database):
     for filename in files:
         path = directory + '/' + filename + '/meta.js'
         if os.path.exists(path):
-            print('loading %s' % path)
+            Log.info('loading %s' % path)
             with open(path, 'r') as file:
                 data = file.read()
                 # no need to check meta again
@@ -118,4 +120,4 @@ def load_accounts(database):
                     # database.accounts[identifier] = account
                     barrack.cache_account(account)
 
-    print('======== loaded')
+    Log.info('======== loaded')

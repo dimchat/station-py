@@ -36,7 +36,7 @@ from time import sleep
 
 from dimp import ID
 
-from common import database
+from common import database, Log
 from common import s001
 
 from .session import session_server
@@ -54,45 +54,45 @@ class Receptionist(Thread):
         self.guests.append(identifier)
 
     def run(self):
-        print('Receptionist: starting...')
+        Log.info('Receptionist: starting...')
         while station.running:
             try:
                 guests = self.guests.copy()
                 for identifier in guests:
                     # 1. get all sessions of the receiver
-                    print('Receptionist: checking session for new guest %s' % identifier)
+                    Log.info('Receptionist: checking session for new guest %s' % identifier)
                     sessions = session_server.search(identifier=identifier)
                     if sessions is None or len(sessions) == 0:
-                        print('Receptionist: guest not connect, remove it: %s' % identifier)
+                        Log.info('Receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
                     # 2. this guest is connected, scan new messages for it
-                    print('Receptionist: %s is connected, scanning messages for it' % identifier)
+                    Log.info('Receptionist: %s is connected, scanning messages for it' % identifier)
                     batch = database.load_message_batch(identifier)
                     if batch is None:
-                        print('Receptionist: no message for this guest, remove it: %s' % identifier)
+                        Log.info('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         self.apns.clear_badge(identifier=identifier)
                         continue
                     messages = batch.get('messages')
                     if messages is None or len(messages) == 0:
-                        print('Receptionist: message batch error: %s' % batch)
+                        Log.info('Receptionist: message batch error: %s' % batch)
                         # raise AssertionError('message batch error: %s' % batch)
                         continue
                     # 3. send new messages to each session
-                    print('Receptionist: got %d message(s) for %s' % (len(messages), identifier))
+                    Log.info('Receptionist: got %d message(s) for %s' % (len(messages), identifier))
                     count = 0
                     for msg in messages:
                         # try to push message
                         success = 0
                         for sess in sessions:
                             if sess.valid is False or sess.active is False:
-                                print('Receptionist: session invalid', sess)
+                                Log.info('Receptionist: session invalid %s' % sess)
                                 continue
                             if sess.request_handler.push_message(msg):
                                 success = success + 1
                             else:
-                                print('Receptionist: failed to push message', sess.client_address)
+                                Log.info('Receptionist: failed to push message (%s, %s)' % sess.client_address)
                         if success > 0:
                             # push message success (at least one)
                             count = count + 1
@@ -101,23 +101,23 @@ class Receptionist(Thread):
                             break
                     # 4. remove messages after success, or remove the guest on failed
                     total_count = len(messages)
-                    print('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
+                    Log.info('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
                     database.remove_message_batch(batch, removed_count=count)
                     if count < total_count:
-                        print('Receptionist: pushing message failed, remove the guest: %s' % identifier)
+                        Log.info('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)
             except IOError as error:
-                print('Receptionist: IO error', error)
+                Log.info('Receptionist: IO error %s' % error)
             except JSONDecodeError as error:
-                print('Receptionist: decode error', error)
+                Log.info('Receptionist: decode error %s' % error)
             except TypeError as error:
-                print('Receptionist: type error', error)
+                Log.info('Receptionist: type error %s' % error)
             except ValueError as error:
-                print('Receptionist: value error', error)
+                Log.info('Receptionist: value error %s' % error)
             finally:
                 # sleep 1 second for next loop
                 sleep(1.0)
-        print('Receptionist: exit!')
+        Log.info('Receptionist: exit!')
 
 
 receptionist = Receptionist()

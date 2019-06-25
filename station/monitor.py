@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 
-from common import database, transceiver
+from common import database, transceiver, Log
 
 from .session import session_server
 from .apns import apns
@@ -59,7 +59,7 @@ class Monitor:
 
     def send_report(self, text: str, receiver: ID) -> bool:
         if self.sender is None:
-            print('Monitor: sender not set yet')
+            Log.info('Monitor: sender not set yet')
             return False
         sender = ID(self.sender)
         receiver = ID(receiver)
@@ -70,21 +70,21 @@ class Monitor:
         # try for online user
         sessions = session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            print('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
+            Log.info('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
-                    print('Monitor: session invalid', sess)
+                    Log.info('Monitor: session invalid %s' % sess)
                     continue
                 if sess.request_handler.push_message(r_msg):
                     success = success + 1
                 else:
-                    print('Monitor: failed to push report via connection', sess.client_address)
+                    Log.info('Monitor: failed to push report via connection (%s, %s)' % sess.client_address)
             if success > 0:
-                print('Monitor: report pushed to activated session(%d) of user: %s' % (success, receiver))
+                Log.info('Monitor: report pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        print('Monitor: %s is offline, store report: %s' % (receiver, text))
+        Log.info('Monitor: %s is offline, store report: %s' % (receiver, text))
         database.store_message(r_msg)
         # push notification
         return apns.push(identifier=receiver, message=text)

@@ -36,6 +36,8 @@ import json
 from dimp import ID, SymmetricKey
 from dimp import KeyStore as KeyCache
 
+from .log import Log
+
 
 class KeyStore(KeyCache):
 
@@ -74,7 +76,7 @@ class KeyStore(KeyCache):
         path = directory + '/keystore.js'
         with open(path, 'w') as file:
             file.write(self.key_table)
-        print('[DB] keystore write into file: ', path)
+        Log.info('[DB] keystore write into file: %s' % path)
         self.dirty = False
 
     def key_exists(self, sender_address: str, receiver_address: str) -> bool:

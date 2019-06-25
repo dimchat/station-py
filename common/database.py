@@ -43,6 +43,7 @@ from dimp import IUserDataSource, IGroupDataSource, ITransceiverDataSource
 from dimp import ReliableMessage
 from dimp import Transceiver
 
+from .log import Log
 from .facebook import facebook, barrack
 from .keystore import keystore
 
@@ -131,11 +132,11 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         directory = self.__directory('public', identifier)
         path = directory + '/meta.js'
         if os.path.exists(path):
-            print('[DB] meta file exists: %s, update IGNORE!' % path)
+            Log.info('[DB] meta file exists: %s, update IGNORE!' % path)
         else:
             with open(path, 'w') as file:
                 file.write(json.dumps(meta))
-            print('[DB] meta write into file: ', path)
+            Log.info('[DB] meta write into file: %s' % path)
         # meta cached
         return True
 
@@ -168,11 +169,11 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         directory = self.__directory('private', identifier)
         path = directory + '/private_key.js'
         if os.path.exists(path):
-            print('[DB] private key file exists: %s, update IGNORE!' % path)
+            Log.info('[DB] private key file exists: %s, update IGNORE!' % path)
         else:
             with open(path, 'w') as file:
                 file.write(json.dumps(private_key))
-            print('[DB] private key write into file: ', path)
+            Log.info('[DB] private key write into file: %s' % path)
 
     def load_private_key(self, identifier: ID) -> PrivateKey:
         sk = self.__private_keys.get(identifier.address)
@@ -220,10 +221,10 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         identifier = profile.identifier
         meta = self.meta(identifier=identifier)
         if meta is None:
-            print('[DB] meta not found: %s, IGNORE!' % identifier)
+            Log.info('[DB] meta not found: %s, IGNORE!' % identifier)
             return False
         if not profile.verify(meta.key):
-            print('[DB] profile signature not match: %s' % profile)
+            Log.info('[DB] profile signature not match: %s' % profile)
             return False
         # update memory cache
         self.__profiles[identifier.address] = profile
@@ -238,7 +239,7 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         path = directory + '/profile.js'
         with open(path, 'w') as file:
             file.write(json.dumps(profile))
-        print('[DB] profile write into file: ', path)
+        Log.info('[DB] profile write into file: %s' % path)
         return True
 
     def load_profile(self, identifier: ID) -> Profile:
@@ -305,7 +306,7 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         # 3. save device info
         with open(path, 'w') as file:
             file.write(json.dumps(device))
-        print('[DB] device token flush into file: %s, %s' % (path, device))
+        Log.info('[DB] device token flush into file: %s, %s' % (path, device))
         return True
 
     """
@@ -322,7 +323,7 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         path = directory + '/' + filename + '.msg'
         with open(path, 'a') as file:
             file.write(json.dumps(msg) + '\n')
-        print('[DB] msg write into file: ', path)
+        Log.info('[DB] msg write into file: %s' % path)
         return True
 
     def load_message_batch(self, receiver: ID) -> dict:
@@ -335,29 +336,29 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
                 # read ONE .msg file for each receiver and remove the file immediately
                 with open(path, 'r') as file:
                     lines = file.readlines()
-                print('[DB] read %d line(s) from %s' % (len(lines), path))
+                Log.info('[DB] read %d line(s) from %s' % (len(lines), path))
                 # messages = [ReliableMessage(json.loads(line)) for line in lines]
                 messages = []
                 for line in lines:
                     msg = line.strip()
                     if len(msg) == 0:
-                        print('[DB] skip empty line')
+                        Log.info('[DB] skip empty line')
                         continue
                     try:
                         msg = json.loads(msg)
                         msg = ReliableMessage(msg)
                         messages.append(msg)
                     except Exception as error:
-                        print('[DB] message package error', error, line)
-                print('[DB] got %d message(s) for %s' % (len(messages), receiver))
+                        Log.info('[DB] message package error %s, %s' % (error, line))
+                Log.info('[DB] got %d message(s) for %s' % (len(messages), receiver))
                 if len(messages) == 0:
-                    print('[DB] remove empty message file', path)
+                    Log.info('[DB] remove empty message file %s' % path)
                     os.remove(path)
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
 
     def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
         if removed_count <= 0:
-            print('[DB] message count to removed error:', removed_count)
+            Log.info('[DB] message count to removed error: %d' % removed_count)
             return False
         # 0. get message file path
         path = batch.get('path')
@@ -368,10 +369,10 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
                 directory = self.__directory('pubic', receiver, 'messages')
                 path = directory + '/' + filename
         if not os.path.exists(path):
-            print('[DB] message file not exists: %s' % path)
+            Log.info('[DB] message file not exists: %s' % path)
             return False
         # 1. remove all message(s)
-        print('[DB] remove message file: %s' % path)
+        Log.info('[DB] remove message file: %s' % path)
         os.remove(path)
         # 2. store the rest messages back
         messages = batch.get('messages')
@@ -384,7 +385,7 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
             for msg in messages:
                 with open(path, 'a') as file:
                     file.write(json.dumps(msg) + '\n')
-            print('[DB] the rest messages(%d) write back into file: ', path)
+            Log.info('[DB] the rest messages(%d) write back into file: %s' % path)
         return True
 
     """

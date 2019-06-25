@@ -42,7 +42,7 @@ sys.path.append(rootPath)
 
 from dimp import ID
 
-from common import keystore, database, load_accounts
+from common import keystore, database, load_accounts, Log
 from common import s001, s001_host, s001_port
 
 from station.handler import RequestHandler
@@ -109,10 +109,10 @@ if __name__ == '__main__':
         TCPServer.allow_reuse_address = True
         server = ThreadingTCPServer(server_address=(station_host, station_port),
                                     RequestHandlerClass=RequestHandler)
-        print('server (%s:%s) is listening...' % (station_host, station_port))
+        Log.info('server (%s:%s) is listening...' % (station_host, station_port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
-        print('~~~~~~~~', ex)
+        Log.info('~~~~~~~~ %s' % ex)
     finally:
         station.running = False
-        print('======== station shutdown!')
+        Log.info('======== station shutdown!')
