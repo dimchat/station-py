@@ -239,6 +239,7 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         with open(path, 'w') as file:
             file.write(json.dumps(profile))
         print('[DB] profile write into file: ', path)
+        return True
 
     def load_profile(self, identifier: ID) -> Profile:
         profile = self.__profiles.get(identifier.address)
