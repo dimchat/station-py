@@ -66,7 +66,7 @@ station_port = s001_port
 
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
-# database.base_dir = '/data/.dim/'
+database.base_dir = '/data/.dim/'
 
 """
     Apple Push Notification service (APNs)
