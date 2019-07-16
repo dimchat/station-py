@@ -91,15 +91,22 @@ def load_accounts(database):
     Log.info('loading immortal user: %s' % moki_id)
     database.save_meta(identifier=moki_id, meta=moki_meta)
     database.save_private_key(identifier=moki_id, private_key=moki_sk)
+    database.cache_profile(profile=moki_profile)
 
     Log.info('loading immortal user: %s' % hulk_id)
     database.save_meta(identifier=hulk_id, meta=hulk_meta)
     database.save_private_key(identifier=hulk_id, private_key=hulk_sk)
+    database.cache_profile(profile=hulk_profile)
 
     Log.info('loading station: %s' % s001_id)
     database.save_meta(identifier=s001_id, meta=s001_meta)
     database.save_private_key(identifier=s001_id, private_key=s001_sk)
-    barrack.cache_account(s001)
+    database.cache_profile(profile=s001_profile)
+
+    barrack.cache_account(account=moki)
+    barrack.cache_account(account=hulk)
+    barrack.cache_account(account=s001)
+
     # store station name
     profile = '{\"name\":\"%s\"}' % s001_name
     signature = base64_encode(s001_sk.sign(profile.encode('utf-8')))

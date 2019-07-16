@@ -94,7 +94,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         Log.info('%s: set up with %s' % (self, self.client_address))
-        monitor.report(message='Client connected %s' % str(self.client_address))
+        monitor.report(message='Client connected %s [%s]' % (self.client_address, station.name))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
         # current session
@@ -112,7 +112,7 @@ class RequestHandler(BaseRequestHandler):
             session_server.remove_session(session=self.session)
             self.session = None
         else:
-            monitor.report(message='Client disconnected %s' % str(self.client_address))
+            monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station.name))
         Log.info('RequestHandler: finish (%s, %s)' % self.client_address)
 
     """
