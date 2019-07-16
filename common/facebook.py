@@ -26,15 +26,25 @@
 import os
 import json
 
-from dkd.utils import base64_encode
+from mkm.crypto.utils import base64_encode
 
 from dimp import ID, NetworkID, Meta, Profile, Account, User, Group
-from dimp import Barrack, IBarrackDelegate
+from dimp import Barrack, ICompletionHandler, ITransceiverDelegate
 
 from .log import Log
 
 
-class Facebook(IBarrackDelegate):
+class Facebook(ITransceiverDelegate):
+
+    def __init__(self):
+        super().__init__()
+        # default delegate for entities
+        self.entityDataSource = None
+
+    def nickname(self, identifier: ID) -> str:
+        account = self.account(identifier=identifier);
+        if account is not None:
+            return account.name
 
     #
     #   IBarrackDelegate
@@ -42,24 +52,33 @@ class Facebook(IBarrackDelegate):
     def account(self, identifier: ID) -> Account:
         # TODO: create account
         entity = Account(identifier=identifier)
-        entity.delegate = barrack
+        entity.delegate = self.entityDataSource
         return entity
 
     def user(self, identifier: ID) -> User:
         # TODO: create user
         entity = User(identifier=identifier)
-        entity.delegate = barrack
+        entity.delegate = self.entityDataSource
         return entity
 
     def group(self, identifier: ID) -> Group:
         # TODO: create group
         entity = Group(identifier=identifier)
-        entity.delegate = barrack
+        entity.delegate = self.entityDataSource
         return entity
+
+    #
+    #   ITransceiverDelegate
+    #
+    def send_package(self, data: bytes, handler: ICompletionHandler) -> bool:
+        pass
 
 
 barrack = Barrack()
 facebook = Facebook()
+
+facebook.entityDataSource = barrack
+barrack.delegate = facebook
 
 
 def load_accounts(database):

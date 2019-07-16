@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -24,23 +23,29 @@
 # SOFTWARE.
 # ==============================================================================
 
+from mkm import Meta, NetworkID
+from mkm.address import BTCAddress
+from mkm.meta import meta_classes
+
 """
-    Log Util
-    ~~~~~~~~
+    Meta for generate ID with BTC address
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    algorithm:
+        CT      = key.data;
+        hash    = ripemd160(sha256(CT));
+        code    = sha256(sha256(network + hash)).prefix(4);
+        address = base58_encode(network + hash + code);
+        number  = u_int(code);
 """
-import time
 
 
-class Log:
+class BTCMeta(Meta):
 
-    @staticmethod
-    def time_string(timestamp: int) -> str:
-        time_array = time.localtime(timestamp)
-        return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
+    def generate_address(self, network: NetworkID):
+        assert self.version & Meta.Version_BTC
+        return BTCAddress.new(data=self.key.data, network=network)
 
-    @staticmethod
-    def info(msg: str):
-        timestamp = int(time.time())
-        time_string = Log.time_string(timestamp)
 
-        print('[%s] %s' % (time_string, msg))
+meta_classes[Meta.Version_BTC] = BTCMeta
+meta_classes[Meta.Version_ExBTC] = BTCMeta

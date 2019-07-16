@@ -33,7 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from dkd.utils import base64_encode, base64_decode
+from mkm.crypto.utils import base64_encode, base64_decode
 
 from .hex import hex_encode, hex_decode
 from .log import Log

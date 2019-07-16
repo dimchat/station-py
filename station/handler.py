@@ -36,6 +36,7 @@ from socketserver import BaseRequestHandler
 from dimp import ID
 from dimp import TextContent, ReliableMessage
 
+from common import facebook
 from common import s001, Log
 
 from .mars import NetMsgHead, NetMsg
@@ -101,8 +102,9 @@ class RequestHandler(BaseRequestHandler):
 
     def finish(self):
         if self.session is not None:
+            nickname = facebook.nickname(identifier=self.identifier)
             Log.info('RequestHandler: disconnect from session %s, %s' % (self.identifier, self.client_address))
-            monitor.report(message='User logged out %s %s' % (self.client_address, self.identifier))
+            monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
             response = TextContent.new(text='Bye!')
             msg = station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)

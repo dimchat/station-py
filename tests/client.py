@@ -32,6 +32,7 @@
 """
 
 import json
+import time
 from cmd import Cmd
 
 import socket
@@ -39,6 +40,8 @@ from threading import Thread
 
 import sys
 import os
+
+from dkd import Envelope
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -49,7 +52,7 @@ from dimp import MessageType, Content, CommandContent, TextContent
 from dimp import InstantMessage, ReliableMessage
 from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
-from common import base64_encode
+from common import base64_encode, Log
 from common import barrack, keystore, transceiver, database, load_accounts
 from common import s001, s001_port
 from common import moki, hulk
@@ -178,25 +181,30 @@ class Client:
     def receive_message(self, msg: dict):
         r_msg = ReliableMessage(msg)
         i_msg = transceiver.verify_decrypt(r_msg)
-        sender = ID(i_msg.envelope.sender)
-        self.receive_content(sender=sender, content=i_msg.content)
+        self.receive_content(envelope=i_msg.envelope, content=i_msg.content)
 
-    def receive_content(self, sender: ID, content: Content):
+    def receive_content(self, content: Content, envelope: Envelope):
+        sender = ID(envelope.sender)
+        when = Log.time_string(envelope.time)
         console.stdout.write('\r')
         if content.type == MessageType.Text:
-            self.show(sender=sender, content=content)
+            self.show(envelope=envelope, content=content)
         elif content.type == MessageType.Command:
-            self.execute(sender=sender, content=content)
+            self.execute(envelope=envelope, content=content)
         else:
-            print('***** Message content from "%s": %s' % (sender, content))
+            print('[%s] ***** Message content from "%s": %s' % (when, sender, content))
         # show prompt
         console.stdout.write(console.prompt)
         console.stdout.flush()
 
-    def show(self, sender: ID, content: Content):
-        print('***** Message from "%s": %s' % (sender.name, content['text']))
+    def show(self, envelope: Envelope, content: Content):
+        sender = ID(envelope.sender)
+        when = Log.time_string(envelope.time)
+        print('[%s] ***** Message from "%s": %s' % (when, sender.name, content['text']))
 
-    def execute(self, sender: ID, content: Content):
+    def execute(self, envelope: Envelope, content: Content):
+        sender = ID(envelope.sender)
+        when = Log.time_string(envelope.time)
         command = content['command']
         if 'handshake' == command:
             cmd = HandshakeCommand(content)
@@ -230,7 +238,7 @@ class Client:
                 results = content['results']
                 print('      results:', json.dumps(results))
         else:
-            print('command from "%s": %s (%s)' % (sender.name, content['command'], content))
+            print('[%s] ***** command from "%s": %s (%s)' % (when, sender.name, content['command'], content))
 
 
 class Console(Cmd):

@@ -33,9 +33,9 @@
 from dimp import ID, Meta
 from dimp import MessageType, Content, TextContent, CommandContent
 from dimp import ReliableMessage
-from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand, BroadcastCommand
+from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
-from common import database, Log
+from common import facebook, database, Log
 from common import s001
 
 from .session import session_server, Session
@@ -128,7 +128,7 @@ class MessageProcessor:
                 # session invalid, handshake first
                 return self.process_handshake(sender)
             # broadcast
-            return self.process_broadcast_command(cmd=BroadcastCommand(content))
+            return self.process_broadcast_command(cmd=CommandContent(content))
         else:
             Log.info('MessageProcessor: unknown command %s' % content)
 
@@ -144,8 +144,10 @@ class MessageProcessor:
             # session verified success
             session.valid = True
             session.active = True
-            Log.info('MessageProcessor: handshake accepted %s, %s, %s' % (self.client_address, sender, session_key))
-            monitor.report(message='User logged in %s %s' % (self.client_address, sender))
+            nickname = facebook.nickname(identifier=sender)
+            cli = self.client_address
+            Log.info('MessageProcessor: handshake accepted %s %s %s, %s' % (nickname, cli, sender, session_key))
+            monitor.report(message='User %s logged in %s %s' % (nickname, cli, sender))
             # add the new guest for checking offline messages
             self.receptionist.add_guest(identifier=sender)
             return HandshakeCommand.success()
@@ -233,9 +235,9 @@ class MessageProcessor:
         response['results'] = results
         return response
 
-    def process_broadcast_command(self, cmd: BroadcastCommand) -> Content:
+    def process_broadcast_command(self, cmd: CommandContent) -> Content:
         Log.info('MessageProcessor: client broadcast %s, %s' % (self.identifier, cmd))
-        title = cmd.title
+        title = cmd.get('title')
         if 'report' == title:
             # report client state
             state = cmd.get('state')
