@@ -38,7 +38,7 @@ import json
 from dimp import SymmetricKey, PrivateKey
 from dimp import ID, Meta, Profile
 from dimp import Account, User, Group
-from dimp import IUserDataSource, IGroupDataSource, ITransceiverDataSource
+from dimp import IUserDataSource, IGroupDataSource, ICipherKeyDataSource
 
 from dimp import ReliableMessage
 from dimp import Transceiver
@@ -48,7 +48,7 @@ from .facebook import facebook, barrack
 from .keystore import keystore
 
 
-class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
+class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
 
     def __init__(self):
         super().__init__()
@@ -73,6 +73,20 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
     #
     #   IEntityDataSource
     #
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        self.__metas[identifier.address] = meta
+        # save meta as new file
+        directory = self.__directory('public', identifier)
+        path = directory + '/meta.js'
+        if os.path.exists(path):
+            Log.info('[DB] meta file exists: %s, update IGNORE!' % path)
+        else:
+            with open(path, 'w') as file:
+                file.write(json.dumps(meta))
+            Log.info('[DB] meta write into file: %s' % path)
+        # meta cached
+        return True
+
     def meta(self, identifier: ID) -> Meta:
         return self.load_meta(identifier=identifier)
 
@@ -124,22 +138,8 @@ class Database(IUserDataSource, IGroupDataSource, ITransceiverDataSource):
         return facebook.group(identifier=identifier)
 
     #
-    #   ITransceiverDataSource
+    #   ICipherKeyDataSource
     #
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        self.__metas[identifier.address] = meta
-        # save meta as new file
-        directory = self.__directory('public', identifier)
-        path = directory + '/meta.js'
-        if os.path.exists(path):
-            Log.info('[DB] meta file exists: %s, update IGNORE!' % path)
-        else:
-            with open(path, 'w') as file:
-                file.write(json.dumps(meta))
-            Log.info('[DB] meta write into file: %s' % path)
-        # meta cached
-        return True
-
     def cipher_key(self, sender: ID, receiver: ID) -> SymmetricKey:
         return keystore.cipher_key(sender=sender, receiver=receiver)
 
@@ -432,7 +432,7 @@ barrack.userDataSource = database
 barrack.groupDataSource = database
 
 transceiver = Transceiver()
-transceiver.userDataSource = database
-transceiver.groupDataSource = database
-transceiver.dataSource = database
 transceiver.delegate = facebook
+transceiver.barrackDelegate = database
+transceiver.entityDataSource = database
+transceiver.cipherKeyDataSource = database
