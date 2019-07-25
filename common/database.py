@@ -37,7 +37,6 @@ import json
 
 from dimp import SymmetricKey, PrivateKey
 from dimp import ID, Meta, Profile
-from dimp import Account, User, Group
 from dimp import IUserDataSource, IGroupDataSource, ICipherKeyDataSource
 
 from dimp import ReliableMessage
@@ -124,18 +123,6 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
     def members(self, identifier: ID) -> list:
         # TODO: load group info from local storage
         pass
-
-    #
-    #   IBarrackDelegate
-    #
-    def account(self, identifier: ID) -> Account:
-        return facebook.account(identifier=identifier)
-
-    def user(self, identifier: ID) -> User:
-        return facebook.user(identifier=identifier)
-
-    def group(self, identifier: ID) -> Group:
-        return facebook.group(identifier=identifier)
 
     #
     #   ICipherKeyDataSource
@@ -433,6 +420,6 @@ barrack.groupDataSource = database
 
 transceiver = Transceiver()
 transceiver.delegate = facebook
-transceiver.barrackDelegate = database
+transceiver.barrackDelegate = facebook
 transceiver.entityDataSource = database
 transceiver.cipherKeyDataSource = database

@@ -49,6 +49,11 @@ class Facebook(ITransceiverDelegate):
     #
     #   IBarrackDelegate
     #
+    def identifier(self, string) -> ID:
+        # TODO: create ID
+        identifier = ID(identifier=string)
+        return identifier
+
     def account(self, identifier: ID) -> Account:
         # TODO: create account
         entity = Account(identifier=identifier)
