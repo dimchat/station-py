@@ -34,24 +34,19 @@ import os
 import json
 
 from dimp import ID, SymmetricKey
-from dimp import KeyStore as KeyCache
+from dimp import KeyStore as KeyStoreMem
 
 from .log import Log
 
 
-class KeyStore(KeyCache):
+class KeyStore(KeyStoreMem):
 
     def __init__(self):
         super().__init__()
-        # memory cache
-        self.__metas = {}
-        self.__profiles = {}
-        self.__private_keys = {}
-
         self.user = None
         self.base_dir = '/tmp/.dim/'
 
-    def __directory(self, control: str, identifier: ID, sub_dir: str = '') -> str:
+    def __directory(self, control: str, identifier: ID, sub_dir: str = None) -> str:
         path = self.base_dir + control + '/' + identifier.address
         if sub_dir:
             path = path + '/' + sub_dir
@@ -59,52 +54,41 @@ class KeyStore(KeyCache):
             os.makedirs(path)
         return path
 
-    def cipher_key(self, sender: ID, receiver: ID) -> SymmetricKey:
-        key = super().cipher_key(sender=sender, receiver=receiver)
-        if key is not None:
-            return key
-        # create a new key & save it into the Key Store
-        key = SymmetricKey({'algorithm': 'AES'})
-        self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
-        return key
+    def __path(self) -> str:
+        assert self.user is not None, 'user not set yet'
+        directory = self.__directory('public', self.user.identifier)
+        return directory + '/keystore.js'
 
-    def flush(self):
-        if self.dirty is False or self.user is None:
-            return
+    def save_keys(self, key_map: dict) -> bool:
         # write key table to persistent storage
-        directory = self.__directory('public', self.user.identifier)
-        path = directory + '/keystore.js'
+        path = self.__path()
         with open(path, 'w') as file:
-            file.write(self.key_table)
-        Log.info('[DB] keystore write into file: %s' % path)
-        self.dirty = False
+            file.write(json.dumps(key_map))
+            Log.info('[DB] keystore write into file: %s' % path)
+            return True
 
-    def key_exists(self, sender_address: str, receiver_address: str) -> bool:
-        key_map = self.key_table.get(sender_address)
-        if key_map is None:
-            return False
-        return receiver_address in key_map
-
-    def reload(self) -> bool:
-        if self.user is None:
-            return False
+    def load_keys(self) -> dict:
         # load key table from persistent storage
-        directory = self.__directory('public', self.user.identifier)
-        path = directory + '/keystore.js'
+        path = self.__path()
         if os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
-            table_ = json.loads(data)
-            # key_table[sender.address] -> key_map
-            for from_, map_ in table_:
-                key_map = self.key_table.get(from_)
-                if key_map is None:
-                    key_map = {}
-                    self.key_table[from_] = key_map
-                # key_map[receiver.address] -> key
-                for to_, key_ in map_:
-                    # update memory cache
-                    key_map[to_] = SymmetricKey(key_)
+                return json.loads(data)
+
+    #
+    #   ICipherKeyDataSource
+    #
+    def cipher_key(self, sender: ID, receiver: ID) -> SymmetricKey:
+        key = super().cipher_key(sender=sender, receiver=receiver)
+        if key is None:
+            # create a new key & save it into the Key Store
+            key = SymmetricKey({'algorithm': 'AES'})
+            self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        return key
+
+    def reuse_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID) -> SymmetricKey:
+        # TODO: check reuse key
+        pass
 
 
 keystore = KeyStore()
