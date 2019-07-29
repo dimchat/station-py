@@ -33,7 +33,7 @@
 import os
 import json
 
-from dimp import ID, SymmetricKey
+from dimp import ID, SymmetricKey, User
 from dimp import KeyStore as KeyStoreMem
 
 from .log import Log
@@ -42,12 +42,35 @@ from .log import Log
 class KeyStore(KeyStoreMem):
 
     def __init__(self):
+        self.__user: User = None
+        self.__base_dir: str = '/tmp/.dim/'
         super().__init__()
-        self.user = None
-        self.base_dir = '/tmp/.dim/'
+
+    @property
+    def user(self) -> User:
+        return self.__user
+
+    @user.setter
+    def user(self, value: User):
+        if value is None:
+            # save key map for old user
+            self.flush()
+            self.__user = None
+        elif value != self.__user:
+            # load key map for new user
+            self.__user = value
+            self.update_keys(self.load_keys())
+
+    @property
+    def directory(self) -> str:
+        return self.__base_dir
+
+    @directory.setter
+    def directory(self, value: str):
+        self.__base_dir = value
 
     def __directory(self, control: str, identifier: ID, sub_dir: str = None) -> str:
-        path = self.base_dir + control + '/' + identifier.address
+        path = self.__base_dir + control + '/' + identifier.address
         if sub_dir:
             path = path + '/' + sub_dir
         if not os.path.exists(path):
@@ -55,13 +78,15 @@ class KeyStore(KeyStoreMem):
         return path
 
     def __path(self) -> str:
-        assert self.user is not None, 'user not set yet'
-        directory = self.__directory('public', self.user.identifier)
-        return directory + '/keystore.js'
+        if self.__user is not None:
+            directory = self.__directory('public', self.__user.identifier)
+            return directory + '/keystore.js'
 
     def save_keys(self, key_map: dict) -> bool:
         # write key table to persistent storage
         path = self.__path()
+        if path is None:
+            return False
         with open(path, 'w') as file:
             file.write(json.dumps(key_map))
             Log.info('[DB] keystore write into file: %s' % path)
@@ -70,7 +95,7 @@ class KeyStore(KeyStoreMem):
     def load_keys(self) -> dict:
         # load key table from persistent storage
         path = self.__path()
-        if os.path.exists(path):
+        if path is not None and os.path.exists(path):
             with open(path, 'r') as file:
                 data = file.read()
                 return json.loads(data)

@@ -86,8 +86,35 @@ facebook.entityDataSource = barrack
 barrack.delegate = facebook
 
 
+def scan_ids(database):
+    ids = []
+    # scan all metas
+    directory = database.base_dir + 'public'
+    # get all files in messages directory and sort by filename
+    files = sorted(os.listdir(directory))
+    for filename in files:
+        path = directory + '/' + filename + '/meta.js'
+        if not os.path.exists(path):
+            Log.info('meta file not exists: %s' % path)
+            continue
+        identifier = ID(filename)
+        if identifier is None:
+            Log.info('error: %s' % filename)
+            continue
+        meta = database.load_meta(identifier=identifier)
+        if meta is None:
+            Log.info('meta error: %s' % identifier)
+        Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
+        ids.append(meta.generate_identifier(network=identifier.type))
+    return ids
+
+
 def load_accounts(database):
     Log.info('======== loading accounts')
+
+    #
+    # load immortals
+    #
 
     from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
     from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
@@ -123,32 +150,10 @@ def load_accounts(database):
     profile = Profile(profile)
     database.save_profile(profile=profile)
 
-    # scan all metas
-    directory = database.base_dir + 'public'
-    # get all files in messages directory and sort by filename
-    files = sorted(os.listdir(directory))
-    for filename in files:
-        path = directory + '/' + filename + '/meta.js'
-        if os.path.exists(path):
-            Log.info('loading %s' % path)
-            with open(path, 'r') as file:
-                data = file.read()
-                # no need to check meta again
-            meta = Meta(json.loads(data))
-            identifier = meta.generate_identifier(network=NetworkID.Main)
-            if barrack.account(identifier=identifier):
-                # already exists
-                continue
-            if path.endswith(identifier.address + '/meta.js'):
-                # address matched
-                sk = database.load_private_key(identifier=identifier)
-                if sk:
-                    user = User(identifier=identifier)
-                    # database.accounts[identifier] = user
-                    barrack.cache_account(user)
-                else:
-                    account = Account(identifier=identifier)
-                    # database.accounts[identifier] = account
-                    barrack.cache_account(account)
+    #
+    # scan accounts
+    #
+
+    scan_ids(database)
 
     Log.info('======== loaded')

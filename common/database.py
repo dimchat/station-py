@@ -43,7 +43,7 @@ from dimp import ReliableMessage
 from dimp import Transceiver
 
 from .log import Log
-from .facebook import facebook, barrack
+from .facebook import facebook, barrack, scan_ids
 from .keystore import keystore
 
 
@@ -87,23 +87,33 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
         return True
 
     def meta(self, identifier: ID) -> Meta:
-        return self.load_meta(identifier=identifier)
+        meta = self.__metas.get(identifier.address)
+        if meta is None:
+            meta = self.load_meta(identifier=identifier)
+        return meta
 
     def profile(self, identifier: ID) -> Profile:
-        # TODO: load profile from local storage
-        return self.load_profile(identifier=identifier)
+        profile = self.__profiles.get(identifier.address)
+        if profile is None:
+            profile = self.load_profile(identifier=identifier)
+        return profile
 
     #
     #   IUserDataSource
     #
     def private_key_for_signature(self, identifier: ID) -> PrivateKey:
         # TODO: load private key from keychain
-        return self.load_private_key(identifier=identifier)
+        sk = self.__private_keys.get(identifier.address)
+        if sk is None:
+            sk = self.load_private_key(identifier=identifier)
+        return sk
 
     def private_keys_for_decryption(self, identifier: ID) -> list:
         # TODO: load private key from keychain
-        key = self.load_private_key(identifier=identifier)
-        return [key]
+        sk = self.__private_keys.get(identifier.address)
+        if sk is None:
+            sk = self.load_private_key(identifier=identifier)
+        return [sk]
 
     def contacts(self, identifier: ID) -> list:
         # TODO: load contacts from local storage
@@ -163,18 +173,16 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
             Log.info('[DB] private key write into file: %s' % path)
 
     def load_private_key(self, identifier: ID) -> PrivateKey:
-        sk = self.__private_keys.get(identifier.address)
-        if sk is None:
-            # load from local storage
-            directory = self.__directory('private', identifier)
-            path = directory + '/private_key.js'
-            if os.path.exists(path):
-                with open(path, 'r') as file:
-                    data = file.read()
-                sk = PrivateKey(json.loads(data))
-                # update memory cache
-                self.__private_keys[identifier.address] = sk
-        return sk
+        # load from local storage
+        directory = self.__directory('private', identifier)
+        path = directory + '/private_key.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+            sk = PrivateKey(json.loads(data))
+            # update memory cache
+            self.__private_keys[identifier.address] = sk
+            return sk
 
     """
         Meta file for entities
@@ -184,18 +192,16 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
     """
 
     def load_meta(self, identifier: ID) -> Meta:
-        meta = self.__metas.get(identifier.address)
-        if meta is None:
-            # load from local storage
-            directory = self.__directory('public', identifier)
-            path = directory + '/meta.js'
-            if os.path.exists(path):
-                with open(path, 'r') as file:
-                    data = file.read()
-                meta = Meta(json.loads(data))
-                # update memory cache
-                self.__metas[identifier.address] = meta
-        return meta
+        # load from local storage
+        directory = self.__directory('public', identifier)
+        path = directory + '/meta.js'
+        if os.path.exists(path):
+            with open(path, 'r') as file:
+                data = file.read()
+            meta = Meta(json.loads(data))
+            # update memory cache
+            self.__metas[identifier.address] = meta
+            return meta
 
     """
         Profile for Accounts
@@ -230,9 +236,6 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
         return True
 
     def load_profile(self, identifier: ID) -> Profile:
-        profile = self.__profiles.get(identifier.address)
-        if profile is not None:
-            return profile
         # load from local storage
         directory = self.__directory('public', identifier)
         path = directory + '/profile.js'
@@ -385,7 +388,7 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
     def search(self, keywords: list) -> dict:
         results = {}
         max_count = 20
-        array = list(barrack.accounts.keys())
+        array = scan_ids(self)
         array = random.sample(array, len(array))
         for identifier in array:
             identifier = ID(identifier)
