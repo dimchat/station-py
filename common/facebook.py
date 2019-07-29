@@ -91,21 +91,22 @@ def scan_ids(database):
     # scan all metas
     directory = database.base_dir + 'public'
     # get all files in messages directory and sort by filename
-    files = sorted(os.listdir(directory))
+    files = os.listdir(directory)
     for filename in files:
         path = directory + '/' + filename + '/meta.js'
         if not os.path.exists(path):
-            Log.info('meta file not exists: %s' % path)
+            # Log.info('meta file not exists: %s' % path)
             continue
         identifier = ID(filename)
         if identifier is None:
-            Log.info('error: %s' % filename)
+            # Log.info('error: %s' % filename)
             continue
         meta = database.load_meta(identifier=identifier)
         if meta is None:
             Log.info('meta error: %s' % identifier)
-        Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
+        # Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
         ids.append(meta.generate_identifier(network=identifier.type))
+    Log.info('loaded %d id(s) from %s' % (len(ids), directory))
     return ids
 
 
