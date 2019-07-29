@@ -392,8 +392,8 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
         array = random.sample(array, len(array))
         for identifier in array:
             identifier = ID(identifier)
-            network = identifier.address.network
-            if not network.is_person() and not network.is_group():
+            network = identifier.type
+            if not network.is_person():
                 # ignore
                 continue
             match = True
