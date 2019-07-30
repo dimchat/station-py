@@ -24,25 +24,22 @@
 # ==============================================================================
 
 import os
-import json
 
 from mkm.crypto.utils import base64_encode
 
-from dimp import ID, NetworkID, Meta, Profile, Account, User, Group
-from dimp import Barrack, ICompletionHandler, ITransceiverDelegate
+from dimp import ID, Profile, Account, User, Group
+from dimp import Barrack, ICompletionHandler
 
 from .log import Log
 
 
-class Facebook(ITransceiverDelegate):
+class Facebook(Barrack):
 
     def __init__(self):
         super().__init__()
-        # default delegate for entities
-        self.entityDataSource = None
 
     def nickname(self, identifier: ID) -> str:
-        account = self.account(identifier=identifier);
+        account = self.account(identifier=identifier)
         if account is not None:
             return account.name
 
@@ -77,13 +74,6 @@ class Facebook(ITransceiverDelegate):
     #
     def send_package(self, data: bytes, handler: ICompletionHandler) -> bool:
         pass
-
-
-barrack = Barrack()
-facebook = Facebook()
-
-facebook.entityDataSource = barrack
-barrack.delegate = facebook
 
 
 def scan_ids(database):
@@ -135,10 +125,6 @@ def load_accounts(database):
     database.save_meta(identifier=s001_id, meta=s001_meta)
     database.save_private_key(identifier=s001_id, private_key=s001_sk)
     database.cache_profile(profile=s001_profile)
-
-    barrack.cache_account(account=moki)
-    barrack.cache_account(account=hulk)
-    barrack.cache_account(account=s001)
 
     # store station name
     profile = '{\"name\":\"%s\"}' % s001_name

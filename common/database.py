@@ -37,17 +37,15 @@ import json
 
 from dimp import SymmetricKey, PrivateKey
 from dimp import ID, Meta, Profile
-from dimp import IUserDataSource, IGroupDataSource, ICipherKeyDataSource
+from dimp import IUserDataSource, IGroupDataSource
 
 from dimp import ReliableMessage
-from dimp import Transceiver
 
 from .log import Log
-from .facebook import facebook, barrack, scan_ids
-from .keystore import keystore
+from .facebook import scan_ids
 
 
-class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
+class Database(IUserDataSource, IGroupDataSource):
 
     def __init__(self):
         super().__init__()
@@ -413,16 +411,3 @@ class Database(IUserDataSource, IGroupDataSource, ICipherKeyDataSource):
                 if max_count <= 0:
                     break
         return results
-
-
-database = Database()
-
-barrack.entityDataSource = database
-barrack.userDataSource = database
-barrack.groupDataSource = database
-
-transceiver = Transceiver()
-transceiver.delegate = facebook
-transceiver.barrackDelegate = facebook
-transceiver.entityDataSource = database
-transceiver.cipherKeyDataSource = database

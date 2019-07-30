@@ -33,7 +33,7 @@
 from dimp import ID
 from dimp import ReliableMessage
 
-from common import database, barrack, Log
+from common import database, facebook, Log
 
 from .session import session_server
 from .apns import apns
@@ -67,11 +67,11 @@ class Dispatcher:
         Log.info('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
         database.store_message(msg)
         # push notification
-        account = barrack.account(identifier=receiver)
+        account = facebook.account(identifier=receiver)
         account.delegate = database
         sender = msg.envelope.sender
         sender = ID(sender)
-        contact = barrack.account(identifier=sender)
+        contact = facebook.account(identifier=sender)
         contact.delegate = database
         text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
         return apns.push(identifier=receiver, message=text)
@@ -79,6 +79,6 @@ class Dispatcher:
 
 dispatcher = Dispatcher()
 dispatcher.session_server = session_server
-dispatcher.barrack = barrack
+dispatcher.barrack = facebook
 dispatcher.database = database
 dispatcher.apns = apns

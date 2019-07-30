@@ -34,6 +34,7 @@
 """
 
 from mkm.crypto.utils import base64_encode, base64_decode
+from dimp import Transceiver
 
 from .hex import hex_encode, hex_decode
 from .log import Log
@@ -43,9 +44,27 @@ from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_pro
 from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
 from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001, s001_host, s001_port
 
-from .facebook import facebook, barrack, load_accounts
-from .keystore import keystore
-from .database import database, transceiver
+from .facebook import Facebook, Barrack, scan_ids, load_accounts
+from .keystore import KeyStore
+from .database import Database
+
+
+facebook = Facebook()
+keystore = KeyStore()
+
+database = Database()
+
+facebook.entityDataSource = database
+facebook.userDataSource = database
+facebook.groupDataSource = database
+
+transceiver = Transceiver()
+transceiver.delegate = facebook
+transceiver.barrack = facebook
+transceiver.key_cache = keystore
+
+s001.delegate = database
+s001.transceiver = transceiver
 
 
 __all__ = [
@@ -57,7 +76,9 @@ __all__ = [
     'hulk_id', 'hulk_name', 'hulk_pk', 'hulk_sk', 'hulk_meta', 'hulk_profile', 'hulk',
     's001_id', 's001_name', 's001_pk', 's001_sk', 's001_meta', 's001_profile', 's001', 's001_host', 's001_port',
 
-    'facebook', 'barrack', 'load_accounts',
-    'keystore',
-    'database', 'transceiver',
+    'Facebook', 'Barrack', 'scan_ids', 'load_accounts',
+    'KeyStore',
+    'Database',
+
+    'facebook', 'keystore', 'database', 'transceiver',
 ]

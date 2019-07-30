@@ -31,7 +31,7 @@
 """
 
 from dimp import ID, Meta
-from dimp import MessageType, Content, TextContent, CommandContent
+from dimp import ContentType, Content, TextContent, CommandContent
 from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
@@ -83,7 +83,7 @@ class MessageProcessor:
         if receiver == self.station.identifier:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
             content = self.station.decrypt_message(s_msg)
-            if content.type == MessageType.Command:
+            if content.type == ContentType.Command:
                 Log.info('MessageProcessor: command from client %s, %s' % (self.client_address, content))
                 return self.process_command(sender=sender, content=content)
             # talk with station?

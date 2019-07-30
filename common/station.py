@@ -28,8 +28,7 @@ import time
 import dimp
 from dimp import ID, Meta
 from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
-
-from .database import transceiver
+from dimp import Transceiver
 
 
 class Station(dimp.Station):
@@ -37,13 +36,14 @@ class Station(dimp.Station):
     def __init__(self, identifier: ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)
         self.running = False
+        self.transceiver: Transceiver = None
 
     def pack(self, receiver: ID, content: Content) -> ReliableMessage:
         """ Pack message from this station """
         timestamp = int(time.time())
         env = Envelope.new(sender=self.identifier, receiver=receiver, time=timestamp)
         i_msg = InstantMessage.new(content=content, envelope=env)
-        r_msg = transceiver.encrypt_sign(i_msg)
+        r_msg = self.transceiver.encrypt_sign(i_msg)
         return r_msg
 
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
@@ -56,13 +56,13 @@ class Station(dimp.Station):
             self.delegate.save_meta(identifier=identifier, meta=meta)
         # message delegate
         if msg.delegate is None:
-            msg.delegate = transceiver
+            msg.delegate = self.transceiver
         return msg.verify()
 
     def decrypt_message(self, msg: SecureMessage) -> Content:
         """ Decrypt message for this station """
         s_msg = msg.trim(self.identifier)
-        s_msg.delegate = transceiver
+        s_msg.delegate = self.transceiver
         i_msg = s_msg.decrypt()
         content = i_msg.content
         return content

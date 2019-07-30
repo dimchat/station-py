@@ -34,12 +34,12 @@ import os
 import json
 
 from dimp import ID, SymmetricKey, User
-from dimp import KeyStore as KeyStoreMem
+from dimp import KeyCache
 
 from .log import Log
 
 
-class KeyStore(KeyStoreMem):
+class KeyStore(KeyCache):
 
     def __init__(self):
         self.__user: User = None
@@ -114,6 +114,3 @@ class KeyStore(KeyStoreMem):
     def reuse_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID) -> SymmetricKey:
         # TODO: check reuse key
         pass
-
-
-keystore = KeyStore()

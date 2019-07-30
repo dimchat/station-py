@@ -9,7 +9,6 @@
 
 from dimp import ID, Meta, Profile, PublicKey, PrivateKey
 
-from .database import database, transceiver
 from .station import Station
 
 s001_name = 'Genesis Station'
@@ -96,6 +95,4 @@ s001_port = 9394
 
 s001 = Station(identifier=s001_id, host=s001_host, port=s001_port)
 s001.privateKey = s001_sk
-s001.delegate = database
-s001.transceiver = transceiver
 s001.running = False

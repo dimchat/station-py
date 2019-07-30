@@ -32,7 +32,6 @@
 """
 
 import json
-import time
 from cmd import Cmd
 
 import socket
@@ -48,12 +47,12 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from dimp import ID, Profile
-from dimp import MessageType, Content, CommandContent, TextContent
+from dimp import ContentType, Content, CommandContent, TextContent
 from dimp import InstantMessage, ReliableMessage
 from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
 from common import base64_encode, Log
-from common import barrack, keystore, transceiver, database, load_accounts
+from common import facebook, keystore, transceiver, database, load_accounts
 from common import s001, s001_port
 from common import moki, hulk
 
@@ -137,7 +136,7 @@ class Client:
         self.session_key = None
 
     def switch_user(self, identifier: ID):
-        user = barrack.user(identifier=identifier)
+        user = facebook.user(identifier=identifier)
         if user:
             self.user = user
             keystore.user = user
@@ -167,7 +166,7 @@ class Client:
             self.sock.close()
 
     def send(self, receiver: ID, content: Content):
-        account = barrack.account(receiver)
+        account = facebook.account(receiver)
         if account is None:
             raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
@@ -187,9 +186,9 @@ class Client:
         sender = ID(envelope.sender)
         when = Log.time_string(envelope.time)
         console.stdout.write('\r')
-        if content.type == MessageType.Text:
+        if content.type == ContentType.Text:
             self.show(envelope=envelope, content=content)
-        elif content.type == MessageType.Command:
+        elif content.type == ContentType.Command:
             self.execute(envelope=envelope, content=content)
         else:
             print('[%s] ***** Message content from "%s": %s' % (when, sender, content))
