@@ -42,7 +42,7 @@ sys.path.append(rootPath)
 
 from dimp import ID
 
-from common import keystore, database, load_accounts, Log
+from common import database, keystore, facebook, load_accounts, Log
 from common import s001, s001_host, s001_port
 
 from station.handler import RequestHandler
@@ -97,7 +97,7 @@ for admin in administrators:
 
 
 if __name__ == '__main__':
-    load_accounts(database=database)
+    load_accounts(facebook=facebook)
 
     keystore.user = station
 

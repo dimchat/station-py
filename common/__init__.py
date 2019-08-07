@@ -34,7 +34,6 @@
 """
 
 from mkm.crypto.utils import base64_encode, base64_decode
-from dimp import Transceiver
 
 from .hex import hex_encode, hex_decode
 from .log import Log
@@ -44,27 +43,37 @@ from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_pro
 from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
 from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001, s001_host, s001_port
 
+from .database import Database
 from .facebook import Facebook, Barrack, scan_ids, load_accounts
 from .keystore import KeyStore
-from .database import Database
+from .messanger import Messanger
 
 
-facebook = Facebook()
-keystore = KeyStore()
-
+#
+#  database
+#
 database = Database()
 
-facebook.entityDataSource = database
-facebook.userDataSource = database
-facebook.groupDataSource = database
+#
+#  facebook
+#
+facebook = Facebook()
+facebook.database = database
 
-transceiver = Transceiver()
-transceiver.delegate = facebook
-transceiver.barrack = facebook
-transceiver.key_cache = keystore
+#
+#  key store
+#
+keystore = KeyStore()
+
+#
+#  messanger
+#
+messanger = Messanger()
+messanger.barrack = facebook
+messanger.key_cache = keystore
 
 s001.delegate = database
-s001.transceiver = transceiver
+s001.transceiver = messanger
 
 
 __all__ = [
@@ -80,5 +89,5 @@ __all__ = [
     'KeyStore',
     'Database',
 
-    'facebook', 'keystore', 'database', 'transceiver',
+    'database', 'facebook', 'keystore', 'messanger',
 ]

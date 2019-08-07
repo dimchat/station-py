@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 
-from common import database, transceiver, Log
+from common import database, messanger, Log
 
 from .session import session_server
 from .apns import apns
@@ -66,7 +66,7 @@ class Monitor:
         timestamp = int(time.time())
         content = TextContent.new(text=text)
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = transceiver.encrypt_sign(i_msg)
+        r_msg = messanger.encrypt_sign(i_msg)
         # try for online user
         sessions = session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -93,5 +93,5 @@ class Monitor:
 monitor = Monitor()
 monitor.session_server = session_server
 monitor.database = database
-monitor.transceiver = transceiver
+monitor.transceiver = messanger
 monitor.apns = apns

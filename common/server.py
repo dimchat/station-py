@@ -25,13 +25,12 @@
 
 import time
 
-import dimp
 from dimp import ID, Meta
 from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
-from dimp import Transceiver
+from dimp import Transceiver, Station
 
 
-class Station(dimp.Station):
+class Server(Station):
 
     def __init__(self, identifier: ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)

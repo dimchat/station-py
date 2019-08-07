@@ -35,17 +35,38 @@ import time
 import random
 import json
 
-from dimp import SymmetricKey, PrivateKey
+from dimp import PrivateKey
 from dimp import ID, Meta, Profile
-from dimp import IUserDataSource, IGroupDataSource
-
 from dimp import ReliableMessage
 
 from .log import Log
-from .facebook import scan_ids
 
 
-class Database(IUserDataSource, IGroupDataSource):
+def scan_ids(database):
+    ids = []
+    # scan all metas
+    directory = database.base_dir + 'public'
+    # get all files in messages directory and sort by filename
+    files = os.listdir(directory)
+    for filename in files:
+        path = directory + '/' + filename + '/meta.js'
+        if not os.path.exists(path):
+            # Log.info('meta file not exists: %s' % path)
+            continue
+        identifier = ID(filename)
+        if identifier is None:
+            # Log.info('error: %s' % filename)
+            continue
+        meta = database.meta(identifier=identifier)
+        if meta is None:
+            Log.info('meta error: %s' % identifier)
+        # Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
+        ids.append(meta.generate_identifier(network=identifier.type))
+    Log.info('loaded %d id(s) from %s' % (len(ids), directory))
+    return ids
+
+
+class Database:
 
     def __init__(self):
         super().__init__()
@@ -64,102 +85,23 @@ class Database(IUserDataSource, IGroupDataSource):
             os.makedirs(path)
         return path
 
-    def cache_private_key(self, private_key: PrivateKey, identifier: ID):
-        self.__private_keys[identifier.address] = private_key
-
-    #
-    #   IEntityDataSource
-    #
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        self.__metas[identifier.address] = meta
-        # save meta as new file
-        directory = self.__directory('public', identifier)
-        path = directory + '/meta.js'
-        if os.path.exists(path):
-            Log.info('[DB] meta file exists: %s, update IGNORE!' % path)
-        else:
-            with open(path, 'w') as file:
-                file.write(json.dumps(meta))
-            Log.info('[DB] meta write into file: %s' % path)
-        # meta cached
-        return True
-
-    def meta(self, identifier: ID) -> Meta:
-        meta = self.__metas.get(identifier.address)
-        if meta is None:
-            meta = self.load_meta(identifier=identifier)
-        return meta
-
-    def profile(self, identifier: ID) -> Profile:
-        profile = self.__profiles.get(identifier.address)
-        if profile is None:
-            profile = self.load_profile(identifier=identifier)
-        return profile
-
-    #
-    #   IUserDataSource
-    #
-    def private_key_for_signature(self, identifier: ID) -> PrivateKey:
-        # TODO: load private key from keychain
-        sk = self.__private_keys.get(identifier.address)
-        if sk is None:
-            sk = self.load_private_key(identifier=identifier)
-        return sk
-
-    def private_keys_for_decryption(self, identifier: ID) -> list:
-        # TODO: load private key from keychain
-        sk = self.__private_keys.get(identifier.address)
-        if sk is None:
-            sk = self.load_private_key(identifier=identifier)
-        return [sk]
-
-    def contacts(self, identifier: ID) -> list:
-        # TODO: load contacts from local storage
-        pass
-
-    #
-    #   IGroupDataSource
-    #
-    def founder(self, identifier: ID) -> ID:
-        # TODO: load group info from local storage
-        pass
-
-    def owner(self, identifier: ID) -> ID:
-        # TODO: load group info from local storage
-        pass
-
-    def members(self, identifier: ID) -> list:
-        # TODO: load group info from local storage
-        pass
-
-    #
-    #   ICipherKeyDataSource
-    #
-    def cipher_key(self, sender: ID, receiver: ID) -> SymmetricKey:
-        return keystore.cipher_key(sender=sender, receiver=receiver)
-
-    def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID) -> bool:
-        return keystore.cache_cipher_key(key=key, sender=sender, receiver=receiver)
-
-    def reuse_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID) -> SymmetricKey:
-        # TODO: update/create cipher key
-        pass
-
-    #
-    #   IAPNsDelegate
-    #
-    def device_tokens(self, identifier: str) -> list:
-        return self.load_device_tokens(identifier=identifier)
-
     """
         Private Key file for Users
         ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/private/{ADDRESS}/private_key.js'
     """
+    def cache_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
+        assert identifier.valid, 'failed to cache private key for ID: %s' % identifier
+        if private_key is None:
+            return False
+        # update memory cache
+        self.__private_keys[identifier] = private_key
+        return True
 
-    def save_private_key(self, private_key: PrivateKey, identifier: ID):
-        self.__private_keys[identifier.address] = private_key
+    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
+        if not self.cache_private_key(private_key=private_key, identifier=identifier):
+            return False
         # save private key as new file
         directory = self.__directory('private', identifier)
         path = directory + '/private_key.js'
@@ -169,8 +111,12 @@ class Database(IUserDataSource, IGroupDataSource):
             with open(path, 'w') as file:
                 file.write(json.dumps(private_key))
             Log.info('[DB] private key write into file: %s' % path)
+        return True
 
-    def load_private_key(self, identifier: ID) -> PrivateKey:
+    def private_key(self, identifier: ID) -> PrivateKey:
+        sk = self.__private_keys.get(identifier)
+        if sk is not None:
+            return sk
         # load from local storage
         directory = self.__directory('private', identifier)
         path = directory + '/private_key.js'
@@ -179,7 +125,7 @@ class Database(IUserDataSource, IGroupDataSource):
                 data = file.read()
             sk = PrivateKey(json.loads(data))
             # update memory cache
-            self.__private_keys[identifier.address] = sk
+            self.cache_private_key(private_key=sk, identifier=identifier)
             return sk
 
     """
@@ -188,8 +134,32 @@ class Database(IUserDataSource, IGroupDataSource):
 
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
+    def cache_meta(self, meta: Meta, identifier: ID) -> bool:
+        assert identifier.valid, 'failed to cache meta for ID: %s' % identifier
+        if meta is None:
+            return False
+        # update memory cache
+        self.__metas[identifier] = meta
+        return True
 
-    def load_meta(self, identifier: ID) -> Meta:
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        if not self.cache_meta(meta=meta, identifier=identifier):
+            return False
+        # save meta as new file
+        directory = self.__directory('public', identifier)
+        path = directory + '/meta.js'
+        if os.path.exists(path):
+            Log.info('[DB] meta file exists: %s, update IGNORE!' % path)
+        else:
+            with open(path, 'w') as file:
+                file.write(json.dumps(meta))
+            Log.info('[DB] meta write into file: %s' % path)
+        return True
+
+    def meta(self, identifier: ID) -> Meta:
+        meta = self.__metas.get(identifier)
+        if meta is not None:
+            return meta
         # load from local storage
         directory = self.__directory('public', identifier)
         path = directory + '/meta.js'
@@ -198,7 +168,7 @@ class Database(IUserDataSource, IGroupDataSource):
                 data = file.read()
             meta = Meta(json.loads(data))
             # update memory cache
-            self.__metas[identifier.address] = meta
+            self.cache_meta(meta=meta, identifier=identifier)
             return meta
 
     """
@@ -207,9 +177,9 @@ class Database(IUserDataSource, IGroupDataSource):
 
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
-
     def cache_profile(self, profile: Profile) -> bool:
         identifier = profile.identifier
+        assert identifier.valid, 'failed to cache profile for ID: %s' % identifier
         meta = self.meta(identifier=identifier)
         if meta is None:
             Log.info('[DB] meta not found: %s, IGNORE!' % identifier)
@@ -233,7 +203,10 @@ class Database(IUserDataSource, IGroupDataSource):
         Log.info('[DB] profile write into file: %s' % path)
         return True
 
-    def load_profile(self, identifier: ID) -> Profile:
+    def profile(self, identifier: ID) -> Profile:
+        profile = self.__profiles.get(identifier)
+        if profile is not None:
+            return profile
         # load from local storage
         directory = self.__directory('public', identifier)
         path = directory + '/profile.js'
@@ -248,10 +221,10 @@ class Database(IUserDataSource, IGroupDataSource):
                 if data is not None:
                     content['data'] = data
                     content.pop('profile')
-            # verify & cache
             profile = Profile(content)
-            if self.cache_profile(profile):
-                return content
+            # update memory cache
+            self.cache_profile(profile)
+            return profile
 
     """
         Device Tokens for APNS
@@ -260,7 +233,10 @@ class Database(IUserDataSource, IGroupDataSource):
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
 
-    def load_device_tokens(self, identifier: str) -> list:
+    #
+    #   IAPNsDelegate
+    #
+    def device_tokens(self, identifier: str) -> list:
         directory = self.__directory('protected', ID(identifier))
         path = directory + '/device.js'
         if os.path.exists(path):

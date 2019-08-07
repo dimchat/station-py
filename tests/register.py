@@ -46,7 +46,7 @@ from dimp import NetworkID, Meta
 from mkm.address import BTCAddress
 
 from common import base64_encode
-from common import database
+from common import facebook
 
 
 def number_string(number: int):
@@ -127,8 +127,8 @@ class AccountTestCase(unittest.TestCase):
                 print('**** meta:\n', meta)
                 print('**** private key:\n', sk)
 
-                database.save_meta(identifier=id1, meta=meta)
-                database.save_private_key(identifier=id1, private_key=sk)
+                facebook.save_meta(identifier=id1, meta=meta)
+                facebook.save_private_key(identifier=id1, private_key=sk)
                 break
 
 

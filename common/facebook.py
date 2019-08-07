@@ -23,20 +23,35 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
+"""
+    Facebook
+    ~~~~~~~~
+
+    Barrack for cache entities
+"""
 
 from mkm.crypto.utils import base64_encode
 
-from dimp import ID, Profile, Account, User, Group
-from dimp import Barrack, ICompletionHandler
+from dimp import PrivateKey
+from dimp import ID, Meta, Profile, Account, User, Group
+from dimp import Barrack
 
 from .log import Log
+from .database import Database, scan_ids
+from .server import Server
 
 
 class Facebook(Barrack):
 
     def __init__(self):
         super().__init__()
+        self.database: Database = None
+
+    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
+        return self.database.save_private_key(private_key=private_key, identifier=identifier)
+
+    def save_profile(self, profile: Profile) -> bool:
+        return self.database.save_profile(profile=profile)
 
     def nickname(self, identifier: ID) -> str:
         account = self.account(identifier=identifier)
@@ -46,61 +61,81 @@ class Facebook(Barrack):
     #
     #   IBarrackDelegate
     #
-    def identifier(self, string) -> ID:
-        # TODO: create ID
-        identifier = ID(identifier=string)
-        return identifier
-
     def account(self, identifier: ID) -> Account:
-        # TODO: create account
-        entity = Account(identifier=identifier)
-        entity.delegate = self.entityDataSource
-        return entity
+        account = super().account(identifier=identifier)
+        if account is not None:
+            return account
+        # check meta
+        meta = self.meta(identifier=identifier)
+        if meta is not None:
+            # create account with type
+            if identifier.type.is_station():
+                account = Server(identifier=identifier)
+            elif identifier.type.is_person():
+                account = Account(identifier=identifier)
+            assert account is not None, 'failed to create account: %s' % identifier
+            self.cache_account(account=account)
+            return account
 
     def user(self, identifier: ID) -> User:
-        # TODO: create user
-        entity = User(identifier=identifier)
-        entity.delegate = self.entityDataSource
-        return entity
+        user = super().user(identifier=identifier)
+        if user is not None:
+            return user
+        # check meta
+        meta = self.meta(identifier=identifier)
+        if meta is not None:
+            # TODO: check private key
+            # create user
+            user = User(identifier=identifier)
+            self.cache_user(user=user)
+            return user
 
     def group(self, identifier: ID) -> Group:
-        # TODO: create group
-        entity = Group(identifier=identifier)
-        entity.delegate = self.entityDataSource
-        return entity
+        group = super().group(identifier=identifier)
+        if group is not None:
+            return group
+        # check meta
+        meta = self.meta(identifier=identifier)
+        if meta is not None:
+            # create group
+            group = Group(identifier=identifier)
+            self.cache_group(group=group)
+            return group
 
     #
-    #   ITransceiverDelegate
+    #   IEntityDataSource
     #
-    def send_package(self, data: bytes, handler: ICompletionHandler) -> bool:
-        pass
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        if super().save_meta(meta=meta, identifier=identifier):
+            return True
+        return self.database.save_meta(meta=meta, identifier=identifier)
 
-
-def scan_ids(database):
-    ids = []
-    # scan all metas
-    directory = database.base_dir + 'public'
-    # get all files in messages directory and sort by filename
-    files = os.listdir(directory)
-    for filename in files:
-        path = directory + '/' + filename + '/meta.js'
-        if not os.path.exists(path):
-            # Log.info('meta file not exists: %s' % path)
-            continue
-        identifier = ID(filename)
-        if identifier is None:
-            # Log.info('error: %s' % filename)
-            continue
-        meta = database.load_meta(identifier=identifier)
+    def meta(self, identifier: ID) -> Meta:
+        meta = super().meta(identifier=identifier)
         if meta is None:
-            Log.info('meta error: %s' % identifier)
-        # Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
-        ids.append(meta.generate_identifier(network=identifier.type))
-    Log.info('loaded %d id(s) from %s' % (len(ids), directory))
-    return ids
+            meta = self.database.meta(identifier=identifier)
+            if meta is not None:
+                self.cache_meta(meta=meta, identifier=identifier)
+        return meta
+
+    def profile(self, identifier: ID) -> Profile:
+        tai = super().profile(identifier=identifier)
+        if tai is None:
+            tai = self.database.profile(identifier=identifier)
+        return tai
+
+    #
+    #   IUserDataSource
+    #
+    def private_key_for_signature(self, identifier: ID) -> PrivateKey:
+        return self.database.private_key(identifier=identifier)
+
+    def private_keys_for_decryption(self, identifier: ID) -> list:
+        sk = self.database.private_key(identifier=identifier)
+        return [sk]
 
 
-def load_accounts(database):
+def load_accounts(facebook):
     Log.info('======== loading accounts')
 
     #
@@ -112,19 +147,19 @@ def load_accounts(database):
     from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001
 
     Log.info('loading immortal user: %s' % moki_id)
-    database.save_meta(identifier=moki_id, meta=moki_meta)
-    database.save_private_key(identifier=moki_id, private_key=moki_sk)
-    database.cache_profile(profile=moki_profile)
+    facebook.save_meta(identifier=moki_id, meta=moki_meta)
+    facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
+    facebook.save_profile(profile=moki_profile)
 
     Log.info('loading immortal user: %s' % hulk_id)
-    database.save_meta(identifier=hulk_id, meta=hulk_meta)
-    database.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    database.cache_profile(profile=hulk_profile)
+    facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
+    facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
+    facebook.save_profile(profile=hulk_profile)
 
     Log.info('loading station: %s' % s001_id)
-    database.save_meta(identifier=s001_id, meta=s001_meta)
-    database.save_private_key(identifier=s001_id, private_key=s001_sk)
-    database.cache_profile(profile=s001_profile)
+    facebook.save_meta(identifier=s001_id, meta=s001_meta)
+    facebook.save_private_key(identifier=s001_id, private_key=s001_sk)
+    facebook.save_profile(profile=s001_profile)
 
     # store station name
     profile = '{\"name\":\"%s\"}' % s001_name
@@ -135,12 +170,12 @@ def load_accounts(database):
         'signature': signature,
     }
     profile = Profile(profile)
-    database.save_profile(profile=profile)
+    facebook.save_profile(profile=profile)
 
     #
     # scan accounts
     #
 
-    scan_ids(database)
+    scan_ids(facebook.database)
 
     Log.info('======== loaded')

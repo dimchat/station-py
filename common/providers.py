@@ -9,7 +9,7 @@
 
 from dimp import ID, Meta, Profile, PublicKey, PrivateKey
 
-from .station import Station
+from .server import Server
 
 s001_name = 'Genesis Station'
 
@@ -93,6 +93,6 @@ DLXyrNtIQkx+f0JLBuECQCUfuJGL+qbExpD3tScBJPAIJ8ZVRVbTcL3eHC9q6gx3
 s001_host = '0.0.0.0'
 s001_port = 9394
 
-s001 = Station(identifier=s001_id, host=s001_host, port=s001_port)
+s001 = Server(identifier=s001_id, host=s001_host, port=s001_port)
 s001.privateKey = s001_sk
 s001.running = False
