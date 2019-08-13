@@ -45,8 +45,7 @@ class Dispatcher:
         super().__init__()
 
     def deliver(self, msg: ReliableMessage) -> bool:
-        receiver = msg.envelope.receiver
-        receiver = ID(receiver)
+        receiver = ID(msg.envelope.receiver)
         # try for online user
         sessions = session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -67,13 +66,10 @@ class Dispatcher:
         Log.info('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
         database.store_message(msg)
         # push notification
-        account = facebook.account(identifier=receiver)
-        account.delegate = database
-        sender = msg.envelope.sender
-        sender = ID(sender)
-        contact = facebook.account(identifier=sender)
-        contact.delegate = database
-        text = 'Dear %s: %s sent you a message.' % (account.name, contact.name)
+        to_user = facebook.user(identifier=receiver)
+        sender = ID(msg.envelope.sender)
+        from_user = facebook.user(identifier=sender)
+        text = 'Dear %s: %s sent you a message.' % (to_user.name, from_user.name)
         return apns.push(identifier=receiver, message=text)
 
 

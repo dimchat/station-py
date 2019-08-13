@@ -33,7 +33,7 @@
 import os
 import json
 
-from dimp import ID, SymmetricKey, User
+from dimp import ID, SymmetricKey, LocalUser
 from dimp import KeyCache
 
 from .log import Log
@@ -42,16 +42,16 @@ from .log import Log
 class KeyStore(KeyCache):
 
     def __init__(self):
-        self.__user: User = None
+        self.__user: LocalUser = None
         self.__base_dir: str = '/tmp/.dim/'
         super().__init__()
 
     @property
-    def user(self) -> User:
+    def user(self) -> LocalUser:
         return self.__user
 
     @user.setter
-    def user(self, value: User):
+    def user(self, value: LocalUser):
         if value is None:
             # save key map for old user
             self.flush()

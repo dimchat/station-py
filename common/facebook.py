@@ -33,12 +33,11 @@
 from mkm.crypto.utils import base64_encode
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile, Account, User, Group
+from dimp import ID, Meta, Profile, User, LocalUser, Group
 from dimp import Barrack
 
 from .log import Log
 from .database import Database, scan_ids
-from .server import Server
 
 
 class Facebook(Barrack):
@@ -53,40 +52,45 @@ class Facebook(Barrack):
     def save_profile(self, profile: Profile) -> bool:
         return self.database.save_profile(profile=profile)
 
-    def nickname(self, identifier: ID) -> str:
-        account = self.account(identifier=identifier)
-        if account is not None:
-            return account.name
-
-    #
-    #   IBarrackDelegate
-    #
-    def account(self, identifier: ID) -> Account:
-        account = super().account(identifier=identifier)
-        if account is not None:
-            return account
-        # check meta
-        meta = self.meta(identifier=identifier)
+    def verify_profile(self, profile: Profile) -> bool:
+        if profile is None:
+            return False
+        elif profile.valid:
+            # already verified
+            return True
+        identifier = profile.identifier
+        meta = None
+        if identifier.type.is_communicator():
+            # verify with account's meta.key
+            meta = self.meta(identifier=identifier)
+        elif identifier.type.is_group():
+            # verify with group owner's meta.key
+            group = self.group(identifier=identifier)
+            if group is not None:
+                meta = self.meta(identifier=group.owner)
         if meta is not None:
-            # create account with type
-            if identifier.type.is_station():
-                account = Server(identifier=identifier)
-            elif identifier.type.is_person():
-                account = Account(identifier=identifier)
-            assert account is not None, 'failed to create account: %s' % identifier
-            self.cache_account(account=account)
-            return account
+            return profile.verify(public_key=meta.key)
 
+    def nickname(self, identifier: ID) -> str:
+        user = self.user(identifier=identifier)
+        if user is not None:
+            return user.name
+
+    #
+    #   ISocialNetworkDataSource
+    #
     def user(self, identifier: ID) -> User:
         user = super().user(identifier=identifier)
         if user is not None:
             return user
-        # check meta
+        # check meta and private key
         meta = self.meta(identifier=identifier)
         if meta is not None:
-            # TODO: check private key
-            # create user
-            user = User(identifier=identifier)
+            key = self.private_key_for_signature(identifier=identifier)
+            if key is None:
+                user = User(identifier=identifier)
+            else:
+                user = LocalUser(identifier=identifier)
             self.cache_user(user=user)
             return user
 

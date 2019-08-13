@@ -239,7 +239,7 @@ class RequestHandler(BaseRequestHandler):
 
     def process_message(self, pack: bytes):
         # decode the JsON string to dictionary
-        #    if the msg data error, raise ValueError.
+        # if the msg data error, raise ValueError.
         try:
             msg = json.loads(pack.decode('utf-8'))
             msg = ReliableMessage(msg)

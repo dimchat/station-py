@@ -166,9 +166,6 @@ class Client:
             self.sock.close()
 
     def send(self, receiver: ID, content: Content):
-        account = facebook.account(receiver)
-        if account is None:
-            raise LookupError('Receiver not found: ' + receiver)
         sender = self.user.identifier
         # packing message
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)

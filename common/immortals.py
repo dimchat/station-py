@@ -8,7 +8,7 @@
 """
 
 from mkm import PublicKey, PrivateKey
-from mkm import ID, Meta, Profile, User
+from mkm import ID, Meta, Profile, LocalUser
 
 
 #
@@ -64,7 +64,7 @@ hulk_profile = Profile.new(identifier=hulk_id)
 hulk_profile.name = hulk_name
 hulk_profile.sign(private_key=hulk_sk)
 
-hulk = User(hulk_id)
+hulk = LocalUser(hulk_id)
 
 
 #
@@ -120,4 +120,4 @@ moki_profile = Profile.new(identifier=moki_id)
 moki_profile.name = moki_name
 moki_profile.sign(private_key=moki_sk)
 
-moki = User(moki_id)
+moki = LocalUser(moki_id)
