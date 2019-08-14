@@ -47,7 +47,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from dimp import ID, Profile
-from dimp import ContentType, Content, CommandContent, TextContent
+from dimp import ContentType, Content, Command, TextContent
 from dimp import InstantMessage, ReliableMessage
 from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
@@ -337,13 +337,13 @@ class Console(Cmd):
 
     def do_show(self, name: str):
         if 'users' == name:
-            cmd = CommandContent.new(command='users')
+            cmd = Command.new(command='users')
             client.send(receiver=station.identifier, content=cmd)
         else:
             print('I don\'t understand.')
 
     def do_search(self, keywords: str):
-        cmd = CommandContent.new(command='search')
+        cmd = Command.new(command='search')
         cmd['keywords'] = keywords
         client.send(receiver=station.identifier, content=cmd)
 

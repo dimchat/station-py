@@ -46,6 +46,9 @@ class Facebook(Barrack):
         super().__init__()
         self.database: Database = None
 
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        return self.database.save_meta(meta=meta, identifier=identifier)
+
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         return self.database.save_private_key(private_key=private_key, identifier=identifier)
 
@@ -109,11 +112,6 @@ class Facebook(Barrack):
     #
     #   IEntityDataSource
     #
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if super().save_meta(meta=meta, identifier=identifier):
-            return True
-        return self.database.save_meta(meta=meta, identifier=identifier)
-
     def meta(self, identifier: ID) -> Meta:
         meta = super().meta(identifier=identifier)
         if meta is None:
@@ -137,6 +135,21 @@ class Facebook(Barrack):
     def private_keys_for_decryption(self, identifier: ID) -> list:
         sk = self.database.private_key(identifier=identifier)
         return [sk]
+
+    def contacts(self, identifier: ID) -> list:
+        pass
+
+    #
+    #    IGroupDataSource
+    #
+    def founder(self, identifier: ID) -> ID:
+        pass
+
+    def owner(self, identifier: ID) -> ID:
+        pass
+
+    def members(self, identifier: ID) -> list:
+        pass
 
 
 def load_accounts(facebook):

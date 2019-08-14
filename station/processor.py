@@ -31,7 +31,7 @@
 """
 
 from dimp import ID, Meta
-from dimp import ContentType, Content, TextContent, CommandContent
+from dimp import ContentType, Content, TextContent, Command
 from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
@@ -121,14 +121,14 @@ class MessageProcessor:
             return self.process_users_command()
         elif 'search' == command:
             # search users with keyword(s)
-            return self.process_search_command(cmd=CommandContent(content))
+            return self.process_search_command(cmd=Command(content))
         elif 'broadcast' == command:
             session = self.current_session(identifier=sender)
             if not session.valid:
                 # session invalid, handshake first
                 return self.process_handshake(sender)
             # broadcast
-            return self.process_broadcast_command(cmd=CommandContent(content))
+            return self.process_broadcast_command(cmd=Command(content))
         else:
             Log.info('MessageProcessor: unknown command %s' % content)
 
@@ -208,12 +208,12 @@ class MessageProcessor:
     def process_users_command(self) -> Content:
         Log.info('MessageProcessor: get online user(s) for %s' % self.identifier)
         users = self.session_server.random_users(max_count=20)
-        response = CommandContent.new(command='users')
+        response = Command.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
         return response
 
-    def process_search_command(self, cmd: CommandContent) -> Content:
+    def process_search_command(self, cmd: Command) -> Content:
         Log.info('MessageProcessor: search users for %s, %s' % (self.identifier, cmd))
         # keywords
         keywords = cmd.get('keywords')
@@ -229,13 +229,13 @@ class MessageProcessor:
         results = self.database.search(keywords=keywords)
         # response
         users = list(results.keys())
-        response = CommandContent.new(command='search')
+        response = Command.new(command='search')
         response['message'] = '%d user(s) found' % len(users)
         response['users'] = users
         response['results'] = results
         return response
 
-    def process_broadcast_command(self, cmd: CommandContent) -> Content:
+    def process_broadcast_command(self, cmd: Command) -> Content:
         Log.info('MessageProcessor: client broadcast %s, %s' % (self.identifier, cmd))
         title = cmd.get('title')
         if 'report' == title:
