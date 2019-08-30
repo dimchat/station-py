@@ -27,7 +27,6 @@ import os
 
 from mkm import ID, PrivateKey
 
-from common import Log
 from .storage import Storage
 
 
@@ -42,11 +41,10 @@ class PrivateKeyTable(Storage):
         Private Key file for Local Users
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/private_key.js'
+        file path: '.dim/private/{ADDRESS}/secret.js'
     """
     def __path(self, identifier: ID) -> str:
-        directory = super().directory(control='private', identifier=identifier)
-        return os.path.join(directory, 'private_key.js')
+        return os.path.join(self.root, 'private', identifier.address, 'secret.js')
 
     def __cache_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         assert private_key is not None and identifier.valid, 'private key error: %s, %s' % (identifier, private_key)
@@ -55,27 +53,33 @@ class PrivateKeyTable(Storage):
 
     def __load_private_key(self, identifier: ID) -> PrivateKey:
         path = self.__path(identifier=identifier)
-        Log.info('Loading private key from: %s' % path)
-        dictionary = super().read_json(path=path)
+        self.info('Loading private key from: %s' % path)
+        dictionary = self.read_json(path=path)
         return PrivateKey(dictionary)
 
     def __save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
-        if super().exists(path=path):
+        if self.exists(path=path):
             # meta file already exists
             return True
-        Log.info('Saving private key into: %s' % path)
-        return super().write_json(content=private_key, path=path)
+        self.info('Saving private key into: %s' % path)
+        return self.write_json(content=private_key, path=path)
 
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         if not self.__cache_private_key(private_key=private_key, identifier=identifier):
             raise ValueError('failed to cache private key for ID: %s, %s' % (identifier, private_key))
+            # Log.error('failed to cache private key for ID: %s, %s' % (identifier, private_key))
+            # return False
         return self.__save_private_key(private_key=private_key, identifier=identifier)
 
     def private_key(self, identifier: ID) -> PrivateKey:
+        # 1. get from cache
         info = self.__caches.get(identifier)
-        if info is None:
-            info = self.__load_private_key(identifier=identifier)
-            if info is not None:
-                self.__caches[identifier] = info
-        return info
+        if info is not None:
+            return info
+        # 2. load from storage
+        info = self.__load_private_key(identifier=identifier)
+        if info is not None:
+            # 3. update memory cache
+            self.__caches[identifier] = info
+            return info

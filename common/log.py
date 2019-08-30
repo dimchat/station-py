@@ -44,3 +44,11 @@ class Log:
         time_string = Log.time_string(timestamp)
 
         print('[%s] %s' % (time_string, msg))
+
+    @staticmethod
+    def error(msg: str):
+        timestamp = int(time.time())
+        time_string = Log.time_string(timestamp)
+
+        print('[%s] ERROR: %s' % (time_string, msg))
+

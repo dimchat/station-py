@@ -25,8 +25,15 @@
 
 import json
 import os
+import time
 
 from mkm import ID
+from dimp import Barrack
+
+
+def current_time() -> str:
+    time_array = time.localtime()
+    return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
 
 
 class Storage:
@@ -34,19 +41,12 @@ class Storage:
     root = '/tmp/.dim'
 
     @classmethod
-    def directory(cls, control: str, identifier: ID, sub_dir: str = '') -> str:
-        path = os.path.join(cls.root, control, identifier.address)
-        if len(sub_dir) > 0:
-            path = os.path.join(path, sub_dir)
-        return path
-
-    @classmethod
     def exists(cls, path: str) -> bool:
         return os.path.exists(path)
 
     @classmethod
     def read_text(cls, path: str) -> str:
-        if os.path.exists(path):
+        if cls.exists(path):
             # reading
             with open(path, 'r') as file:
                 return file.read()
@@ -54,13 +54,14 @@ class Storage:
     @classmethod
     def read_json(cls, path: str) -> dict:
         text = cls.read_text(path)
-        return json.loads(text)
+        if text is not None:
+            return json.loads(text)
 
     @classmethod
     def write_text(cls, text: str, path: str) -> bool:
         directory = os.path.dirname(path)
         # make sure the dirs exists
-        if not os.path.exists(directory):
+        if not cls.exists(directory):
             os.makedirs(directory)
         # writing
         with open(path, 'w') as file:
@@ -71,3 +72,41 @@ class Storage:
     def write_json(cls, content: dict, path: str) -> bool:
         string = json.dumps(content)
         return cls.write_text(string, path)
+
+    @classmethod
+    def append_text(cls, text: str, path: str) -> bool:
+        if not cls.exists(path=path):
+            # new file
+            return cls.write_text(text=text, path=path)
+        # appending
+        with open(path, 'a') as file:
+            wrote = file.write(text)
+            return wrote == len(text)
+
+    @classmethod
+    def remove(cls, path: str) -> bool:
+        if cls.exists(path=path):
+            os.remove(path)
+            return True
+
+    #
+    #  Entity factory
+    #
+    barrack: Barrack = None
+
+    @classmethod
+    def identifier(cls, string: str) -> ID:
+        if cls.barrack is None:
+            return ID(string)
+        return cls.barrack.identifier(string=string)
+
+    #
+    #  Log
+    #
+    @classmethod
+    def info(cls, msg: str):
+        print('[%s] Storage > %s' % (current_time(), msg))
+
+    @classmethod
+    def error(cls, msg: str):
+        print('[%s] Storage ERROR > %s' % (current_time(), msg))

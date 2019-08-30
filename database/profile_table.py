@@ -27,7 +27,6 @@ import os
 
 from mkm import ID, Profile
 
-from common import Log
 from .storage import Storage
 
 
@@ -39,14 +38,14 @@ class ProfileTable(Storage):
         self.__caches = {}
 
     """
-        Profile for Accounts
-        ~~~~~~~~~~~~~~~~~~~~
+        Profile for Entities (User/Group)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        file path: '.dim/mkm/{ADDRESS}/profile.js'
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
     def __path(self, identifier: ID) -> str:
-        directory = super().directory(control='public', identifier=identifier)
-        return os.path.join(directory, 'profile.js')
+        return os.path.join(self.root, 'public', identifier.address, 'profile.js')
 
     def __cache_profile(self, profile: Profile) -> bool:
         identifier = profile.identifier
@@ -57,8 +56,8 @@ class ProfileTable(Storage):
 
     def __load_profile(self, identifier: ID) -> Profile:
         path = self.__path(identifier=identifier)
-        Log.info('Loading profile from: %s' % path)
-        dictionary = super().read_json(path=path)
+        self.info('Loading profile from: %s' % path)
+        dictionary = self.read_json(path=path)
         if dictionary is not None:
             # compatible with v1.0
             data = dictionary.get('data')
@@ -73,21 +72,27 @@ class ProfileTable(Storage):
         identifier = profile.identifier
         assert identifier.valid, 'profile ID not valid: %s' % profile
         path = self.__path(identifier=identifier)
-        Log.info('Saving profile into: %s' % path)
-        return super().write_json(content=profile, path=path)
+        self.info('Saving profile into: %s' % path)
+        return self.write_json(content=profile, path=path)
 
     def save_profile(self, profile: Profile) -> bool:
         if not self.__cache_profile(profile=profile):
-            raise ValueError('failed to cache profile: %s' % profile)
+            # raise ValueError('failed to cache profile: %s' % profile)
+            self.error('failed to cache profile: %s' % profile)
+            return False
         return self.__save_profile(profile=profile)
 
     def profile(self, identifier: ID) -> Profile:
+        # 1. get from cache
         info = self.__caches.get(identifier)
-        if info is None:
-            info = self.__load_profile(identifier=identifier)
-            if info is not None:
-                self.__caches[identifier] = info
-        return info
+        if info is not None:
+            return info
+        # 2. load from storage
+        info = self.__load_profile(identifier=identifier)
+        if info is not None:
+            # 3. update memory cache
+            self.__caches[identifier] = info
+            return info
 
 
 class DeviceTable(Storage):
@@ -104,8 +109,7 @@ class DeviceTable(Storage):
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
     def __path(self, identifier: ID) -> str:
-        directory = super().directory(control='protected', identifier=identifier)
-        return os.path.join(directory, 'device.js')
+        return os.path.join(self.root, 'protected', identifier.address, 'device.js')
 
     def __cache_device(self, device: dict, identifier: ID) -> bool:
         assert identifier.valid, 'ID not valid: %s' % identifier
@@ -114,16 +118,16 @@ class DeviceTable(Storage):
 
     def __load_device(self, identifier: ID) -> dict:
         path = self.__path(identifier=identifier)
-        Log.info('Loading device info from: %s' % path)
-        return super().read_json(path=path)
+        self.info('Loading device info from: %s' % path)
+        return self.read_json(path=path)
 
     def __save_device(self, device: dict, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
-        if super().exists(path=path):
+        if self.exists(path=path):
             # device file already exists
             return True
-        Log.info('Saving device info into: %s' % path)
-        return super().write_json(content=device, path=path)
+        self.info('Saving device info into: %s' % path)
+        return self.write_json(content=device, path=path)
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID
@@ -139,7 +143,7 @@ class DeviceTable(Storage):
             tokens = [token]
         elif token in tokens:
             # already exists
-            return False
+            return True
         else:
             # append token
             # TODO: keep only last two records
@@ -147,15 +151,18 @@ class DeviceTable(Storage):
         device['tokens'] = tokens
         if not self.__cache_device(device=device, identifier=identifier):
             raise ValueError('failed to cache device info for: %s, %s' % (identifier, device))
+            # Log.error('failed to cache device info for: %s, %s' % (identifier, device))
+            # return False
         return self.__save_device(device=device, identifier=identifier)
 
     def device_tokens(self, identifier: ID) -> list:
         # 1. get from cache
         device = self.__caches.get(identifier)
         if device is not None:
-            return device.get('token')
+            return device.get('tokens')
         # 2. load from storage
         device = self.__load_device(identifier=identifier)
         if device is not None:
+            # 3. update memory cache
             self.__cache_device(device=device, identifier=identifier)
-            return device.get('token')
+            return device.get('tokens')

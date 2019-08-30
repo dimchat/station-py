@@ -28,7 +28,6 @@ import random
 
 from mkm import ID, Meta
 
-from common import Log
 from .storage import Storage
 
 
@@ -40,14 +39,14 @@ class MetaTable(Storage):
         self.__caches = {}
 
     """
-        Meta file for Entities
-        ~~~~~~~~~~~~~~~~~~~~~~
+        Meta file for Entities (User/Group)
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        file path: '.dim/mkm/{ADDRESS}/meta.js'
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
     def __path(self, identifier: ID) -> str:
-        directory = super().directory(control='public', identifier=identifier)
-        return os.path.join(directory, 'meta.js')
+        return os.path.join(self.root, 'public', identifier.address, 'meta.js')
 
     def __cache_meta(self, meta: Meta, identifier: ID) -> bool:
         if meta.match_identifier(identifier):
@@ -56,30 +55,36 @@ class MetaTable(Storage):
 
     def __load_meta(self, identifier: ID) -> Meta:
         path = self.__path(identifier=identifier)
-        Log.info('Loading meta from: %s' % path)
-        dictionary = super().read_json(path=path)
+        self.info('Loading meta from: %s' % path)
+        dictionary = self.read_json(path=path)
         return Meta(dictionary)
 
     def __save_meta(self, meta: Meta, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
-        if super().exists(path=path):
+        if self.exists(path=path):
             # meta file already exists
             return True
-        Log.info('Saving meta into: %s' % path)
-        return super().write_json(content=meta, path=path)
+        self.info('Saving meta into: %s' % path)
+        return self.write_json(content=meta, path=path)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not self.__cache_meta(meta=meta, identifier=identifier):
-            raise ValueError('failed to cache meta for ID: %s, %s' % (identifier, meta))
+            # raise ValueError('failed to cache meta for ID: %s, %s' % (identifier, meta))
+            self.error('failed to cache meta for ID: %s, %s' % (identifier, meta))
+            return False
         return self.__save_meta(meta=meta, identifier=identifier)
 
     def meta(self, identifier: ID) -> Meta:
+        # 1. get from cache
         info = self.__caches.get(identifier)
-        if info is None:
-            info = self.__load_meta(identifier=identifier)
-            if info is not None:
-                self.__caches[identifier] = info
-        return info
+        if info is not None:
+            return info
+        # 2. load from storage
+        info = self.__load_meta(identifier=identifier)
+        if info is not None:
+            # 3. update memory cache
+            self.__caches[identifier] = info
+            return info
 
     """
         Search Engine
@@ -94,7 +99,6 @@ class MetaTable(Storage):
         array = self.scan_ids()
         array = random.sample(array, len(array))
         for identifier in array:
-            identifier = ID(identifier)
             network = identifier.type
             if not network.is_person():
                 # ignore
@@ -115,12 +119,12 @@ class MetaTable(Storage):
                 max_count = max_count - 1
                 if max_count <= 0:
                     break
-        Log.info('Got %d account(s) matched %s' % (len(results), keywords))
+        self.info('Got %d account(s) matched %s' % (len(results), keywords))
         return results
 
     def scan_ids(self) -> list:
         ids = []
-        directory = os.path.join(super().root, 'public')
+        directory = os.path.join(self.root, 'public')
         # get all files in messages directory and sort by filename
         files = os.listdir(directory)
         for filename in files:
@@ -134,8 +138,8 @@ class MetaTable(Storage):
                 continue
             meta = self.meta(identifier=identifier)
             if meta is None:
-                Log.info('meta error: %s' % identifier)
+                self.info('meta error: %s' % identifier)
             # Log.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
             ids.append(meta.generate_identifier(network=identifier.type))
-        Log.info('Scanned %d ID(s) from %s' % (len(ids), directory))
+        self.info('Scanned %d ID(s) from %s' % (len(ids), directory))
         return ids

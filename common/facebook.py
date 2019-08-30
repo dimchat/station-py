@@ -36,8 +36,9 @@ from dimp import PrivateKey
 from dimp import ID, Meta, Profile, User, LocalUser, Group
 from dimp import Barrack
 
+from database import Database
+
 from .log import Log
-from .database import Database, scan_ids
 
 
 class Facebook(Barrack):
@@ -194,6 +195,6 @@ def load_accounts(facebook):
     # scan accounts
     #
 
-    scan_ids(facebook.database)
+    facebook.database.scan_ids()
 
     Log.info('======== loaded')
