@@ -104,6 +104,8 @@ class Database:
 
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
+    def save_device_token(self, identifier: str, token: str) -> bool:
+        return self.__device_table.save_device_token(token=token, identifier=ID(identifier))
 
     #
     #   IAPNsDelegate
@@ -111,16 +113,12 @@ class Database:
     def device_tokens(self, identifier: str) -> list:
         return self.__device_table.device_tokens(identifier=ID(identifier))
 
-    def save_device_token(self, identifier: str, token: str) -> bool:
-        return self.__device_table.save_device_token(token=token, identifier=ID(identifier))
-
     """
         Reliable message for Receivers
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/public/{ADDRESS}/messages/*.msg'
     """
-
     def store_message(self, msg: ReliableMessage) -> bool:
         return self.__message_table.store_message(msg=msg)
 

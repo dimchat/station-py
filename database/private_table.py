@@ -68,7 +68,7 @@ class PrivateKeyTable(Storage):
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         if not self.__cache_private_key(private_key=private_key, identifier=identifier):
             raise ValueError('failed to cache private key for ID: %s, %s' % (identifier, private_key))
-            # Log.error('failed to cache private key for ID: %s, %s' % (identifier, private_key))
+            # self.error('failed to cache private key for ID: %s, %s' % (identifier, private_key))
             # return False
         return self.__save_private_key(private_key=private_key, identifier=identifier)
 

@@ -151,7 +151,7 @@ class DeviceTable(Storage):
         device['tokens'] = tokens
         if not self.__cache_device(device=device, identifier=identifier):
             raise ValueError('failed to cache device info for: %s, %s' % (identifier, device))
-            # Log.error('failed to cache device info for: %s, %s' % (identifier, device))
+            # self.error('failed to cache device info for: %s, %s' % (identifier, device))
             # return False
         return self.__save_device(device=device, identifier=identifier)
 
