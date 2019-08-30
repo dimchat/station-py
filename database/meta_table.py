@@ -145,7 +145,7 @@ class MetaTable(Storage):
                 # the ID contains 'username' now
                 if identifier != address:
                     # switch cache key
-                    self.__caches.pop(address)
+                    # self.__caches.pop(address)
                     self.__cache_meta(meta=meta, identifier=identifier)
                 ids.append(identifier)
         self.info('Scanned %d ID(s) from %s' % (len(ids), directory))
