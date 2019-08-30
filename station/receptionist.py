@@ -115,8 +115,8 @@ class Receptionist(Thread):
             except ValueError as error:
                 Log.info('Receptionist: value error %s' % error)
             finally:
-                # sleep 1 second for next loop
-                sleep(1.0)
+                # sleep for next loop
+                sleep(0.1)
         Log.info('Receptionist: exit!')
 
 
