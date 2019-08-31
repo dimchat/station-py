@@ -66,7 +66,7 @@ g_keystore.user = current_station
 
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
-# g_database.base_dir = '/data/.dim/'
+g_database.base_dir = '/data/.dim/'
 Log.info("database directory: %s" % g_database.base_dir)
 
 
