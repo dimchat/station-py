@@ -36,16 +36,18 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 
-from common import database, messenger, Log
+from common import g_facebook, g_database, g_messenger, Log
 
-from .session import session_server
-from .apns import apns
+from .session import SessionServer
+from .apns import ApplePushNotificationService
 
 
 class Monitor:
 
     def __init__(self):
         super().__init__()
+        self.session_server: SessionServer = None
+        self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
@@ -61,14 +63,14 @@ class Monitor:
         if self.sender is None:
             Log.info('Monitor: sender not set yet')
             return False
-        sender = ID(self.sender)
-        receiver = ID(receiver)
+        sender = g_facebook.identifier(self.sender)
+        receiver = g_facebook.identifier(receiver)
         timestamp = int(time.time())
         content = TextContent.new(text=text)
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = messenger.encrypt_sign(i_msg)
+        r_msg = g_messenger.encrypt_sign(i_msg)
         # try for online user
-        sessions = session_server.search(identifier=receiver)
+        sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
             Log.info('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
@@ -85,13 +87,6 @@ class Monitor:
                 return True
         # store in local cache file
         Log.info('Monitor: %s is offline, store report: %s' % (receiver, text))
-        database.store_message(r_msg)
+        g_database.store_message(r_msg)
         # push notification
-        return apns.push(identifier=receiver, message=text)
-
-
-monitor = Monitor()
-monitor.session_server = session_server
-monitor.database = database
-monitor.transceiver = messenger
-monitor.apns = apns
+        return self.apns.push(identifier=receiver, message=text)

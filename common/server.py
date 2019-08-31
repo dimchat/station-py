@@ -29,6 +29,8 @@ from dimp import ID, Meta
 from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Transceiver, Station
 
+from .facebook import Facebook
+
 
 class Server(Station):
 
@@ -50,9 +52,10 @@ class Server(Station):
         meta = msg.meta
         if meta is not None:
             meta = Meta(meta)
-            identifier = ID(msg.envelope.sender)
+            facebook: Facebook = self.delegate
+            identifier = facebook.identifier(msg.envelope.sender)
             # save meta for sender
-            self.delegate.save_meta(identifier=identifier, meta=meta)
+            facebook.save_meta(identifier=identifier, meta=meta)
         # message delegate
         if msg.delegate is None:
             msg.delegate = self.transceiver
@@ -67,12 +70,14 @@ class Server(Station):
         return content
 
     def sign(self, data: bytes) -> bytes:
-        key = self.delegate.private_key_for_signature(identifier=self.identifier)
+        facebook: Facebook = self.delegate
+        key = facebook.private_key_for_signature(identifier=self.identifier)
         if key is not None:
             return key.sign(data=data)
 
     def decrypt(self, data: bytes) -> bytes:
-        keys = self.delegate.private_keys_for_decryption(identifier=self.identifier)
+        facebook: Facebook = self.delegate
+        keys = facebook.private_keys_for_decryption(identifier=self.identifier)
         plaintext = None
         for key in keys:
             try:

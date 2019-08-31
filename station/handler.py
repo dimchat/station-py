@@ -36,13 +36,14 @@ from socketserver import BaseRequestHandler
 from dimp import ID
 from dimp import TextContent, ReliableMessage
 
-from common import facebook
+from common import g_facebook
 from common import s001, Log
 
 from .mars import NetMsgHead, NetMsg
 from .processor import MessageProcessor
-from .session import session_server, Session
-from .monitor import monitor
+from .session import Session
+
+from .config import g_session_server, g_monitor
 
 
 class RequestHandler(BaseRequestHandler):
@@ -68,10 +69,10 @@ class RequestHandler(BaseRequestHandler):
             if self.session.identifier == identifier:
                 return self.session
             # user switched, clear current session
-            session_server.remove_session(session=self.session)
+            g_session_server.remove_session(session=self.session)
             self.session = None
         # get new session with identifier
-        self.session = session_server.session_create(identifier=identifier, request_handler=self)
+        self.session = g_session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
 
     def send(self, data: bytes) -> bool:
@@ -94,7 +95,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         Log.info('%s: set up with %s' % (self, self.client_address))
-        monitor.report(message='Client connected %s [%s]' % (self.client_address, station.name))
+        g_monitor.report(message='Client connected %s [%s]' % (self.client_address, current_station.name))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
         # current session
@@ -102,17 +103,17 @@ class RequestHandler(BaseRequestHandler):
 
     def finish(self):
         if self.session is not None:
-            nickname = facebook.nickname(identifier=self.identifier)
+            nickname = g_facebook.nickname(identifier=self.identifier)
             Log.info('RequestHandler: disconnect from session %s, %s' % (self.identifier, self.client_address))
-            monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
+            g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
             response = TextContent.new(text='Bye!')
-            msg = station.pack(receiver=self.identifier, content=response)
+            msg = current_station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             # clear current session
-            session_server.remove_session(session=self.session)
+            g_session_server.remove_session(session=self.session)
             self.session = None
         else:
-            monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station.name))
+            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, current_station.name))
         Log.info('RequestHandler: finish (%s, %s)' % self.client_address)
 
     """
@@ -121,7 +122,7 @@ class RequestHandler(BaseRequestHandler):
     def handle(self):
         Log.info('RequestHandler: client connected (%s, %s)' % self.client_address)
         data = b''
-        while station.running:
+        while current_station.running:
             # receive all data
             incomplete_length = len(data)
             while True:
@@ -248,8 +249,8 @@ class RequestHandler(BaseRequestHandler):
             res = self.processor.process(msg)
             if res:
                 # Log.info('RequestHandler: response to client', self.client_address, res)
-                receiver = ID(msg.envelope.sender)
-                return station.pack(receiver=receiver, content=res)
+                receiver = g_facebook.identifier(msg.envelope.sender)
+                return current_station.pack(receiver=receiver, content=res)
         except Exception as error:
             Log.info('RequestHandler: receive message package error %s' % error)
 
@@ -275,4 +276,4 @@ class RequestHandler(BaseRequestHandler):
     Current Station
     ~~~~~~~~~~~~~~~
 """
-station = s001
+current_station = s001

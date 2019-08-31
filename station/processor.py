@@ -35,13 +35,12 @@ from dimp import ContentType, Content, TextContent, Command
 from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
-from common import facebook, database, Log
+from common import g_facebook, g_database, Log
 from common import s001
 
-from .session import session_server, Session
-from .dispatcher import dispatcher
-from .receptionist import receptionist
-from .monitor import monitor
+from .session import Session
+
+from .config import g_session_server, g_dispatcher, g_receptionist, g_monitor
 
 
 class MessageProcessor:
@@ -49,11 +48,6 @@ class MessageProcessor:
     def __init__(self, request_handler):
         super().__init__()
         self.request_handler = request_handler
-        self.station = station
-        self.session_server = session_server
-        self.database = database
-        self.dispatcher = dispatcher
-        self.receptionist = receptionist
 
     @property
     def client_address(self) -> str:
@@ -71,18 +65,18 @@ class MessageProcessor:
     """
     def process(self, msg: ReliableMessage) -> Content:
         # verify signature
-        s_msg = self.station.verify_message(msg)
+        s_msg = current_station.verify_message(msg)
         if s_msg is None:
             Log.info('MessageProcessor: message verify error %s' % msg)
             response = TextContent.new(text='Signature error')
             response['signature'] = msg.signature
             return response
         # check receiver & session
-        sender = ID(s_msg.envelope.sender)
-        receiver = ID(s_msg.envelope.receiver)
-        if receiver == self.station.identifier:
+        sender = g_facebook.identifier(s_msg.envelope.sender)
+        receiver = g_facebook.identifier(s_msg.envelope.receiver)
+        if receiver == current_station.identifier:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
-            content = self.station.decrypt_message(s_msg)
+            content = current_station.decrypt_message(s_msg)
             if content.type == ContentType.Command:
                 Log.info('MessageProcessor: command from client %s, %s' % (self.client_address, content))
                 return self.process_command(sender=sender, content=content)
@@ -144,12 +138,12 @@ class MessageProcessor:
             # session verified success
             session.valid = True
             session.active = True
-            nickname = facebook.nickname(identifier=sender)
+            nickname = g_facebook.nickname(identifier=sender)
             cli = self.client_address
             Log.info('MessageProcessor: handshake accepted %s %s %s, %s' % (nickname, cli, sender, session_key))
-            monitor.report(message='User %s logged in %s %s' % (nickname, cli, sender))
+            g_monitor.report(message='User %s logged in %s %s' % (nickname, cli, sender))
             # add the new guest for checking offline messages
-            self.receptionist.add_guest(identifier=sender)
+            g_receptionist.add_guest(identifier=sender)
             return HandshakeCommand.success()
         else:
             # session key not match, ask client to sign it with the new session key
@@ -162,7 +156,7 @@ class MessageProcessor:
             # received a meta for ID
             meta = Meta(meta)
             Log.info('MessageProcessor: received meta %s' % identifier)
-            if self.database.save_meta(identifier=identifier, meta=meta):
+            if g_database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
                 return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
@@ -171,7 +165,7 @@ class MessageProcessor:
         else:
             # querying meta for ID
             Log.info('MessageProcessor: search meta %s' % identifier)
-            meta = self.database.meta(identifier=identifier)
+            meta = g_database.meta(identifier=identifier)
             if meta:
                 return MetaCommand.response(identifier=identifier, meta=meta)
             else:
@@ -181,7 +175,7 @@ class MessageProcessor:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta is not None:
-            if self.database.save_meta(identifier=identifier, meta=meta):
+            if g_database.save_meta(identifier=identifier, meta=meta):
                 # meta saved
                 Log.info('MessageProcessor: meta cached %s, %s' % (identifier, meta))
             else:
@@ -190,7 +184,7 @@ class MessageProcessor:
         if profile is not None:
             # received a new profile for ID
             Log.info('MessageProcessor: received profile %s' % identifier)
-            if self.database.save_profile(profile=profile):
+            if g_database.save_profile(profile=profile):
                 # profile saved
                 return ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
@@ -199,7 +193,7 @@ class MessageProcessor:
         else:
             # querying profile for ID
             Log.info('MessageProcessor: search profile %s' % identifier)
-            profile = self.database.profile(identifier=identifier)
+            profile = g_database.profile(identifier=identifier)
             if profile is not None:
                 return ProfileCommand.response(identifier=identifier, profile=profile)
             else:
@@ -207,7 +201,7 @@ class MessageProcessor:
 
     def process_users_command(self) -> Content:
         Log.info('MessageProcessor: get online user(s) for %s' % self.identifier)
-        users = self.session_server.random_users(max_count=20)
+        users = g_session_server.random_users(max_count=20)
         response = Command.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
@@ -226,7 +220,7 @@ class MessageProcessor:
             keywords = []
         else:
             keywords = keywords.split(' ')
-        results = self.database.search(keywords=keywords)
+        results = g_database.search(keywords=keywords)
         # response
         users = list(results.keys())
         response = Command.new(command='search')
@@ -248,7 +242,7 @@ class MessageProcessor:
                     session.active = False
                 elif 'foreground' == state:
                     # welcome back!
-                    receptionist.add_guest(identifier=session.identifier)
+                    g_receptionist.add_guest(identifier=session.identifier)
                     session.active = True
                 else:
                     Log.info('MessageProcessor: unknown state %s' % state)
@@ -259,14 +253,14 @@ class MessageProcessor:
             token = cmd.get('device_token')
             Log.info('MessageProcessor: client report token %s' % token)
             if token is not None:
-                self.database.save_device_token(identifier=self.identifier, token=token)
+                g_database.save_device_token(token=token, identifier=self.identifier)
                 return ReceiptCommand.receipt(message='Token received')
         else:
             Log.info('MessageProcessor: unknown broadcast command %s' % cmd)
 
     def deliver_message(self, msg: ReliableMessage) -> Content:
         Log.info('MessageProcessor: deliver message %s, %s' % (self.identifier, msg.envelope))
-        self.dispatcher.deliver(msg)
+        g_dispatcher.deliver(msg)
         # response to sender
         response = ReceiptCommand.receipt(message='Message delivering')
         # extra info
@@ -292,4 +286,4 @@ class MessageProcessor:
     Current Station
     ~~~~~~~~~~~~~~~
 """
-station = s001
+current_station = s001

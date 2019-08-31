@@ -52,7 +52,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
 from common import base64_encode, Log
-from common import facebook, keystore, messenger, database, load_accounts
+from common import g_facebook, g_keystore, g_messenger, g_database, load_accounts
 from common import s001, s001_port
 from common import moki, hulk
 
@@ -68,7 +68,7 @@ remote_host = '127.0.0.1'
 # remote_host = '134.175.87.98'  # dimchat.gz
 remote_port = s001_port
 
-database.base_dir = '/tmp/.dim/'
+g_database.base_dir = '/tmp/.dim/'
 
 identifier_map = {
     'moki': moki.identifier,
@@ -136,10 +136,10 @@ class Client:
         self.session_key = None
 
     def switch_user(self, identifier: ID):
-        user = facebook.user(identifier=identifier)
+        user = g_facebook.user(identifier=identifier)
         if user:
             self.user = user
-            keystore.user = user
+            g_keystore.user = user
         else:
             raise LookupError('User not found: ' + identifier)
 
@@ -169,18 +169,18 @@ class Client:
         sender = self.user.identifier
         # packing message
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
-        r_msg = messenger.encrypt_sign(i_msg)
+        r_msg = g_messenger.encrypt_sign(i_msg)
         # send out message
         pack = json.dumps(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
         r_msg = ReliableMessage(msg)
-        i_msg = messenger.verify_decrypt(r_msg)
+        i_msg = g_messenger.verify_decrypt(r_msg)
         self.receive_content(envelope=i_msg.envelope, content=i_msg.content)
 
     def receive_content(self, content: Content, envelope: Envelope):
-        sender = ID(envelope.sender)
+        sender = g_facebook.identifier(envelope.sender)
         when = Log.time_string(envelope.time)
         console.stdout.write('\r')
         if content.type == ContentType.Text:
@@ -194,12 +194,12 @@ class Client:
         console.stdout.flush()
 
     def show(self, envelope: Envelope, content: Content):
-        sender = ID(envelope.sender)
+        sender = g_facebook.identifier(envelope.sender)
         when = Log.time_string(envelope.time)
         print('[%s] ***** Message from "%s": %s' % (when, sender.name, content['text']))
 
     def execute(self, envelope: Envelope, content: Content):
-        sender = ID(envelope.sender)
+        sender = g_facebook.identifier(envelope.sender)
         when = Log.time_string(envelope.time)
         command = content['command']
         if 'handshake' == command:
@@ -217,14 +217,14 @@ class Client:
             meta = cmd.meta
             if meta:
                 print('##### received a meta for %s' % identifier)
-                database.save_meta(identifier=identifier, meta=meta)
+                g_database.save_meta(identifier=identifier, meta=meta)
         elif 'profile' == command:
             cmd = ProfileCommand(content)
             identifier = cmd.identifier
             profile = cmd.profile
             if profile:
                 print('##### received a profile for %s' % identifier)
-                database.save_profile(profile=profile)
+                g_database.save_profile(profile=profile)
         elif 'search' == command:
             print('##### received search response')
             if 'users' in content:
@@ -287,7 +287,7 @@ class Console(Cmd):
         if name in identifier_map:
             sender = identifier_map[name]
         elif len(name) > 30:
-            sender = ID(name)
+            sender = g_facebook.identifier(name)
         else:
             sender = None
         if sender:
@@ -317,7 +317,7 @@ class Console(Cmd):
             self.receiver = identifier_map[name]
             print('talking with %s now!' % self.receiver)
         else:
-            receiver = ID(name)
+            receiver = g_facebook.identifier(name)
             if receiver:
                 # query meta for receiver
                 cmd = MetaCommand.query(identifier=receiver)
@@ -356,7 +356,7 @@ class Console(Cmd):
         elif name in identifier_map:
             identifier = identifier_map[name]
         elif name.find('@') > 0:
-            identifier = ID(name)
+            identifier = g_facebook.identifier(name)
         elif name.startswith('{') and name.endswith('}'):
             identifier = client.user.identifier
             profile = json.loads(name)
@@ -378,7 +378,7 @@ class Console(Cmd):
 
 
 if __name__ == '__main__':
-    load_accounts(facebook=facebook)
+    load_accounts(facebook=g_facebook)
 
     print('connecting to %s:%d ...' % (remote_host, remote_port))
     client = Client(identifier=moki.identifier)

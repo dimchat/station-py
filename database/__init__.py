@@ -35,10 +35,9 @@ from .message_table import MessageTable
 
 
 __all__ = [
-    'MetaTable', 'ProfileTable', 'PrivateKeyTable',
-    'DeviceTable',
-    'MessageTable',
-
+    # 'MetaTable', 'ProfileTable', 'PrivateKeyTable',
+    # 'DeviceTable',
+    # 'MessageTable',
     'Database',
 ]
 
@@ -118,14 +117,15 @@ class Database:
 
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
-    def save_device_token(self, identifier: str, token: str) -> bool:
-        return self.__device_table.save_device_token(token=token, identifier=ID(identifier))
+    def save_device_token(self, token: str, identifier: ID) -> bool:
+        return self.__device_table.save_device_token(token=token, identifier=identifier)
 
     #
     #   IAPNsDelegate
     #
     def device_tokens(self, identifier: str) -> list:
-        return self.__device_table.device_tokens(identifier=ID(identifier))
+        identifier = Storage.identifier(string=identifier)
+        return self.__device_table.device_tokens(identifier=identifier)
 
     """
         Reliable message for Receivers

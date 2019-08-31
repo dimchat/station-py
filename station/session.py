@@ -121,6 +121,3 @@ class SessionServer:
         elif count > max_count:
             count = max_count
         return random.sample(array, count)
-
-
-session_server = SessionServer()

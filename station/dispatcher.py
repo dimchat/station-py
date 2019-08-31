@@ -30,24 +30,27 @@
     A dispatcher to decide which way to deliver message.
 """
 
-from dimp import ID
 from dimp import ReliableMessage
 
-from common import database, facebook, Log
+from common import Database, Facebook, Log
 
-from .session import session_server
-from .apns import apns
+from .session import SessionServer
+from .apns import ApplePushNotificationService
 
 
 class Dispatcher:
 
     def __init__(self):
         super().__init__()
+        self.database: Database = None
+        self.facebook: Facebook = None
+        self.session_server: SessionServer = None
+        self.apns: ApplePushNotificationService = None
 
     def deliver(self, msg: ReliableMessage) -> bool:
-        receiver = ID(msg.envelope.receiver)
+        receiver = self.facebook.identifier(msg.envelope.receiver)
         # try for online user
-        sessions = session_server.search(identifier=receiver)
+        sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
             Log.info('Dispatcher: %s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
             success = 0
@@ -64,17 +67,10 @@ class Dispatcher:
                 return True
         # store in local cache file
         Log.info('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
-        database.store_message(msg)
+        self.database.store_message(msg)
         # push notification
-        to_user = facebook.user(identifier=receiver)
-        sender = ID(msg.envelope.sender)
-        from_user = facebook.user(identifier=sender)
+        to_user = self.facebook.user(identifier=receiver)
+        sender = self.facebook.identifier(msg.envelope.sender)
+        from_user = self.facebook.user(identifier=sender)
         text = 'Dear %s: %s sent you a message.' % (to_user.name, from_user.name)
-        return apns.push(identifier=receiver, message=text)
-
-
-dispatcher = Dispatcher()
-dispatcher.session_server = session_server
-dispatcher.barrack = facebook
-dispatcher.database = database
-dispatcher.apns = apns
+        return self.apns.push(identifier=receiver, message=text)

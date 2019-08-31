@@ -45,36 +45,37 @@ from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_pro
 from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
 from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001, s001_host, s001_port
 
-from .facebook import Facebook, Barrack, load_accounts
+from .facebook import Facebook, load_accounts
 from .keystore import KeyStore
 from .messenger import Messenger
+from .server import Server
 
 
 #
 #  database
 #
-database = Database()
+g_database = Database()
 
 #
 #  facebook
 #
-facebook = Facebook()
-facebook.database = database
+g_facebook = Facebook()
+g_facebook.database = g_database
 
 #
 #  key store
 #
-keystore = KeyStore()
+g_keystore = KeyStore()
 
 #
 #  messenger
 #
-messenger = Messenger()
-messenger.barrack = facebook
-messenger.key_cache = keystore
+g_messenger = Messenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
 
-s001.delegate = database
-s001.transceiver = messenger
+s001.delegate = g_facebook
+s001.transceiver = g_messenger
 
 
 __all__ = [
@@ -86,9 +87,11 @@ __all__ = [
     'hulk_id', 'hulk_name', 'hulk_pk', 'hulk_sk', 'hulk_meta', 'hulk_profile', 'hulk',
     's001_id', 's001_name', 's001_pk', 's001_sk', 's001_meta', 's001_profile', 's001', 's001_host', 's001_port',
 
-    'Facebook', 'Barrack', 'load_accounts',
-    'KeyStore',
     'Database',
+    'Facebook', 'load_accounts',
+    'KeyStore',
+    'Messenger',
+    'Server',
 
-    'database', 'facebook', 'keystore', 'messenger',
+    'g_database', 'g_facebook', 'g_keystore', 'g_messenger',
 ]

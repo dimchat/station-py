@@ -132,7 +132,7 @@ class MetaTable(Storage):
             if not os.path.exists(path):
                 # self.info('meta file not exists: %s' % path)
                 continue
-            address = ID(filename)
+            address = self.identifier(filename)
             if address is None:
                 # self.error('ID/address error: %s' % filename)
                 continue

@@ -36,39 +36,42 @@ from time import sleep
 
 from dimp import ID
 
-from common import database, Log
-from common import s001
+from common import g_database, Log
+from common import Server
 
-from .session import session_server
-from .apns import apns
+from .session import SessionServer
+from .apns import ApplePushNotificationService
 
 
 class Receptionist(Thread):
 
     def __init__(self):
         super().__init__()
+        self.session_server: SessionServer = None
+        self.apns: ApplePushNotificationService = None
+        # current station and guests
+        self.station: Server = None
         self.guests = []
-        self.apns = None
 
     def add_guest(self, identifier: ID):
         self.guests.append(identifier)
 
     def run(self):
         Log.info('Receptionist: starting...')
-        while station.running:
+        while self.station.running:
             try:
                 guests = self.guests.copy()
                 for identifier in guests:
                     # 1. get all sessions of the receiver
                     Log.info('Receptionist: checking session for new guest %s' % identifier)
-                    sessions = session_server.search(identifier=identifier)
+                    sessions = self.session_server.search(identifier=identifier)
                     if sessions is None or len(sessions) == 0:
                         Log.info('Receptionist: guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)
                         continue
                     # 2. this guest is connected, scan new messages for it
                     Log.info('Receptionist: %s is connected, scanning messages for it' % identifier)
-                    batch = database.load_message_batch(identifier)
+                    batch = g_database.load_message_batch(identifier)
                     if batch is None:
                         Log.info('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
@@ -102,7 +105,7 @@ class Receptionist(Thread):
                     # 4. remove messages after success, or remove the guest on failed
                     total_count = len(messages)
                     Log.info('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-                    database.remove_message_batch(batch, removed_count=count)
+                    g_database.remove_message_batch(batch, removed_count=count)
                     if count < total_count:
                         Log.info('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)
@@ -118,16 +121,3 @@ class Receptionist(Thread):
                 # sleep for next loop
                 sleep(0.1)
         Log.info('Receptionist: exit!')
-
-
-receptionist = Receptionist()
-receptionist.database = database
-receptionist.session_server = session_server
-receptionist.apns = apns
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-station = s001

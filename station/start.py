@@ -40,70 +40,18 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from dimp import ID
-
-from common import database, keystore, facebook, load_accounts, Log
-from common import s001, s001_host, s001_port
+from common import Log
 
 from station.handler import RequestHandler
-from station.receptionist import receptionist
-from station.monitor import monitor
-from station.apns import apns
-from station.gsp_admins import administrators
 
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-station = s001
-station_host = s001_host
-station_port = s001_port
-
-"""
-    Database
-    ~~~~~~~~
-
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
-database.base_dir = '/data/.dim/'
-Log.info("database directory: %s" % database.base_dir)
-
-"""
-    Apple Push Notification service (APNs)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    A service for pushing notification to offline device
-"""
-apns.credentials = '/data/.dim/private/apns-key.pem'
-
-"""
-    Station Receptionist
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A message scanner for new guests who have just come in.
-"""
-receptionist.station = station
-
-"""
-    DIM Network Monitor
-    ~~~~~~~~~~~~~~~~~~~
-
-    A dispatcher for sending reports to administrator(s)
-"""
-# set station as the report sender, and add admins who will receive reports
-monitor.sender = station.identifier
-for admin in administrators:
-    monitor.admins.add(ID(admin))
+from station.config import current_station, station_host, station_port
+from station.config import g_receptionist
 
 
 if __name__ == '__main__':
-    load_accounts(facebook=facebook)
 
-    keystore.user = station
-
-    station.running = True
-    receptionist.start()
+    current_station.running = True
+    g_receptionist.start()
 
     # start TCP Server
     try:
@@ -115,5 +63,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)
     finally:
-        station.running = False
+        current_station.running = False
         Log.info('======== station shutdown!')
