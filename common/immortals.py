@@ -7,8 +7,8 @@
     Genesis accounts for test: "Immortal Hulk", "Monkey King"
 """
 
-from mkm import PublicKey, PrivateKey
-from mkm import ID, Meta, Profile, LocalUser
+from dimp import PublicKey, PrivateKey
+from dimp import ID, Meta, Profile, LocalUser
 
 
 #

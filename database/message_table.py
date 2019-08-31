@@ -27,8 +27,8 @@ import json
 import os
 import time
 
-from mkm import ID
-from dkd import ReliableMessage
+from dimp import ID
+from dimp import ReliableMessage
 
 from .storage import Storage
 
@@ -68,7 +68,10 @@ class MessageTable(Storage):
         # message directory
         directory = self.__directory(receiver)
         # get all files in messages directory and sort by filename
-        files = sorted(os.listdir(directory))
+        if self.exists(path=directory):
+            files = sorted(os.listdir(directory))
+        else:
+            files = []
         for filename in files:
             # read ONE .msg file for each receiver and remove the file immediately
             if filename[-4:] == '.msg':

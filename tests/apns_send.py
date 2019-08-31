@@ -40,7 +40,7 @@ import sys
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
-from mkm import ID
+from dimp import ID
 
 
 """

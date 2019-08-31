@@ -47,7 +47,7 @@ from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_pro
 
 from .facebook import Facebook, Barrack, load_accounts
 from .keystore import KeyStore
-from .messanger import Messanger
+from .messenger import Messenger
 
 
 #
@@ -67,14 +67,14 @@ facebook.database = database
 keystore = KeyStore()
 
 #
-#  messanger
+#  messenger
 #
-messanger = Messanger()
-messanger.barrack = facebook
-messanger.key_cache = keystore
+messenger = Messenger()
+messenger.barrack = facebook
+messenger.key_cache = keystore
 
 s001.delegate = database
-s001.transceiver = messanger
+s001.transceiver = messenger
 
 
 __all__ = [
@@ -90,5 +90,5 @@ __all__ = [
     'KeyStore',
     'Database',
 
-    'database', 'facebook', 'keystore', 'messanger',
+    'database', 'facebook', 'keystore', 'messenger',
 ]

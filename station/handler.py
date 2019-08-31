@@ -126,6 +126,8 @@ class RequestHandler(BaseRequestHandler):
             incomplete_length = len(data)
             while True:
                 part = self.receive(1024)
+                if part is None:
+                    break
                 data += part
                 if len(part) < 1024:
                     break

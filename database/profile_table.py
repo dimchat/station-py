@@ -25,7 +25,7 @@
 
 import os
 
-from mkm import ID, Profile
+from dimp import ID, Profile
 
 from .storage import Storage
 

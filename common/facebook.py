@@ -188,7 +188,6 @@ def load_accounts(facebook):
         'signature': signature,
     }
     profile = Profile(profile)
-    profile.verify(public_key=s001_pk)
     facebook.save_profile(profile=profile)
 
     #

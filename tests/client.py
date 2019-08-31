@@ -52,7 +52,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimp import HandshakeCommand, MetaCommand, ProfileCommand
 
 from common import base64_encode, Log
-from common import facebook, keystore, messanger, database, load_accounts
+from common import facebook, keystore, messenger, database, load_accounts
 from common import s001, s001_port
 from common import moki, hulk
 
@@ -169,14 +169,14 @@ class Client:
         sender = self.user.identifier
         # packing message
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
-        r_msg = messanger.encrypt_sign(i_msg)
+        r_msg = messenger.encrypt_sign(i_msg)
         # send out message
         pack = json.dumps(r_msg) + '\n'
         self.sock.sendall(pack.encode('utf-8'))
 
     def receive_message(self, msg: dict):
         r_msg = ReliableMessage(msg)
-        i_msg = messanger.verify_decrypt(r_msg)
+        i_msg = messenger.verify_decrypt(r_msg)
         self.receive_content(envelope=i_msg.envelope, content=i_msg.content)
 
     def receive_content(self, content: Content, envelope: Envelope):

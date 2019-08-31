@@ -23,9 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm import Meta, NetworkID
 from mkm.address import BTCAddress
 from mkm.meta import meta_classes
+
+from dimp import Meta, NetworkID
 
 """
     Meta for generate ID with BTC address

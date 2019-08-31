@@ -25,7 +25,7 @@
 
 import os
 
-from mkm import ID, PrivateKey
+from dimp import ID, PrivateKey
 
 from .storage import Storage
 

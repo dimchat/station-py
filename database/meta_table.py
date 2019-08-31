@@ -26,7 +26,7 @@
 import os
 import random
 
-from mkm import ID, Meta
+from dimp import ID, Meta
 
 from .storage import Storage
 

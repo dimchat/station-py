@@ -24,7 +24,7 @@
 # ==============================================================================
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile
+from dimp import NetworkID, ID, Meta, Profile
 from dimp import ReliableMessage
 
 from .storage import Storage
@@ -93,6 +93,20 @@ class Database:
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
     def save_profile(self, profile: Profile) -> bool:
+        if not profile.valid:
+            # try to verify the profile
+            identifier = profile.identifier
+            assert identifier.valid, 'profile ID not valid: %s' % profile
+            if identifier.type.is_user() or identifier.type.value == NetworkID.Polylogue:
+                # if this is a user profile,
+                #     verify it with the user's meta.key
+                # else if this is a polylogue profile,
+                #     verify it with the founder's meta.key
+                meta = self.meta(identifier=identifier)
+                if meta is not None:
+                    profile.verify(public_key=meta.key)
+            else:
+                raise NotImplementedError('unsupported profile ID: %s' % profile)
         return self.__profile_table.save_profile(profile=profile)
 
     def profile(self, identifier: ID) -> Profile:
