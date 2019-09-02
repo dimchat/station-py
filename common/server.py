@@ -25,49 +25,41 @@
 
 import time
 
-from dimp import ID, Meta
+from dimp import ID, Station
 from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
-from dimp import Transceiver, Station
 
 from .facebook import Facebook
+from .messenger import Messenger
 
 
 class Server(Station):
+    """
+        Local Station
+        ~~~~~~~~~~~~~
+    """
 
     def __init__(self, identifier: ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)
         self.running = False
-        self.transceiver: Transceiver = None
+        self.messenger: Messenger = None
 
     def pack(self, receiver: ID, content: Content) -> ReliableMessage:
         """ Pack message from this station """
         timestamp = int(time.time())
         env = Envelope.new(sender=self.identifier, receiver=receiver, time=timestamp)
         i_msg = InstantMessage.new(content=content, envelope=env)
-        r_msg = self.transceiver.encrypt_sign(i_msg)
+        r_msg = self.messenger.encrypt_sign(i_msg)
         return r_msg
 
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
-        # check meta (first contact?)
-        meta = msg.meta
-        if meta is not None:
-            meta = Meta(meta)
-            facebook: Facebook = self.delegate
-            identifier = facebook.identifier(msg.envelope.sender)
-            # save meta for sender
-            facebook.save_meta(identifier=identifier, meta=meta)
-        # message delegate
-        if msg.delegate is None:
-            msg.delegate = self.transceiver
-        return msg.verify()
+        """ Verify message data and signature """
+        return self.messenger.verify_message(msg=msg)
 
     def decrypt_message(self, msg: SecureMessage) -> Content:
         """ Decrypt message for this station """
         s_msg = msg.trim(self.identifier)
-        s_msg.delegate = self.transceiver
-        i_msg = s_msg.decrypt()
-        content = i_msg.content
-        return content
+        i_msg = self.messenger.decrypt_message(msg=s_msg)
+        return i_msg.content
 
     def sign(self, data: bytes) -> bytes:
         facebook: Facebook = self.delegate

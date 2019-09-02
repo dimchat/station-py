@@ -75,7 +75,7 @@ g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
 
 s001.delegate = g_facebook
-s001.transceiver = g_messenger
+s001.messenger = g_messenger
 
 
 __all__ = [
