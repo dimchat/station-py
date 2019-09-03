@@ -35,6 +35,7 @@ from .message_table import MessageTable
 
 
 __all__ = [
+    'Storage',
     # 'MetaTable', 'ProfileTable', 'PrivateKeyTable',
     # 'DeviceTable',
     # 'MessageTable',

@@ -23,13 +23,25 @@
 # SOFTWARE.
 # ==============================================================================
 
+import os
 import time
 
-from dimp import ID, Station
+from dimp import ID, Meta, Station
 from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
 
+from database import Storage
 from .facebook import Facebook
 from .messenger import Messenger
+
+
+def save_freshmen(identifier: ID) -> bool:
+    """ Save freshmen ID in a text file for the robot
+
+        file path: '.dim/freshmen.txt'
+    """
+    path = os.path.join(Storage.root, 'freshmen.txt')
+    line = identifier + '\n'
+    return Storage.append_text(text=line, path=path)
 
 
 class Server(Station):
@@ -53,6 +65,15 @@ class Server(Station):
 
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
         """ Verify message data and signature """
+        # check new user for the robot
+        facebook: Facebook = self.delegate
+        sender = facebook.identifier(msg.envelope.sender)
+        meta = facebook.meta(identifier=sender)
+        if meta is None:
+            meta = Meta(msg.meta)
+            if meta is not None and meta.match_identifier(sender):
+                # new user
+                save_freshmen(identifier=sender)
         return self.messenger.verify_message(msg=msg)
 
     def decrypt_message(self, msg: SecureMessage) -> Content:
