@@ -34,13 +34,14 @@ from .facebook import Facebook
 from .messenger import Messenger
 
 
-def save_freshmen(identifier: ID) -> bool:
-    """ Save freshmen ID in a text file for the robot
+def save_freshman(identifier: ID) -> bool:
+    """ Save freshman ID in a text file for the robot
 
         file path: '.dim/freshmen.txt'
     """
     path = os.path.join(Storage.root, 'freshmen.txt')
     line = identifier + '\n'
+    Storage.info('saving freshman: %s' % identifier)
     return Storage.append_text(text=line, path=path)
 
 
@@ -73,7 +74,7 @@ class Server(Station):
             meta = Meta(msg.meta)
             if meta is not None and meta.match_identifier(sender):
                 # new user
-                save_freshmen(identifier=sender)
+                save_freshman(identifier=sender)
         return self.messenger.verify_message(msg=msg)
 
     def decrypt_message(self, msg: SecureMessage) -> Content:
