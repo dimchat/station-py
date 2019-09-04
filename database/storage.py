@@ -26,6 +26,7 @@
 import json
 import os
 import time
+import sys
 
 from dimp import ID
 from dimp import Barrack
@@ -38,7 +39,7 @@ def current_time() -> str:
 
 class Storage:
 
-    root = '/tmp/.dim'
+    root = 'C:\\tmp\\.dim' if sys.platform == 'win32' else '/tmp/.dim'
 
     @classmethod
     def exists(cls, path: str) -> bool:
