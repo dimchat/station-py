@@ -142,21 +142,23 @@ class Robot(LocalUser, IConnectionDelegate):
                 identifier = cmd.identifier
                 # save meta
                 meta = cmd.meta
-                if meta is not None and meta.match_identifier(identifier):
+                if meta is not None:
                     return self.facebook.save_meta(meta=meta, identifier=identifier)
             elif 'profile' == command:
                 cmd = ProfileCommand(cmd)
                 identifier = cmd.identifier
                 # save meta
                 meta = cmd.meta
-                if meta is not None and meta.match_identifier(identifier):
-                    self.facebook.save_meta(meta=meta, identifier=identifier)
+                ok1 = True
+                if meta is not None:
+                    ok1 = self.facebook.save_meta(meta=meta, identifier=identifier)
                 # save profile
                 profile = cmd.profile
+                ok2 = True
                 if profile is not None:
-                    self.facebook.save_profile(profile=profile)
+                    ok2 = self.facebook.save_profile(profile=profile)
+                return ok1 and ok2
         # let the subclass to process other command
-        pass
 
     #
     #  [Handshake Protocol]
