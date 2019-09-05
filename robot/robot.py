@@ -33,7 +33,7 @@
 import json
 from time import sleep
 
-from dimp import ID, Meta, User, Station
+from dimp import ID, Meta, LocalUser, Station
 from dimp import Content, Command, HandshakeCommand, MetaCommand, ProfileCommand
 from dimp import InstantMessage, ReliableMessage
 
@@ -42,7 +42,7 @@ from common import Facebook, Messenger
 from .connection import Connection, IConnectionDelegate
 
 
-class Robot(User, IConnectionDelegate):
+class Robot(LocalUser, IConnectionDelegate):
 
     def __init__(self, identifier: ID):
         super().__init__(identifier=identifier)
@@ -62,8 +62,8 @@ class Robot(User, IConnectionDelegate):
 
     def connect(self, station: Station):
         conn = Connection()
-        conn.connect(station=station)
         conn.delegate = self
+        conn.connect(station=station)
         self.connection = conn
         self.station = station
         sleep(0.5)
