@@ -29,7 +29,9 @@
 
     Transform and send message
 """
+
 import json
+from typing import Optional
 
 from dimp import Meta
 from dimp import InstantMessage, ReliableMessage, ContentType, ForwardContent
@@ -91,9 +93,11 @@ class Messenger(Transceiver):
         # OK
         return r_msg
 
-    def verify_decrypt(self, msg: ReliableMessage) -> InstantMessage:
+    def verify_decrypt(self, msg: ReliableMessage) -> Optional[InstantMessage]:
         # 1. verify 'data' with 'signature'
         s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            return None
         # 2. check group message
         receiver = self.barrack.identifier(msg.envelope.receiver)
         if receiver.type.is_group():
