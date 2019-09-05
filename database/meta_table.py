@@ -65,7 +65,7 @@ class MetaTable(Storage):
             # meta file already exists
             return True
         self.info('Saving meta into: %s' % path)
-        return self.write_json(content=meta, path=path)
+        return self.write_json(container=meta, path=path)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not self.__cache_meta(meta=meta, identifier=identifier):

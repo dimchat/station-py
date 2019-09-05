@@ -31,7 +31,6 @@
 """
 
 import json
-from typing import Optional
 
 from dimp import Meta
 from dimp import InstantMessage, ReliableMessage, ContentType, ForwardContent
@@ -49,7 +48,7 @@ class Messenger(Transceiver):
     #
     #  Transform
     #
-    def verify_message(self, msg: ReliableMessage):
+    def verify_message(self, msg: ReliableMessage) -> SecureMessage:
         # [Meta Protocol] check meta in first contact message
         sender = self.barrack.identifier(msg.envelope.sender)
         meta = self.barrack.meta(identifier=sender)
@@ -59,16 +58,14 @@ class Messenger(Transceiver):
             if meta is None:
                 # TODO: query meta for sender from DIM network
                 #       (do it by application)
-                return None
-            elif not meta.match_identifier(sender):
-                raise ValueError('meta not match: %s, %s' % (sender, meta))
+                raise LookupError('failed to get meta for sender: %s' % sender)
             # save meta for new contact
             facebook: Facebook = self.barrack
             if not facebook.save_meta(meta=meta, identifier=sender):
-                raise RuntimeError('save meta error: %s, %s' % (sender, meta))
+                raise ValueError('save meta error: %s, %s' % (sender, meta))
         return super().verify_message(msg=msg)
 
-    def decrypt_message(self, msg: SecureMessage):
+    def decrypt_message(self, msg: SecureMessage) -> InstantMessage:
         i_msg = super().decrypt_message(msg=msg)
         # check: top-secret message
         if i_msg.content.type == ContentType.Forward:
@@ -93,11 +90,11 @@ class Messenger(Transceiver):
         # OK
         return r_msg
 
-    def verify_decrypt(self, msg: ReliableMessage) -> Optional[InstantMessage]:
+    def verify_decrypt(self, msg: ReliableMessage) -> InstantMessage:
         # 1. verify 'data' with 'signature'
         s_msg = self.verify_message(msg=msg)
         if s_msg is None:
-            return None
+            raise ValueError('failed to verify message: %s' % msg)
         # 2. check group message
         receiver = self.barrack.identifier(msg.envelope.receiver)
         if receiver.type.is_group():

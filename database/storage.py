@@ -69,8 +69,8 @@ class Storage:
             return wrote == len(text)
 
     @classmethod
-    def write_json(cls, content: dict, path: str) -> bool:
-        string = json.dumps(content)
+    def write_json(cls, container: dict, path: str) -> bool:
+        string = json.dumps(container)
         return cls.write_text(string, path)
 
     @classmethod

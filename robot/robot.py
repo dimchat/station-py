@@ -33,21 +33,20 @@
 import json
 from time import sleep
 
-from dimp import ID, Meta, LocalUser, Station
-from dimp import Content, Command, HandshakeCommand, MetaCommand, ProfileCommand
+from dimp import ID, Meta, Station
+from dimp import Content, Command, HandshakeCommand, MetaCommand
 from dimp import InstantMessage, ReliableMessage
 
-from common import Facebook, Messenger
+from common import Facebook
 
-from .connection import Connection, IConnectionDelegate
+from .connection import Connection
+from .terminal import Terminal
 
 
-class Robot(LocalUser, IConnectionDelegate):
+class Robot(Terminal):
 
     def __init__(self, identifier: ID):
         super().__init__(identifier=identifier)
-        self.messenger: Messenger = None
-        self.facebook: Facebook = None
         # station connection
         self.station: Station = None
         self.connection: Connection = None
@@ -91,40 +90,9 @@ class Robot(LocalUser, IConnectionDelegate):
         # send command to current station
         self.send_content(content=cmd, receiver=self.station.identifier)
 
-    #
-    #  IConnectionDelegate
-    #
-    def receive(self, data: bytes):
-        try:
-            # decode message
-            line = data.decode('utf-8')
-            msg = json.loads(line)
-            r_msg = ReliableMessage(msg)
-            self.receive_message(r_msg)
-        except UnicodeDecodeError as error:
-            self.error('decode error: %s' % error)
-        except ValueError as error:
-                self.error('value error: %s, package: %s' % (error, data))
-
-    def receive_message(self, msg: ReliableMessage) -> bool:
-        # verify and decrypt
-        i_msg: InstantMessage = self.messenger.verify_decrypt(msg=msg)
-        if i_msg is None:
-            self.error('failed to verify/decrypt message: %s' % msg)
-            return False
-        sender = self.facebook.identifier(i_msg.envelope.sender)
-        content = i_msg.content
-        # process command
-        if isinstance(content, Command):
-            return self.receive_command(cmd=content, sender=sender)
-        # process content
-        return self.receive_content(content=content, sender=sender)
-
-    def receive_content(self, content: Content, sender: ID) -> bool:
-        # let the subclass to process other content
-        pass
-
-    def receive_command(self, cmd: Command, sender: ID) -> bool:
+    def execute(self, cmd: Command, sender: ID) -> bool:
+        if super().execute(cmd=cmd, sender=sender):
+            return True
         if sender == self.station.identifier:
             # command from station
             command = cmd.command
@@ -137,27 +105,6 @@ class Robot(LocalUser, IConnectionDelegate):
                     self.info('handshake again with new session: %s' % cmd.session)
                     self.handshake()
                 return True
-            elif 'meta' == command:
-                cmd = MetaCommand(cmd)
-                identifier = cmd.identifier
-                # save meta
-                meta = cmd.meta
-                if meta is not None:
-                    return self.facebook.save_meta(meta=meta, identifier=identifier)
-            elif 'profile' == command:
-                cmd = ProfileCommand(cmd)
-                identifier = cmd.identifier
-                # save meta
-                meta = cmd.meta
-                ok1 = True
-                if meta is not None:
-                    ok1 = self.facebook.save_meta(meta=meta, identifier=identifier)
-                # save profile
-                profile = cmd.profile
-                ok2 = True
-                if profile is not None:
-                    ok2 = self.facebook.save_profile(profile=profile)
-                return ok1 and ok2
         # let the subclass to process other command
 
     #
@@ -169,7 +116,8 @@ class Robot(LocalUser, IConnectionDelegate):
         self.send_command(cmd=cmd)
 
     def check_meta(self, identifier: ID) -> Meta:
-        meta = self.facebook.meta(identifier=identifier)
+        facebook: Facebook = self.delegate
+        meta = facebook.meta(identifier=identifier)
         if meta is None:
             # query meta from DIM network
             cmd = MetaCommand.query(identifier=identifier)
@@ -177,7 +125,7 @@ class Robot(LocalUser, IConnectionDelegate):
             # waiting for station response
             for i in range(30):
                 sleep(0.5)
-                meta = self.facebook.meta(identifier=identifier)
+                meta = facebook.meta(identifier=identifier)
                 if meta is not None:
                     break
         return meta

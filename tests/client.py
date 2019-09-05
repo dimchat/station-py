@@ -35,8 +35,9 @@ import json
 from cmd import Cmd
 
 from dimp import ID, Profile
-from dimp import Content, TextContent
+from dimp import Content, ContentType, TextContent
 from dimp import Command, ProfileCommand
+from dimp import InstantMessage
 
 import sys
 import os
@@ -59,9 +60,9 @@ from robot import Robot
 """
 g_station = s001
 
-g_station.host = '127.0.0.1'
+# g_station.host = '127.0.0.1'
 # g_station.host = '124.156.108.150'  # dimchat.hk
-# g_station.host = '134.175.87.98'  # dimchat.gz
+g_station.host = '134.175.87.98'  # dimchat.gz
 g_station.port = s001_port
 
 g_database.base_dir = '/tmp/.dim/'
@@ -74,8 +75,8 @@ identifier_map = {
 
 class Client(Robot):
 
-    def receive_command(self, cmd: Command, sender: ID) -> bool:
-        if super().receive_command(cmd=cmd, sender=sender):
+    def execute(self, cmd: Command, sender: ID) -> bool:
+        if super().execute(cmd=cmd, sender=sender):
             return True
         command = cmd.command
         if 'search' == command:
@@ -94,10 +95,15 @@ class Client(Robot):
         else:
             self.info('***** command from "%s": %s (%s)' % (sender.name, cmd['command'], cmd))
 
-    def receive_content(self, content: Content, sender: ID) -> bool:
-        if super().receive_content(content=content, sender=sender):
+    def receive_message(self, msg: InstantMessage) -> bool:
+        if super().receive_message(msg=msg):
             return True
-        self.info('***** Message from "%s": %s' % (sender.name, content['text']))
+        sender = g_facebook.identifier(msg.envelope.sender)
+        content: Content = msg.content
+        if content.type == ContentType.Text:
+            self.info('***** Message from "%s": %s' % (sender.name, content['text']))
+        else:
+            self.info('!!!!! Message from "%s": %s' % (sender.name, content))
 
 
 class Console(Cmd):
@@ -117,8 +123,8 @@ class Console(Cmd):
     def login(self, identifier: ID):
         self.info('connected to %s ...' % g_station)
         client = Client(identifier=identifier)
+        client.delegate = g_facebook
         client.messenger = g_messenger
-        client.facebook = g_facebook
         client.connect(station=g_station)
         self.client = client
 

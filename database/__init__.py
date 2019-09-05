@@ -28,9 +28,10 @@ from dimp import NetworkID, ID, Meta, Profile
 from dimp import ReliableMessage
 
 from .storage import Storage
+from .private_table import PrivateKeyTable
 from .meta_table import MetaTable
 from .profile_table import ProfileTable, DeviceTable
-from .private_table import PrivateKeyTable
+from .group_table import GroupTable
 from .message_table import MessageTable
 
 
@@ -52,6 +53,7 @@ class Database:
         self.__meta_table = MetaTable()
         self.__profile_table = ProfileTable()
         self.__device_table = DeviceTable()
+        self.__group_table = GroupTable()
         self.__message_table = MessageTable()
 
     @property
@@ -127,6 +129,18 @@ class Database:
     def device_tokens(self, identifier: str) -> list:
         identifier = Storage.identifier(string=identifier)
         return self.__device_table.device_tokens(identifier=identifier)
+
+    """
+        Group members
+        ~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/members.txt'
+    """
+    def save_members(self, members: list, group: ID) -> bool:
+        return self.__group_table.save_members(members=members, group=group)
+
+    def members(self, group: ID) -> list:
+        return self.__group_table.members(group=group)
 
     """
         Reliable message for Receivers
