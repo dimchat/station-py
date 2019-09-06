@@ -73,7 +73,7 @@ class ProfileTable(Storage):
         assert identifier.valid, 'profile ID not valid: %s' % profile
         path = self.__path(identifier=identifier)
         self.info('Saving profile into: %s' % path)
-        return self.write_json(content=profile, path=path)
+        return self.write_json(container=profile, path=path)
 
     def save_profile(self, profile: Profile) -> bool:
         if not self.__cache_profile(profile=profile):
@@ -123,11 +123,8 @@ class DeviceTable(Storage):
 
     def __save_device(self, device: dict, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
-        if self.exists(path=path):
-            # device file already exists
-            return True
         self.info('Saving device info into: %s' % path)
-        return self.write_json(content=device, path=path)
+        return self.write_json(container=device, path=path)
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID

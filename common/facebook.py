@@ -33,7 +33,8 @@
 from mkm.crypto.utils import base64_encode
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile, User, LocalUser, Group
+from dimp import ID, NetworkID, Meta, Profile
+from dimp import User, LocalUser, Group
 from dimp import Barrack
 
 from database import Database
@@ -47,11 +48,11 @@ class Facebook(Barrack):
         super().__init__()
         self.database: Database = None
 
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.database.save_meta(meta=meta, identifier=identifier)
-
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         return self.database.save_private_key(private_key=private_key, identifier=identifier)
+
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        return self.database.save_meta(meta=meta, identifier=identifier)
 
     def save_profile(self, profile: Profile) -> bool:
         return self.database.save_profile(profile=profile)
@@ -79,6 +80,9 @@ class Facebook(Barrack):
         user = self.user(identifier=identifier)
         if user is not None:
             return user.name
+
+    def save_members(self, members: list, group: ID) -> bool:
+        return self.database.save_members(members=members, group=group)
 
     #
     #   ISocialNetworkDataSource
@@ -144,13 +148,20 @@ class Facebook(Barrack):
     #    IGroupDataSource
     #
     def founder(self, identifier: ID) -> ID:
-        pass
+        meta = self.meta(identifier=identifier)
+        members = self.members(identifier=identifier)
+        if meta is not None and members is not None:
+            for identifier in members:
+                m = self.meta(identifier=identifier)
+                if m is not None and meta.match_public_key(m.key):
+                    return identifier
 
     def owner(self, identifier: ID) -> ID:
-        pass
+        if identifier.type.value == NetworkID.Polylogue:
+            return self.founder(identifier=identifier)
 
     def members(self, identifier: ID) -> list:
-        pass
+        return self.database.members(group=identifier)
 
 
 def load_accounts(facebook):

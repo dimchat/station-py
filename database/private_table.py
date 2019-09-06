@@ -63,7 +63,7 @@ class PrivateKeyTable(Storage):
             # meta file already exists
             return True
         self.info('Saving private key into: %s' % path)
-        return self.write_json(content=private_key, path=path)
+        return self.write_json(container=private_key, path=path)
 
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         if not self.__cache_private_key(private_key=private_key, identifier=identifier):

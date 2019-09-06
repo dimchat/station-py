@@ -24,10 +24,9 @@
 # ==============================================================================
 
 import os
-import time
 
 from dimp import ID, Meta, Station
-from dimp import Envelope, Content, InstantMessage, SecureMessage, ReliableMessage
+from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
 
 from database import Storage
 from .facebook import Facebook
@@ -56,12 +55,10 @@ class Server(Station):
         self.running = False
         self.messenger: Messenger = None
 
-    def pack(self, receiver: ID, content: Content) -> ReliableMessage:
+    def pack(self, content: Content, receiver: ID) -> ReliableMessage:
         """ Pack message from this station """
-        timestamp = int(time.time())
-        env = Envelope.new(sender=self.identifier, receiver=receiver, time=timestamp)
-        i_msg = InstantMessage.new(content=content, envelope=env)
-        r_msg = self.messenger.encrypt_sign(i_msg)
+        i_msg = InstantMessage.new(content=content, sender=self.identifier, receiver=receiver)
+        r_msg = self.messenger.encrypt_sign(msg=i_msg)
         return r_msg
 
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
