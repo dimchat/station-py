@@ -73,8 +73,12 @@ class Client(Robot):
             for l in lines:
                 self.info('Sending invitation to %s' % l)
                 cmd = GroupCommand.invite(group=gid, member=l)
-                i_msg = InstantMessage.new(content=cmd, sender=sender.identifier, receiver=gid)
-                r_msg = g_messenger.encrypt_sign(i_msg)
+                member_file = os.path.join( self.delegate.database.base_dir, 'protected', ID(group).address, 'members.txt' )
+                with open( member_file,'r') as mf:
+                    mlines = mf.readlines()
+                    for ml in mlines:
+                        i_msg = InstantMessage.new(content=cmd, sender=self.identifier, receiver=ml)
+                        r_msg = g_messenger.encrypt_sign(i_msg)
 
 if __name__ == '__main__':
 
@@ -101,6 +105,3 @@ if __name__ == '__main__':
 
     group = client.delegate.group(ID(gid))
     client.send_group_query(group, 'baloo@4LA5FNbpxP38UresZVpfWroC2GVomDDZ7q')
-
-    while False:
-
