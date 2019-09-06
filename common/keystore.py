@@ -30,7 +30,7 @@
     Memory cache for reused passwords (symmetric key)
 """
 
-import os
+import os, sys
 import json
 
 from dimp import ID, SymmetricKey, LocalUser
@@ -43,7 +43,7 @@ class KeyStore(KeyCache):
 
     def __init__(self):
         self.__user: LocalUser = None
-        self.__base_dir: str = '/tmp/.dim/'
+        self.__base_dir: str = 'C:\\tmp\\.dim' if sys.platform == 'win32' else '/tmp/.dim'
         super().__init__()
 
     @property
