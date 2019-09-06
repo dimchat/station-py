@@ -59,59 +59,48 @@ class Client(Robot):
         else:
             self.info('!!!!! Message from "%s": %s' % (sender.name, content))
 
+    def send_group_query(self, gid: str, receiver: str):
+        cmd = GroupCommand.query( group.identifier)
+        receiver = self.delegate.identifier('baloo@4LA5FNbpxP38UresZVpfWroC2GVomDDZ7q')
+        self.check_meta(identifier=receiver)
+        self.send_content(content=cmd, receiver=receiver)
 
+    def send_invitation(self, group:str, receiver: str):
+        file_to_handle = os.path.join( robots_path, 'freshmen.txt' )
+
+        with open( file_to_handle,'r') as f:
+            lines = f.readlines()
+            for l in lines:
+                self.info('Sending invitation to %s' % l)
+                cmd = GroupCommand.invite(group=gid, member=l)
+                i_msg = InstantMessage.new(content=cmd, sender=sender.identifier, receiver=gid)
+                r_msg = g_messenger.encrypt_sign(i_msg)
 
 if __name__ == '__main__':
-    print('auto invite is running...')
-
-    station = s001
 
     robots_path = os.path.abspath( os.path.join( os.path.dirname(__file__), "." ) )
-
-    file_to_handle = os.path.join( robots_path, 'freshmen.txt' )
-
 
     g_facebook.save_meta(identifier=assistant_id, meta=assistant_meta)
     g_facebook.save_private_key(identifier=assistant_id, private_key=assistant_sk)
     g_facebook.save_profile(profile=assistant_profile)
-    # sender = LocalUserDB(assistant_id)
 
-    sender = g_facebook.user(identifier=assistant_id)
-    
-    print(sender)
-    g_keystore.user = sender
+    assistant = g_facebook.user(identifier=assistant_id)
+
+    g_keystore.user = assistant
 
     gid = 'Group-Naruto@7ThVZeDuQAdG3eSDF6NeFjMDPjKN5SbrnM'
 
-    client = Client(identifier=sender.identifier)
+    client = Client(identifier=assistant.identifier)
     client.delegate = g_facebook
     client.messenger = g_messenger
+
     s001.host = '134.175.87.98'
     s001.port = 9394
     client.connect(station=s001)
-    group = client.delegate.group(ID(gid))
-
     sleep(5)
-    cmd = GroupCommand.query( group.identifier)
-    receiver = g_facebook.identifier('baloo@4LA5FNbpxP38UresZVpfWroC2GVomDDZ7q')
-    client.check_meta(identifier=receiver)
-    client.send_content(content=cmd, receiver=receiver)
-    print(group.identifier)
 
-    # client.disconnect()
-    # client = None
+    group = client.delegate.group(ID(gid))
+    client.send_group_query(group, 'baloo@4LA5FNbpxP38UresZVpfWroC2GVomDDZ7q')
 
     while False:
-        with open( file_to_handle,'r') as f:
-            lines = f.readlines()
-            for l in lines:
-                cmd = GroupCommand.invite(group=gid, member=l)
-
-                i_msg = InstantMessage.new(content=cmd, sender=sender.identifier, receiver=gid)
-                
-                r_msg = g_messenger.encrypt_sign(i_msg)
-                
-                print(cmd)
-                print(l)
-        sleep(10)
 
