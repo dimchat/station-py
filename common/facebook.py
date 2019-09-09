@@ -54,27 +54,14 @@ class Facebook(Barrack):
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.database.save_meta(meta=meta, identifier=identifier)
 
+    def verify_meta(self, meta: Meta, identifier: ID) -> bool:
+        return self.database.verify_meta(meta=meta, identifier=identifier)
+
     def save_profile(self, profile: Profile) -> bool:
         return self.database.save_profile(profile=profile)
 
     def verify_profile(self, profile: Profile) -> bool:
-        if profile is None:
-            return False
-        elif profile.valid:
-            # already verified
-            return True
-        identifier = profile.identifier
-        meta = None
-        if identifier.type.is_communicator():
-            # verify with account's meta.key
-            meta = self.meta(identifier=identifier)
-        elif identifier.type.is_group():
-            # verify with group owner's meta.key
-            group = self.group(identifier=identifier)
-            if group is not None:
-                meta = self.meta(identifier=group.owner)
-        if meta is not None:
-            return profile.verify(public_key=meta.key)
+        return self.database.verify_profile(profile=profile)
 
     def nickname(self, identifier: ID) -> str:
         user = self.user(identifier=identifier)

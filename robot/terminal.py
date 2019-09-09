@@ -208,23 +208,26 @@ class Terminal(LocalUser, IConnectionDelegate):
             identifier = cmd.identifier
             # save meta
             meta = cmd.meta
-            if meta is not None:
-                return facebook.save_meta(meta=meta, identifier=identifier)
+            if facebook.verify_meta(meta=meta, identifier=identifier):
+                ok = facebook.save_meta(meta=meta, identifier=identifier)
             else:
-                return False
+                ok = False
+            return ok
         elif 'profile' == command:
             cmd = ProfileCommand(cmd)
             identifier = cmd.identifier
             # save meta
             meta = cmd.meta
-            ok1 = True
-            if meta is not None:
+            if facebook.verify_meta(meta=meta, identifier=identifier):
                 ok1 = facebook.save_meta(meta=meta, identifier=identifier)
+            else:
+                ok1 = False
             # save profile
             profile = cmd.profile
-            ok2 = True
-            if profile is not None:
+            if facebook.verify_profile(profile=profile):
                 ok2 = facebook.save_profile(profile=profile)
+            else:
+                ok2 = False
             return ok1 and ok2
 
     def receive_message(self, msg: InstantMessage) -> bool:
