@@ -44,7 +44,7 @@ from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
 from .cfg_admins import administrators
-from .cfg_gsp import stations, station_id, station_host, station_port
+from .cfg_gsp import stations, station_id, station_name, station_host, station_port
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
@@ -176,7 +176,12 @@ def load_station(identifier: ID) -> Station:
     profile = Storage.read_json(path=os.path.join(directory, 'profile.js'))
     if profile is None:
         raise LookupError('failed to get profile for station: %s' % identifier)
-    name = profile.get('name')
+    # station name
+    if identifier == current_station.identifier:
+        name = station_name
+    else:
+        name = profile.get('name')
+    # station host & port
     host = profile.get('host')
     port = profile.get('port')
     Log.info('loading station %s (%s:%d)...' % (name, host, port))
@@ -231,8 +236,8 @@ def load_accounts(facebook, database):
 
     Log.info('loading stations: %s' % stations)
     for item in stations:
-        Log.info('ID: %s' % item)
-        load_station(identifier=item)
+        srv = load_station(identifier=item)
+        Log.info('ID: %s, station: %s' % (item, srv))
 
     #
     # scan accounts
