@@ -34,8 +34,7 @@ from dimp import ReliableMessage
 
 from common import Database, Facebook, Log
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+from server import ApplePushNotificationService, SessionServer
 
 
 class Dispatcher:

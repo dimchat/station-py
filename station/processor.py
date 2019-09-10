@@ -35,12 +35,12 @@ from dimp import ContentType, Content, TextContent, Command
 from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
-from common import g_facebook, g_database, Log
-from common import s001
+from common import Log
 
-from .session import Session
+from server import Session
 
-from .config import g_session_server, g_dispatcher, g_receptionist, g_monitor
+from .config import g_facebook, g_database, g_session_server, g_dispatcher, g_receptionist, g_monitor
+from .config import current_station
 
 
 class MessageProcessor:
@@ -149,7 +149,8 @@ class MessageProcessor:
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.session_key)
 
-    def process_meta_command(self, cmd: MetaCommand) -> Content:
+    @staticmethod
+    def process_meta_command(cmd: MetaCommand) -> Content:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta:
@@ -171,7 +172,8 @@ class MessageProcessor:
             else:
                 return TextContent.new(text='Sorry, meta for %s not found.' % identifier)
 
-    def process_profile_command(self, cmd: ProfileCommand) -> Content:
+    @staticmethod
+    def process_profile_command(cmd: ProfileCommand) -> Content:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta is not None:
@@ -280,10 +282,3 @@ class MessageProcessor:
         # signature
         response['signature'] = signature
         return response
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-current_station = s001

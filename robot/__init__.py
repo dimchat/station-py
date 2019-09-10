@@ -23,6 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Robot Module
+    ~~~~~~~~~~~~
+
+"""
+
 from .connection import Connection, IConnectionDelegate
 from .robot import Robot
 

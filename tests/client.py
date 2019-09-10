@@ -47,9 +47,11 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from common import base64_encode
-from common import g_facebook, g_database, g_messenger, load_accounts
-from common import s001, s001_port
-from common import moki, hulk
+
+from common.immortals import moki, hulk
+
+from station.config import g_facebook, g_database, g_messenger, load_accounts
+from station.config import current_station
 
 from robot import Robot
 
@@ -58,12 +60,12 @@ from robot import Robot
     Current Station
     ~~~~~~~~~~~~~~~
 """
-g_station = s001
+g_station = current_station
 
-# g_station.host = '127.0.0.1'
-# g_station.host = '124.156.108.150'  # dimchat.hk
-g_station.host = '134.175.87.98'  # dimchat.gz
-g_station.port = s001_port
+g_station.host = '127.0.0.1'
+# g_station.host = '124.156.108.150'  # dimchat-hk
+# g_station.host = '134.175.87.98'  # dimchat-gz
+g_station.port = 9394
 
 g_database.base_dir = '/tmp/.dim/'
 
@@ -255,7 +257,7 @@ class Console(Cmd):
 
 
 if __name__ == '__main__':
-    load_accounts(facebook=g_facebook)
+    load_accounts(facebook=g_facebook, database=g_database)
 
     console = Console()
     console.receiver = g_station.identifier

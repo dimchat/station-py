@@ -36,18 +36,20 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 
-from common import g_facebook, g_database, g_messenger, Log
+from common import Database, Facebook, Messenger, Log
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+from server import ApplePushNotificationService, SessionServer
 
 
 class Monitor:
 
     def __init__(self):
         super().__init__()
-        self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
+        self.session_server: SessionServer = None
+        self.database: Database = None
+        self.facebook: Facebook = None
+        self.messenger: Messenger = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
@@ -63,12 +65,12 @@ class Monitor:
         if self.sender is None:
             Log.info('Monitor: sender not set yet')
             return False
-        sender = g_facebook.identifier(self.sender)
-        receiver = g_facebook.identifier(receiver)
+        sender = self.facebook.identifier(self.sender)
+        receiver = self.facebook.identifier(receiver)
         timestamp = int(time.time())
         content = TextContent.new(text=text)
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = g_messenger.encrypt_sign(i_msg)
+        r_msg = self.messenger.encrypt_sign(i_msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -87,6 +89,6 @@ class Monitor:
                 return True
         # store in local cache file
         Log.info('Monitor: %s is offline, store report: %s' % (receiver, text))
-        g_database.store_message(r_msg)
+        self.database.store_message(r_msg)
         # push notification
         return self.apns.push(identifier=receiver, message=text)

@@ -36,11 +36,9 @@ from time import sleep
 
 from dimp import ID
 
-from common import g_database, Log
-from common import Server
+from common import Database, Log
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+from server import ApplePushNotificationService, Server, SessionServer
 
 
 class Receptionist(Thread):
@@ -49,6 +47,7 @@ class Receptionist(Thread):
         super().__init__()
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
+        self.database: Database = None
         # current station and guests
         self.station: Server = None
         self.guests = []
@@ -71,7 +70,7 @@ class Receptionist(Thread):
                         continue
                     # 2. this guest is connected, scan new messages for it
                     Log.info('Receptionist: %s is connected, scanning messages for it' % identifier)
-                    batch = g_database.load_message_batch(identifier)
+                    batch = self.database.load_message_batch(identifier)
                     if batch is None:
                         Log.info('Receptionist: no message for this guest, remove it: %s' % identifier)
                         self.guests.remove(identifier)
@@ -105,7 +104,7 @@ class Receptionist(Thread):
                     # 4. remove messages after success, or remove the guest on failed
                     total_count = len(messages)
                     Log.info('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-                    g_database.remove_message_batch(batch, removed_count=count)
+                    self.database.remove_message_batch(batch, removed_count=count)
                     if count < total_count:
                         Log.info('Receptionist: pushing message failed, remove the guest: %s' % identifier)
                         self.guests.remove(identifier)

@@ -30,25 +30,24 @@
     Configuration for DIM network server node
 """
 
-from common import g_keystore, g_database, g_facebook, load_accounts, Log
-from common import s001, s001_host, s001_port
+from mkm.crypto.utils import base64_encode
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+from dimp import Profile
+
+from common import Log
+from common import Database, Facebook, KeyStore, Messenger
+
+from server import ApplePushNotificationService, SessionServer
+
 from .dispatcher import Dispatcher
 
 from .receptionist import Receptionist
 from .monitor import Monitor
-from .gsp_admins import administrators
 
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-current_station = s001
-station_host = s001_host
-station_port = s001_port
+from common.immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
+from common.immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
+from .cfg_gsp import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001
+from .cfg_admins import administrators
 
 
 """
@@ -57,7 +56,7 @@ station_port = s001_port
 
     Memory cache for reused passwords (symmetric key)
 """
-g_keystore.user = current_station
+g_keystore = KeyStore()
 
 
 """
@@ -66,6 +65,7 @@ g_keystore.user = current_station
 
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
+g_database = Database()
 g_database.base_dir = '/data/.dim/'
 Log.info("database directory: %s" % g_database.base_dir)
 
@@ -76,7 +76,27 @@ Log.info("database directory: %s" % g_database.base_dir)
 
     Barrack for cache entities
 """
-load_accounts(facebook=g_facebook)
+g_facebook = Facebook()
+g_facebook.database = g_database
+
+
+"""
+    Messenger
+"""
+g_messenger = Messenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+
+
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+current_station = s001
+current_station.delegate = g_facebook
+current_station.messenger = g_messenger
+
+g_keystore.user = current_station
 
 
 """
@@ -119,6 +139,9 @@ g_dispatcher.apns = g_apns
     A dispatcher for sending reports to administrator(s)
 """
 g_monitor = Monitor()
+g_monitor.database = g_database
+g_monitor.facebook = g_facebook
+g_monitor.messenger = g_messenger
 g_monitor.session_server = g_session_server
 g_monitor.apns = g_apns
 
@@ -136,5 +159,48 @@ for admin in administrators:
 """
 g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
+g_receptionist.database = g_database
 g_receptionist.apns = g_apns
 g_receptionist.station = current_station
+
+
+def load_accounts(facebook, database):
+    Log.info('======== loading accounts')
+
+    #
+    # load immortals
+    #
+
+    Log.info('loading immortal user: %s' % moki_id)
+    facebook.save_meta(identifier=moki_id, meta=moki_meta)
+    facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
+    facebook.save_profile(profile=moki_profile)
+
+    Log.info('loading immortal user: %s' % hulk_id)
+    facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
+    facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
+    facebook.save_profile(profile=hulk_profile)
+
+    Log.info('loading station: %s' % s001_id)
+    facebook.save_meta(identifier=s001_id, meta=s001_meta)
+    facebook.save_private_key(identifier=s001_id, private_key=s001_sk)
+    facebook.save_profile(profile=s001_profile)
+
+    # store station name
+    profile = '{\"name\":\"%s\"}' % s001_name
+    signature = base64_encode(s001_sk.sign(profile.encode('utf-8')))
+    profile = {
+        'ID': s001_id,
+        'data': profile,
+        'signature': signature,
+    }
+    profile = Profile(profile)
+    facebook.save_profile(profile=profile)
+
+    #
+    # scan accounts
+    #
+
+    database.scan_ids()
+
+    Log.info('======== loaded')

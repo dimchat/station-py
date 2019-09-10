@@ -51,4 +51,3 @@ class Log:
         time_string = Log.time_string(timestamp)
 
         print('[%s] ERROR: %s' % (time_string, msg))
-

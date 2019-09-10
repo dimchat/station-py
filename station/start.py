@@ -44,21 +44,22 @@ from common import Log
 
 from station.handler import RequestHandler
 
-from station.config import current_station, station_host, station_port
-from station.config import g_receptionist
+from station.config import load_accounts
+from station.config import g_database, g_facebook, g_receptionist, current_station
 
 
 if __name__ == '__main__':
 
+    load_accounts(facebook=g_facebook, database=g_database)
     current_station.running = True
     g_receptionist.start()
 
     # start TCP Server
     try:
         TCPServer.allow_reuse_address = True
-        server = ThreadingTCPServer(server_address=(station_host, station_port),
+        server = ThreadingTCPServer(server_address=(current_station.host, current_station.port),
                                     RequestHandlerClass=RequestHandler)
-        Log.info('server (%s:%s) is listening...' % (station_host, station_port))
+        Log.info('server (%s:%s) is listening...' % (current_station.host, current_station.port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)

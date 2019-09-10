@@ -30,16 +30,12 @@
     Barrack for cache entities
 """
 
-from mkm.crypto.utils import base64_encode
-
 from dimp import PrivateKey
 from dimp import ID, NetworkID, Meta, Profile
 from dimp import User, LocalUser, Group
 from dimp import Barrack
 
 from database import Database
-
-from .log import Log
 
 
 class Facebook(Barrack):
@@ -149,49 +145,3 @@ class Facebook(Barrack):
 
     def members(self, identifier: ID) -> list:
         return self.database.members(group=identifier)
-
-
-def load_accounts(facebook):
-    Log.info('======== loading accounts')
-
-    #
-    # load immortals
-    #
-
-    from .immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
-    from .immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
-    from .providers import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001
-
-    Log.info('loading immortal user: %s' % moki_id)
-    facebook.save_meta(identifier=moki_id, meta=moki_meta)
-    facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
-    facebook.save_profile(profile=moki_profile)
-
-    Log.info('loading immortal user: %s' % hulk_id)
-    facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
-    facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    facebook.save_profile(profile=hulk_profile)
-
-    Log.info('loading station: %s' % s001_id)
-    facebook.save_meta(identifier=s001_id, meta=s001_meta)
-    facebook.save_private_key(identifier=s001_id, private_key=s001_sk)
-    facebook.save_profile(profile=s001_profile)
-
-    # store station name
-    profile = '{\"name\":\"%s\"}' % s001_name
-    signature = base64_encode(s001_sk.sign(profile.encode('utf-8')))
-    profile = {
-        'ID': s001_id,
-        'data': profile,
-        'signature': signature,
-    }
-    profile = Profile(profile)
-    facebook.save_profile(profile=profile)
-
-    #
-    # scan accounts
-    #
-
-    facebook.database.scan_ids()
-
-    Log.info('======== loaded')

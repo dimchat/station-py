@@ -36,14 +36,14 @@ from socketserver import BaseRequestHandler
 from dimp import ID
 from dimp import TextContent, ReliableMessage
 
-from common import g_facebook
-from common import s001, Log
+from common import Log
+from common import NetMsgHead, NetMsg
 
-from .mars import NetMsgHead, NetMsg
+from server import Session
+
 from .processor import MessageProcessor
-from .session import Session
 
-from .config import g_session_server, g_monitor
+from .config import g_facebook, g_session_server, g_monitor, current_station
 
 
 class RequestHandler(BaseRequestHandler):
@@ -270,10 +270,3 @@ class RequestHandler(BaseRequestHandler):
         return self.send(data)
 
     push_message = push_raw_message
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-current_station = s001
