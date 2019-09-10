@@ -232,6 +232,11 @@ class Terminal(LocalUser, IConnectionDelegate):
             return ok1 and ok2
 
     def receive_message(self, msg: InstantMessage) -> bool:
+        """Receive instant message
+
+            :param msg - instant message
+            :return True on correct
+        """
         pass
 
     def __receive_message(self, msg: ReliableMessage) -> bool:
@@ -253,7 +258,8 @@ class Terminal(LocalUser, IConnectionDelegate):
     #
     #  IConnectionDelegate
     #
-    def receive(self, data: bytes):
+    def receive_package(self, data: bytes):
+        """ Receive data package """
         try:
             # decode message
             line = data.decode('utf-8')

@@ -33,11 +33,13 @@
 
 import json
 from cmd import Cmd
+from time import sleep
 
 from dimp import ID, Profile
 from dimp import Content, ContentType, TextContent
 from dimp import Command, ProfileCommand
 from dimp import InstantMessage
+from dimp import Station
 
 import sys
 import os
@@ -74,6 +76,29 @@ identifier_map = {
 
 
 class Client(Robot):
+
+    def __init__(self, identifier: ID):
+        super().__init__(identifier=identifier)
+        # station connection
+        self.delegate = g_facebook
+        self.messenger = g_messenger
+
+    def disconnect(self) -> bool:
+        if g_messenger.delegate == self.connection:
+            g_messenger.delegate = None
+        return super().disconnect()
+
+    def connect(self, station: Station) -> bool:
+        if not super().connect(station=station):
+            self.error('failed to connect station: %s' % station)
+            return False
+        if g_messenger.delegate is None:
+            g_messenger.delegate = self.connection
+        self.info('connected to station: %s' % station)
+        # handshake after connected
+        sleep(0.5)
+        self.info('%s is shaking hands with %s' % (self.identifier, station))
+        return self.handshake()
 
     def execute(self, cmd: Command, sender: ID) -> bool:
         if super().execute(cmd=cmd, sender=sender):
@@ -117,16 +142,25 @@ class Console(Cmd):
         self.receiver = None
         self.do_call('station')
 
-    def info(self, msg: str):
+    @staticmethod
+    def info(msg: str):
         print('\r%s' % msg)
 
     def login(self, identifier: ID):
-        self.info('connected to %s ...' % g_station)
+        # logout first
+        self.logout()
+        # login with user ID
+        self.info('connecting to %s ...' % g_station)
         client = Client(identifier=identifier)
-        client.delegate = g_facebook
-        client.messenger = g_messenger
         client.connect(station=g_station)
         self.client = client
+
+    def logout(self):
+        client = self.client
+        if client:
+            self.info('disconnect from %s ...' % client.station)
+            client.disconnect()
+            self.client = None
 
     def emptyline(self):
         print('')
@@ -172,7 +206,7 @@ class Console(Cmd):
             self.info('not login yet')
         else:
             self.info('%s logout' % self.client.identifier)
-            self.client = None
+            self.logout()
         self.receiver = None
         self.prompt = Console.prompt
 

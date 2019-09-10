@@ -31,19 +31,26 @@
 """
 
 import socket
-from abc import ABC
+from abc import ABCMeta, abstractmethod
 from threading import Thread
 
-from dimp import Station
+from dimp import Station, ITransceiverDelegate, ICompletionHandler
+from dkd import InstantMessage
 
 
-class IConnectionDelegate(ABC):
+class IConnectionDelegate(metaclass=ABCMeta):
 
-    def receive(self, data: bytes):
+    @abstractmethod
+    def receive_package(self, data: bytes):
+        """ Receive data package
+
+        :param data: data package
+        :return:
+        """
         pass
 
 
-class Connection:
+class Connection(ITransceiverDelegate):
 
     # boundary for packages
     BOUNDARY = b'\n'
@@ -81,11 +88,29 @@ class Connection:
             self.thread_receive = Thread(target=receive_handler, args=(self,))
             self.thread_receive.start()
 
-    def send(self, pack: bytes):
-        self.sock.sendall(pack + self.BOUNDARY)
-
     def receive(self, pack: bytes):
-        self.delegate.receive(data=pack)
+        self.delegate.receive_package(data=pack)
+
+    #
+    #   ITransceiverDelegate
+    #
+    def send_package(self, data: bytes, handler: ICompletionHandler) -> bool:
+        """ Send out a data package onto network """
+        # pack
+        pack = data + self.BOUNDARY
+        # send
+        self.sock.sendall(pack)
+        if handler is not None:
+            handler.success()
+        return True
+
+    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
+        """ Upload encrypted data to CDN """
+        pass
+
+    def download_data(self, url: str, msg: InstantMessage) -> bytes:
+        """ Download encrypted data from CDN, and decrypt it when finished """
+        pass
 
 
 def receive_handler(conn: Connection):

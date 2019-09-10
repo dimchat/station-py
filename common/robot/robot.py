@@ -36,6 +36,7 @@ from time import sleep
 from dimp import ID, Meta, Station
 from dimp import Content, Command, HandshakeCommand, MetaCommand
 from dimp import InstantMessage, ReliableMessage
+from dimp import ICompletionHandler
 
 from ..facebook import Facebook
 
@@ -55,28 +56,30 @@ class Robot(Terminal):
     def __del__(self):
         self.disconnect()
 
-    def disconnect(self):
+    def disconnect(self) -> bool:
         if self.connection:
             self.connection.close()
+            self.connection = None
+            return True
 
-    def connect(self, station: Station):
+    def connect(self, station: Station) -> bool:
         conn = Connection()
         conn.delegate = self
         conn.connect(station=station)
         self.connection = conn
         self.station = station
-        sleep(0.5)
-        # handshake after connected
-        self.handshake()
+        return True
 
-    def send_message(self, msg: ReliableMessage):
+    def send_message(self, msg: ReliableMessage) -> bool:
         # encode
         pack = json.dumps(msg)
         data = pack.encode('utf-8')
         # send out
-        self.connection.send(pack=data)
+        handler: ICompletionHandler = None
+        return self.connection.send_package(data=data, handler=handler)
 
-    def send_content(self, content: Content, receiver: ID):
+    def send_content(self, content: Content, receiver: ID) -> bool:
+        """ Send message content to receiver """
         # check meta
         self.check_meta(identifier=receiver)
         # create InstantMessage
@@ -84,19 +87,21 @@ class Robot(Terminal):
         # encrypt and sign
         r_msg = self.messenger.encrypt_sign(msg=i_msg)
         # send ReliableMessage
-        self.send_message(msg=r_msg)
+        return self.send_message(msg=r_msg)
 
-    def send_command(self, cmd: Command):
-        # send command to current station
-        self.send_content(content=cmd, receiver=self.station.identifier)
+    def send_command(self, cmd: Command) -> bool:
+        """ Send command to current station """
+        return self.send_content(content=cmd, receiver=self.station.identifier)
 
     def execute(self, cmd: Command, sender: ID) -> bool:
+        """ Execute commands sent by commander """
         if super().execute(cmd=cmd, sender=sender):
             return True
         if sender == self.station.identifier:
             # command from station
             command = cmd.command
             if 'handshake' == command:
+                # process handshake command to login
                 cmd = HandshakeCommand(cmd)
                 if 'DIM!' == cmd.message:
                     self.info('handshake OK!')
@@ -110,10 +115,10 @@ class Robot(Terminal):
     #
     #  [Handshake Protocol]
     #
-    def handshake(self):
+    def handshake(self) -> bool:
         self.info('handshake with "%s"...' % self.station.identifier)
         cmd = HandshakeCommand.start(session=self.session)
-        self.send_command(cmd=cmd)
+        return self.send_command(cmd=cmd)
 
     def check_meta(self, identifier: ID) -> Meta:
         facebook: Facebook = self.delegate
