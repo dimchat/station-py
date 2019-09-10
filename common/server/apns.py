@@ -36,7 +36,7 @@ from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
 from apns2.payload import Payload
 
-from common import Log
+from ..utils import Log
 
 
 class ApplePushNotificationService:

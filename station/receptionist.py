@@ -37,8 +37,7 @@ from time import sleep
 from dimp import ID
 
 from common import Database, Log
-
-from server import ApplePushNotificationService, Server, SessionServer
+from common import ApplePushNotificationService, Server, SessionServer
 
 
 class Receptionist(Thread):

@@ -38,8 +38,7 @@ from dimp import TextContent, ReliableMessage
 
 from common import Log
 from common import NetMsgHead, NetMsg
-
-from server import Session
+from common import Session
 
 from .processor import MessageProcessor
 

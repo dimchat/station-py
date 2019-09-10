@@ -36,8 +36,7 @@ from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 
 from common import Log
-
-from server import Session
+from common import Session
 
 from .config import g_facebook, g_database, g_session_server, g_dispatcher, g_receptionist, g_monitor
 from .config import current_station

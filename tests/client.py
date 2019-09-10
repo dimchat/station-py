@@ -46,14 +46,12 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from common import Robot
 from common import base64_encode
-
 from common.immortals import moki, hulk
 
 from station.config import g_facebook, g_database, g_messenger, load_accounts
 from station.config import current_station
-
-from robot import Robot
 
 
 """

@@ -9,7 +9,7 @@
 
 from dimp import ID, Meta, Profile, PublicKey, PrivateKey
 
-from server import Server
+from common import Server
 
 s001_name = 'Genesis Station'
 

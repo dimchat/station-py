@@ -23,6 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Database module
+    ~~~~~~~~~~~~~~~
+
+"""
+
 from dimp import PrivateKey
 from dimp import NetworkID, ID, Meta, Profile
 from dimp import ReliableMessage

@@ -35,7 +35,7 @@ from dimp import ID, NetworkID, Meta, Profile
 from dimp import User, LocalUser, Group
 from dimp import Barrack
 
-from database import Database
+from .database import Database
 
 
 class Facebook(Barrack):

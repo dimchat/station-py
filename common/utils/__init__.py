@@ -24,68 +24,24 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Utils
+    ~~~~~
 
-    Common libs for Server or Client
+    I'm too lazy to write codes for demo project, so I borrow some utils here
+    from the <dimp> packages, but I don't suggest you to do it also, because
+    I won't promise these private utils will not be changed. Hia hia~ :P
+                                             -- Albert Moky @ Jan. 23, 2019
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import Log
+from mkm.crypto.utils import base64_encode, base64_decode
 
-from .database import Storage, Database
-
-from .server import ApplePushNotificationService, IAPNsDelegate
-from .server import Session, SessionServer
-from .server import Server
-
-from .robot import Connection, IConnectionDelegate
-from .robot import Robot
-
-from .mars import NetMsgHead, NetMsg
-
-from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
+from .hex import hex_encode, hex_decode
+from .log import Log
 
 
 __all__ = [
-    #
-    #  Utils
-    #
+    # Utils
     'base64_encode', 'base64_decode',
     'hex_encode', 'hex_decode',
     'Log',
-
-    #
-    #  Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #  Server module
-    #
-    'ApplePushNotificationService', 'IAPNsDelegate',
-    'Session', 'SessionServer',
-    'Server',
-
-    #
-    #  Robot module
-    #
-    'Connection', 'IConnectionDelegate',
-    'Robot',
-
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
-
-    #
-    #  Common libs
-    #
-    'Facebook',
-    'KeyStore',
-    'Messenger',
 ]

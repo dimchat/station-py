@@ -36,7 +36,7 @@ import json
 from dimp import ID, SymmetricKey, LocalUser
 from dimp import KeyCache
 
-from .log import Log
+from .utils import Log
 
 
 class KeyStore(KeyCache):

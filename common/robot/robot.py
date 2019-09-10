@@ -37,7 +37,7 @@ from dimp import ID, Meta, Station
 from dimp import Content, Command, HandshakeCommand, MetaCommand
 from dimp import InstantMessage, ReliableMessage
 
-from common import Facebook
+from ..facebook import Facebook
 
 from .connection import Connection
 from .terminal import Terminal
