@@ -46,7 +46,7 @@ from dimp import NetworkID, Meta
 from mkm.address import BTCAddress
 
 from common import base64_encode
-from common import g_facebook
+from station.config import g_facebook
 
 
 def number_string(number: int):
@@ -62,7 +62,7 @@ class AccountTestCase(unittest.TestCase):
         #
         #  prepare register parameters
         #
-        cmd = 2
+        cmd = 1
         if cmd == 1:
             # generate SP
             seed = 'gsp'

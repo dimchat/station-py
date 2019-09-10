@@ -30,18 +30,21 @@
     Configuration for DIM network server node
 """
 
-from mkm.crypto.utils import base64_encode
+import os
 
-from dimp import Profile
+from mkm import Meta, PrivateKey, ID
 
-from common import Log
+from dimp import Profile, Station
+
+from common import Log, Storage, Server
 from common import Database, Facebook, KeyStore, Messenger
 from common import ApplePushNotificationService, SessionServer
 
-from common.immortals import moki_id, moki_name, moki_pk, moki_sk, moki_meta, moki_profile, moki
-from common.immortals import hulk_id, hulk_name, hulk_pk, hulk_sk, hulk_meta, hulk_profile, hulk
-from .cfg_gsp import s001_id, s001_name, s001_pk, s001_sk, s001_meta, s001_profile, s001
+from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
+from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
+
 from .cfg_admins import administrators
+from .cfg_gsp import stations, station_id, station_host, station_port
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
@@ -90,9 +93,11 @@ g_messenger.key_cache = g_keystore
     Current Station
     ~~~~~~~~~~~~~~~
 """
-current_station = s001
+# create station
+current_station = Server(identifier=station_id, host=station_host, port=station_port)
 current_station.delegate = g_facebook
 current_station.messenger = g_messenger
+current_station.running = False
 
 g_keystore.user = current_station
 
@@ -162,6 +167,51 @@ g_receptionist.apns = g_apns
 g_receptionist.station = current_station
 
 
+def load_station(identifier: ID) -> Station:
+    # get root path
+    path = os.path.abspath(os.path.dirname(__file__))
+    root = os.path.split(path)[0]
+    directory = os.path.join(root, 'etc', identifier.address)
+    # check profile
+    profile = Storage.read_json(path=os.path.join(directory, 'profile.js'))
+    if profile is None:
+        raise LookupError('failed to get profile for station: %s' % identifier)
+    name = profile.get('name')
+    host = profile.get('host')
+    port = profile.get('port')
+    Log.info('loading station %s (%s:%d)...' % (name, host, port))
+    # check meta
+    meta = g_facebook.meta(identifier=identifier)
+    if meta is None:
+        # load from 'etc' directory
+        meta = Meta(Storage.read_json(path=os.path.join(directory, 'meta.js')))
+        if meta is None:
+            raise LookupError('failed to get meta for station: %s' % identifier)
+        elif not g_facebook.save_meta(meta=meta, identifier=identifier):
+            raise ValueError('meta error: %s' % meta)
+    # check private key
+    private_key = g_facebook.private_key_for_signature(identifier=identifier)
+    if private_key is None:
+        # load from 'etc' directory
+        private_key = PrivateKey(Storage.read_json(path=os.path.join(directory, 'secret.js')))
+        if private_key is None:
+            pass
+        elif not g_facebook.save_private_key(private_key=private_key, identifier=identifier):
+            raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
+    if private_key is None:
+        # remote station
+        return Station(identifier=identifier, host=host, port=port)
+    else:
+        # create profile
+        profile = Profile.new(identifier=identifier)
+        profile.name = name
+        profile.sign(private_key=private_key)
+        if not g_facebook.save_profile(profile=profile):
+            raise AssertionError('failed to save profile: %s' % profile)
+        # local station
+        return Server(identifier=identifier, host=host, port=port)
+
+
 def load_accounts(facebook, database):
     Log.info('======== loading accounts')
 
@@ -179,21 +229,10 @@ def load_accounts(facebook, database):
     facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
     facebook.save_profile(profile=hulk_profile)
 
-    Log.info('loading station: %s' % s001_id)
-    facebook.save_meta(identifier=s001_id, meta=s001_meta)
-    facebook.save_private_key(identifier=s001_id, private_key=s001_sk)
-    facebook.save_profile(profile=s001_profile)
-
-    # store station name
-    profile = '{\"name\":\"%s\"}' % s001_name
-    signature = base64_encode(s001_sk.sign(profile.encode('utf-8')))
-    profile = {
-        'ID': s001_id,
-        'data': profile,
-        'signature': signature,
-    }
-    profile = Profile(profile)
-    facebook.save_profile(profile=profile)
+    Log.info('loading stations: %s' % stations)
+    for item in stations:
+        Log.info('ID: %s' % item)
+        load_station(identifier=item)
 
     #
     # scan accounts

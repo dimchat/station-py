@@ -66,6 +66,7 @@ class Dispatcher:
         # store in local cache file
         Log.info('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
+        # TODO: broadcast to neighbor stations
         # push notification
         to_user = self.facebook.user(identifier=receiver)
         sender = self.facebook.identifier(msg.envelope.sender)
