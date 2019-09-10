@@ -205,7 +205,7 @@ def load_station(identifier: ID) -> Station:
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
     if private_key is None:
         # remote station
-        return Station(identifier=identifier, host=host, port=port)
+        station = Station(identifier=identifier, host=host, port=port)
     else:
         # create profile
         profile = Profile.new(identifier=identifier)
@@ -214,7 +214,9 @@ def load_station(identifier: ID) -> Station:
         if not g_facebook.save_profile(profile=profile):
             raise AssertionError('failed to save profile: %s' % profile)
         # local station
-        return Server(identifier=identifier, host=host, port=port)
+        station = Server(identifier=identifier, host=host, port=port)
+    g_facebook.cache_user(user=station)
+    return station
 
 
 def load_accounts(facebook, database):
