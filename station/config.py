@@ -44,7 +44,8 @@ from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
 from .cfg_admins import administrators
-from .cfg_gsp import stations, station_id, station_name, station_host, station_port
+from .cfg_gsp import all_stations, local_servers
+from .cfg_gsp import station_id, station_host, station_port
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
@@ -83,23 +84,11 @@ g_facebook.database = g_database
 
 """
     Messenger
+    ~~~~~~~~~
 """
 g_messenger = Messenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-# create station
-current_station = Server(identifier=station_id, host=station_host, port=station_port)
-current_station.delegate = g_facebook
-current_station.messenger = g_messenger
-current_station.running = False
-
-g_keystore.user = current_station
 
 
 """
@@ -148,11 +137,6 @@ g_monitor.messenger = g_messenger
 g_monitor.session_server = g_session_server
 g_monitor.apns = g_apns
 
-# set station as the report sender, and add admins who will receive reports
-g_monitor.sender = current_station.identifier
-for admin in administrators:
-    g_monitor.admins.add(g_facebook.identifier(admin))
-
 
 """
     Station Receptionist
@@ -164,10 +148,52 @@ g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
 g_receptionist.database = g_database
 g_receptionist.apns = g_apns
-g_receptionist.station = current_station
 
 
-def load_station(identifier: ID) -> Station:
+"""
+    Station Info Loaders
+    ~~~~~~~~~~~~~~~~~~~~
+    
+    Loading station info from service provider configuration
+"""
+
+
+def neighbor_stations(identifier: str) -> list:
+    """ Get neighbor stations for broadcast """
+    identifier = g_facebook.identifier(identifier)
+    count = len(all_stations)
+    if count <= 1:
+        # only 1 station, no neighbors
+        return []
+    # current station's position
+    pos = 0
+    for station in all_stations:
+        if station.identifier == identifier:
+            # got it
+            break
+        pos = pos + 1
+    assert pos < count, 'current station not found: %s, %s' % (identifier, all_stations)
+    array = []
+    # get left node
+    left = all_stations[pos - 1]
+    assert left.identifier != identifier, 'stations error: %s' % all_stations
+    array.append(left)
+    if count > 2:
+        # get right node
+        right = all_stations[(pos + 1) % count]
+        assert right.identifier != identifier, 'stations error: %s' % all_stations
+        assert right.identifier != left.identifier, 'stations error: %s' % all_stations
+        array.append(right)
+    return array
+
+
+def load_station(identifier: str) -> Station:
+    """ Load station info from 'etc' directory
+
+        :param identifier - station ID
+        :return station with info from 'dims/etc/{address}/*'
+    """
+    identifier = g_facebook.identifier(identifier)
     # get root path
     path = os.path.abspath(os.path.dirname(__file__))
     root = os.path.split(path)[0]
@@ -177,11 +203,7 @@ def load_station(identifier: ID) -> Station:
     if profile is None:
         raise LookupError('failed to get profile for station: %s' % identifier)
     # station name
-    if identifier == current_station.identifier:
-        name = station_name
-    else:
-        name = profile.get('name')
-    # station host & port
+    name = profile.get('name')
     host = profile.get('host')
     port = profile.get('port')
     Log.info('loading station %s (%s:%d)...' % (name, host, port))
@@ -209,7 +231,9 @@ def load_station(identifier: ID) -> Station:
     else:
         # create profile
         profile = Profile.new(identifier=identifier)
-        profile.name = name
+        profile.set_property('name', name)
+        profile.set_property('host', host)
+        profile.set_property('port', port)
         profile.sign(private_key=private_key)
         if not g_facebook.save_profile(profile=profile):
             raise AssertionError('failed to save profile: %s' % profile)
@@ -219,13 +243,19 @@ def load_station(identifier: ID) -> Station:
     return station
 
 
+def create_server(identifier: str, host: str, port: int=9394) -> Server:
+    """ Create Local Server """
+    identifier = g_facebook.identifier(identifier)
+    server = Server(identifier=identifier, host=host, port=port)
+    server.delegate = g_facebook
+    return server
+
+
 def load_accounts(facebook, database):
+    """ Prepare accounts """
     Log.info('======== loading accounts')
 
-    #
     # load immortals
-    #
-
     Log.info('loading immortal user: %s' % moki_id)
     facebook.save_meta(identifier=moki_id, meta=moki_meta)
     facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
@@ -236,15 +266,43 @@ def load_accounts(facebook, database):
     facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
     facebook.save_profile(profile=hulk_profile)
 
-    Log.info('loading stations: %s' % stations)
-    for item in stations:
-        srv = load_station(identifier=item)
-        Log.info('ID: %s, station: %s' % (item, srv))
-
-    #
     # scan accounts
-    #
-
     database.scan_ids()
-
     Log.info('======== loaded')
+
+
+"""
+    Loading info
+    ~~~~~~~~~~~~
+"""
+
+# convert ID to admin
+Log.info('loading administrators: %s' % administrators)
+administrators = [g_facebook.identifier(item) for item in administrators]
+# add admins who will receive reports
+for admin in administrators:
+    g_monitor.admins.add(admin)
+
+# convert ID to Station
+Log.info('loading stations: %s' % all_stations)
+all_stations = [load_station(identifier=item) for item in all_stations]
+
+# convert ID to Server
+Log.info('creating servers: %s' % local_servers)
+local_servers = [create_server(identifier=item, host=station_host, port=station_port) for item in local_servers]
+
+# current station
+station_id = g_facebook.identifier(station_id)
+# create station
+current_station = Server(identifier=station_id, host=station_host, port=station_port)
+current_station.delegate = g_facebook
+current_station.messenger = g_messenger
+current_station.running = False
+Log.info('current station: %s' % current_station)
+
+# set current station for key store
+g_keystore.user = current_station
+# set current station for receptionist
+g_receptionist.station = current_station
+# set current station as the report sender
+g_monitor.sender = current_station.identifier
