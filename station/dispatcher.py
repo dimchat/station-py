@@ -44,6 +44,7 @@ class Dispatcher:
         self.facebook: Facebook = None
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
+        self.neighbors: list = []
 
     def deliver(self, msg: ReliableMessage) -> bool:
         receiver = self.facebook.identifier(msg.envelope.receiver)

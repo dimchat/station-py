@@ -271,13 +271,6 @@ def load_immortals():
     ~~~~~~~~~~~~
 """
 
-# load admins for receiving system reports
-Log.info('-------- loading administrators: %d' % len(administrators))
-administrators = [g_facebook.identifier(item) for item in administrators]
-for admin in administrators:
-    Log.info('add admin: %s' % admin)
-    g_monitor.admins.add(admin)
-
 # load immortal accounts
 Log.info('-------- loading immortals accounts')
 load_immortals()
@@ -311,5 +304,19 @@ g_keystore.user = current_station
 g_receptionist.station = current_station
 # set current station as the report sender
 g_monitor.sender = current_station.identifier
+
+# load neighbour station for delivering message
+neighbors = neighbor_stations(identifier=current_station.identifier)
+Log.info('-------- loading neighbor stations: %d' % len(neighbors))
+for node in neighbors:
+    Log.info('add node: %s' % node)
+    g_dispatcher.neighbors.append(node)
+
+# load admins for receiving system reports
+Log.info('-------- loading administrators: %d' % len(administrators))
+administrators = [g_facebook.identifier(item) for item in administrators]
+for admin in administrators:
+    Log.info('add admin: %s' % admin)
+    g_monitor.admins.add(admin)
 
 Log.info('======== configuration OK!')
