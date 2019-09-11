@@ -271,6 +271,13 @@ def load_immortals():
     ~~~~~~~~~~~~
 """
 
+# load admins for receiving system reports
+Log.info('-------- loading administrators: %d' % len(administrators))
+administrators = [g_facebook.identifier(item) for item in administrators]
+for admin in administrators:
+    Log.info('add admin: %s' % admin)
+    g_monitor.admins.add(admin)
+
 # load immortal accounts
 Log.info('-------- loading immortals accounts')
 load_immortals()
@@ -279,20 +286,12 @@ load_immortals()
 Log.info('-------- scanning accounts')
 g_database.scan_ids()
 
-# convert ID to admin
-Log.info('-------- loading administrators')
-administrators = [g_facebook.identifier(item) for item in administrators]
-# add admins who will receive reports
-for admin in administrators:
-    Log.info('add admin: %s' % admin)
-    g_monitor.admins.add(admin)
-
 # convert ID to Station
-Log.info('-------- loading stations')
+Log.info('-------- loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item) for item in all_stations]
 
 # convert ID to Server
-Log.info('-------- creating servers')
+Log.info('-------- creating servers: %d' % len(local_servers))
 local_servers = [create_server(identifier=item, host=station_host, port=station_port) for item in local_servers]
 
 # current station

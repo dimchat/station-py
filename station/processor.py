@@ -230,7 +230,7 @@ class MessageProcessor:
             keywords = []
         else:
             keywords = keywords.split(' ')
-        results = g_facebook.search(keywords=keywords)
+        results = g_database.search(keywords=keywords)
         # response
         users = list(results.keys())
         response = Command.new(command='search')
