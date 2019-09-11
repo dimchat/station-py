@@ -202,11 +202,10 @@ def load_station(identifier: str) -> Station:
     profile = Storage.read_json(path=os.path.join(directory, 'profile.js'))
     if profile is None:
         raise LookupError('failed to get profile for station: %s' % identifier)
-    # station name
+    Log.info('station profile: %s' % profile)
     name = profile.get('name')
     host = profile.get('host')
     port = profile.get('port')
-    Log.info('loading station %s (%s:%d)...' % (name, host, port))
     # check meta
     meta = g_facebook.meta(identifier=identifier)
     if meta is None:
@@ -240,6 +239,7 @@ def load_station(identifier: str) -> Station:
         # local station
         station = Server(identifier=identifier, host=host, port=port)
     g_facebook.cache_user(user=station)
+    Log.info('station loaded: %s' % station)
     return station
 
 
@@ -249,27 +249,21 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
     server = Server(identifier=identifier, host=host, port=port)
     server.delegate = g_facebook
     server.messenger = g_messenger
+    Log.info('local station created: %s' % server)
     return server
 
 
-def load_accounts(facebook, database):
-    """ Prepare accounts """
-    Log.info('======== loading accounts')
-
+def load_immortals():
     # load immortals
-    Log.info('loading immortal user: %s' % moki_id)
-    facebook.save_meta(identifier=moki_id, meta=moki_meta)
-    facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
-    facebook.save_profile(profile=moki_profile)
+    Log.info('immortal user: %s' % moki_id)
+    g_facebook.save_meta(identifier=moki_id, meta=moki_meta)
+    g_facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
+    g_facebook.save_profile(profile=moki_profile)
 
-    Log.info('loading immortal user: %s' % hulk_id)
-    facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
-    facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    facebook.save_profile(profile=hulk_profile)
-
-    # scan accounts
-    database.scan_ids()
-    Log.info('======== loaded')
+    Log.info('immortal user: %s' % hulk_id)
+    g_facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
+    g_facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
+    g_facebook.save_profile(profile=hulk_profile)
 
 
 """
@@ -277,27 +271,39 @@ def load_accounts(facebook, database):
     ~~~~~~~~~~~~
 """
 
+# load immortal accounts
+Log.info('-------- loading immortals accounts')
+load_immortals()
+
+# scan accounts
+Log.info('-------- scanning accounts')
+g_database.scan_ids()
+
 # convert ID to admin
-Log.info('loading administrators: %s' % administrators)
+Log.info('-------- loading administrators')
 administrators = [g_facebook.identifier(item) for item in administrators]
 # add admins who will receive reports
 for admin in administrators:
+    Log.info('add admin: %s' % admin)
     g_monitor.admins.add(admin)
 
 # convert ID to Station
-Log.info('loading stations: %s' % all_stations)
+Log.info('-------- loading stations')
 all_stations = [load_station(identifier=item) for item in all_stations]
 
 # convert ID to Server
-Log.info('creating servers: %s' % local_servers)
+Log.info('-------- creating servers')
 local_servers = [create_server(identifier=item, host=station_host, port=station_port) for item in local_servers]
 
 # current station
+current_station = None
 station_id = g_facebook.identifier(station_id)
-# create station
-current_station = Server(identifier=station_id, host=station_host, port=station_port)
-current_station.delegate = g_facebook
-current_station.messenger = g_messenger
+for srv in local_servers:
+    if srv.identifier == station_id:
+        # got it
+        current_station = srv
+        break
+assert current_station is not None, 'current station not created: %s' % station_id
 Log.info('current station: %s' % current_station)
 
 # set current station for key store
@@ -306,3 +312,5 @@ g_keystore.user = current_station
 g_receptionist.station = current_station
 # set current station as the report sender
 g_monitor.sender = current_station.identifier
+
+Log.info('======== configuration OK!')

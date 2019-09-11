@@ -52,7 +52,7 @@ from common import Robot
 from common import base64_encode
 from common.immortals import moki, hulk
 
-from station.config import g_facebook, g_database, g_messenger, load_accounts
+from station.config import g_facebook, g_database, g_messenger
 from station.config import current_station
 
 
@@ -291,7 +291,6 @@ class Console(Cmd):
 
 
 if __name__ == '__main__':
-    load_accounts(facebook=g_facebook, database=g_database)
 
     console = Console()
     console.cmdloop()

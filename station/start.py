@@ -44,13 +44,11 @@ from common import Log
 
 from station.handler import RequestHandler
 
-from station.config import load_accounts
-from station.config import g_database, g_facebook, g_receptionist, current_station
+from station.config import g_receptionist, current_station
 
 
 if __name__ == '__main__':
 
-    load_accounts(facebook=g_facebook, database=g_database)
     current_station.running = True
     g_receptionist.start()
 

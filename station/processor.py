@@ -154,7 +154,7 @@ class MessageProcessor:
         if meta is not None:
             # received a meta for ID
             Log.info('MessageProcessor: received meta %s' % identifier)
-            if g_database.save_meta(identifier=identifier, meta=meta):
+            if g_facebook.save_meta(identifier=identifier, meta=meta):
                 Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
                 return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
@@ -162,7 +162,7 @@ class MessageProcessor:
                 return TextContent.new(text='Meta not match %s!' % identifier)
         # querying meta for ID
         Log.info('MessageProcessor: search meta %s' % identifier)
-        meta = g_database.meta(identifier=identifier)
+        meta = g_facebook.meta(identifier=identifier)
         # response
         if meta is not None:
             return MetaCommand.response(identifier=identifier, meta=meta)
@@ -174,7 +174,7 @@ class MessageProcessor:
         meta = cmd.meta
         if meta is not None:
             # received a meta for ID
-            if g_database.save_meta(identifier=identifier, meta=meta):
+            if g_facebook.save_meta(identifier=identifier, meta=meta):
                 Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
             else:
                 Log.info('MessageProcessor: meta not match %s, %s' % (identifier, meta))
@@ -183,7 +183,7 @@ class MessageProcessor:
         if profile is not None:
             # received a new profile for ID
             Log.info('MessageProcessor: received profile %s' % identifier)
-            if g_database.save_profile(profile=profile):
+            if g_facebook.save_profile(profile=profile):
                 Log.info('MessageProcessor: profile saved %s' % profile)
                 return ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
@@ -230,7 +230,7 @@ class MessageProcessor:
             keywords = []
         else:
             keywords = keywords.split(' ')
-        results = g_database.search(keywords=keywords)
+        results = g_facebook.search(keywords=keywords)
         # response
         users = list(results.keys())
         response = Command.new(command='search')
