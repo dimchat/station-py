@@ -36,7 +36,7 @@ class MetaTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches = {}
+        self.__caches: dict = {}
 
     """
         Meta file for Entities (User/Group)

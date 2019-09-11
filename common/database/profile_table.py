@@ -35,7 +35,7 @@ class ProfileTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches = {}
+        self.__caches: dict = {}
 
     """
         Profile for Entities (User/Group)
@@ -100,7 +100,7 @@ class DeviceTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches = {}
+        self.__caches: dict = {}
 
     """
         Device Tokens for APNS

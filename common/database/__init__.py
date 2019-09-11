@@ -39,6 +39,7 @@ from .meta_table import MetaTable
 from .profile_table import ProfileTable, DeviceTable
 from .group_table import GroupTable
 from .message_table import MessageTable
+from .ans_table import AddressNameTable
 
 
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     # 'MetaTable', 'ProfileTable', 'PrivateKeyTable',
     # 'DeviceTable',
     # 'MessageTable',
+    # 'AddressNameTable',
     'Database',
 ]
 
@@ -61,6 +63,8 @@ class Database:
         self.__device_table = DeviceTable()
         self.__group_table = GroupTable()
         self.__message_table = MessageTable()
+        # ANS
+        self.__ans_table = AddressNameTable()
 
     @property
     def base_dir(self) -> str:
@@ -190,3 +194,18 @@ class Database:
 
     def scan_ids(self):
         return self.__meta_table.scan_ids()
+
+    """
+        Address Name Service
+        ~~~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/ans.txt'
+    """
+    def ans_save_record(self, name: str, identifier: ID) -> bool:
+        return self.__ans_table.save_record(name=name, identifier=identifier)
+
+    def ans_record(self, name: str) -> ID:
+        return self.__ans_table.record(name=name)
+
+    def ans_names(self, identifier: ID) -> list:
+        return self.__ans_table.names(identifier=identifier)

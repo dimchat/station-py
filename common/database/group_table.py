@@ -35,7 +35,7 @@ class GroupTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches = {}
+        self.__caches: dict = {}
 
     """
         Group members

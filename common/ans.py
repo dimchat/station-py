@@ -24,70 +24,31 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Address Name Service
+    ~~~~~~~~~~~~~~~~~~~~
 
-    Common libs for Server or Client
+    A map for short name to ID, just like DNS
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import Log
+from dimp import ID
 
-from .database import Storage, Database
-
-from .server import ApplePushNotificationService, IAPNsDelegate
-from .server import Session, SessionServer
-from .server import Server
-
-from .robot import Connection, IConnectionDelegate
-from .robot import Robot
-
-from .mars import NetMsgHead, NetMsg
-
-from .ans import AddressNameService
-from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
+from .database import Database
 
 
-__all__ = [
-    #
-    #  Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'Log',
+class AddressNameService:
 
-    #
-    #  Database module
-    #
-    'Storage',
-    'Database',
+    def __init__(self):
+        super().__init__()
+        self.database: Database = None
 
-    #
-    #  Server module
-    #
-    'ApplePushNotificationService', 'IAPNsDelegate',
-    'Session', 'SessionServer',
-    'Server',
+    def save_record(self, name: str, identifier: ID) -> bool:
+        """ Save ANS record """
+        return self.database.ans_save_record(name=name, identifier=identifier)
 
-    #
-    #  Robot module
-    #
-    'Connection', 'IConnectionDelegate',
-    'Robot',
+    def record(self, name: str) -> ID:
+        """ Get ID by short name """
+        return self.database.ans_record(name=name)
 
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
-
-    #
-    #  Common libs
-    #
-    'AddressNameService',
-    'Facebook',
-    'KeyStore',
-    'Messenger',
-]
+    def names(self, identifier: ID) -> list:
+        """ Get all short names with this ID """
+        return self.database.ans_names(identifier=identifier)

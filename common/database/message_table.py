@@ -38,7 +38,7 @@ class MessageTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches = {}
+        # self.__caches: dict = {}
 
     """
         Reliable message for Receivers
@@ -50,15 +50,55 @@ class MessageTable(Storage):
     def __directory(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', identifier.address, 'messages')
 
-    def store_message(self, msg: ReliableMessage) -> bool:
+    def __message_path(self, msg: ReliableMessage) -> str:
         # message filename
-        filename = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        timestamp = msg.envelope.time
+        filename = time.strftime("%Y%m%d_%H%M%S", time.localtime(timestamp))
         filename = filename + '.msg'
         # message directory
         receiver = self.identifier(msg.envelope.receiver)
         directory = self.__directory(receiver)
         # message file path
-        path = os.path.join(directory, filename)
+        return os.path.join(directory, filename)
+
+    def __load_messages(self, path: str) -> list:
+        data = self.read_text(path=path)
+        lines = data.splitlines()
+        self.info('read %d line(s) from %s' % (len(lines), path))
+        # messages = [ReliableMessage(json.loads(line)) for line in lines]
+        messages = []
+        for line in lines:
+            msg = line.strip()
+            if len(msg) == 0:
+                self.info('skip empty line')
+                continue
+            try:
+                msg = json.loads(msg)
+                msg = ReliableMessage(msg)
+                messages.append(msg)
+            except Exception as error:
+                self.info('message package error %s, %s' % (error, line))
+        return messages
+
+    def __message_exists(self, msg: ReliableMessage, path: str) -> bool:
+        if not self.exists(path=path):
+            return False
+        # check whether message duplicated
+        messages = self.__load_messages(path=path)
+        for item in messages:
+            if item.signature == msg.signature:
+                # only same messages will have same signature
+                return True
+
+    def message_exists(self, msg: ReliableMessage) -> bool:
+        path = self.__message_path(msg=msg)
+        return self.__message_exists(msg=msg, path=path)
+
+    def store_message(self, msg: ReliableMessage) -> bool:
+        path = self.__message_path(msg=msg)
+        if self.__message_exists(msg=msg, path=path):
+            self.error('message duplicated: %s' % msg)
+            return False
         self.info('Appending message into: %s' % path)
         # message data
         data = json.dumps(msg) + '\n'
@@ -75,24 +115,9 @@ class MessageTable(Storage):
         for filename in files:
             # read ONE .msg file for each receiver and remove the file immediately
             if filename[-4:] == '.msg':
-                # message file path
+                # load messages from file path
                 path = os.path.join(directory, filename)
-                data = self.read_text(path=path)
-                lines = data.splitlines()
-                self.info('read %d line(s) from %s' % (len(lines), path))
-                # messages = [ReliableMessage(json.loads(line)) for line in lines]
-                messages = []
-                for line in lines:
-                    msg = line.strip()
-                    if len(msg) == 0:
-                        self.info('skip empty line')
-                        continue
-                    try:
-                        msg = json.loads(msg)
-                        msg = ReliableMessage(msg)
-                        messages.append(msg)
-                    except Exception as error:
-                        self.info('message package error %s, %s' % (error, line))
+                messages = self.__load_messages(path=path)
                 self.info('got %d message(s) for %s' % (len(messages), receiver))
                 if len(messages) == 0:
                     self.info('remove empty message file %s' % path)

@@ -37,7 +37,7 @@ from mkm import Meta, PrivateKey
 from dimp import Profile, Station
 
 from common import Log, Storage, Server
-from common import Database, Facebook, KeyStore, Messenger
+from common import Database, Facebook, AddressNameService, KeyStore, Messenger
 from common import ApplePushNotificationService, SessionServer
 
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
@@ -81,6 +81,16 @@ Log.info("database directory: %s" % g_database.base_dir)
 """
 g_facebook = Facebook()
 g_facebook.database = g_database
+
+
+"""
+    Address Name Service
+    ~~~~~~~~~~~~~~~~~~~~
+
+    A map for short name to ID, just like DNS
+"""
+g_ans = AddressNameService()
+g_ans.database = g_database
 
 
 """

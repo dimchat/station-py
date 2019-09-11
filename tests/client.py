@@ -52,7 +52,7 @@ from common import Robot
 from common import base64_encode
 from common.immortals import moki, hulk
 
-from station.config import g_facebook, g_database, g_messenger
+from station.config import g_database, g_facebook, g_ans, g_messenger
 from station.config import current_station
 
 
@@ -69,10 +69,10 @@ g_station.port = 9394
 
 g_database.base_dir = '/tmp/.dim/'
 
-identifier_map = {
-    'moki': moki.identifier,
-    'hulk': hulk.identifier,
-}
+# Address Name Service
+g_ans.save_record('moki', moki.identifier)
+g_ans.save_record('hulk', hulk.identifier)
+g_ans.save_record('station', g_station.identifier)
 
 
 class Client(Robot):
@@ -146,6 +146,13 @@ class Console(Cmd):
     def info(msg: str):
         print('\r%s' % msg)
 
+    @staticmethod
+    def identifier(name: str) -> ID:
+        identifier = g_ans.record(name=name)
+        if identifier is None and len(name) > 30:
+            identifier = g_facebook.identifier(name)
+        return identifier
+
     def login(self, identifier: ID):
         # logout first
         self.logout()
@@ -191,18 +198,13 @@ class Console(Cmd):
         return True
 
     def do_login(self, name: str):
-        if name in identifier_map:
-            sender = identifier_map[name]
-        elif len(name) > 30:
-            sender = g_facebook.identifier(name)
+        sender = self.identifier(name)
+        if sender is None:
+            self.info('unknown user: %s' % name)
         else:
-            sender = None
-        if sender:
             self.info('login as %s' % sender)
             self.login(identifier=sender)
             self.prompt = Console.prompt + sender.name + '$ '
-        else:
-            self.info('unknown user: %s' % name)
 
     def do_logout(self, arg):
         if self.client is None:
@@ -216,21 +218,14 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
-        if name == 'station':
-            self.receiver = g_station.identifier
-            self.info('talking with station(%s) now!' % self.receiver)
-        elif name in identifier_map:
-            self.receiver = identifier_map[name]
-            self.info('talking with %s now!' % self.receiver)
+        receiver = self.identifier(name)
+        if receiver is None:
+            self.info('unknown user: %s' % name)
         else:
-            receiver = g_facebook.identifier(name)
-            if receiver:
-                self.client.check_meta(identifier=receiver)
-                # switch receiver
-                self.receiver = receiver
-                self.info('talking with %s now!' % self.receiver)
-            else:
-                self.info('unknown user: %s' % name)
+            self.info('talking with %s now' % receiver)
+            self.client.check_meta(identifier=receiver)
+            # switch receiver
+            self.receiver = receiver
 
     def do_send(self, msg: str):
         if self.client is None:
