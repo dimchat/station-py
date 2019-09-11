@@ -32,7 +32,7 @@
 
 import os
 
-from mkm import Meta, PrivateKey, ID
+from mkm import Meta, PrivateKey
 
 from dimp import Profile, Station
 
@@ -43,6 +43,7 @@ from common import ApplePushNotificationService, SessionServer
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
+from .cfg_db import base_dir, apns_credentials
 from .cfg_admins import administrators
 from .cfg_gsp import all_stations, local_servers
 from .cfg_gsp import station_id, station_host, station_port
@@ -68,7 +69,7 @@ g_keystore = KeyStore()
     for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
 """
 g_database = Database()
-g_database.base_dir = '/data/.dim/'
+g_database.base_dir = base_dir
 Log.info("database directory: %s" % g_database.base_dir)
 
 
@@ -106,7 +107,6 @@ g_session_server = SessionServer()
 
     A service for pushing notification to offline device
 """
-apns_credentials = '/data/.dim/private/apns-key.pem'
 g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=True)
 g_apns.delegate = g_database
 
