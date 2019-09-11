@@ -30,7 +30,7 @@
     Message processor for Request Handler
 """
 
-from dimp import ID, Meta
+from dimp import ID, Profile
 from dimp import ContentType, Content, TextContent, Command
 from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
@@ -39,7 +39,7 @@ from common import Log
 from common import Session
 
 from .config import g_facebook, g_database, g_session_server, g_dispatcher, g_receptionist, g_monitor
-from .config import current_station
+from .cfg_gsp import station_name
 
 
 class MessageProcessor:
@@ -64,18 +64,17 @@ class MessageProcessor:
     """
     def process(self, msg: ReliableMessage) -> Content:
         # verify signature
-        s_msg = current_station.verify_message(msg)
+        s_msg = self.request_handler.verify_message(msg)
         if s_msg is None:
             Log.info('MessageProcessor: message verify error %s' % msg)
             response = TextContent.new(text='Signature error')
             response['signature'] = msg.signature
             return response
-        # check receiver & session
+        # try to decrypt message
         sender = g_facebook.identifier(s_msg.envelope.sender)
-        receiver = g_facebook.identifier(s_msg.envelope.receiver)
-        if receiver == current_station.identifier:
+        content = self.request_handler.decrypt_message(s_msg)
+        if content is not None:
             # the client is talking with station (handshake, search users, get meta/profile, ...)
-            content = current_station.decrypt_message(s_msg)
             if content.type == ContentType.Command:
                 Log.info('MessageProcessor: command from client %s, %s' % (self.client_address, content))
                 return self.process_command(sender=sender, content=content)
@@ -152,53 +151,63 @@ class MessageProcessor:
     def process_meta_command(cmd: MetaCommand) -> Content:
         identifier = cmd.identifier
         meta = cmd.meta
-        if meta:
+        if meta is not None:
             # received a meta for ID
-            meta = Meta(meta)
             Log.info('MessageProcessor: received meta %s' % identifier)
             if g_database.save_meta(identifier=identifier, meta=meta):
-                # meta saved
+                Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
                 return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
-                # meta not match
+                Log.info('MessageProcessor: meta not match %s, %s' % (identifier, meta))
                 return TextContent.new(text='Meta not match %s!' % identifier)
+        # querying meta for ID
+        Log.info('MessageProcessor: search meta %s' % identifier)
+        meta = g_database.meta(identifier=identifier)
+        # response
+        if meta is not None:
+            return MetaCommand.response(identifier=identifier, meta=meta)
         else:
-            # querying meta for ID
-            Log.info('MessageProcessor: search meta %s' % identifier)
-            meta = g_database.meta(identifier=identifier)
-            if meta:
-                return MetaCommand.response(identifier=identifier, meta=meta)
-            else:
-                return TextContent.new(text='Sorry, meta for %s not found.' % identifier)
+            return TextContent.new(text='Sorry, meta for %s not found.' % identifier)
 
-    @staticmethod
-    def process_profile_command(cmd: ProfileCommand) -> Content:
+    def process_profile_command(self, cmd: ProfileCommand) -> Content:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta is not None:
+            # received a meta for ID
             if g_database.save_meta(identifier=identifier, meta=meta):
-                # meta saved
-                Log.info('MessageProcessor: meta cached %s, %s' % (identifier, meta))
+                Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
             else:
                 Log.info('MessageProcessor: meta not match %s, %s' % (identifier, meta))
+                return TextContent.new(text='Meta not match %s!' % identifier)
         profile = cmd.profile
         if profile is not None:
             # received a new profile for ID
             Log.info('MessageProcessor: received profile %s' % identifier)
             if g_database.save_profile(profile=profile):
-                # profile saved
+                Log.info('MessageProcessor: profile saved %s' % profile)
                 return ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
-                # signature not match
+                Log.info('MessageProcessor: profile not valid %s' % profile)
                 return TextContent.new(text='Profile signature not match %s!' % identifier)
+        # querying profile for ID
+        Log.info('MessageProcessor: search profile %s' % identifier)
+        profile = g_facebook.profile(identifier=identifier)
+        if identifier == self.request_handler.station.identifier:
+            # querying profile of current station
+            private_key = g_facebook.private_key_for_signature(identifier=identifier)
+            if private_key is not None:
+                if profile is None:
+                    profile = Profile.new(identifier=identifier)
+                # NOTICE: maybe the station manager config different station with same ID,
+                #         or the client query different station with same ID,
+                #         so we need to correct station name here
+                profile.name = station_name
+                profile.sign(private_key=private_key)
+        # response
+        if profile is not None:
+            return ProfileCommand.response(identifier=identifier, profile=profile)
         else:
-            # querying profile for ID
-            Log.info('MessageProcessor: search profile %s' % identifier)
-            profile = g_database.profile(identifier=identifier)
-            if profile is not None:
-                return ProfileCommand.response(identifier=identifier, profile=profile)
-            else:
-                return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
+            return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
     def process_users_command(self) -> Content:
         Log.info('MessageProcessor: get online user(s) for %s' % self.identifier)

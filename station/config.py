@@ -248,6 +248,7 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
     identifier = g_facebook.identifier(identifier)
     server = Server(identifier=identifier, host=host, port=port)
     server.delegate = g_facebook
+    server.messenger = g_messenger
     return server
 
 
@@ -297,7 +298,6 @@ station_id = g_facebook.identifier(station_id)
 current_station = Server(identifier=station_id, host=station_host, port=station_port)
 current_station.delegate = g_facebook
 current_station.messenger = g_messenger
-current_station.running = False
 Log.info('current station: %s' % current_station)
 
 # set current station for key store

@@ -59,8 +59,8 @@ class Server(Station):
 
     def __init__(self, identifier: ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.running = False
         self.messenger: Messenger = None
+        self.running = False
 
     def pack(self, content: Content, receiver: ID) -> ReliableMessage:
         """ Pack message from this station """

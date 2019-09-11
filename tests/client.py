@@ -154,6 +154,8 @@ class Console(Cmd):
         client = Client(identifier=identifier)
         client.connect(station=g_station)
         self.client = client
+        if self.receiver is None:
+            self.receiver = client.station.identifier
 
     def logout(self):
         client = self.client
@@ -161,6 +163,7 @@ class Console(Cmd):
             self.info('disconnect from %s ...' % client.station)
             client.disconnect()
             self.client = None
+        self.receiver = None
 
     def emptyline(self):
         print('')
@@ -207,7 +210,6 @@ class Console(Cmd):
         else:
             self.info('%s logout' % self.client.identifier)
             self.logout()
-        self.receiver = None
         self.prompt = Console.prompt
 
     def do_call(self, name: str):
@@ -292,6 +294,4 @@ if __name__ == '__main__':
     load_accounts(facebook=g_facebook, database=g_database)
 
     console = Console()
-    console.receiver = g_station.identifier
-
     console.cmdloop()

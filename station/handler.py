@@ -34,7 +34,7 @@ import json
 from socketserver import BaseRequestHandler
 
 from dimp import ID
-from dimp import TextContent, ReliableMessage
+from dimp import Content, TextContent, SecureMessage, ReliableMessage
 
 from common import Log
 from common import NetMsgHead, NetMsg
@@ -42,7 +42,9 @@ from common import Session
 
 from .processor import MessageProcessor
 
-from .config import g_facebook, g_session_server, g_monitor, current_station
+from .config import g_facebook, g_session_server, g_monitor
+from .config import current_station, local_servers
+from .cfg_gsp import station_name
 
 
 class RequestHandler(BaseRequestHandler):
@@ -53,6 +55,8 @@ class RequestHandler(BaseRequestHandler):
         self.processor = None
         # current session (with identifier as remote user ID)
         self.session = None
+        # current station
+        self.station = None
 
     @property
     def identifier(self) -> ID:
@@ -74,6 +78,27 @@ class RequestHandler(BaseRequestHandler):
         self.session = g_session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
 
+    def verify_message(self, msg: ReliableMessage) -> SecureMessage:
+        return self.station.verify_message(msg=msg)
+
+    def decrypt_message(self, msg: SecureMessage) -> Content:
+        receiver = g_facebook.identifier(msg.envelope.receiver)
+        if receiver.type.is_station():
+            if self.station.identifier == receiver:
+                station = self.station
+            else:
+                station = None
+                # sent to other local station
+                for srv in local_servers:
+                    if srv.identifier == receiver:
+                        # got it
+                        station = srv
+                        self.station = station
+                        break
+            if station is not None:
+                # the client is talking with station (handshake, search users, get meta/profile, ...)
+                return station.decrypt_message(msg)
+
     def send(self, data: bytes) -> bool:
         try:
             self.request.sendall(data)
@@ -94,11 +119,13 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         Log.info('%s: set up with %s' % (self, self.client_address))
-        g_monitor.report(message='Client connected %s [%s]' % (self.client_address, current_station.name))
+        g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
         # current session
         self.session = None
+        # current station
+        self.station = current_station
 
     def finish(self):
         if self.session is not None:
@@ -106,13 +133,13 @@ class RequestHandler(BaseRequestHandler):
             Log.info('RequestHandler: disconnect from session %s, %s' % (self.identifier, self.client_address))
             g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
             response = TextContent.new(text='Bye!')
-            msg = current_station.pack(receiver=self.identifier, content=response)
+            msg = self.station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             # clear current session
             g_session_server.remove_session(session=self.session)
             self.session = None
         else:
-            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, current_station.name))
+            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
         Log.info('RequestHandler: finish (%s, %s)' % self.client_address)
 
     """
@@ -249,7 +276,7 @@ class RequestHandler(BaseRequestHandler):
             if res:
                 # Log.info('RequestHandler: response to client', self.client_address, res)
                 receiver = g_facebook.identifier(msg.envelope.sender)
-                return current_station.pack(receiver=receiver, content=res)
+                return self.station.pack(content=res, receiver=receiver)
         except Exception as error:
             Log.info('RequestHandler: receive message package error %s' % error)
 
