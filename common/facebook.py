@@ -30,6 +30,9 @@
     Barrack for cache entities
 """
 
+from mkm import ANYONE, EVERYONE
+from mkm.address import ANYWHERE, EVERYWHERE
+
 from dimp import PrivateKey
 from dimp import ID, NetworkID, Meta, Profile
 from dimp import User, LocalUser, Group
@@ -145,6 +148,15 @@ class Facebook(Barrack):
     #    IGroupDataSource
     #
     def founder(self, identifier: ID) -> ID:
+        if identifier == EVERYONE:
+            # Consensus: the founder of group 'everyone@everywhere'
+            #            'Albert Moky'
+            return self.identifier('founder')
+        if identifier.address == EVERYWHERE:
+            # DISCUSS: who should be the founder of group 'xxx@everywhere'?
+            #          'anyone@anywhere', or 'xxx.founder@anywhere'
+            return ANYONE
+        # check all members with group meta
         meta = self.meta(identifier=identifier)
         members = self.members(identifier=identifier)
         if meta is not None and members is not None:
@@ -154,8 +166,25 @@ class Facebook(Barrack):
                     return identifier
 
     def owner(self, identifier: ID) -> ID:
+        # Consensus: the owner of group 'everyone@everywhere'
+        #            'anyone@anywhere'
+        if identifier.address == EVERYWHERE:
+            # DISCUSS: who should be the owner of group 'xxx@everywhere'?
+            #          'anyone@anywhere', or 'xxx.owner@anywhere'
+            return ANYONE
+        # Polylogue's owner is the founder
         if identifier.type.value == NetworkID.Polylogue:
             return self.founder(identifier=identifier)
 
     def members(self, identifier: ID) -> list:
+        if identifier == EVERYONE:
+            # Consensus: the member of group 'everyone@everywhere'
+            #            'anyone@anywhere'
+            return [ANYONE]
+        if identifier.address == EVERYWHERE:
+            # DISCUSS: who should be the member of group 'xxx@everywhere'?
+            #          'anyone@anywhere', or 'xxx@anywhere', or 'xxx.member@anywhere'
+            member = ID(name=identifier.name, address=ANYWHERE)
+            return [member]
+        # get from database
         return self.database.members(group=identifier)

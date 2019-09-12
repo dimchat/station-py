@@ -69,9 +69,14 @@ class AddressNameTable(Storage):
                 k = pair[0]
                 v = pair[1]
                 dictionary[k] = self.identifier(v)
-        # reserved names
-        dictionary[ANYONE.name] = ANYONE
+        #
+        #  Reserved names
+        #
+        dictionary['all'] = EVERYONE
         dictionary[EVERYONE.name] = EVERYONE
+        dictionary[ANYONE.name] = ANYONE
+        dictionary['owner'] = ANYONE
+        dictionary['founder'] = ID('moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ')  # 'Albert Moky'
         return dictionary
 
     def __save_records(self, caches: dict) -> bool:
@@ -100,17 +105,21 @@ class AddressNameTable(Storage):
         """ Get ID by short name """
         if self.__caches is None:
             self.__caches = self.__load_records()
+        name = name.lower()
         return self.__caches.get(name)
 
-    def names(self, identifier: ID) -> list:
+    def names(self, identifier: str) -> list:
         """ Get all short names with this ID """
         if self.__caches is None:
             self.__caches = self.__load_records()
+        caches: dict = self.__caches.copy()
+        # all names
+        if '*' == identifier:
+            return list(caches.keys())
+        # get keys with the same value
         array = []
-        caches = self.__caches.copy()
-        keys = caches.keys()
-        for k in keys:
-            v = caches.get(k)
+        for k in caches:
+            v = caches[k]
             if v == identifier:
                 array.append(k)
         return array
