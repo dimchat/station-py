@@ -70,7 +70,17 @@ class Facebook(Barrack):
     #
     #   ISocialNetworkDataSource
     #
+    def identifier(self, string: str) -> ID:
+        if string is not None:
+            # try from ANS record
+            identifier = self.database.ans_record(name=string)
+            if identifier is not None:
+                return identifier
+            # get from barrack
+            return super().identifier(string=string)
+
     def user(self, identifier: ID) -> User:
+        #  get from barrack cache
         user = super().user(identifier=identifier)
         if user is not None:
             return user
@@ -82,18 +92,20 @@ class Facebook(Barrack):
                 user = User(identifier=identifier)
             else:
                 user = LocalUser(identifier=identifier)
+            # cache it in barrack
             self.cache_user(user=user)
             return user
 
     def group(self, identifier: ID) -> Group:
+        # get from barrack cache
         group = super().group(identifier=identifier)
         if group is not None:
             return group
         # check meta
         meta = self.meta(identifier=identifier)
         if meta is not None:
-            # create group
             group = Group(identifier=identifier)
+            # cache it in barrack
             self.cache_group(group=group)
             return group
 
@@ -101,10 +113,12 @@ class Facebook(Barrack):
     #   IEntityDataSource
     #
     def meta(self, identifier: ID) -> Meta:
+        #  get from barrack cache
         meta = super().meta(identifier=identifier)
         if meta is None:
             meta = self.database.meta(identifier=identifier)
             if meta is not None:
+                # cache it in barrack
                 self.cache_meta(meta=meta, identifier=identifier)
         return meta
 

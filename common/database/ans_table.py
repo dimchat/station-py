@@ -25,6 +25,7 @@
 
 import os
 
+from mkm import ANYONE, EVERYONE
 from dimp import ID
 
 from .storage import Storage
@@ -68,6 +69,9 @@ class AddressNameTable(Storage):
                 k = pair[0]
                 v = pair[1]
                 dictionary[k] = self.identifier(v)
+        # reserved names
+        dictionary[ANYONE.name] = ANYONE
+        dictionary[EVERYONE.name] = EVERYONE
         return dictionary
 
     def __save_records(self, caches: dict) -> bool:

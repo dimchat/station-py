@@ -146,13 +146,6 @@ class Console(Cmd):
     def info(msg: str):
         print('\r%s' % msg)
 
-    @staticmethod
-    def identifier(name: str) -> ID:
-        identifier = g_ans.record(name=name)
-        if identifier is None and len(name) > 30:
-            identifier = g_facebook.identifier(name)
-        return identifier
-
     def login(self, identifier: ID):
         # logout first
         self.logout()
@@ -198,7 +191,7 @@ class Console(Cmd):
         return True
 
     def do_login(self, name: str):
-        sender = self.identifier(name)
+        sender = g_facebook.identifier(name)
         if sender is None:
             self.info('unknown user: %s' % name)
         else:
@@ -218,7 +211,7 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
-        receiver = self.identifier(name)
+        receiver = g_facebook.identifier(name)
         if receiver is None:
             self.info('unknown user: %s' % name)
         else:
@@ -258,28 +251,25 @@ class Console(Cmd):
             self.info('login first')
             return
         profile = None
-        if not name:
+        if name is None:
             identifier = self.client.identifier
-        elif name == 'station':
-            identifier = g_station.identifier
-        elif name in identifier_map:
-            identifier = identifier_map[name]
-        elif name.find('@') > 0:
-            identifier = g_facebook.identifier(name)
         elif name.startswith('{') and name.endswith('}'):
             identifier = self.client.identifier
             profile = json.loads(name)
         else:
-            self.info('I don\'t understand.')
-            return
+            identifier = g_facebook.identifier(name)
+            if identifier is None:
+                self.info('I don\'t understand.')
+                return
         if profile:
-            sig = self.client.sign(profile.encode('utf-8'))
-            profile = {
-                'ID': identifier,
-                'data': profile,
-                'signature': base64_encode(sig),
-            }
-            cmd = ProfileCommand.response(identifier=identifier, profile=Profile(profile))
+            private_key = g_facebook.private_key_for_signature(identifier=self.client.identifier)
+            assert private_key is not None, 'failed to get private key for client: %s' % self.client
+            # create new profile and set all properties
+            tai = Profile.new(identifier=identifier)
+            for key in profile:
+                tai.set_property(key, profile.get(key))
+            tai.sign(private_key)
+            cmd = ProfileCommand.response(identifier=identifier, profile=tai)
         else:
             cmd = ProfileCommand.query(identifier=identifier)
         self.client.send_command(cmd=cmd)
