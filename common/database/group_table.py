@@ -77,3 +77,9 @@ class GroupTable(Storage):
     def save_members(self, members: list, group: ID) -> bool:
         if self.__cache_members(members=members, identifier=group):
             return self.__save_members(members=members, identifier=group)
+
+    def founder(self, group: ID) -> ID:
+        pass
+
+    def owner(self, group: ID) -> ID:
+        pass

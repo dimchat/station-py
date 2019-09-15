@@ -34,7 +34,7 @@ from mkm import ANYONE, EVERYONE
 from mkm.address import ANYWHERE, EVERYWHERE
 
 from dimp import PrivateKey
-from dimp import ID, NetworkID, Meta, Profile
+from dimp import ID, Meta, Profile
 from dimp import User, LocalUser, Group
 from dimp import Barrack
 
@@ -63,6 +63,7 @@ class Facebook(Barrack):
         return self.database.verify_profile(profile=profile)
 
     def nickname(self, identifier: ID) -> str:
+        assert identifier.type.is_user(), 'ID error: %s' % identifier
         user = self.user(identifier=identifier)
         if user is not None:
             return user.name
@@ -148,6 +149,11 @@ class Facebook(Barrack):
     #    IGroupDataSource
     #
     def founder(self, identifier: ID) -> ID:
+        # get from database
+        founder = self.database.founder(group=identifier)
+        if founder is not None:
+            return founder
+        # broadcast
         if identifier == EVERYONE:
             # Consensus: the founder of group 'everyone@everywhere'
             #            'Albert Moky'
@@ -156,27 +162,28 @@ class Facebook(Barrack):
             # DISCUSS: who should be the founder of group 'xxx@everywhere'?
             #          'anyone@anywhere', or 'xxx.founder@anywhere'
             return ANYONE
-        # check all members with group meta
-        meta = self.meta(identifier=identifier)
-        members = self.members(identifier=identifier)
-        if meta is not None and members is not None:
-            for identifier in members:
-                m = self.meta(identifier=identifier)
-                if m is not None and meta.match_public_key(m.key):
-                    return identifier
 
     def owner(self, identifier: ID) -> ID:
-        # Consensus: the owner of group 'everyone@everywhere'
-        #            'anyone@anywhere'
+        # get from database
+        owner = self.database.owner(group=identifier)
+        if owner is not None:
+            return owner
+        # broadcast
+        if identifier == EVERYONE:
+            # Consensus: the owner of group 'everyone@everywhere'
+            #            'anyone@anywhere'
+            return ANYONE
         if identifier.address == EVERYWHERE:
             # DISCUSS: who should be the owner of group 'xxx@everywhere'?
             #          'anyone@anywhere', or 'xxx.owner@anywhere'
             return ANYONE
-        # Polylogue's owner is the founder
-        if identifier.type.value == NetworkID.Polylogue:
-            return self.founder(identifier=identifier)
 
     def members(self, identifier: ID) -> list:
+        # get from database
+        members = self.database.members(group=identifier)
+        if members is not None:
+            return members
+        # broadcast
         if identifier == EVERYONE:
             # Consensus: the member of group 'everyone@everywhere'
             #            'anyone@anywhere'
@@ -186,5 +193,3 @@ class Facebook(Barrack):
             #          'anyone@anywhere', or 'xxx@anywhere', or 'xxx.member@anywhere'
             member = ID(name=identifier.name, address=ANYWHERE)
             return [member]
-        # get from database
-        return self.database.members(group=identifier)

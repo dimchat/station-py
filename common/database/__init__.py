@@ -168,6 +168,31 @@ class Database:
     def members(self, group: ID) -> list:
         return self.__group_table.members(group=group)
 
+    def founder(self, group: ID) -> ID:
+        identifier = self.__group_table.founder(group=group)
+        if identifier is not None:
+            return identifier
+        # check each member's public key with group's meta.key
+        meta = self.meta(identifier=group)
+        members = self.members(group=group)
+        if meta is not None and members is not None:
+            for identifier in members:
+                m = self.meta(identifier=identifier)
+                if m is None:
+                    # TODO: query meta for this member from DIM network
+                    continue
+                if meta.match_public_key(m.key):
+                    # if public key matched, means the group is created by this member
+                    return identifier
+
+    def owner(self, group: ID) -> ID:
+        identifier = self.__group_table.owner(group=group)
+        if identifier is not None:
+            return identifier
+        if identifier.type.value == NetworkID.Polylogue:
+            # Polylogue's owner is the founder
+            return self.founder(group=group)
+
     """
         Reliable message for Receivers
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

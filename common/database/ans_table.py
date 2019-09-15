@@ -117,6 +117,7 @@ class AddressNameTable(Storage):
         if '*' == identifier:
             return list(caches.keys())
         # get keys with the same value
+        identifier = self.identifier(identifier)
         array = []
         for k in caches:
             v = caches[k]
