@@ -29,6 +29,7 @@
 
 """
 
+from mkm import is_broadcast
 from dimp import PrivateKey
 from dimp import NetworkID, ID, Meta, Profile
 from dimp import ReliableMessage
@@ -172,6 +173,22 @@ class Database:
         identifier = self.__group_table.founder(group=group)
         if identifier is not None:
             return identifier
+        # check for broadcast
+        if is_broadcast(identifier=group):
+            name = identifier.name
+            if name is None:
+                length = 0
+            else:
+                length = len(name)
+            if length == 0 or (length == 8 and name == 'everyone'):
+                # Consensus: the founder of group 'everyone@everywhere'
+                #            'Albert Moky'
+                founder = 'founder'
+            else:
+                # DISCUSS: who should be the founder of group 'xxx@everywhere'?
+                #          'anyone@anywhere', or 'xxx.founder@anywhere'
+                founder = 'anyone'
+            return self.ans_record(name=founder)
         # check each member's public key with group's meta.key
         meta = self.meta(identifier=group)
         members = self.members(group=group)
@@ -186,12 +203,7 @@ class Database:
                     return identifier
 
     def owner(self, group: ID) -> ID:
-        identifier = self.__group_table.owner(group=group)
-        if identifier is not None:
-            return identifier
-        if identifier.type.value == NetworkID.Polylogue:
-            # Polylogue's owner is the founder
-            return self.founder(group=group)
+        return self.__group_table.owner(group=group)
 
     """
         Reliable message for Receivers

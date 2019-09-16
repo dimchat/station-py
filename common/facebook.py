@@ -30,9 +30,6 @@
     Barrack for cache entities
 """
 
-from mkm import ANYONE, EVERYONE
-from mkm.address import ANYWHERE, EVERYWHERE
-
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile
 from dimp import User, LocalUser, Group
@@ -153,43 +150,18 @@ class Facebook(Barrack):
         founder = self.database.founder(group=identifier)
         if founder is not None:
             return founder
-        # broadcast
-        if identifier == EVERYONE:
-            # Consensus: the founder of group 'everyone@everywhere'
-            #            'Albert Moky'
-            return self.identifier('founder')
-        if identifier.address == EVERYWHERE:
-            # DISCUSS: who should be the founder of group 'xxx@everywhere'?
-            #          'anyone@anywhere', or 'xxx.founder@anywhere'
-            return ANYONE
+        return super().founder(identifier=identifier)
 
     def owner(self, identifier: ID) -> ID:
         # get from database
         owner = self.database.owner(group=identifier)
         if owner is not None:
             return owner
-        # broadcast
-        if identifier == EVERYONE:
-            # Consensus: the owner of group 'everyone@everywhere'
-            #            'anyone@anywhere'
-            return ANYONE
-        if identifier.address == EVERYWHERE:
-            # DISCUSS: who should be the owner of group 'xxx@everywhere'?
-            #          'anyone@anywhere', or 'xxx.owner@anywhere'
-            return ANYONE
+        return super().owner(identifier=identifier)
 
     def members(self, identifier: ID) -> list:
         # get from database
         members = self.database.members(group=identifier)
         if members is not None:
             return members
-        # broadcast
-        if identifier == EVERYONE:
-            # Consensus: the member of group 'everyone@everywhere'
-            #            'anyone@anywhere'
-            return [ANYONE]
-        if identifier.address == EVERYWHERE:
-            # DISCUSS: who should be the member of group 'xxx@everywhere'?
-            #          'anyone@anywhere', or 'xxx@anywhere', or 'xxx.member@anywhere'
-            member = ID(name=identifier.name, address=ANYWHERE)
-            return [member]
+        return super().members(identifier=identifier)
