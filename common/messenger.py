@@ -85,6 +85,10 @@ class Messenger(Transceiver):
     def encrypt_sign(self, msg: InstantMessage) -> ReliableMessage:
         # 1. encrypt 'content' to 'data' for receiver
         s_msg = self.encrypt_message(msg=msg)
+        # 1.1. check group
+        group = msg.group
+        if group is not None:
+            s_msg.group = group
         # 2. sign 'data' by sender
         r_msg = self.sign_message(msg=s_msg)
         # OK
@@ -108,7 +112,7 @@ class Messenger(Transceiver):
     #
     #   Send message
     #
-    def send_message(self, msg: InstantMessage, callback: ICallback, split: bool) -> bool:
+    def send_message(self, msg: InstantMessage, callback: ICallback=None, split: bool=True) -> bool:
         """
         Send message (secured + certified) to target station
 
@@ -157,7 +161,9 @@ class CompletionHandler(ICompletionHandler):
         self.callback = cb
 
     def success(self):
-        self.callback.finished(result=self.msg, error=None)
+        if self.callback is not None:
+            self.callback.finished(result=self.msg, error=None)
 
     def failed(self, error):
-        self.callback.finished(result=self.msg, error=error)
+        if self.callback is not None:
+            self.callback.finished(result=self.msg, error=error)

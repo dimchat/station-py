@@ -33,6 +33,7 @@
 import json
 from time import sleep
 
+from mkm import is_broadcast
 from dimp import ID, Meta, Station
 from dimp import Content, Command, HandshakeCommand, MetaCommand
 from dimp import InstantMessage, ReliableMessage
@@ -82,12 +83,16 @@ class Robot(Terminal):
         """ Send message content to receiver """
         # check meta
         self.check_meta(identifier=receiver)
+        # check group message
+        if receiver.type.is_group():
+            content.group = receiver
         # create InstantMessage
         i_msg = InstantMessage.new(content=content, sender=self.identifier, receiver=receiver)
         # encrypt and sign
         r_msg = self.messenger.encrypt_sign(msg=i_msg)
         # send ReliableMessage
         return self.send_message(msg=r_msg)
+        # return self.messenger.send_message(msg=i_msg)
 
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
@@ -123,7 +128,7 @@ class Robot(Terminal):
     def check_meta(self, identifier: ID) -> Meta:
         facebook: Facebook = self.delegate
         meta = facebook.meta(identifier=identifier)
-        if meta is None:
+        if meta is None and not is_broadcast(identifier=identifier):
             # query meta from DIM network
             cmd = MetaCommand.query(identifier=identifier)
             self.send_command(cmd)
