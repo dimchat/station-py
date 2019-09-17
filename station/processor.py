@@ -102,27 +102,32 @@ class MessageProcessor:
         if 'handshake' == command:
             # handshake protocol
             return self.process_handshake(sender=sender, cmd=HandshakeCommand(content))
-        elif 'meta' == command:
+        if 'meta' == command:
             # meta protocol
             return self.process_meta_command(cmd=MetaCommand(content))
-        elif 'profile' == command:
+        if 'profile' == command:
             # profile protocol
             return self.process_profile_command(cmd=ProfileCommand(content))
-        elif 'users' == command:
+        # check session
+        session = self.current_session(identifier=sender)
+        if not session.valid:
+            # session invalid, handshake first
+            return self.process_handshake(sender)
+        # commands after handshake accepted
+        if 'login' == command:
+            # TODO: broadcast 'login' with POD to all stations
+            return self.process_login_command(cmd=Command(content))
+        if 'users' == command:
             # show online users (connected)
             return self.process_users_command()
-        elif 'search' == command:
+        if 'search' == command:
             # search users with keyword(s)
             return self.process_search_command(cmd=Command(content))
-        elif 'broadcast' == command:
-            session = self.current_session(identifier=sender)
-            if not session.valid:
-                # session invalid, handshake first
-                return self.process_handshake(sender)
+        if 'broadcast' == command or 'report' == command:
             # broadcast
             return self.process_broadcast_command(cmd=Command(content))
-        else:
-            Log.info('MessageProcessor: unknown command %s' % content)
+        # error
+        Log.info('MessageProcessor: unknown command %s' % content)
 
     def process_handshake(self, sender: ID, cmd: HandshakeCommand=None) -> Content:
         # set/update session in session server with new session key
@@ -209,6 +214,14 @@ class MessageProcessor:
         else:
             return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
+    def process_login_command(self, cmd: Command) -> Content:
+        Log.info('MessageProcessor: client login %s ' % self.identifier)
+        # TODO: broadcast login info to every stations
+        login = cmd.get('login')
+        content = ReceiptCommand.receipt(message='POD received')
+        content['login'] = login
+        return content
+
     def process_users_command(self) -> Content:
         Log.info('MessageProcessor: get online user(s) for %s' % self.identifier)
         users = g_session_server.random_users(max_count=20)
@@ -242,8 +255,28 @@ class MessageProcessor:
     def process_broadcast_command(self, cmd: Command) -> Content:
         Log.info('MessageProcessor: client broadcast %s, %s' % (self.identifier, cmd))
         title = cmd.get('title')
+        if 'apns' == title:
+            # submit device token for APNs
+            token = cmd.get('device_token')
+            Log.info('MessageProcessor: client report token %s' % token)
+            if token is not None:
+                g_database.save_device_token(token=token, identifier=self.identifier)
+                return ReceiptCommand.receipt(message='Token received')
+        if 'online' == title:
+            # welcome back!
+            Log.info('MessageProcessor: client online')
+            session = self.current_session()
+            g_receptionist.add_guest(identifier=session.identifier)
+            session.active = True
+            return ReceiptCommand.receipt(message='Client online received')
+        if 'offline' == title:
+            # goodbye!
+            Log.info('MessageProcessor: client offline')
+            session = self.current_session()
+            session.active = False
+            return ReceiptCommand.receipt(message='Client offline received')
         if 'report' == title:
-            # report client state
+            # compatible with v1.0
             state = cmd.get('state')
             Log.info('MessageProcessor: client report state %s' % state)
             if state is not None:
@@ -258,15 +291,8 @@ class MessageProcessor:
                     Log.info('MessageProcessor: unknown state %s' % state)
                     session.active = True
                 return ReceiptCommand.receipt(message='Client state received')
-        elif 'apns' == title:
-            # submit device token for APNs
-            token = cmd.get('device_token')
-            Log.info('MessageProcessor: client report token %s' % token)
-            if token is not None:
-                g_database.save_device_token(token=token, identifier=self.identifier)
-                return ReceiptCommand.receipt(message='Token received')
-        else:
-            Log.info('MessageProcessor: unknown broadcast command %s' % cmd)
+        # error
+        Log.info('MessageProcessor: unknown broadcast command %s' % cmd)
 
     def deliver_message(self, msg: ReliableMessage) -> Content:
         Log.info('MessageProcessor: deliver message %s, %s' % (self.identifier, msg.envelope))
