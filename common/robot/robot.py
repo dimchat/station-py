@@ -33,7 +33,7 @@
 import json
 from time import sleep
 
-from mkm import is_broadcast
+from mkm import is_broadcast, EVERYONE
 from dimp import ID, Meta, Station
 from dimp import Content, Command, HandshakeCommand, MetaCommand
 from dimp import InstantMessage, ReliableMessage
@@ -56,6 +56,12 @@ class Robot(Terminal):
 
     def __del__(self):
         self.disconnect()
+
+    def info(self, msg: str):
+        print('\r##### %s > %s' % (self.identifier.name, msg))
+
+    def error(self, msg: str):
+        print('\r!!!!! %s > %s' % (self.identifier.name, msg))
 
     def disconnect(self) -> bool:
         if self.connection:
@@ -97,6 +103,10 @@ class Robot(Terminal):
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
         return self.send_content(content=cmd, receiver=self.station.identifier)
+
+    def broadcast_content(self, content: Content, receiver: ID) -> bool:
+        content.group = EVERYONE
+        return self.send_content(content=content, receiver=receiver)
 
     def execute(self, cmd: Command, sender: ID) -> bool:
         """ Execute commands sent by commander """
@@ -140,8 +150,12 @@ class Robot(Terminal):
                     break
         return meta
 
-    def info(self, msg: str):
-        print('\r##### %s > %s' % (self.identifier.name, msg))
-
-    def error(self, msg: str):
-        print('\r!!!!! %s > %s' % (self.identifier.name, msg))
+    def process_message(self, msg: ReliableMessage) -> bool:
+        try:
+            return super().process_message(msg=msg)
+        except LookupError as error:
+            self.error('process message error: %s' % error)
+            facebook: Facebook = self.delegate
+            sender = facebook.identifier(msg.envelope.sender)
+            self.check_meta(identifier=sender)
+            return super().process_message(msg=msg)

@@ -239,7 +239,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         """
         pass
 
-    def __receive_message(self, msg: ReliableMessage) -> bool:
+    def process_message(self, msg: ReliableMessage) -> bool:
         # verify and decrypt
         i_msg: InstantMessage = self.messenger.verify_decrypt(msg=msg)
         if i_msg is None:
@@ -265,7 +265,7 @@ class Terminal(LocalUser, IConnectionDelegate):
             line = data.decode('utf-8')
             msg = json.loads(line)
             r_msg = ReliableMessage(msg)
-            self.__receive_message(r_msg)
+            self.process_message(r_msg)
         except UnicodeDecodeError as error:
             print('Terminal > decode error: %s' % error)
         except ValueError as error:

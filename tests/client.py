@@ -174,6 +174,7 @@ class Console(Cmd):
         print('        profile <ID>      - query profile with ID')
         print('        call <ID>         - change receiver to another user (or "station")')
         print('        send <text>       - send message')
+        print('        broadcast <text>  - send broadcast message')
         print('        exit              - terminate')
         print('')
         if self.client:
@@ -226,6 +227,14 @@ class Console(Cmd):
         if len(msg) > 0:
             content = TextContent.new(text=msg)
             self.client.send_content(content=content, receiver=self.receiver)
+
+    def do_broadcast(self, msg: str):
+        if self.client is None:
+            self.info('login first')
+            return
+        if len(msg) > 0:
+            content = TextContent.new(text=msg)
+            self.client.broadcast_content(content=content, receiver=self.receiver)
 
     def do_show(self, name: str):
         if self.client is None:
