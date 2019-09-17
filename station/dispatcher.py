@@ -30,6 +30,7 @@
     A dispatcher to decide which way to deliver message.
 """
 
+from mkm import is_broadcast
 from dimp import ReliableMessage
 
 from common import Database, Facebook, Log
@@ -46,28 +47,47 @@ class Dispatcher:
         self.apns: ApplePushNotificationService = None
         self.neighbors: list = []
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
+    def transmit(self, msg: ReliableMessage) -> bool:
+        # TODO: broadcast to neighbor stations
+        self.info('transmit to neighbors %s - %s' % (self.neighbors, msg))
+        return False
+
+    def broadcast(self, msg: ReliableMessage) -> bool:
+        # TODO: split for all users
+        self.info('broadcast message %s' % msg)
+        return False
+
     def deliver(self, msg: ReliableMessage) -> bool:
         receiver = self.facebook.identifier(msg.envelope.receiver)
+        if is_broadcast(identifier=receiver):
+            return self.broadcast(msg=msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            Log.info('Dispatcher: %s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
+            self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
-                    Log.info('Dispatcher: session invalid %s' % sess)
+                    self.info('session invalid %s' % sess)
                     continue
                 if sess.request_handler.push_message(msg):
                     success = success + 1
                 else:
-                    Log.info('Dispatcher: failed to push message via connection (%s, %s)' % sess.client_address)
+                    self.error('failed to push message via connection (%s, %s)' % sess.client_address)
             if success > 0:
-                Log.info('Dispatcher: message pushed to activated session(%d) of user: %s' % (success, receiver))
+                self.info('message pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        Log.info('Dispatcher: %s is offline, store message: %s' % (receiver, msg.envelope))
+        self.info('%s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
-        # TODO: broadcast to neighbor stations
+        # transmit to neighbor stations
+        self.transmit(msg=msg)
         # push notification
         to_user = self.facebook.user(identifier=receiver)
         sender = self.facebook.identifier(msg.envelope.sender)

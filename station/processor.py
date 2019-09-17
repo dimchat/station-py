@@ -32,13 +32,13 @@
 
 from dimp import ID, Profile
 from dimp import ContentType, Content, TextContent, Command
-from dimp import ReliableMessage
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
+from dimp import InstantMessage
 
 from common import Log
-from common import Session
+from common import Session, Server
 
-from .config import g_facebook, g_database, g_session_server, g_dispatcher, g_receptionist, g_monitor
+from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
 from .cfg_gsp import station_name
 
 
@@ -48,6 +48,12 @@ class MessageProcessor:
         super().__init__()
         self.request_handler = request_handler
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
     @property
     def client_address(self) -> str:
         return self.request_handler.client_address
@@ -56,44 +62,33 @@ class MessageProcessor:
     def identifier(self) -> ID:
         return self.request_handler.identifier
 
+    @property
+    def station(self) -> Server:
+        return self.request_handler.station
+
     def current_session(self, identifier: ID=None) -> Session:
         return self.request_handler.current_session(identifier=identifier)
+
+    def check_session(self, identifier: ID) -> Content:
+        return self.request_handler.check_session(identifier=identifier)
 
     """
         main entrance
     """
-    def process(self, msg: ReliableMessage) -> Content:
-        # verify signature
-        s_msg = self.request_handler.verify_message(msg)
-        if s_msg is None:
-            Log.info('MessageProcessor: message verify error %s' % msg)
-            response = TextContent.new(text='Signature error')
-            response['signature'] = msg.signature
-            return response
+    def process(self, msg: InstantMessage) -> Content:
         # try to decrypt message
-        sender = g_facebook.identifier(s_msg.envelope.sender)
-        content = self.request_handler.decrypt_message(s_msg)
-        if content is not None:
-            # the client is talking with station (handshake, search users, get meta/profile, ...)
-            if content.type == ContentType.Command:
-                Log.info('MessageProcessor: command from client %s, %s' % (self.client_address, content))
-                return self.process_command(sender=sender, content=content)
-            # talk with station?
-            Log.info('MessageProcessor: message from client %s, %s' % (self.client_address, content))
-            return self.process_dialog(sender=sender, content=content)
-        # check session valid
-        session = self.current_session(identifier=sender)
-        if not session.valid:
-            # session invalid, handshake first
-            # NOTICE: if the client try to send message to another user before handshake,
-            #         the message will be lost!
-            return self.process_handshake(sender)
-        # deliver message for receiver
-        Log.info('MessageProcessor: delivering message %s' % msg.envelope)
-        return self.deliver_message(msg)
+        sender = g_facebook.identifier(msg.envelope.sender)
+        content = msg.content
+        # the client is talking with station (handshake, search users, get meta/profile, ...)
+        if content.type == ContentType.Command:
+            self.info('command from client %s, %s' % (self.client_address, content))
+            return self.process_command(sender=sender, content=content)
+        # talk with station?
+        self.info('message from client %s, %s' % (self.client_address, content))
+        return self.process_dialog(sender=sender, content=content)
 
     def process_dialog(self, sender: ID, content: Content) -> Content:
-        Log.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
+        self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
         # TEST: response client with the same message here
         return content
 
@@ -108,14 +103,13 @@ class MessageProcessor:
         if 'profile' == command:
             # profile protocol
             return self.process_profile_command(cmd=ProfileCommand(content))
-        # check session
-        session = self.current_session(identifier=sender)
-        if not session.valid:
-            # session invalid, handshake first
-            return self.process_handshake(sender)
+        # check session valid
+        handshake = self.check_session(identifier=sender)
+        if handshake is not None:
+            return handshake
         # commands after handshake accepted
         if 'login' == command:
-            # TODO: broadcast 'login' with POD to all stations
+            # login protocol
             return self.process_login_command(cmd=Command(content))
         if 'users' == command:
             # show online users (connected)
@@ -124,14 +118,14 @@ class MessageProcessor:
             # search users with keyword(s)
             return self.process_search_command(cmd=Command(content))
         if 'broadcast' == command or 'report' == command:
-            # broadcast
+            # broadcast or report
             return self.process_broadcast_command(cmd=Command(content))
         # error
-        Log.info('MessageProcessor: unknown command %s' % content)
+        self.error('unknown command %s' % content)
 
     def process_handshake(self, sender: ID, cmd: HandshakeCommand=None) -> Content:
         # set/update session in session server with new session key
-        Log.info('MessageProcessor: handshake with client %s, %s' % (self.client_address, sender))
+        self.info('handshake with client %s, %s' % (self.client_address, sender))
         if cmd is None:
             session_key = None
         else:
@@ -143,7 +137,7 @@ class MessageProcessor:
             session.active = True
             nickname = g_facebook.nickname(identifier=sender)
             cli = self.client_address
-            Log.info('MessageProcessor: handshake accepted %s %s %s, %s' % (nickname, cli, sender, session_key))
+            self.info('handshake accepted %s %s %s, %s' % (nickname, cli, sender, session_key))
             g_monitor.report(message='User %s logged in %s %s' % (nickname, cli, sender))
             # add the new guest for checking offline messages
             g_receptionist.add_guest(identifier=sender)
@@ -152,21 +146,20 @@ class MessageProcessor:
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.session_key)
 
-    @staticmethod
-    def process_meta_command(cmd: MetaCommand) -> Content:
+    def process_meta_command(self, cmd: MetaCommand) -> Content:
         identifier = cmd.identifier
         meta = cmd.meta
         if meta is not None:
             # received a meta for ID
-            Log.info('MessageProcessor: received meta %s' % identifier)
+            self.info('received meta %s' % identifier)
             if g_facebook.save_meta(identifier=identifier, meta=meta):
-                Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
+                self.info('meta saved %s, %s' % (identifier, meta))
                 return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
             else:
-                Log.info('MessageProcessor: meta not match %s, %s' % (identifier, meta))
+                self.error('meta not match %s, %s' % (identifier, meta))
                 return TextContent.new(text='Meta not match %s!' % identifier)
         # querying meta for ID
-        Log.info('MessageProcessor: search meta %s' % identifier)
+        self.info('search meta %s' % identifier)
         meta = g_facebook.meta(identifier=identifier)
         # response
         if meta is not None:
@@ -180,24 +173,24 @@ class MessageProcessor:
         if meta is not None:
             # received a meta for ID
             if g_facebook.save_meta(identifier=identifier, meta=meta):
-                Log.info('MessageProcessor: meta saved %s, %s' % (identifier, meta))
+                self.info('meta saved %s, %s' % (identifier, meta))
             else:
-                Log.info('MessageProcessor: meta not match %s, %s' % (identifier, meta))
+                self.error('meta not match %s, %s' % (identifier, meta))
                 return TextContent.new(text='Meta not match %s!' % identifier)
         profile = cmd.profile
         if profile is not None:
             # received a new profile for ID
-            Log.info('MessageProcessor: received profile %s' % identifier)
+            self.info('received profile %s' % identifier)
             if g_facebook.save_profile(profile=profile):
-                Log.info('MessageProcessor: profile saved %s' % profile)
+                self.info('profile saved %s' % profile)
                 return ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
             else:
-                Log.info('MessageProcessor: profile not valid %s' % profile)
+                self.error('profile not valid %s' % profile)
                 return TextContent.new(text='Profile signature not match %s!' % identifier)
         # querying profile for ID
-        Log.info('MessageProcessor: search profile %s' % identifier)
+        self.info('search profile %s' % identifier)
         profile = g_facebook.profile(identifier=identifier)
-        if identifier == self.request_handler.station.identifier:
+        if identifier == self.station.identifier:
             # querying profile of current station
             private_key = g_facebook.private_key_for_signature(identifier=identifier)
             if private_key is not None:
@@ -215,15 +208,11 @@ class MessageProcessor:
             return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
 
     def process_login_command(self, cmd: Command) -> Content:
-        Log.info('MessageProcessor: client login %s ' % self.identifier)
-        # TODO: broadcast login info to every stations
-        login = cmd.get('login')
-        content = ReceiptCommand.receipt(message='POD received')
-        content['login'] = login
-        return content
+        # TODO: update login status and return nothing
+        pass
 
     def process_users_command(self) -> Content:
-        Log.info('MessageProcessor: get online user(s) for %s' % self.identifier)
+        self.info('get online user(s) for %s' % self.identifier)
         users = g_session_server.random_users(max_count=20)
         response = Command.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
@@ -231,7 +220,7 @@ class MessageProcessor:
         return response
 
     def process_search_command(self, cmd: Command) -> Content:
-        Log.info('MessageProcessor: search users for %s, %s' % (self.identifier, cmd))
+        self.info('search users for %s, %s' % (self.identifier, cmd))
         # keywords
         keywords = cmd.get('keywords')
         if keywords is None:
@@ -253,32 +242,32 @@ class MessageProcessor:
         return response
 
     def process_broadcast_command(self, cmd: Command) -> Content:
-        Log.info('MessageProcessor: client broadcast %s, %s' % (self.identifier, cmd))
+        self.info('client broadcast %s, %s' % (self.identifier, cmd))
         title = cmd.get('title')
         if 'apns' == title:
             # submit device token for APNs
             token = cmd.get('device_token')
-            Log.info('MessageProcessor: client report token %s' % token)
+            self.info('client report token %s' % token)
             if token is not None:
                 g_database.save_device_token(token=token, identifier=self.identifier)
                 return ReceiptCommand.receipt(message='Token received')
         if 'online' == title:
             # welcome back!
-            Log.info('MessageProcessor: client online')
+            self.info('client online')
             session = self.current_session()
             g_receptionist.add_guest(identifier=session.identifier)
             session.active = True
             return ReceiptCommand.receipt(message='Client online received')
         if 'offline' == title:
             # goodbye!
-            Log.info('MessageProcessor: client offline')
+            self.info('client offline')
             session = self.current_session()
             session.active = False
             return ReceiptCommand.receipt(message='Client offline received')
         if 'report' == title:
             # compatible with v1.0
             state = cmd.get('state')
-            Log.info('MessageProcessor: client report state %s' % state)
+            self.info('client report state %s' % state)
             if state is not None:
                 session = self.current_session()
                 if 'background' == state:
@@ -288,31 +277,8 @@ class MessageProcessor:
                     g_receptionist.add_guest(identifier=session.identifier)
                     session.active = True
                 else:
-                    Log.info('MessageProcessor: unknown state %s' % state)
+                    self.error('unknown state %s' % state)
                     session.active = True
                 return ReceiptCommand.receipt(message='Client state received')
         # error
-        Log.info('MessageProcessor: unknown broadcast command %s' % cmd)
-
-    def deliver_message(self, msg: ReliableMessage) -> Content:
-        Log.info('MessageProcessor: deliver message %s, %s' % (self.identifier, msg.envelope))
-        g_dispatcher.deliver(msg)
-        # response to sender
-        response = ReceiptCommand.receipt(message='Message delivering')
-        # extra info
-        sender = msg.get('sender')
-        receiver = msg.get('receiver')
-        time = msg.get('time')
-        group = msg.get('group')
-        signature = msg.get('signature')
-        # envelope
-        response['sender'] = sender
-        response['receiver'] = receiver
-        if time is not None:
-            response['time'] = time
-        # group message?
-        if group is not None and group != receiver:
-            response['group'] = group
-        # signature
-        response['signature'] = signature
-        return response
+        self.error('unknown broadcast command %s' % cmd)

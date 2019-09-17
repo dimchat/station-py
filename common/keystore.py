@@ -89,7 +89,7 @@ class KeyStore(KeyCache):
             return False
         with open(path, 'w') as file:
             file.write(json.dumps(key_map))
-            Log.info('[DB] keystore write into file: %s' % path)
+            Log.info('KeyStore: wrote into file: %s' % path)
             return True
 
     def load_keys(self) -> dict:

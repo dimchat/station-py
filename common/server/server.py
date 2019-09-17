@@ -81,11 +81,10 @@ class Server(Station):
                 save_freshman(identifier=sender)
         return self.messenger.verify_message(msg=msg)
 
-    def decrypt_message(self, msg: SecureMessage) -> Content:
+    def decrypt_message(self, msg: SecureMessage) -> InstantMessage:
         """ Decrypt message for this station """
         s_msg = msg.trim(self.identifier)
-        i_msg = self.messenger.decrypt_message(msg=s_msg)
-        return i_msg.content
+        return self.messenger.decrypt_message(msg=s_msg)
 
     def sign(self, data: bytes) -> bytes:
         facebook: Facebook = self.delegate

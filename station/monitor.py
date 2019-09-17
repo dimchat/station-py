@@ -53,6 +53,12 @@ class Monitor:
         self.sender: ID = None
         self.admins: set = set()
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
     def report(self, message: str) -> int:
         success = 0
         for receiver in self.admins:
@@ -62,7 +68,7 @@ class Monitor:
 
     def send_report(self, text: str, receiver: ID) -> bool:
         if self.sender is None:
-            Log.info('Monitor: sender not set yet')
+            self.error('sender not set yet')
             return False
         sender = self.facebook.identifier(self.sender)
         receiver = self.facebook.identifier(receiver)
@@ -73,21 +79,21 @@ class Monitor:
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
-            Log.info('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
+            self.info('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
             for sess in sessions:
                 if sess.valid is False or sess.active is False:
-                    Log.info('Monitor: session invalid %s' % sess)
+                    self.info('session invalid %s' % sess)
                     continue
                 if sess.request_handler.push_message(r_msg):
                     success = success + 1
                 else:
-                    Log.info('Monitor: failed to push report via connection (%s, %s)' % sess.client_address)
+                    self.error('failed to push report via connection (%s, %s)' % sess.client_address)
             if success > 0:
-                Log.info('Monitor: report pushed to activated session(%d) of user: %s' % (success, receiver))
+                self.info('report pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        Log.info('Monitor: %s is offline, store report: %s' % (receiver, text))
+        self.info('%s is offline, store report: %s' % (receiver, text))
         self.database.store_message(r_msg)
         # push notification
         return self.apns.push(identifier=receiver, message=text)

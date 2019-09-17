@@ -33,16 +33,18 @@
 import json
 from socketserver import BaseRequestHandler
 
+from mkm import is_broadcast
 from dimp import ID
-from dimp import Content, TextContent, SecureMessage, ReliableMessage
+from dimp import Content, TextContent, ReceiptCommand
+from dimp import InstantMessage, SecureMessage, ReliableMessage
 
 from common import Log
 from common import NetMsgHead, NetMsg
-from common import Session
+from common import Session, Server
 
 from .processor import MessageProcessor
 
-from .config import g_facebook, g_session_server, g_monitor
+from .config import g_facebook, g_session_server, g_monitor, g_dispatcher
 from .config import current_station, local_servers
 from .cfg_gsp import station_name
 
@@ -52,11 +54,17 @@ class RequestHandler(BaseRequestHandler):
     def __init__(self, request, client_address, server):
         super().__init__(request=request, client_address=client_address, server=server)
         # message processor
-        self.processor = None
+        self.processor: MessageProcessor = None
         # current session (with identifier as remote user ID)
-        self.session = None
+        self.session: Session = None
         # current station
-        self.station = None
+        self.station: Server = None
+
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
     @property
     def identifier(self) -> ID:
@@ -78,16 +86,25 @@ class RequestHandler(BaseRequestHandler):
         self.session = g_session_server.session_create(identifier=identifier, request_handler=self)
         return self.session
 
+    def check_session(self, identifier: ID) -> Content:
+        session = self.current_session(identifier=identifier)
+        if not session.valid:
+            # session invalid, handshake first
+            # NOTICE: if the client try to send message to another user before handshake,
+            #         the message will be lost!
+            return self.processor.process_handshake(identifier)
+
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
         return self.station.verify_message(msg=msg)
 
-    def decrypt_message(self, msg: SecureMessage) -> Content:
+    def decrypt_message(self, msg: SecureMessage) -> InstantMessage:
+        station = None
         receiver = g_facebook.identifier(msg.envelope.receiver)
         if receiver.type.is_station():
+            # check local stations
             if self.station.identifier == receiver:
                 station = self.station
             else:
-                station = None
                 # sent to other local station
                 for srv in local_servers:
                     if srv.identifier == receiver:
@@ -95,30 +112,95 @@ class RequestHandler(BaseRequestHandler):
                         station = srv
                         self.station = station
                         break
-            if station is not None:
-                # the client is talking with station (handshake, search users, get meta/profile, ...)
-                return station.decrypt_message(msg)
+        elif is_broadcast(identifier=receiver):
+            # anyone
+            station = self.station
+        if station is not None:
+            # the client is talking with station (handshake, search users, get meta/profile, ...)
+            return station.decrypt_message(msg)
 
     def send(self, data: bytes) -> bool:
         try:
             self.request.sendall(data)
             return True
         except IOError as error:
-            Log.info('RequestHandler: failed to send data %s' % error)
+            self.error('failed to send data %s' % error)
             return False
 
     def receive(self, buffer_size=1024) -> bytes:
         try:
             return self.request.recv(buffer_size)
         except IOError as error:
-            Log.info('RequestHandler: failed to receive data %s' % error)
+            self.error('failed to receive data %s' % error)
+
+    def deliver_message(self, msg: ReliableMessage) -> Content:
+        self.info('deliver message %s, %s' % (self.identifier, msg.envelope))
+        g_dispatcher.deliver(msg)
+        # response to sender
+        response = ReceiptCommand.receipt(message='Message delivering')
+        # extra info
+        sender = msg.get('sender')
+        receiver = msg.get('receiver')
+        time = msg.get('time')
+        group = msg.get('group')
+        signature = msg.get('signature')
+        # envelope
+        response['sender'] = sender
+        response['receiver'] = receiver
+        if time is not None:
+            response['time'] = time
+        # group message?
+        if group is not None and group != receiver:
+            response['group'] = group
+        # signature
+        response['signature'] = signature
+        return response
+
+    def process_message(self, msg: ReliableMessage) -> Content:
+        # verify signature
+        s_msg = self.verify_message(msg)
+        if s_msg is None:
+            self.info('message verify error %s' % msg)
+            response = TextContent.new(text='Signature error')
+            response['signature'] = msg.signature
+            return response
+        # try to decrypt by station
+        i_msg = self.decrypt_message(msg=s_msg)
+        if i_msg is not None:
+            # decrypt OK, process by current station
+            res = self.processor.process(msg=i_msg)
+            if res is not None:
+                # finished
+                return res
+        # check session valid
+        sender = g_facebook.identifier(msg.envelope.sender)
+        res = self.check_session(identifier=sender)
+        if res is not None:
+            # handshake first
+            return res
+        # deliver message for receiver
+        return self.deliver_message(msg)
+
+    def process_package(self, pack: bytes):
+        # decode the JsON string to dictionary
+        # if the msg data error, raise ValueError.
+        try:
+            msg = json.loads(pack.decode('utf-8'))
+            r_msg = ReliableMessage(msg)
+            res = self.process_message(msg=r_msg)
+            if res:
+                # self.info('response to client %s, %s' % (self.client_address, res))
+                receiver = g_facebook.identifier(r_msg.envelope.sender)
+                return self.station.pack(content=res, receiver=receiver)
+        except Exception as error:
+            self.error('receive message package error %s' % error)
 
     #
     #
     #
 
     def setup(self):
-        Log.info('%s: set up with %s' % (self, self.client_address))
+        self.info('%s: set up with %s' % (self, self.client_address))
         g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
@@ -130,7 +212,7 @@ class RequestHandler(BaseRequestHandler):
     def finish(self):
         if self.session is not None:
             nickname = g_facebook.nickname(identifier=self.identifier)
-            Log.info('RequestHandler: disconnect from session %s, %s' % (self.identifier, self.client_address))
+            self.info('disconnect from session %s, %s' % (self.identifier, self.client_address))
             g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
             response = TextContent.new(text='Bye!')
             msg = self.station.pack(receiver=self.identifier, content=response)
@@ -140,13 +222,13 @@ class RequestHandler(BaseRequestHandler):
             self.session = None
         else:
             g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
-        Log.info('RequestHandler: finish (%s, %s)' % self.client_address)
+        self.info('finish (%s, %s)' % self.client_address)
 
     """
         DIM Request Handler
     """
     def handle(self):
-        Log.info('RequestHandler: client connected (%s, %s)' % self.client_address)
+        self.info('client connected (%s, %s)' % self.client_address)
         data = b''
         while current_station.running:
             # receive all data
@@ -159,7 +241,7 @@ class RequestHandler(BaseRequestHandler):
                 if len(part) < 1024:
                     break
             if len(data) == incomplete_length:
-                Log.info('RequestHandler: no more data, exit (%d, %s)' % (incomplete_length, self.client_address))
+                self.info('no more data, exit (%d, %s)' % (incomplete_length, self.client_address))
                 break
 
             # process package(s) one by one
@@ -178,10 +260,10 @@ class RequestHandler(BaseRequestHandler):
                         mars = True
                         self.push_message = self.push_mars_message
                 except ValueError as error:
-                    Log.info('RequestHandler: not mars message pack: %s' % error)
+                    self.error('not mars message pack: %s' % error)
                 # check mars head
                 if mars:
-                    Log.info('@@@ msg via mars, len: %d+%d' % (head.head_length, head.body_length))
+                    self.info('@@@ msg via mars, len: %d+%d' % (head.head_length, head.body_length))
                     # check completion
                     pack_len = head.head_length + head.body_length
                     if pack_len > len(data):
@@ -213,7 +295,7 @@ class RequestHandler(BaseRequestHandler):
 
                 # (Protocol ?)
                 # TODO: split and unwrap data package(s)
-                Log.info('RequestHandler: unknown protocol %s' % data)
+                self.error('unknown protocol %s' % data)
                 data = b''
                 # raise AssertionError('unknown protocol')
 
@@ -224,7 +306,7 @@ class RequestHandler(BaseRequestHandler):
     def handle_mars_package(self, pack: bytes):
         pack = NetMsg(pack)
         head = pack.head
-        Log.info('@@@ processing package: cmd=%d, seq=%d' % (head.cmd, head.seq))
+        self.info('@@@ processing package: cmd=%d, seq=%d' % (head.cmd, head.seq))
         if head.cmd == 3:
             # TODO: handle SEND_MSG request
             if head.body_length == 0:
@@ -234,51 +316,37 @@ class RequestHandler(BaseRequestHandler):
             body = b''
             for line in lines:
                 if line.isspace():
-                    Log.info('RequestHandler: ignore empty message')
+                    self.info('ignore empty message')
                     continue
-                response = self.process_message(line)
+                response = self.process_package(line)
                 if response:
                     msg = json.dumps(response) + '\n'
                     body = body + msg.encode('utf-8')
             if body:
                 data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-                # Log.info('RequestHandler: mars response', data)
+                # self.info('mars response %s' % data)
                 self.send(data)
             else:
                 # TODO: handle error message
-                Log.info('RequestHandler: nothing to response')
+                self.info('nothing to response')
         elif head.cmd == 6:
             # TODO: handle NOOP request
-            Log.info('RequestHandler: receive NOOP package, response %s' % pack)
+            self.info('receive NOOP package, response %s' % pack)
             self.send(pack)
         else:
             # TODO: handle Unknown request
-            Log.info('RequestHandler: unknown package %s' % pack)
+            self.error('unknown package %s' % pack)
             self.send(pack)
 
     def handle_raw_package(self, pack: bytes):
-        response = self.process_message(pack)
+        response = self.process_package(pack)
         if response:
             msg = json.dumps(response) + '\n'
             data = msg.encode('utf-8')
             self.send(data)
         else:
-            Log.info('RequestHandler: process error %s' % pack)
+            self.error('process error %s' % pack)
             # self.send(pack)
-
-    def process_message(self, pack: bytes):
-        # decode the JsON string to dictionary
-        # if the msg data error, raise ValueError.
-        try:
-            msg = json.loads(pack.decode('utf-8'))
-            msg = ReliableMessage(msg)
-            res = self.processor.process(msg)
-            if res:
-                # Log.info('RequestHandler: response to client', self.client_address, res)
-                receiver = g_facebook.identifier(msg.envelope.sender)
-                return self.station.pack(content=res, receiver=receiver)
-        except Exception as error:
-            Log.info('RequestHandler: receive message package error %s' % error)
 
     def push_mars_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
@@ -286,13 +354,13 @@ class RequestHandler(BaseRequestHandler):
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
-        # Log.info('RequestHandler: pushing mars message', data)
+        # self.info('pushing mars message %s' % data)
         return self.send(data)
 
     def push_raw_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         data = data.encode('utf-8')
-        # Log.info('RequestHandler: pushing raw message', data)
+        # self.info('pushing raw message %s' % data)
         return self.send(data)
 
     push_message = push_raw_message
