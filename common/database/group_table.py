@@ -57,7 +57,7 @@ class GroupTable(Storage):
         path = self.__path(identifier=identifier)
         self.info('Loading members from: %s' % path)
         data = self.read_text(path=path)
-        if data is not None:
+        if data is not None and len(data) > 1:
             return data.splitlines()
 
     def __save_members(self, members: list, identifier: ID) -> bool:
