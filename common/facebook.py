@@ -33,6 +33,7 @@
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile
 from dimp import User, LocalUser, Group
+from dimp import Command
 from dimp import Barrack
 
 from .database import Database
@@ -67,6 +68,12 @@ class Facebook(Barrack):
 
     def save_members(self, members: list, group: ID) -> bool:
         return self.database.save_members(members=members, group=group)
+
+    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
+        return self.database.save_contacts_command(cmd=cmd, sender=sender)
+
+    def contacts_command(self, identifier: ID) -> Command:
+        return self.database.contacts_command(identifier=identifier)
 
     #
     #   ISocialNetworkDataSource

@@ -82,17 +82,17 @@ class MessageProcessor:
         # the client is talking with station (handshake, search users, get meta/profile, ...)
         if content.type == ContentType.Command:
             self.info('command from client %s, %s' % (self.client_address, content))
-            return self.process_command(sender=sender, content=content)
+            return self.process_command(content=content, sender=sender)
         # talk with station?
         self.info('message from client %s, %s' % (self.client_address, content))
-        return self.process_dialog(sender=sender, content=content)
+        return self.process_dialog(content=content, sender=sender)
 
-    def process_dialog(self, sender: ID, content: Content) -> Content:
+    def process_dialog(self, content: Content, sender: ID) -> Content:
         self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
         # TEST: response client with the same message here
         return content
 
-    def process_command(self, sender: ID, content: Content) -> Content:
+    def process_command(self, content: Content, sender: ID) -> Content:
         command = content['command']
         if 'handshake' == command:
             # handshake protocol
@@ -111,6 +111,9 @@ class MessageProcessor:
         if 'login' == command:
             # login protocol
             return self.process_login_command(cmd=Command(content))
+        if 'contacts' == command:
+            # storage protocol: post/get contacts
+            return self.process_contacts_command(cmd=Command(content), sender=sender)
         if 'users' == command:
             # show online users (connected)
             return self.process_users_command()
@@ -206,6 +209,25 @@ class MessageProcessor:
             return ProfileCommand.response(identifier=identifier, profile=profile)
         else:
             return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
+
+    def process_contacts_command(self, cmd: Command, sender: ID) -> Content:
+        if 'data' in cmd or 'contacts' in cmd:
+            # receive encrypted contacts, save it
+            if g_facebook.save_contacts_command(cmd=cmd, sender=sender):
+                self.info('contacts command saved for %s' % sender)
+                return ReceiptCommand.receipt(message='Contacts of %s received!' % sender)
+            else:
+                self.error('failed to save contacts command: %s' % cmd)
+                return TextContent.new(text='Contacts not stored %s!' % cmd)
+        # query encrypted contacts, load it
+        self.info('search contacts(command with encrypted data) for %s' % sender)
+        stored: Command = g_facebook.contacts_command(identifier=sender)
+        # response
+        if stored is not None:
+            # response the stored contacts command directly
+            return stored
+        else:
+            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
 
     def process_login_command(self, cmd: Command) -> Content:
         # TODO: update login status and return nothing

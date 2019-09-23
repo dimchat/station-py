@@ -32,12 +32,14 @@
 from mkm import is_broadcast
 from dimp import PrivateKey
 from dimp import NetworkID, ID, Meta, Profile
+from dimp import Command
 from dimp import ReliableMessage
 
 from .storage import Storage
 from .private_table import PrivateKeyTable
 from .meta_table import MetaTable
 from .profile_table import ProfileTable, DeviceTable
+from .user_table import UserTable
 from .group_table import GroupTable
 from .message_table import MessageTable
 from .ans_table import AddressNameTable
@@ -62,6 +64,7 @@ class Database:
         self.__meta_table = MetaTable()
         self.__profile_table = ProfileTable()
         self.__device_table = DeviceTable()
+        self.__user_table = UserTable()
         self.__group_table = GroupTable()
         self.__message_table = MessageTable()
         # ANS
@@ -140,6 +143,18 @@ class Database:
                 return profile.verify(public_key=meta.key)
         else:
             raise NotImplementedError('unsupported profile ID: %s' % profile)
+
+    """
+        Contacts of User
+        ~~~~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
+    """
+    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
+        return self.__user_table.save_contacts_command(cmd=cmd, sender=sender)
+
+    def contacts_command(self, identifier: ID) -> Command:
+        return self.__user_table.contacts_command(identifier=identifier)
 
     """
         Device Tokens for APNS
