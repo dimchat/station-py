@@ -38,6 +38,7 @@ from dimp import InstantMessage
 from common import Log
 from common import Session, Server
 
+from .dialog import Dialog
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
 from .cfg_gsp import station_name
 
@@ -47,6 +48,7 @@ class MessageProcessor:
     def __init__(self, request_handler):
         super().__init__()
         self.request_handler = request_handler
+        self.dialog: Dialog = None
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -88,9 +90,10 @@ class MessageProcessor:
         return self.process_dialog(content=content, sender=sender)
 
     def process_dialog(self, content: Content, sender: ID) -> Content:
+        if self.dialog is None:
+            self.dialog = Dialog()
         self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
-        # TEST: response client with the same message here
-        return content
+        return self.dialog.talk(content=content, sender=sender)
 
     def process_command(self, content: Content, sender: ID) -> Content:
         command = content['command']
