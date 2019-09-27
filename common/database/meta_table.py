@@ -103,9 +103,11 @@ class MetaTable(Storage):
             if not network.is_person():
                 # ignore
                 continue
+            string = identifier.lower()
+            number = '%010d' % identifier.number
             match = True
             for kw in keywords:
-                if identifier.find(kw) < 0 and ('%010d' % identifier.number).find(kw) < 0:
+                if string.find(kw.lower()) < 0 and number.find(kw) < 0:
                     # not match
                     match = False
                     break
