@@ -31,6 +31,7 @@
 """
 
 from mkm import is_broadcast
+from dimp import ID
 from dimp import ReliableMessage
 
 from common import Database, Facebook, Log
@@ -89,8 +90,22 @@ class Dispatcher:
         # transmit to neighbor stations
         self.transmit(msg=msg)
         # push notification
-        to_user = self.facebook.user(identifier=receiver)
         sender = self.facebook.identifier(msg.envelope.sender)
-        from_user = self.facebook.user(identifier=sender)
-        text = 'Dear %s: %s sent you a message.' % (to_user.name, from_user.name)
+        group = self.facebook.identifier(msg.group)
+        text = self.__push_msg(sender=sender, receiver=receiver, group=group)
         return self.apns.push(identifier=receiver, message=text)
+
+    def __push_msg(self, sender: ID, receiver: ID, group: ID=None) -> str:
+        from_name = self.facebook.nickname(identifier=sender)
+        to_name = self.facebook.nickname(identifier=receiver)
+        if group is None:
+            # personal message
+            return 'Dear %s: %s sent you a message.' % (to_name, from_name)
+        else:
+            # group message
+            grp = self.facebook.group(identifier=group)
+            if grp is None:
+                g_name = group.name
+            else:
+                g_name = grp.name
+            return 'Dear %s: %s [%s] sent you a group message.' % (to_name, from_name, g_name)

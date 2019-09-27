@@ -156,19 +156,19 @@ class Facebook(Barrack):
         # get from database
         founder = self.database.founder(group=identifier)
         if founder is not None:
-            return founder
+            return self.identifier(founder)
         return super().founder(identifier=identifier)
 
     def owner(self, identifier: ID) -> ID:
         # get from database
         owner = self.database.owner(group=identifier)
         if owner is not None:
-            return owner
+            return self.identifier(owner)
         return super().owner(identifier=identifier)
 
     def members(self, identifier: ID) -> list:
         # get from database
         members = self.database.members(group=identifier)
         if members is not None:
-            return members
+            return [self.identifier(item) for item in members]
         return super().members(identifier=identifier)
