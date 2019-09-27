@@ -66,7 +66,7 @@ class ProfileTable(Storage):
                 if data is not None:
                     dictionary['data'] = data
                     dictionary.pop('profile')
-        return Profile(dictionary)
+            return Profile(dictionary)
 
     def __save_profile(self, profile: Profile) -> bool:
         identifier = profile.identifier

@@ -43,6 +43,7 @@ from .server import Server
 
 from .robot import Connection, IConnectionDelegate
 from .robot import Robot
+from .robot import ChatBot, Tuling, XiaoI
 
 from .mars import NetMsgHead, NetMsg
 
@@ -79,6 +80,7 @@ __all__ = [
     #
     'Connection', 'IConnectionDelegate',
     'Robot',
+    'ChatBot', 'Tuling', 'XiaoI',
 
     #
     #  Mars for data packing

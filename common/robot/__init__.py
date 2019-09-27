@@ -31,9 +31,11 @@
 
 from .connection import Connection, IConnectionDelegate
 from .robot import Robot
+from .chatbot import ChatBot, Tuling, XiaoI
 
 
 __all__ = [
     'Connection', 'IConnectionDelegate',
     'Robot',
+    'ChatBot', 'Tuling', 'XiaoI',
 ]
