@@ -23,27 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Utils
-    ~~~~~
-
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimp> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
-"""
-
-from mkm.crypto.utils import base64_encode, base64_decode
-
-from .hex import hex_encode, hex_decode
-from .sha import sha1
-from .log import Log
+import hashlib
 
 
-__all__ = [
-    # Utils
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
-]
+def sha1(data: bytes) -> bytes:
+    """ SHA1 Digest """
+    return hashlib.sha1(data).digest()

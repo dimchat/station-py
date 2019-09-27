@@ -35,10 +35,11 @@ import urllib.request
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
+import numpy
 from dimp import ID
 from dimp import Content, TextContent
 
-from common import Log
+from common import Log, hex_encode, sha1
 
 
 class ChatBot(metaclass=ABCMeta):
@@ -83,8 +84,8 @@ class Tuling(ChatBot):
 
     def __post(self, text: str) -> dict:
         request = self.__request(text=text)
-        Log.info('request: %s\n%s' % (self.api_url, request))
         headers = {'content-type': 'application/json'}
+        Log.info('request: %s\n%s\n%s' % (self.api_url, headers, request))
         http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
@@ -117,12 +118,69 @@ class Tuling(ChatBot):
             return self.__fetch(response)
 
 
+def sha_hex(string: str) -> str:
+    return hex_encode(sha1(string.encode('utf-8')))
+
+
+class XiaoI(ChatBot):
+
+    def __init__(self):
+        super().__init__()
+        self.user_id = 'dimchat'
+        self.key = 'open1_1BALCbHT4f2k'
+        self.secret = 'mzMzWQ6kpUztmVvCDXyy'
+        # self.api_url = 'http://nlp.xiaoi.com/ask.do'
+        self.api_url = 'http://robot.open.xiaoi.com/ask.do'
+
+    def __request(self, text: str) -> str:
+        return 'question=' + text + '&userId=' + self.user_id + '&platform=weixin&type=0'
+
+    def __auth(self) -> str:
+        realm = 'xiaoi.com'
+        method = 'POST'
+        uri = '/ask.do'
+        random: bytes = numpy.random.bytes(40)  # random data
+        nonce = hex_encode(random)
+        # sign
+        ha1 = sha_hex(self.key + ':' + realm + ':' + self.secret)
+        ha2 = sha_hex(method + ':' + uri)
+        sign = sha_hex(ha1 + ':' + nonce + ':' + ha2)
+        return 'app_key="' + self.key + '", nonce="' + nonce + '", signature="' + sign + '"'
+
+    def __post(self, text: str) -> str:
+        request = self.__request(text=text)
+        headers = {
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Auth': self.__auth(),
+        }
+        Log.info('request: %s\n%s\n%s' % (self.api_url, headers, request))
+        http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
+        response = urllib.request.urlopen(http_post)
+        data: bytes = response.read()
+        if data is not None:
+            return data.decode('utf-8')
+
+    @staticmethod
+    def __fetch(response: str) -> Optional[str]:
+        if response == '默认回复':
+            return None
+        return response
+
+    def ask(self, question: str, user: str = None) -> str:
+        if user is not None:
+            self.user_id = user
+        response = self.__post(text=question)
+        if response is not None:
+            Log.info('response: %s' % response)
+            return self.__fetch(response)
+
+
 class Dialog:
 
     def __init__(self):
         super().__init__()
         # TODO: random robot list
-        self.robots: list = [Tuling()]
+        self.robots: list = [Tuling(), XiaoI()]
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))

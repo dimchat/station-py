@@ -32,6 +32,7 @@
 
 from .utils import base64_encode, base64_decode
 from .utils import hex_encode, hex_decode
+from .utils import sha1
 from .utils import Log
 
 from .database import Storage, Database
@@ -57,6 +58,7 @@ __all__ = [
     #
     'base64_encode', 'base64_decode',
     'hex_encode', 'hex_decode',
+    'sha1',
     'Log',
 
     #
