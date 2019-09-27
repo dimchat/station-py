@@ -97,7 +97,7 @@ class Dialog:
         if isinstance(content, TextContent):
             question = content.text
             answer = self.__ask(question=question, sender=sender)
-            Log.info('Dialog > question: %s, answer: %s, ID: %s' % (question, answer, sender))
+            Log.info('Dialog (%s): "%s" -> "%s"' % (sender, question, answer))
             if answer is not None:
                 return TextContent.new(text=answer)
         # TEST: response client with the same message here
