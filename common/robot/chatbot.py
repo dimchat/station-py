@@ -99,7 +99,7 @@ class Tuling(ChatBot):
         intent: dict = response.get('intent')
         if intent is not None:
             code = intent.get('code')
-            if code == 4003:
+            if code in [4003]:
                 # requests limited for test, ignore it
                 return None
         # get text
@@ -163,9 +163,11 @@ class XiaoI(ChatBot):
 
     @staticmethod
     def __fetch(response: str) -> Optional[str]:
-        if response == '默认回复':
+        # check blah blah
+        if response in ['默认回复', '重复回复']:
             # no answer, ignore it
             return None
+        # got it
         return response
 
     def ask(self, question: str, user: str=None) -> str:
