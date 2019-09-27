@@ -62,6 +62,8 @@ class Tuling(ChatBot):
         self.api_url = 'http://openapi.tuling123.com/openapi/api/v2'
         self.province = 'Guangdong'
         self.city = 'Guangzhou'
+        # ignore codes
+        self.ignores = [4003]
 
     def __request(self, text: str) -> str:
         return json.dumps({
@@ -93,13 +95,12 @@ class Tuling(ChatBot):
             # assert data[0] == ord('{') and data[-1] == ord('}'), 'response error: %s' % data
             return json.loads(data)
 
-    @staticmethod
-    def __fetch(response: dict) -> Optional[str]:
+    def __fetch(self, response: dict) -> Optional[str]:
         # get code
         intent: dict = response.get('intent')
         if intent is not None:
             code = intent.get('code')
-            if code in [4003]:
+            if code in self.ignores:
                 # requests limited for test, ignore it
                 return None
         # get text
@@ -135,6 +136,8 @@ class XiaoI(ChatBot):
         self.realm = 'xiaoi.com'
         self.uri = '/ask.do'
         self.method = 'POST'
+        # ignore responses
+        self.ignores = ['默认回复', '重复回复']
 
     def __request(self, text: str) -> str:
         return 'type=0&platform=dim&userId=%s&question=%s' % (self.user_id, text)
@@ -161,10 +164,9 @@ class XiaoI(ChatBot):
         if data is not None:
             return data.decode('utf-8')
 
-    @staticmethod
-    def __fetch(response: str) -> Optional[str]:
+    def __fetch(self, response: str) -> Optional[str]:
         # check blah blah
-        if response in ['默认回复', '重复回复']:
+        if response in self.ignores:
             # no answer, ignore it
             return None
         # got it

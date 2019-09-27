@@ -30,25 +30,53 @@
     Dialog for chatting with station
 """
 
+import os
 import random
 
 from dimp import ID
 from dimp import Content, TextContent
 
+from common import Storage, Log
 from common import Tuling, XiaoI
+
+
+def load_conf(name: str) -> dict:
+    # get root path
+    path = os.path.abspath(os.path.dirname(__file__))
+    root = os.path.split(path)[0]
+    directory = os.path.join(root, 'etc', 'robots')
+    return Storage.read_json(path=os.path.join(directory, name + '.js'))
+
+
+def chat_bots() -> list:
+    array = []
+    # chat bot: Tuling
+    tuling_cfg = load_conf('tuling')
+    if tuling_cfg is not None:
+        key = tuling_cfg.get('api_key')
+        tuling = Tuling(api_key=key)
+        array.append(tuling)
+    # chat bot: XiaoI
+    xiaoi_cfg = load_conf('xiaoi')
+    if xiaoi_cfg is not None:
+        key = xiaoi_cfg.get('app_key')
+        secret = xiaoi_cfg.get('app_secret')
+        xiaoi = XiaoI(app_key=key, app_secret=secret)
+        array.append(xiaoi)
+    # random them
+    count = len(array)
+    if count > 1:
+        return random.sample(array, count)
+    else:
+        return array
 
 
 class Dialog:
 
     def __init__(self):
         super().__init__()
-        # chat bots
-        array = [
-            Tuling(api_key='8cbbdaf0baea412296800444895a75be'),
-            XiaoI(app_key='open1_1BALCbHT4f2k', app_secret='mzMzWQ6kpUztmVvCDXyy'),
-        ]
-        # random them
-        self.bots: list = random.sample(array, len(array))
+        # chat bot list
+        self.bots = chat_bots()
 
     def __ask(self, question: str, sender: ID) -> str:
         # try each chat robots
@@ -69,6 +97,7 @@ class Dialog:
         if isinstance(content, TextContent):
             question = content.text
             answer = self.__ask(question=question, sender=sender)
+            Log.info('Dialog > question: %s, answer: %s, ID: %s' % (question, answer, sender))
             if answer is not None:
                 return TextContent.new(text=answer)
         # TEST: response client with the same message here
