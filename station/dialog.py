@@ -38,6 +38,7 @@ from dimp import Content, TextContent
 from common import Log
 from common import Tuling, XiaoI
 
+from .config import g_facebook
 from .cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 
@@ -93,11 +94,13 @@ class Dialog:
             return answer
 
     def talk(self, content: Content, sender: ID) -> Content:
+        nickname = g_facebook.nickname(identifier=sender)
         if isinstance(content, TextContent):
             question = content.text
             answer = self.__ask(question=question, sender=sender)
-            Log.info('Dialog (%s): "%s" -> "%s"' % (sender, question, answer))
+            Log.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
             if answer is not None:
                 return TextContent.new(text=answer)
         # TEST: response client with the same message here
+        Log.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
         return content
