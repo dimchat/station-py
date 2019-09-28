@@ -43,7 +43,8 @@ from common import ApplePushNotificationService, SessionServer
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
-from .cfg_db import base_dir, apns_credentials
+from .cfg_apns import apns_credentials
+from .cfg_db import base_dir
 from .cfg_admins import administrators
 from .cfg_gsp import all_stations, local_servers
 from .cfg_gsp import station_id, station_host, station_port
@@ -119,6 +120,7 @@ g_session_server = SessionServer()
 """
 g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=True)
 g_apns.delegate = g_database
+Log.info('APNs credentials: %s' % apns_credentials)
 
 
 """

@@ -14,6 +14,7 @@ Source codes:
 
 ```
 pip3 install dimp
+pip3 install apns2
 ```
 
 2.) Run Server

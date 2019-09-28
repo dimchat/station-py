@@ -30,38 +30,37 @@
     Dialog for chatting with station
 """
 
-import os
 import random
 
 from dimp import ID
 from dimp import Content, TextContent
 
-from common import Storage, Log
+from common import Log
 from common import Tuling, XiaoI
 
-
-def load_conf(name: str) -> dict:
-    # get root path
-    path = os.path.abspath(os.path.dirname(__file__))
-    root = os.path.split(path)[0]
-    directory = os.path.join(root, 'etc', 'robots')
-    return Storage.read_json(path=os.path.join(directory, name + '.js'))
+from .cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 
 def chat_bots() -> list:
     array = []
     # chat bot: Tuling
-    tuling_cfg = load_conf('tuling')
-    if tuling_cfg is not None:
-        key = tuling_cfg.get('api_key')
+    if tuling_keys is not None:
+        key = tuling_keys.get('api_key')
         tuling = Tuling(api_key=key)
+        # ignore codes
+        for item in tuling_ignores:
+            if item not in tuling.ignores:
+                tuling.ignores.append(item)
         array.append(tuling)
     # chat bot: XiaoI
-    xiaoi_cfg = load_conf('xiaoi')
-    if xiaoi_cfg is not None:
-        key = xiaoi_cfg.get('app_key')
-        secret = xiaoi_cfg.get('app_secret')
+    if xiaoi_keys is not None:
+        key = xiaoi_keys.get('app_key')
+        secret = xiaoi_keys.get('app_secret')
         xiaoi = XiaoI(app_key=key, app_secret=secret)
+        # ignore responses
+        for item in xiaoi_ignores:
+            if item not in xiaoi.ignores:
+                xiaoi.ignores.append(item)
         array.append(xiaoi)
     # random them
     count = len(array)
