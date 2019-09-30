@@ -43,7 +43,7 @@ from common import ApplePushNotificationService, SessionServer
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
-from .cfg_apns import apns_credentials, use_sandbox
+from .cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from .cfg_db import base_dir
 from .cfg_admins import administrators
 from .cfg_gsp import all_stations, local_servers
@@ -118,7 +118,8 @@ g_session_server = SessionServer()
 
     A service for pushing notification to offline device
 """
-g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=use_sandbox)
+g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=apns_use_sandbox)
+g_apns.topic = apns_topic
 g_apns.delegate = g_database
 Log.info('APNs credentials: %s' % apns_credentials)
 

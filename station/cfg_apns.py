@@ -16,4 +16,5 @@ etc = os.path.join(root, 'etc')
 # /srv/dims/etc/apns/credentials.pem
 apns_credentials = os.path.join(etc, 'apns', 'credentials.pem')
 
-use_sandbox = True
+apns_use_sandbox = True
+apns_topic = 'chat.dim.sechat'
