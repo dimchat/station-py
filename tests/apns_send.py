@@ -47,7 +47,9 @@ from dimp import ID
     Configuration
 """
 base_dir = '/data/.dim/'
-credentials = '/data/.dim/private/apns-key.pem'
+
+credentials = '/srv/dims/etc/apns/credentials.pem'
+use_sandbox = True
 
 
 class Device:
@@ -76,7 +78,7 @@ class SMS:
     """ Push SMS via APNs """
 
     def __init__(self, text: str):
-        self.__client = APNsClient(credentials=credentials, use_sandbox=True)
+        self.__client = APNsClient(credentials=credentials, use_sandbox=use_sandbox)
         self.__payload = Payload(alert=text)
 
     def send(self, identifier: str) -> int:
