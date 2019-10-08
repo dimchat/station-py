@@ -117,6 +117,9 @@ class MessageProcessor:
         if 'contacts' == command:
             # storage protocol: post/get contacts
             return self.process_contacts_command(cmd=Command(content), sender=sender)
+        if 'groups' == command:
+            # storage protocol: post/get groups
+            return self.process_groups_command(cmd=Command(content), sender=sender)
         if 'users' == command:
             # show online users (connected)
             return self.process_users_command()
@@ -212,6 +215,22 @@ class MessageProcessor:
             return ProfileCommand.response(identifier=identifier, profile=profile)
         else:
             return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
+
+    def process_group_command(self, cmd: Command, sender: ID) -> Content:
+
+        if 'group' not in cmd:
+            return TextContent.new(text='Sorry, need group identifier.' % sender)
+
+        group_identifier = cmd['group']
+        # query members, load it
+        self.info('search members for %s' % group_identifier)
+        stored: Command = g_facebook.members(identifier=group_identifier)
+        # response
+        if stored is not None:
+            # response the stored group members command directly
+            return stored
+        else:
+            return TextContent.new(text='Sorry, group of %s not found.' % group_identifier)
 
     def process_contacts_command(self, cmd: Command, sender: ID) -> Content:
         if 'data' in cmd or 'contacts' in cmd:
