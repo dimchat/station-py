@@ -117,9 +117,9 @@ class MessageProcessor:
         if 'contacts' == command:
             # storage protocol: post/get contacts
             return self.process_contacts_command(cmd=Command(content), sender=sender)
-        if 'groups' == command:
+        if 'members' == command:
             # storage protocol: post/get groups
-            return self.process_groups_command(cmd=Command(content), sender=sender)
+            return self.process_group_command(cmd=Command(content), sender=sender)
         if 'users' == command:
             # show online users (connected)
             return self.process_users_command()
