@@ -23,10 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.address import BTCAddress
 from mkm.meta import meta_classes
 
 from dimp import Meta, NetworkID
+
+from .address import BTCAddress, ETHAddress
 
 """
     Meta for generate ID with BTC address
@@ -48,5 +49,28 @@ class BTCMeta(Meta):
         return BTCAddress.new(data=self.key.data, network=network)
 
 
+"""
+    Meta for generate ID with ETH address
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    algorithm:
+    
+"""
+
+
+class ETHMeta(Meta):
+
+    def generate_address(self, network: NetworkID):
+        assert self.version & Meta.Version_ETH
+        return ETHAddress.new(data=self.key.data)
+
+
+#
+#  register meta classes
+#
+
 meta_classes[Meta.Version_BTC] = BTCMeta
 meta_classes[Meta.Version_ExBTC] = BTCMeta
+
+meta_classes[Meta.Version_ETH] = ETHMeta
+meta_classes[Meta.Version_ExETH] = ETHMeta
