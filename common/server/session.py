@@ -116,6 +116,24 @@ class SessionServer:
     def random_users(self, max_count=20) -> list:
         array = list(self.session_table.keys())
         count = len(array)
+        # check session valid
+        pos = count - 1
+        while pos >= 0:
+            key = array[pos]
+            sessions: list = self.session_table.get(key)
+            if sessions is not None:
+                # if one valid session found, it means this user is online now.
+                valid = False
+                for sess in sessions:
+                    if sess.valid:
+                        valid = True
+                        break
+                # if no session valid, remove this user ID
+                if not valid:
+                    array.remove(key)
+                    count = count - 1
+            pos = pos - 1
+        # limit the response
         if count < 2:
             return array
         elif count > max_count:
