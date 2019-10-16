@@ -134,6 +134,8 @@ class Terminal(LocalUser, IConnectionDelegate):
                     # invite founder? it means this should be a 'reset' command
                     return self.__process_reset(group=group, commander=commander, members=members)
         # 2. check added member(s)
+        if existed is None:
+            existed = []
         count = 0
         for item in members:
             if item not in existed:
