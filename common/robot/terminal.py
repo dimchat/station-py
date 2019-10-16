@@ -273,7 +273,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         sender = facebook.identifier(i_msg.envelope.sender)
         content = i_msg.content
         # check meta for new group ID
-        gid: ID = content.group
+        gid = content.group
         if gid is not None:
             gid = facebook.identifier(gid)
             if not is_broadcast(gid):

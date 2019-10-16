@@ -208,7 +208,8 @@ class Database:
         meta = self.meta(identifier=group)
         members = self.members(group=group)
         if meta is not None and members is not None:
-            for identifier in members:
+            for item in members:
+                identifier = ID(item)
                 m = self.meta(identifier=identifier)
                 if m is None:
                     # TODO: query meta for this member from DIM network
