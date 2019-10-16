@@ -9,9 +9,7 @@
 
 import os
 
-path = os.path.abspath(os.path.dirname(__file__))
-root = os.path.split(path)[0]
-etc = os.path.join(root, 'etc')
+etc = os.path.abspath(os.path.dirname(__file__))
 
 # /srv/dims/etc/apns/credentials.pem
 apns_credentials = os.path.join(etc, 'apns', 'credentials.pem')

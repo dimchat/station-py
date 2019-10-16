@@ -42,11 +42,12 @@ from common import Log
 from common import NetMsgHead, NetMsg
 from common import Session, Server
 
+from etc.cfg_gsp import station_name
+
 from .processor import MessageProcessor
 
 from .config import g_facebook, g_session_server, g_monitor, g_dispatcher
 from .config import current_station, local_servers
-from .cfg_gsp import station_name
 
 
 class RequestHandler(BaseRequestHandler):

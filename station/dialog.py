@@ -36,39 +36,9 @@ from dimp import ID
 from dimp import Content, TextContent
 
 from common import Log
-from common import Tuling, XiaoI
 
 from .config import g_facebook
-from .cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
-
-
-def chat_bots() -> list:
-    array = []
-    # chat bot: Tuling
-    if tuling_keys is not None:
-        key = tuling_keys.get('api_key')
-        tuling = Tuling(api_key=key)
-        # ignore codes
-        for item in tuling_ignores:
-            if item not in tuling.ignores:
-                tuling.ignores.append(item)
-        array.append(tuling)
-    # chat bot: XiaoI
-    if xiaoi_keys is not None:
-        key = xiaoi_keys.get('app_key')
-        secret = xiaoi_keys.get('app_secret')
-        xiaoi = XiaoI(app_key=key, app_secret=secret)
-        # ignore responses
-        for item in xiaoi_ignores:
-            if item not in xiaoi.ignores:
-                xiaoi.ignores.append(item)
-        array.append(xiaoi)
-    # random them
-    count = len(array)
-    if count > 1:
-        return random.sample(array, count)
-    else:
-        return array
+from .config import g_tuling, g_xiaoi
 
 
 class Dialog:
@@ -76,7 +46,7 @@ class Dialog:
     def __init__(self):
         super().__init__()
         # chat bot list
-        self.bots = chat_bots()
+        self.bots = random.sample([g_tuling, g_xiaoi], 2)
 
     def __ask(self, question: str, sender: ID) -> str:
         # try each chat robots

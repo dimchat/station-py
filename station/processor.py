@@ -38,9 +38,10 @@ from dimp import InstantMessage
 from common import Log
 from common import Session, Server
 
+from etc.cfg_gsp import station_name
+
 from .dialog import Dialog
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
-from .cfg_gsp import station_name
 
 
 class MessageProcessor:

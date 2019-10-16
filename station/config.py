@@ -36,6 +36,9 @@ from mkm import Meta, PrivateKey
 
 from dimp import Profile, Station
 
+#
+#  Common Libs
+#
 from common import Log, Storage, Server
 from common import Database, Facebook, AddressNameService, KeyStore, Messenger
 from common import ApplePushNotificationService, SessionServer
@@ -43,11 +46,15 @@ from common import ApplePushNotificationService, SessionServer
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
-from .cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
-from .cfg_db import base_dir
-from .cfg_admins import administrators
-from .cfg_gsp import all_stations, local_servers
-from .cfg_gsp import station_id, station_host, station_port
+#
+#  Configurations
+#
+from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
+from etc.cfg_db import base_dir
+from etc.cfg_admins import administrators
+from etc.cfg_gsp import all_stations, local_servers
+from etc.cfg_gsp import station_id, station_host, station_port
+from etc.cfg_chatbots import chat_bot
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
@@ -161,6 +168,16 @@ g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
 g_receptionist.database = g_database
 g_receptionist.apns = g_apns
+
+
+"""
+    Chat Bots
+    ~~~~~~~~~
+    
+    Chat bots for station
+"""
+g_tuling = chat_bot('tuling')
+g_xiaoi = chat_bot('xiaoi')
 
 
 """
@@ -295,6 +312,10 @@ g_database.scan_ids()
 # convert ID to Station
 Log.info('-------- loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item) for item in all_stations]
+
+# convert string to ID
+Log.info('-------- loading administrators: %d' % len(administrators))
+administrators = [g_facebook.identifier(item) for item in administrators]
 
 # convert ID to Server
 Log.info('-------- creating servers: %d' % len(local_servers))
