@@ -27,6 +27,7 @@ import os
 import random
 
 from dimp import ID, Meta
+from dimp import NetworkID
 
 from .storage import Storage
 
@@ -100,7 +101,7 @@ class MetaTable(Storage):
         array = random.sample(array, len(array))
         for identifier in array:
             network = identifier.type
-            if not network.is_person():
+            if not network.is_person() and not network.is_robot():
                 # ignore
                 continue
             string = identifier.lower()

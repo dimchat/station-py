@@ -61,7 +61,7 @@ class AccountTestCase(unittest.TestCase):
         #
         #  prepare register parameters
         #
-        cmd = 1
+        cmd = 3
         if cmd == 1:
             # generate SP
             seed = 'gsp'
@@ -76,6 +76,13 @@ class AccountTestCase(unittest.TestCase):
             suffix = 0
             network = NetworkID.Station
             print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
+        elif cmd == 3:
+            # generate robot
+            seed = 'xiaoxiao'
+            prefix = 123
+            suffix = 0
+            network = NetworkID.Robot
+            print('*** registering robot (%s) with number prefix: %d' % (seed, prefix))
         else:
             # generate User
             seed = 'moky'

@@ -30,8 +30,6 @@
     Configuration for DIM network server node
 """
 
-import os
-
 from mkm import Meta, PrivateKey
 
 from dimp import Profile, Station
@@ -39,9 +37,10 @@ from dimp import Profile, Station
 #
 #  Common Libs
 #
-from common import Log, Storage, Server
+from common import Log, Server
 from common import Database, Facebook, AddressNameService, KeyStore, Messenger
 from common import ApplePushNotificationService, SessionServer
+from common import Tuling, XiaoI
 
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
@@ -52,9 +51,9 @@ from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from etc.cfg_db import base_dir
 from etc.cfg_admins import administrators
-from etc.cfg_gsp import all_stations, local_servers
-from etc.cfg_gsp import station_id, station_host, station_port
-from etc.cfg_chatbots import chat_bot
+from etc.cfg_gsp import all_stations, local_servers, load_station_info
+from etc.cfg_gsp import station_id, station_host, station_port, station_name
+from etc.cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
@@ -176,8 +175,22 @@ g_receptionist.apns = g_apns
     
     Chat bots for station
 """
-g_tuling = chat_bot('tuling')
-g_xiaoi = chat_bot('xiaoi')
+# Tuling
+key = tuling_keys.get('api_key')
+g_tuling = Tuling(api_key=key)
+# ignore codes
+for item in tuling_ignores:
+    if item not in g_tuling.ignores:
+        g_tuling.ignores.append(item)
+
+# XiaoI
+key = xiaoi_keys.get('app_key')
+secret = xiaoi_keys.get('app_secret')
+g_xiaoi = XiaoI(app_key=key, app_secret=secret)
+# ignore responses
+for item in xiaoi_ignores:
+    if item not in g_xiaoi.ignores:
+        g_xiaoi.ignores.append(item)
 
 
 """
@@ -224,23 +237,11 @@ def load_station(identifier: str) -> Station:
         :return station with info from 'dims/etc/{address}/*'
     """
     identifier = g_facebook.identifier(identifier)
-    # get root path
-    path = os.path.abspath(os.path.dirname(__file__))
-    root = os.path.split(path)[0]
-    directory = os.path.join(root, 'etc', identifier.address)
-    # check profile
-    profile = Storage.read_json(path=os.path.join(directory, 'profile.js'))
-    if profile is None:
-        raise LookupError('failed to get profile for station: %s' % identifier)
-    Log.info('station profile: %s' % profile)
-    name = profile.get('name')
-    host = profile.get('host')
-    port = profile.get('port')
     # check meta
     meta = g_facebook.meta(identifier=identifier)
     if meta is None:
         # load from 'etc' directory
-        meta = Meta(Storage.read_json(path=os.path.join(directory, 'meta.js')))
+        meta = Meta(load_station_info(identifier=identifier, filename='meta.js'))
         if meta is None:
             raise LookupError('failed to get meta for station: %s' % identifier)
         elif not g_facebook.save_meta(meta=meta, identifier=identifier):
@@ -249,11 +250,20 @@ def load_station(identifier: str) -> Station:
     private_key = g_facebook.private_key_for_signature(identifier=identifier)
     if private_key is None:
         # load from 'etc' directory
-        private_key = PrivateKey(Storage.read_json(path=os.path.join(directory, 'secret.js')))
+        private_key = PrivateKey(load_station_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
             pass
         elif not g_facebook.save_private_key(private_key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
+    # check profile
+    profile = load_station_info(identifier=identifier, filename='profile.js')
+    if profile is None:
+        raise LookupError('failed to get profile for station: %s' % identifier)
+    Log.info('station profile: %s' % profile)
+    name = profile.get('name')
+    host = profile.get('host')
+    port = profile.get('port')
+    # create station
     if private_key is None:
         # remote station
         station = Station(identifier=identifier, host=host, port=port)
@@ -277,7 +287,7 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
     """ Create Local Server """
     identifier = g_facebook.identifier(identifier)
     server = Server(identifier=identifier, host=host, port=port)
-    server.delegate = g_facebook
+    g_facebook.cache_user(user=server)
     server.messenger = g_messenger
     Log.info('local station created: %s' % server)
     return server
@@ -330,7 +340,7 @@ for srv in local_servers:
         current_station = srv
         break
 assert current_station is not None, 'current station not created: %s' % station_id
-Log.info('current station: %s' % current_station)
+Log.info('current station(%s): %s' % (station_name, current_station))
 
 # set current station for key store
 g_keystore.user = current_station

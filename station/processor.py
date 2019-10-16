@@ -31,17 +31,16 @@
 """
 
 from dimp import ID, Profile
-from dimp import ContentType, Content, TextContent, Command
+from dimp import Content, TextContent, Command, HistoryCommand
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
 from dimp import InstantMessage
 
 from common import Log
 from common import Session, Server
 
-from etc.cfg_gsp import station_name
-
 from .dialog import Dialog
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
+from .config import station_name
 
 
 class MessageProcessor:
@@ -82,13 +81,16 @@ class MessageProcessor:
         # try to decrypt message
         sender = g_facebook.identifier(msg.envelope.sender)
         content = msg.content
-        # the client is talking with station (handshake, search users, get meta/profile, ...)
-        if content.type == ContentType.Command:
+        if isinstance(content, HistoryCommand):
+            pass
+        elif isinstance(content, Command):
+            # the client is talking with station (handshake, search users, get meta/profile, ...)
             self.info('command from client %s, %s' % (self.client_address, content))
             return self.process_command(content=content, sender=sender)
-        # talk with station?
-        self.info('message from client %s, %s' % (self.client_address, content))
-        return self.process_dialog(content=content, sender=sender)
+        else:
+            # talk with station?
+            self.info('message from client %s, %s' % (self.client_address, content))
+            return self.process_dialog(content=content, sender=sender)
 
     def process_dialog(self, content: Content, sender: ID) -> Content:
         if self.dialog is None:

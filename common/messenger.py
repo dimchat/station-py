@@ -132,7 +132,12 @@ class Messenger(Transceiver):
             group = self.barrack.group(identifier=receiver)
             if group is None:
                 raise LookupError('failed to create group: %s' % receiver)
-            messages = r_msg.split(members=group.members)
+            members = group.members
+            if members is None or len(members) == 0:
+                # FIXME: query group members from sender
+                messages = None
+            else:
+                messages = r_msg.split(members=group.members)
             if messages is None:
                 # failed to split msg, send it to group
                 ok = self.__send_message(msg=r_msg, callback=callback)

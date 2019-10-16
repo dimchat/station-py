@@ -51,8 +51,8 @@ class Robot(Terminal):
         super().__init__(identifier=identifier)
         # station connection
         self.station: Station = None
-        self.connection: Connection = None
         self.session: str = None
+        self.connection: Connection = None
 
     def __del__(self):
         self.disconnect()
@@ -77,28 +77,13 @@ class Robot(Terminal):
         self.station = station
         return True
 
-    def send_message(self, msg: ReliableMessage) -> bool:
-        # encode
-        pack = json.dumps(msg)
-        data = pack.encode('utf-8')
-        # send out
-        handler: ICompletionHandler = None
-        return self.connection.send_package(data=data, handler=handler)
-
-    def send_content(self, content: Content, receiver: ID) -> bool:
-        """ Send message content to receiver """
-        # check meta
-        self.check_meta(identifier=receiver)
-        # check group message
-        if receiver.type.is_group():
-            content.group = receiver
-        # create InstantMessage
-        i_msg = InstantMessage.new(content=content, sender=self.identifier, receiver=receiver)
-        # encrypt and sign
-        r_msg = self.messenger.encrypt_sign(msg=i_msg)
-        # send ReliableMessage
-        return self.send_message(msg=r_msg)
-        # return self.messenger.send_message(msg=i_msg)
+    # def send_message(self, msg: ReliableMessage) -> bool:
+    #     # encode
+    #     pack = json.dumps(msg)
+    #     data = pack.encode('utf-8')
+    #     # send out
+    #     handler: ICompletionHandler = None
+    #     return self.connection.send_package(data=data, handler=handler)
 
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
@@ -134,28 +119,3 @@ class Robot(Terminal):
         self.info('handshake with "%s"...' % self.station.identifier)
         cmd = HandshakeCommand.start(session=self.session)
         return self.send_command(cmd=cmd)
-
-    def check_meta(self, identifier: ID) -> Meta:
-        facebook: Facebook = self.delegate
-        meta = facebook.meta(identifier=identifier)
-        if meta is None and not is_broadcast(identifier=identifier):
-            # query meta from DIM network
-            cmd = MetaCommand.query(identifier=identifier)
-            self.send_command(cmd)
-            # waiting for station response
-            for i in range(30):
-                sleep(0.5)
-                meta = facebook.meta(identifier=identifier)
-                if meta is not None:
-                    break
-        return meta
-
-    def process_message(self, msg: ReliableMessage) -> bool:
-        try:
-            return super().process_message(msg=msg)
-        except LookupError as error:
-            self.error('process message error: %s' % error)
-            facebook: Facebook = self.delegate
-            sender = facebook.identifier(msg.envelope.sender)
-            self.check_meta(identifier=sender)
-            return super().process_message(msg=msg)

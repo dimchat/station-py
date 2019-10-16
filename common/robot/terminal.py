@@ -32,8 +32,10 @@
 
 import json
 
+from mkm import is_broadcast
+
 from dimp import ID, NetworkID, LocalUser, Group
-from dimp import Command, MetaCommand, ProfileCommand, HistoryCommand
+from dimp import Content, Command, MetaCommand, ProfileCommand, HistoryCommand, GroupCommand
 from dimp import InstantMessage, ReliableMessage
 
 from ..facebook import Facebook
@@ -74,12 +76,33 @@ class Terminal(LocalUser, IConnectionDelegate):
         super().__init__(identifier=identifier)
         self.messenger: Messenger = None
 
+    def send_content(self, content: Content, receiver: ID) -> bool:
+        """ Send message content to receiver """
+        # check meta
+        if not is_broadcast(receiver):
+            meta = self.delegate.meta(identifier=receiver)
+            if meta is None:
+                # NOTICE: if meta for sender not found,
+                #         the client will query it automatically
+                # TODO: save the message content in waiting queue
+                return False
+        # check group message
+        if receiver.type.is_group():
+            content.group = receiver
+        # create InstantMessage
+        i_msg = InstantMessage.new(content=content, sender=self.identifier, receiver=receiver)
+        # send out after encrypt and sign
+        return self.messenger.send_message(msg=i_msg, split=True)
+
     def __process_reset(self, group: Group, commander: ID, members: list) -> bool:
         facebook: Facebook = self.delegate
         # 0. check permission
         if group.founder != commander:
             # only founder can reset group members
-            return False
+            gMeta = group.meta
+            meta = facebook.meta(identifier=commander)
+            if gMeta is None or meta is None or not gMeta.match_public_key(meta.key):
+                return False
         elif members is None or len(members) == 0:
             # command error?
             return False
@@ -247,6 +270,34 @@ class Terminal(LocalUser, IConnectionDelegate):
         facebook: Facebook = self.delegate
         sender = facebook.identifier(i_msg.envelope.sender)
         content = i_msg.content
+        # check meta for new group ID
+        gid: ID = content.group
+        if gid is not None:
+            gid = facebook.identifier(gid)
+            if not is_broadcast(gid):
+                # check meta
+                meta = facebook.meta(identifier=gid)
+                if meta is None:
+                    # NOTICE: if meta for group not found,
+                    #         the client will query it automatically
+                    # TODO: insert the message to a temporary queue to waiting meta
+                    return False
+            # check whether the group members info needs update
+            group = facebook.group(identifier=gid)
+            # if the group info not found, and this is not an 'invite' command
+            #     query group info from the sender
+            needs_update = group.founder is None
+            if isinstance(content, HistoryCommand):
+                if 'invite' == content.command:
+                    # FIXME: can we trust this stranger?
+                    #        may be we should keep this members list temporary,
+                    #        and send 'query' to the founder immediately.
+                    # TODO: check whether the members list is a full list,
+                    #       it should contain the group owner(founder)
+                    needs_update = False
+            if needs_update:
+                query = GroupCommand.query(group=gid)
+                self.send_content(content=query, receiver=sender)
         # process command
         if isinstance(content, HistoryCommand):
             return self.process(cmd=content, sender=sender)
