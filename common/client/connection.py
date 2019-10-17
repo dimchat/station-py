@@ -127,5 +127,6 @@ def receive_handler(conn: Connection):
             pack = data[:pos]
             conn.receive(pack=pack)
             # next package
-            data = data[pos+2:]
+            pos += len(conn.BOUNDARY)
+            data = data[pos:]
             pos = data.find(conn.BOUNDARY)
