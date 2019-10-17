@@ -31,6 +31,7 @@
 """
 
 import socket
+import time
 from abc import ABCMeta, abstractmethod
 from threading import Thread
 
@@ -57,11 +58,15 @@ class Connection(ITransceiverDelegate):
 
     def __init__(self):
         super().__init__()
+        self.delegate: IConnectionDelegate = None
+        # current station
+        self.station: Station = None
+        self.connected = False
         # socket
         self.sock = None
         self.thread_receive = None
-        self.connected = False
-        self.delegate: IConnectionDelegate = None
+        self.thread_heartbeat = None
+        self.last_time: int = 0
 
     def __del__(self):
         self.close()
@@ -79,16 +84,36 @@ class Connection(ITransceiverDelegate):
         if self.sock:
             self.sock.close()
         # connect to new socket (host:port)
+        self.station = station
         address = (station.host, station.port)
         self.sock = socket.socket()
         self.sock.connect(address)
         # start threads
         self.connected = True
+        self.last_time = int(time.time())
         if self.thread_receive is None:
             self.thread_receive = Thread(target=receive_handler, args=(self,))
             self.thread_receive.start()
+        if self.thread_heartbeat is None:
+            self.thread_heartbeat = Thread(target=heartbeat_handler, args=(self,))
+            self.thread_heartbeat.start()
+
+    def send(self, data: bytes) -> IOError:
+        self.last_time = int(time.time())
+        try:
+            self.sock.sendall(data)
+        except IOError as error:
+            # reconnect
+            self.connect(station=self.station)
+            # try again
+            try:
+                self.sock.sendall(data)
+            except IOError as error:
+                # failed
+                return error
 
     def receive(self, pack: bytes):
+        self.last_time = int(time.time())
         self.delegate.receive_package(data=pack)
 
     #
@@ -99,9 +124,12 @@ class Connection(ITransceiverDelegate):
         # pack
         pack = data + self.BOUNDARY
         # send
-        self.sock.sendall(pack)
+        error = self.send(data=pack)
         if handler is not None:
-            handler.success()
+            if error is None:
+                handler.success()
+            else:
+                handler.failed(error=error)
         return True
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
@@ -130,3 +158,13 @@ def receive_handler(conn: Connection):
             pos += len(conn.BOUNDARY)
             data = data[pos:]
             pos = data.find(conn.BOUNDARY)
+
+
+def heartbeat_handler(conn: Connection):
+    while conn.connected:
+        time.sleep(5)
+        now = int(time.time())
+        delta = now - conn.last_time
+        if delta > 300:
+            # heartbeat after 5 minutes
+            conn.send(data=b'\n')
