@@ -48,7 +48,7 @@ class ProfileTable(Storage):
         return os.path.join(self.root, 'public', identifier.address, 'profile.js')
 
     def __cache_profile(self, profile: Profile) -> bool:
-        identifier = profile.identifier
+        identifier = Storage.identifier(profile.identifier)
         assert identifier.valid, 'profile ID not valid: %s' % profile
         if profile.valid:
             self.__caches[identifier] = profile
@@ -69,7 +69,7 @@ class ProfileTable(Storage):
             return Profile(dictionary)
 
     def __save_profile(self, profile: Profile) -> bool:
-        identifier = profile.identifier
+        identifier = Storage.identifier(profile.identifier)
         assert identifier.valid, 'profile ID not valid: %s' % profile
         path = self.__path(identifier=identifier)
         self.info('Saving profile into: %s' % path)

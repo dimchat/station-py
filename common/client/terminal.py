@@ -231,7 +231,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         command = cmd.command
         if 'meta' == command:
             cmd = MetaCommand(cmd)
-            identifier = cmd.identifier
+            identifier = facebook.identifier(cmd.identifier)
             # save meta
             meta = cmd.meta
             if facebook.verify_meta(meta=meta, identifier=identifier):
@@ -241,7 +241,7 @@ class Terminal(LocalUser, IConnectionDelegate):
             return ok
         elif 'profile' == command:
             cmd = ProfileCommand(cmd)
-            identifier = cmd.identifier
+            identifier = facebook.identifier(cmd.identifier)
             # save meta
             meta = cmd.meta
             if facebook.verify_meta(meta=meta, identifier=identifier):

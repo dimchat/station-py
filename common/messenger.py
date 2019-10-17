@@ -137,7 +137,7 @@ class Messenger(Transceiver):
                 # FIXME: query group members from sender
                 messages = None
             else:
-                messages = r_msg.split(members=group.members)
+                messages = r_msg.split(members=members)
             if messages is None:
                 # failed to split msg, send it to group
                 ok = self.__send_message(msg=r_msg, callback=callback)

@@ -160,7 +160,7 @@ class MessageProcessor:
             return HandshakeCommand.again(session=session.session_key)
 
     def process_meta_command(self, cmd: MetaCommand) -> Content:
-        identifier = cmd.identifier
+        identifier = g_facebook.identifier(cmd.identifier)
         meta = cmd.meta
         if meta is not None:
             # received a meta for ID
@@ -181,7 +181,7 @@ class MessageProcessor:
             return TextContent.new(text='Sorry, meta for %s not found.' % identifier)
 
     def process_profile_command(self, cmd: ProfileCommand) -> Content:
-        identifier = cmd.identifier
+        identifier = g_facebook.identifier(cmd.identifier)
         meta = cmd.meta
         if meta is not None:
             # received a meta for ID

@@ -132,7 +132,7 @@ class Database:
             # already verified
             return True
         # try to verify the profile
-        identifier = profile.identifier
+        identifier = Storage.identifier(profile.identifier)
         if identifier.type.is_user() or identifier.type.value == NetworkID.Polylogue:
             # if this is a user profile,
             #     verify it with the user's meta.key
