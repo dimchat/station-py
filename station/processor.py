@@ -256,8 +256,9 @@ class MessageProcessor:
             return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
 
     def process_login_command(self, cmd: Command) -> Content:
-        # TODO: update login status and return nothing
-        pass
+        # TODO: update login status
+        self.info('Login command: %s' % cmd)
+        return ReceiptCommand.receipt(message='Login received')
 
     def process_users_command(self) -> Content:
         self.info('get online user(s) for %s' % self.identifier)
