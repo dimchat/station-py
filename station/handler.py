@@ -35,9 +35,10 @@ from socketserver import BaseRequestHandler
 
 from mkm import is_broadcast
 from dimp import ID
-from dimp import Content, TextContent, ReceiptCommand
+from dimp import Content, TextContent
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 
+from common import ReceiptCommand
 from common import Log
 from common import NetMsgHead, NetMsg
 from common import Session, Server

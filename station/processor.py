@@ -32,9 +32,10 @@
 
 from dimp import ID, Profile
 from dimp import Content, TextContent, Command, HistoryCommand
-from dimp import HandshakeCommand, ProfileCommand, MetaCommand, ReceiptCommand
+from dimp import HandshakeCommand, ProfileCommand, MetaCommand
 from dimp import InstantMessage
 
+from common import ReceiptCommand
 from common import Log
 from common import Session, Server
 

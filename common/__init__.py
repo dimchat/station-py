@@ -35,6 +35,7 @@ from .utils import hex_encode, hex_decode
 from .utils import sha1
 from .utils import Log
 
+from .extension import ReceiptCommand
 from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
 
 from .database import Storage, Database
@@ -43,9 +44,9 @@ from .server import ApplePushNotificationService, IAPNsDelegate
 from .server import Session, SessionServer
 from .server import Server
 
-from .robot import Connection, IConnectionDelegate
-from .robot import Robot
-from .robot import ChatBot, Tuling, XiaoI
+from .client import Connection, IConnectionDelegate
+from .client import Robot
+from .client import ChatBot, Tuling, XiaoI
 
 from .mars import NetMsgHead, NetMsg
 
@@ -67,6 +68,7 @@ __all__ = [
     #
     #  Extension
     #
+    'ReceiptCommand',
     'BTCAddress', 'ETHAddress',
     'BTCMeta', 'ETHMeta',
 

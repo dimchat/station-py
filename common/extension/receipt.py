@@ -23,14 +23,57 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .receipt import ReceiptCommand
+"""
+    Receipt Protocol
+    ~~~~~~~~~~~~~~~~
 
-from .address import BTCAddress, ETHAddress
-from .meta import BTCMeta, ETHMeta
+    1. contains 'ID' only, means query meta for ID
+    2. contains 'meta' (must match), means reply
+"""
 
-__all__ = [
-    'ReceiptCommand',
+from dimp import Command
+from dimp.protocol.command import command_classes
 
-    'BTCAddress', 'ETHAddress',
-    'BTCMeta', 'ETHMeta',
-]
+
+class ReceiptCommand(Command):
+    """
+        Receipt Command
+        ~~~~~~~~~~~~~~~
+
+        data format: {
+            type : 0x88,
+            sn   : 123,
+
+            command : "receipt", // command name
+            message : "...",
+        }
+    """
+
+    #
+    #   message
+    #
+    @property
+    def message(self) -> str:
+        return self.get('message')
+
+    @message.setter
+    def message(self, value: str):
+        if value is None:
+            self.pop('message', None)
+        else:
+            self['message'] = value
+
+    #
+    #   Factory
+    #
+    @classmethod
+    def receipt(cls, message: str):
+        content = {
+            'command': Command.RECEIPT,
+            'message': message,
+        }
+        return Command.new(content)
+
+
+# register command class
+command_classes[Command.RECEIPT] = ReceiptCommand
