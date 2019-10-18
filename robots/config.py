@@ -233,9 +233,11 @@ def create_daemon(identifier: str) -> Daemon:
         raise LookupError('failed to get profile for robot: %s' % identifier)
     Log.info('robot profile: %s' % profile)
     name = profile.get('name')
+    avatar = profile.get('avatar')
     # create profile
     profile = Profile.new(identifier=identifier)
     profile.set_property('name', name)
+    profile.set_property('avatar', avatar)
     profile.sign(private_key=private_key)
     if not g_facebook.save_profile(profile):
         raise AssertionError('failed to save profile: %s' % profile)
