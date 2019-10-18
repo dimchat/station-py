@@ -29,7 +29,8 @@
 
     Configuration for Robot
 """
-from time import sleep
+
+import time
 
 from dimp import ID, PrivateKey, Meta, Profile
 from dimp import Station
@@ -178,7 +179,7 @@ class Daemon(Robot):
             g_messenger.delegate = self.connection
         self.info('connected to station: %s' % station)
         # handshake after connected
-        sleep(0.5)
+        time.sleep(0.5)
         self.info('%s is shaking hands with %s' % (self.identifier, station))
         return self.handshake()
 

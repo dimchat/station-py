@@ -30,9 +30,9 @@
     A message scanner for new guests who have just come in.
 """
 
+import time
 from json import JSONDecodeError
 from threading import Thread
-from time import sleep
 
 from dimp import ID
 
@@ -123,5 +123,5 @@ class Receptionist(Thread):
                 self.error('value error %s' % error)
             finally:
                 # sleep for next loop
-                sleep(0.1)
+                time.sleep(0.1)
         self.info('exit!')

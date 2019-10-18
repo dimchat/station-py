@@ -32,8 +32,8 @@
 """
 
 import json
+import time
 from cmd import Cmd
-from time import sleep
 
 from dimp import ID, Profile
 from dimp import Content, ContentType, TextContent
@@ -95,7 +95,7 @@ class Client(Robot):
             g_messenger.delegate = self.connection
         self.info('connected to station: %s' % station)
         # handshake after connected
-        sleep(0.5)
+        time.sleep(0.5)
         self.info('%s is shaking hands with %s' % (self.identifier, station))
         return self.handshake()
 
