@@ -72,24 +72,29 @@ class Connection(ITransceiverDelegate):
         self.close()
 
     def close(self):
-        # stop thread
+        if not self.connected:
+            return
+        # disconnected
         self.connected = False
-        if self.thread_receive:
+        time.sleep(2)
+        # stop thread
+        if self.thread_receive is not None:
             self.thread_receive = None
+        if self.thread_heartbeat is not None:
+            self.thread_heartbeat = None
         # disconnect the socket
-        if self.sock:
+        if self.sock is not None:
             self.sock.close()
 
     def connect(self, station: Station):
-        if self.sock:
-            self.sock.close()
+        self.close()
         # connect to new socket (host:port)
         self.station = station
         address = (station.host, station.port)
         self.sock = socket.socket()
         self.sock.connect(address)
-        # start threads
         self.connected = True
+        # start threads
         self.last_time = int(time.time())
         if self.thread_receive is None:
             self.thread_receive = Thread(target=receive_handler, args=(self,))
@@ -162,9 +167,9 @@ def receive_handler(conn: Connection):
 
 def heartbeat_handler(conn: Connection):
     while conn.connected:
-        time.sleep(5)
+        time.sleep(1)
         now = int(time.time())
         delta = now - conn.last_time
-        if delta > 30:
+        if delta > 28:
             # heartbeat after 5 minutes
             conn.send(data=b'\n')
