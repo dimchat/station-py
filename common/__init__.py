@@ -47,6 +47,8 @@ from .server import Server
 from .client import Connection, IConnectionDelegate
 from .client import Robot
 from .client import ChatBot, Tuling, XiaoI
+from .client import Dialog
+from .client import Daemon
 
 from .mars import NetMsgHead, NetMsg
 
@@ -91,6 +93,8 @@ __all__ = [
     'Connection', 'IConnectionDelegate',
     'Robot',
     'ChatBot', 'Tuling', 'XiaoI',
+    'Dialog',
+    'Daemon',
 
     #
     #  Mars for data packing

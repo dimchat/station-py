@@ -31,27 +31,43 @@
 """
 
 import random
+from typing import Union
 
 from dimp import ID
-from dimp import Content, TextContent
+from dimp import Content, TextContent, AudioContent
 
-from common import Log
-
-from .config import g_facebook
-from .config import g_tuling, g_xiaoi
+from .chatbot import ChatBot
 
 
 class Dialog:
 
     def __init__(self):
         super().__init__()
-        # chat bot list
-        self.bots = random.sample([g_tuling, g_xiaoi], 2)
+        # chat bot candidates
+        self.__bots: list = None
 
-    def __ask(self, question: str, sender: ID) -> str:
+    @property
+    def bots(self) -> list:
+        return self.__bots
+
+    @bots.setter
+    def bots(self, array: Union[list, ChatBot]):
+        if isinstance(array, list):
+            count = len(array)
+            if count > 1:
+                # set bots with random order
+                self.__bots = random.sample(array, len(array))
+            else:
+                self.__bots = array
+        elif isinstance(array, ChatBot):
+            self.__bots = [array]
+        else:
+            raise ValueError('bots error: %s' % array)
+
+    def ask(self, question: str, sender: ID) -> str:
         # try each chat robots
         index = 0
-        for robot in self.bots:
+        for robot in self.__bots:
             answer = robot.ask(question=question, user=sender.number)
             if answer is None:
                 index += 1
@@ -59,18 +75,21 @@ class Dialog:
             # got the answer
             if index > 0:
                 # move this bot to front
-                self.bots.remove(robot)
-                self.bots.insert(0, robot)
+                self.__bots.remove(robot)
+                self.__bots.insert(0, robot)
             return answer
 
-    def talk(self, content: Content, sender: ID) -> Content:
-        nickname = g_facebook.nickname(identifier=sender)
+    def query(self, content: Content, sender: ID) -> Content:
         if isinstance(content, TextContent):
+            # text dialog
             question = content.text
-            answer = self.__ask(question=question, sender=sender)
-            Log.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+            answer = self.ask(question=question, sender=sender)
             if answer is not None:
-                return TextContent.new(text=answer)
-        # TEST: response client with the same message here
-        Log.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
-        return content
+                response = TextContent.new(text=answer)
+                group = content.group
+                if group is not None:
+                    response.group = group
+                return response
+        elif isinstance(content, AudioContent):
+            # TODO: Automatic Speech Recognition
+            pass

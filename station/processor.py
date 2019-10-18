@@ -38,8 +38,8 @@ from dimp import InstantMessage
 from common import ReceiptCommand
 from common import Log
 from common import Session, Server
+from common import Dialog
 
-from .dialog import Dialog
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
 from .config import station_name
 
@@ -97,7 +97,18 @@ class MessageProcessor:
         if self.dialog is None:
             self.dialog = Dialog()
         self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
-        return self.dialog.talk(content=content, sender=sender)
+        nickname = g_facebook.nickname(identifier=sender)
+        response = self.dialog.query(content=content, sender=sender)
+        if response is not None:
+            assert isinstance(response, TextContent)
+            assert isinstance(content, TextContent)
+            question = content.text
+            answer = response.text
+            self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+            return response
+        # TEST: response client with the same message here
+        Log.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
+        return content
 
     def process_command(self, content: Content, sender: ID) -> Content:
         command = content['command']

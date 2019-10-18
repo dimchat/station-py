@@ -24,18 +24,22 @@
 # ==============================================================================
 
 """
-    Robot Module
-    ~~~~~~~~~~~~
+    Client Module
+    ~~~~~~~~~~~~~
 
 """
 
 from .connection import Connection, IConnectionDelegate
 from .robot import Robot
 from .chatbot import ChatBot, Tuling, XiaoI
+from .dialog import Dialog
+from .daemon import Daemon
 
 
 __all__ = [
     'Connection', 'IConnectionDelegate',
     'Robot',
     'ChatBot', 'Tuling', 'XiaoI',
+    'Dialog',
+    'Daemon',
 ]

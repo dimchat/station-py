@@ -30,16 +30,9 @@
     Simple client for Robot
 """
 
-import json
-from time import sleep
-
-from mkm import is_broadcast, EVERYONE
-from dimp import ID, Meta, Station
-from dimp import Content, Command, HandshakeCommand, MetaCommand
-from dimp import InstantMessage, ReliableMessage
-from dimp import ICompletionHandler
-
-from ..facebook import Facebook
+from mkm import EVERYONE
+from dimp import ID, Station
+from dimp import Content, Command, HandshakeCommand
 
 from .connection import Connection
 from .terminal import Terminal

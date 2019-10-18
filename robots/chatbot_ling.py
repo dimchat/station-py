@@ -45,5 +45,5 @@ from robots.config import create_daemon, lingling_id
 
 if __name__ == '__main__':
     daemon = create_daemon(identifier=lingling_id)
-    daemon.bot = chat_bot('tuling')
+    daemon.bots = [chat_bot('tuling')]
     daemon.connect(station=g_station)

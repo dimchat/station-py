@@ -30,18 +30,16 @@
     Configuration for Robot
 """
 
-import time
-
-from dimp import ID, PrivateKey, Meta, Profile
+from dimp import PrivateKey, Meta, Profile
 from dimp import Station
-from dimp import InstantMessage, Content, TextContent
 
 #
 #  Common Libs
 #
 from common import Log
 from common import Database, Facebook, AddressNameService, KeyStore, Messenger
-from common import Robot, ChatBot, Tuling, XiaoI
+from common import ChatBot, Tuling, XiaoI
+from common import Daemon
 
 from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
@@ -122,7 +120,7 @@ g_facebook.cache_user(user=g_station)
     Chat Bots
     ~~~~~~~~~
 
-    Chat bots for station
+    Chat bots from 3rd-party
 """
 
 
@@ -146,6 +144,8 @@ def chat_bot(name: str) -> ChatBot:
             if item not in xiaoi.ignores:
                 xiaoi.ignores.append(item)
         return xiaoi
+    else:
+        raise NotImplementedError('unknown chat bot: %s' % name)
 
 
 """
@@ -154,56 +154,6 @@ def chat_bot(name: str) -> ChatBot:
     
     Robot as a daemon
 """
-
-
-class Daemon(Robot):
-
-    def __init__(self, identifier: ID):
-        super().__init__(identifier=identifier)
-        # station connection
-        self.delegate = g_facebook
-        self.messenger = g_messenger
-        # real chat bot
-        self.bot: ChatBot = None
-
-    def disconnect(self) -> bool:
-        if g_messenger.delegate == self.connection:
-            g_messenger.delegate = None
-        return super().disconnect()
-
-    def connect(self, station: Station) -> bool:
-        if not super().connect(station=station):
-            self.error('failed to connect station: %s' % station)
-            return False
-        if g_messenger.delegate is None:
-            g_messenger.delegate = self.connection
-        self.info('connected to station: %s' % station)
-        # handshake after connected
-        time.sleep(0.5)
-        self.info('%s is shaking hands with %s' % (self.identifier, station))
-        return self.handshake()
-
-    def receive_message(self, msg: InstantMessage) -> bool:
-        if super().receive_message(msg=msg):
-            return True
-        sender = g_facebook.identifier(msg.envelope.sender)
-        if sender.type.is_robot():
-            # ignore message from another robot
-            return True
-        content: Content = msg.content
-        if isinstance(content, TextContent):
-            # dialog
-            question = content.text
-            answer = self.bot.ask(question=question, user=str(sender.number))
-            if answer is None:
-                return False
-            group = content.group
-            text = TextContent.new(text=answer)
-            if group is None:
-                return self.send_content(content=text, receiver=sender)
-            else:
-                group = g_facebook.identifier(group)
-                return self.send_content(content=text, receiver=group)
 
 
 def create_daemon(identifier: str) -> Daemon:
@@ -244,6 +194,7 @@ def create_daemon(identifier: str) -> Daemon:
         raise AssertionError('failed to save profile: %s' % profile)
     # create robot
     robot = Daemon(identifier=identifier)
+    robot.messenger = g_messenger
     g_facebook.cache_user(user=robot)
     Log.info('robot loaded: %s' % robot)
     return robot

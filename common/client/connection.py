@@ -36,7 +36,9 @@ from abc import ABCMeta, abstractmethod
 from threading import Thread
 
 from dimp import Station, ITransceiverDelegate, ICompletionHandler
-from dkd import InstantMessage
+from dimp import InstantMessage
+
+from ..utils import Log
 
 
 class IConnectionDelegate(metaclass=ABCMeta):
@@ -60,66 +62,98 @@ class Connection(ITransceiverDelegate):
         super().__init__()
         self.delegate: IConnectionDelegate = None
         # current station
-        self.station: Station = None
-        self.connected = False
+        self.__station: Station = None
+        self.__connected = False
         # socket
-        self.sock = None
-        self.thread_receive = None
-        self.thread_heartbeat = None
-        self.last_time: int = 0
+        self.__sock = None
+        self.__thread_receive = None
+        self.__thread_heartbeat = None
+        self.__last_time: int = 0
 
     def __del__(self):
         self.close()
 
+    @property
+    def connected(self) -> bool:
+        return self.__connected
+
+    @property
+    def last_time(self) -> int:
+        """ Last send/receive time """
+        return self.__last_time
+
     def close(self):
-        if not self.connected:
-            return
         # disconnected
-        self.connected = False
+        self.__connected = False
         time.sleep(2)
-        # stop thread
-        if self.thread_receive is not None:
-            self.thread_receive = None
-        if self.thread_heartbeat is not None:
-            self.thread_heartbeat = None
+        # cancel threads
+        if self.__thread_receive is not None:
+            self.__thread_receive = None
+        if self.__thread_heartbeat is not None:
+            self.__thread_heartbeat = None
         # disconnect the socket
-        if self.sock is not None:
-            self.sock.close()
+        if self.__sock is not None:
+            self.__sock.close()
+            self.__sock = None
 
     def connect(self, station: Station):
-        self.close()
         # connect to new socket (host:port)
-        self.station = station
+        self.__station = station
         address = (station.host, station.port)
-        self.sock = socket.socket()
-        self.sock.connect(address)
-        self.connected = True
+        self.__sock = socket.socket()
+        self.__sock.connect(address)
+        self.__connected = True
         # start threads
-        self.last_time = int(time.time())
-        if self.thread_receive is None:
-            self.thread_receive = Thread(target=receive_handler, args=(self,))
-            self.thread_receive.start()
-        if self.thread_heartbeat is None:
-            self.thread_heartbeat = Thread(target=heartbeat_handler, args=(self,))
-            self.thread_heartbeat.start()
+        self.__last_time = int(time.time())
+        if self.__thread_receive is None:
+            self.__thread_receive = Thread(target=receive_handler, args=(self,))
+            self.__thread_receive.start()
+        if self.__thread_heartbeat is None:
+            self.__thread_heartbeat = Thread(target=heartbeat_handler, args=(self,))
+            self.__thread_heartbeat.start()
+
+    def reconnect(self):
+        # disconnected
+        if self.__sock is not None:
+            self.__sock.close()
+            self.__sock = None
+        # connect to same station
+        self.connect(station=self.__station)
 
     def send(self, data: bytes) -> IOError:
-        self.last_time = int(time.time())
         try:
-            self.sock.sendall(data)
+            self.__sock.sendall(data)
         except IOError as error:
+            Log.error('failed to send data: %s' % error)
             # reconnect
-            self.connect(station=self.station)
+            self.reconnect()
             # try again
             try:
-                self.sock.sendall(data)
+                self.__sock.sendall(data)
             except IOError as error:
                 # failed
                 return error
+        # send OK, record the current time
+        self.__last_time = int(time.time())
 
-    def receive(self, pack: bytes):
-        self.last_time = int(time.time())
-        self.delegate.receive_package(data=pack)
+    def receive(self, buffer_size=1024) -> bytes:
+        data = None
+        try:
+            data = self.__sock.recv(buffer_size)
+        except IOError as error:
+            Log.error('failed to receive data: %s' % error)
+            # reconnect
+            self.reconnect()
+            # try again
+            try:
+                data = self.__sock.recv(buffer_size)
+            except IOError as error:
+                # failed
+                Log.error('failed to receive data again: %s' % error)
+        if data is not None:
+            # receive OK, record the current time
+            self.__last_time = int(time.time())
+            return data
 
     #
     #   ITransceiverDelegate
@@ -151,14 +185,14 @@ def receive_handler(conn: Connection):
     while conn.connected:
         # read all data
         try:
-            data += conn.sock.recv(1024)
+            data += conn.receive()
         except OSError:
             break
         # split package(s)
         pos = data.find(conn.BOUNDARY)
         while pos != -1:
             pack = data[:pos]
-            conn.receive(pack=pack)
+            conn.delegate.receive_package(data=pack)
             # next package
             pos += len(conn.BOUNDARY)
             data = data[pos:]
