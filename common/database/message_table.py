@@ -86,7 +86,7 @@ class MessageTable(Storage):
         # check whether message duplicated
         messages = self.__load_messages(path=path)
         for item in messages:
-            if item.signature == msg.signature:
+            if item.get('signature') == msg.get('signature'):
                 # only same messages will have same signature
                 return True
 

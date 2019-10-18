@@ -130,7 +130,7 @@ class Connection(ITransceiverDelegate):
                 handler.success()
             else:
                 handler.failed(error=error)
-        return True
+        return error is None
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         """ Upload encrypted data to CDN """
