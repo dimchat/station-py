@@ -34,6 +34,13 @@ xiaoxiao_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'
 
 
 #
+#  DIM system bots
+#
+
+assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
+
+
+#
 #  Info Loader
 #
 

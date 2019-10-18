@@ -30,7 +30,7 @@
 
     Generate Account information for DIM User/Station
 """
-
+import re
 import unittest
 
 import sys
@@ -65,31 +65,27 @@ class AccountTestCase(unittest.TestCase):
         if cmd == 1:
             # generate SP
             seed = 'gsp'
-            prefix = 400
-            suffix = 0
+            pattern = re.compile(r'^400\d+$')
             network = NetworkID.Provider
-            print('*** registering SP (%s) with number prefix: %d' % (seed, prefix))
+            print('*** registering SP (%s) with number match: %s' % (seed, pattern))
         elif cmd == 2:
             # generate Station
             seed = 'gsp-s002'
-            prefix = 110
-            suffix = 0
+            pattern = re.compile(r'^110\d+$')
             network = NetworkID.Station
-            print('*** registering station (%s) with number prefix: %d' % (seed, prefix))
+            print('*** registering station (%s) with number match: %s' % (seed, pattern))
         elif cmd == 3:
             # generate robot
-            seed = 'xiaoxiao'
-            prefix = 123
-            suffix = 0
+            seed = 'assistant'
+            pattern = re.compile(r'^000\d+$')
             network = NetworkID.Robot
-            print('*** registering robot (%s) with number prefix: %d' % (seed, prefix))
+            print('*** registering robot (%s) with number match: %s' % (seed, pattern))
         else:
             # generate User
             seed = 'moky'
-            prefix = 0
-            suffix = 9527
+            pattern = re.compile(r'^\d+9527$')
             network = NetworkID.Main
-            print('*** registering account (%s) with number suffix: %d' % (seed, suffix))
+            print('*** registering account (%s) with number match: %s' % (seed, pattern))
 
         # seed
         data = seed.encode('utf-8')
@@ -103,13 +99,10 @@ class AccountTestCase(unittest.TestCase):
             address = BTCAddress.new(data=ct, network=network)
             number = address.number
 
-            if (prefix and index % 10 == 0) or (suffix and index % 100 == 0):
+            if index % 10 == 0:
                 print('[% 5d] %s : %s@%s' % (index, number_string(number), seed, address))
 
-            if prefix and number // 10000000 != prefix:
-                continue
-
-            if suffix and number % 10000 != suffix:
+            if not pattern.match('%010d' % number):
                 continue
 
             print('**** GOT IT!')

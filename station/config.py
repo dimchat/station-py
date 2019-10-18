@@ -53,7 +53,7 @@ from etc.cfg_db import base_dir
 from etc.cfg_admins import administrators
 from etc.cfg_gsp import all_stations, local_servers, load_station_info
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
-from etc.cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
+from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist

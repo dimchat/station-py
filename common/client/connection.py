@@ -165,6 +165,6 @@ def heartbeat_handler(conn: Connection):
         time.sleep(5)
         now = int(time.time())
         delta = now - conn.last_time
-        if delta > 300:
+        if delta > 30:
             # heartbeat after 5 minutes
             conn.send(data=b'\n')

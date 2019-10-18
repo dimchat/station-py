@@ -50,9 +50,9 @@ from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 #
 from etc.cfg_db import base_dir
 from etc.cfg_gsp import station_id
-from etc.cfg_chatbots import load_robot_info
-from etc.cfg_chatbots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
-from etc.cfg_chatbots import lingling_id, xiaoxiao_id
+from etc.cfg_bots import load_robot_info
+from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
+from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
 
 
 """
@@ -270,5 +270,6 @@ load_immortals()
 
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)
+Log.info('DIM bot: %s' % assistant_id)
 
 Log.info('======== configuration OK!')
