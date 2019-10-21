@@ -94,6 +94,20 @@ class Terminal(LocalUser, IConnectionDelegate):
         # send out after encrypt and sign
         return self.messenger.send_message(msg=i_msg, split=True)
 
+    def __process_query(self, group: Group, commander: ID) -> bool:
+        facebook: Facebook = self.delegate
+        # 0. check permission
+        if not exists_member(member=commander, group=group):
+            # only member can query
+            return False
+        # 1. get members
+        members = group.members
+        if members is None or len(members) == 0:
+            return False
+        # 2. response all members to the sender
+        invite = GroupCommand.invite(group=group.identifier, members=members)
+        return self.send_content(content=invite, receiver=commander)
+
     def __process_reset(self, group: Group, commander: ID, members: list) -> bool:
         facebook: Facebook = self.delegate
         # 0. check permission
@@ -212,12 +226,16 @@ class Terminal(LocalUser, IConnectionDelegate):
             # TODO: query group meta form DIM network
             return False
         command = cmd.command
-        if 'invite' == command:
+        if GroupCommand.INVITE == command:
             return self.__process_invite(group=polylogue, commander=sender, members=members)
-        elif 'expel' == command:
+        elif GroupCommand.EXPEL == command:
             return self.__process_expel(group=polylogue, commander=sender, members=members)
-        elif 'quit' == command:
+        elif GroupCommand.QUIT == command:
             return self.__process_quit(group=polylogue, commander=sender)
+        elif GroupCommand.QUERY == command:
+            return self.__process_query(group=polylogue, commander=sender)
+        elif GroupCommand.RESET == command:
+            return self.__process_reset(group=polylogue, commander=sender, members=members)
 
     def execute(self, cmd: Command, sender: ID) -> bool:
         """Execute commands sent by commander
@@ -290,7 +308,7 @@ class Terminal(LocalUser, IConnectionDelegate):
             #     query group info from the sender
             needs_update = group.founder is None
             if isinstance(content, HistoryCommand):
-                if 'invite' == content.command:
+                if GroupCommand.INVITE == content.command:
                     # FIXME: can we trust this stranger?
                     #        may be we should keep this members list temporary,
                     #        and send 'query' to the founder immediately.
