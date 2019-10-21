@@ -60,18 +60,10 @@ class Daemon(Robot):
     def bots(self, array: Union[list, ChatBot]):
         self.__dialog.bots = array
 
-    def disconnect(self) -> bool:
-        if self.messenger is not None:
-            if self.messenger.delegate == self.connection:
-                self.messenger.delegate = None
-        return super().disconnect()
-
     def connect(self, station: Station) -> bool:
         if not super().connect(station=station):
             self.error('failed to connect station: %s' % station)
             return False
-        if self.messenger.delegate is None:
-            self.messenger.delegate = self.connection
         self.info('connected to station: %s' % station)
         # handshake after connected
         time.sleep(0.5)

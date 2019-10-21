@@ -41,6 +41,13 @@ assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
 
 
 #
+#  Shodai Hokage
+#
+
+group_naruto = 'Group-Naruto@7ThVZeDuQAdG3eSDF6NeFjMDPjKN5SbrnM'
+
+
+#
 #  Info Loader
 #
 

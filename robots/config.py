@@ -49,7 +49,7 @@ from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 #
 from etc.cfg_db import base_dir
 from etc.cfg_gsp import station_id
-from etc.cfg_bots import load_robot_info
+from etc.cfg_bots import load_robot_info, group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
 
@@ -214,6 +214,21 @@ def load_immortals():
 
 
 """
+    Shodai Hokage
+    ~~~~~~~~~~~~~
+    
+    A group contains all freshmen
+"""
+
+
+def load_naruto():
+    gid = g_facebook.identifier(group_naruto)
+    Log.info('naruto group: %s' % gid)
+    meta = Meta(load_robot_info(gid, 'meta.js'))
+    g_facebook.save_meta(identifier=gid, meta=meta)
+
+
+"""
     Loading info
     ~~~~~~~~~~~~
 """
@@ -221,6 +236,9 @@ def load_immortals():
 # load immortal accounts
 Log.info('-------- loading immortals accounts')
 load_immortals()
+
+Log.info('-------- loading group contains all users')
+load_naruto()
 
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)

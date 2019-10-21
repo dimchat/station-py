@@ -58,7 +58,9 @@ class Robot(Terminal):
 
     def disconnect(self) -> bool:
         if self.connection:
-            self.connection.close()
+            if self.messenger.delegate == self.connection:
+                self.messenger.delegate = None
+            self.connection.disconnect()
             self.connection = None
             return True
 
@@ -68,6 +70,8 @@ class Robot(Terminal):
         conn.connect(station=station)
         self.connection = conn
         self.station = station
+        if self.messenger.delegate is None:
+            self.messenger.delegate = self.connection
         return True
 
     # def send_message(self, msg: ReliableMessage) -> bool:

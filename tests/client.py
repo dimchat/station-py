@@ -82,17 +82,10 @@ class Client(Robot):
         self.delegate = g_facebook
         self.messenger = g_messenger
 
-    def disconnect(self) -> bool:
-        if g_messenger.delegate == self.connection:
-            g_messenger.delegate = None
-        return super().disconnect()
-
     def connect(self, station: Station) -> bool:
         if not super().connect(station=station):
             self.error('failed to connect station: %s' % station)
             return False
-        if g_messenger.delegate is None:
-            g_messenger.delegate = self.connection
         self.info('connected to station: %s' % station)
         # handshake after connected
         time.sleep(0.5)
@@ -215,8 +208,8 @@ class Console(Cmd):
         if receiver is None:
             self.info('unknown user: %s' % name)
         else:
-            self.info('talking with %s now' % receiver)
-            self.client.check_meta(identifier=receiver)
+            meta = g_facebook.meta(identifier=receiver)
+            self.info('talking with %s now, meta=%s' % (receiver, meta))
             # switch receiver
             self.receiver = receiver
 

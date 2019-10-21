@@ -31,9 +31,9 @@
 """
 
 import socket
+import threading
 import time
 from abc import ABCMeta, abstractmethod
-from threading import Thread
 
 from dimp import Station, ITransceiverDelegate, ICompletionHandler
 from dimp import InstantMessage
@@ -53,42 +53,60 @@ class IConnectionDelegate(metaclass=ABCMeta):
         pass
 
 
-class Connection(ITransceiverDelegate):
+class Connection(threading.Thread, ITransceiverDelegate):
 
     # boundary for packages
     BOUNDARY = b'\n'
 
     def __init__(self):
         super().__init__()
+        self.__running = threading.Event()
         self.delegate: IConnectionDelegate = None
         # current station
         self.__station: Station = None
         self.__connected = False
         # socket
         self.__sock = None
-        self.__thread_receive = None
         self.__thread_heartbeat = None
         self.__last_time: int = 0
 
     def __del__(self):
-        self.close()
+        self.disconnect()
 
-    @property
-    def connected(self) -> bool:
-        return self.__connected
+    def start(self):
+        if not self.__running.isSet():
+            self.__running.set()
+            super().start()
 
-    @property
-    def last_time(self) -> int:
-        """ Last send/receive time """
-        return self.__last_time
+    def stop(self):
+        if self.__running.isSet():
+            self.__running.clear()
 
-    def close(self):
-        # disconnected
+    def run(self):
+        data = b''
+        while self.__running.isSet():
+            if not self.__connected:
+                time.sleep(0.5)
+                continue
+            # read all data
+            try:
+                data += self.receive()
+            except IOError:
+                continue
+            # split package(s)
+            pos = data.find(self.BOUNDARY)
+            while pos != -1:
+                pack = data[:pos]
+                self.receive_package(data=pack)
+                # next package
+                pos += len(self.BOUNDARY)
+                data = data[pos:]
+                pos = data.find(self.BOUNDARY)
+
+    def disconnect(self):
         self.__connected = False
-        time.sleep(2)
         # cancel threads
-        if self.__thread_receive is not None:
-            self.__thread_receive = None
+        self.stop()
         if self.__thread_heartbeat is not None:
             self.__thread_heartbeat = None
         # disconnect the socket
@@ -105,12 +123,10 @@ class Connection(ITransceiverDelegate):
         self.__connected = True
         # start threads
         self.__last_time = int(time.time())
-        if self.__thread_receive is None:
-            self.__thread_receive = Thread(target=receive_handler, args=(self,))
-            self.__thread_receive.start()
         if self.__thread_heartbeat is None:
-            self.__thread_heartbeat = Thread(target=heartbeat_handler, args=(self,))
+            self.__thread_heartbeat = threading.Thread(target=Connection.heartbeat, args=(self,))
             self.__thread_heartbeat.start()
+        self.start()
 
     def reconnect(self):
         # disconnected
@@ -120,11 +136,22 @@ class Connection(ITransceiverDelegate):
         # connect to same station
         self.connect(station=self.__station)
 
+    def heartbeat(self):
+        while self.__connected:
+            time.sleep(1)
+            now = int(time.time())
+            delta = now - self.__last_time
+            if delta > 28:
+                # heartbeat after 5 minutes
+                self.send(data=b'\n')
+
     def send(self, data: bytes) -> IOError:
         try:
             self.__sock.sendall(data)
         except IOError as error:
             Log.error('failed to send data: %s' % error)
+            if not self.__connected:
+                return error
             # reconnect
             self.reconnect()
             # try again
@@ -142,6 +169,8 @@ class Connection(ITransceiverDelegate):
             data = self.__sock.recv(buffer_size)
         except IOError as error:
             Log.error('failed to receive data: %s' % error)
+            if not self.__connected:
+                return b''
             # reconnect
             self.reconnect()
             # try again
@@ -154,6 +183,12 @@ class Connection(ITransceiverDelegate):
             # receive OK, record the current time
             self.__last_time = int(time.time())
             return data
+
+    def receive_package(self, data: bytes):
+        try:
+            self.delegate.receive_package(data=data)
+        except Exception as error:
+            Log.error('receive package error: %s' % error)
 
     #
     #   ITransceiverDelegate
@@ -178,32 +213,3 @@ class Connection(ITransceiverDelegate):
     def download_data(self, url: str, msg: InstantMessage) -> bytes:
         """ Download encrypted data from CDN, and decrypt it when finished """
         pass
-
-
-def receive_handler(conn: Connection):
-    data = b''
-    while conn.connected:
-        # read all data
-        try:
-            data += conn.receive()
-        except OSError:
-            break
-        # split package(s)
-        pos = data.find(conn.BOUNDARY)
-        while pos != -1:
-            pack = data[:pos]
-            conn.delegate.receive_package(data=pack)
-            # next package
-            pos += len(conn.BOUNDARY)
-            data = data[pos:]
-            pos = data.find(conn.BOUNDARY)
-
-
-def heartbeat_handler(conn: Connection):
-    while conn.connected:
-        time.sleep(1)
-        now = int(time.time())
-        delta = now - conn.last_time
-        if delta > 28:
-            # heartbeat after 5 minutes
-            conn.send(data=b'\n')

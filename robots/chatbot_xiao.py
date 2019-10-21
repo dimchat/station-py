@@ -45,6 +45,7 @@ from robots.config import create_daemon, xiaoxiao_id
 
 
 if __name__ == '__main__':
+
     daemon = create_daemon(identifier=xiaoxiao_id)
     daemon.bots = [chat_bot('xiaoi')]
     daemon.connect(station=g_station)
