@@ -79,7 +79,7 @@ class Dialog:
                 self.__bots.insert(0, robot)
             return answer
 
-    def query(self, content: Content, sender: ID) -> Content:
+    def query(self, content: Content, sender: ID) -> TextContent:
         if isinstance(content, TextContent):
             # text dialog
             question = content.text

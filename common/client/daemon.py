@@ -34,9 +34,10 @@ import time
 from typing import Union
 
 from dimp import ID
-from dimp import Content, InstantMessage
+from dimp import InstantMessage, Content, TextContent
 from dimp import Station
 
+from ..utils import Log
 from ..facebook import Facebook
 
 from .robot import Robot
@@ -88,10 +89,16 @@ class Daemon(Robot):
         content: Content = msg.content
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:
-            assert isinstance(response, Content)
+            assert isinstance(response, TextContent)
+            assert isinstance(content, TextContent)
+            nickname = facebook.nickname(identifier=sender)
+            question = content.text
+            answer = response.text
             group = content.group
             if group is None:
+                Log.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
                 return self.send_content(content=response, receiver=sender)
             else:
                 group = facebook.identifier(group)
+                Log.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
                 return self.send_content(content=response, receiver=group)
