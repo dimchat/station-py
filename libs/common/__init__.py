@@ -40,15 +40,15 @@ from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
 
 from .database import Storage, Database
 
-from .server import ApplePushNotificationService, IAPNsDelegate
-from .server import Session, SessionServer
-from .server import Server
-
-from .client import Connection, IConnectionDelegate
-from .client import Robot
-from .client import ChatBot, Tuling, XiaoI
-from .client import Dialog
-from .client import Daemon
+# from .server import ApplePushNotificationService, IAPNsDelegate
+# from .server import Session, SessionServer
+# from .server import Server
+#
+# from .client import Connection, IConnectionDelegate
+# from .client import Robot
+# from .client import ChatBot, Tuling, XiaoI
+# from .client import Dialog
+# from .client import Daemon
 
 from .mars import NetMsgHead, NetMsg
 
@@ -80,21 +80,21 @@ __all__ = [
     'Storage',
     'Database',
 
+    # #
+    # #  Server module
+    # #
+    # 'ApplePushNotificationService', 'IAPNsDelegate',
+    # 'Session', 'SessionServer',
+    # 'Server',
     #
-    #  Server module
-    #
-    'ApplePushNotificationService', 'IAPNsDelegate',
-    'Session', 'SessionServer',
-    'Server',
-
-    #
-    #  Robot module
-    #
-    'Connection', 'IConnectionDelegate',
-    'Robot',
-    'ChatBot', 'Tuling', 'XiaoI',
-    'Dialog',
-    'Daemon',
+    # #
+    # #  Robot module
+    # #
+    # 'Connection', 'IConnectionDelegate',
+    # 'Robot',
+    # 'ChatBot', 'Tuling', 'XiaoI',
+    # 'Dialog',
+    # 'Daemon',
 
     #
     #  Mars for data packing

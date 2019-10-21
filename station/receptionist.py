@@ -36,8 +36,8 @@ from threading import Thread
 
 from dimp import ID
 
-from common import Database, Log
-from common import ApplePushNotificationService, Server, SessionServer
+from libs.common import Database, Log
+from libs.server import ApplePushNotificationService, Server, SessionServer
 
 
 class Receptionist(Thread):

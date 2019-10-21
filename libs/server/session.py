@@ -35,7 +35,7 @@ import random
 
 from dimp import ID
 
-from ..utils import hex_encode, Log
+from ..common import hex_encode, Log
 
 
 class Session:

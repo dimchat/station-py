@@ -11,7 +11,7 @@ import os
 
 from dimp import ID
 
-from common import Storage
+from libs.common import Storage
 
 etc = os.path.abspath(os.path.dirname(__file__))
 

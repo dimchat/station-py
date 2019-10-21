@@ -43,8 +43,8 @@ sys.path.append(rootPath)
 from dimp import PrivateKey
 from dimp import NetworkID, Meta
 
-from common import BTCAddress
-from common import base64_encode
+from libs.common import BTCAddress
+from libs.common import base64_encode
 from station.config import g_facebook
 
 

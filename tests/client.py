@@ -48,8 +48,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from common import Robot
-from common.immortals import moki, hulk
+from libs.client import Robot
+from libs.common.immortals import moki, hulk
 
 from station.config import g_database, g_facebook, g_ans, g_messenger
 from station.config import current_station

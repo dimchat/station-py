@@ -34,8 +34,8 @@ from mkm import is_broadcast
 from dimp import ID
 from dimp import ReliableMessage
 
-from common import Database, Facebook, Log
-from common import ApplePushNotificationService, SessionServer
+from libs.common import Database, Facebook, Log
+from libs.server import ApplePushNotificationService, SessionServer
 
 
 class Dispatcher:

@@ -38,10 +38,10 @@ from dimp import ID
 from dimp import Content, TextContent
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 
-from common import ReceiptCommand
-from common import Log
-from common import NetMsgHead, NetMsg
-from common import Session, Server
+from libs.common import ReceiptCommand
+from libs.common import Log
+from libs.common import NetMsgHead, NetMsg
+from libs.server import Session, Server
 
 from .processor import MessageProcessor
 

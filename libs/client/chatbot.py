@@ -37,7 +37,7 @@ from typing import Optional
 
 import numpy
 
-from common import hex_encode, sha1, Log
+from ..common import hex_encode, sha1, Log
 
 
 class ChatBot(metaclass=ABCMeta):

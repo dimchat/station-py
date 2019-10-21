@@ -37,8 +37,8 @@ from dimp import ID
 from dimp import InstantMessage, Content, TextContent
 from dimp import Station
 
-from ..utils import Log
-from ..facebook import Facebook
+from ..common import Log
+from ..common import Facebook
 
 from .robot import Robot
 from .chatbot import ChatBot

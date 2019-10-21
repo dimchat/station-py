@@ -36,8 +36,8 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 
-from common import Database, Facebook, Messenger, Log
-from common import ApplePushNotificationService, SessionServer
+from libs.common import Database, Facebook, Messenger, Log
+from libs.server import ApplePushNotificationService, SessionServer
 
 
 class Monitor:

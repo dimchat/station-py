@@ -36,13 +36,13 @@ from dimp import Station
 #
 #  Common Libs
 #
-from common import Log
-from common import Database, Facebook, AddressNameService, KeyStore, Messenger
-from common import ChatBot, Tuling, XiaoI
-from common import Daemon
+from libs.common import Log
+from libs.common import Database, Facebook, AddressNameService, KeyStore, Messenger
+from libs.client import ChatBot, Tuling, XiaoI
+from libs.client import Daemon
 
-from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
-from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
+from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
+from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
 #
 #  Configurations

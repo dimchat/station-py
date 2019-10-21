@@ -35,13 +35,13 @@ from dimp import Content, TextContent, Command, HistoryCommand
 from dimp import HandshakeCommand, ProfileCommand, MetaCommand
 from dimp import InstantMessage
 
-from common import ReceiptCommand
-from common import Log
-from common import Session, Server
-from common import Dialog
+from libs.common import ReceiptCommand
+from libs.common import Log
+from libs.server import Session, Server
+from libs.client import Dialog
 
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
-from .config import station_name
+from .config import station_name, chat_bot
 
 
 class MessageProcessor:
@@ -96,6 +96,7 @@ class MessageProcessor:
     def process_dialog(self, content: Content, sender: ID) -> Content:
         if self.dialog is None:
             self.dialog = Dialog()
+            self.dialog.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
         self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
         nickname = g_facebook.nickname(identifier=sender)
         response = self.dialog.query(content=content, sender=sender)

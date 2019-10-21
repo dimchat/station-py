@@ -38,7 +38,7 @@ from threading import Thread
 from dimp import Station, ITransceiverDelegate, ICompletionHandler
 from dimp import InstantMessage
 
-from ..utils import Log
+from ..common import Log
 
 
 class IConnectionDelegate(metaclass=ABCMeta):

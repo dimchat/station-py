@@ -39,8 +39,9 @@ import os
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
+sys.path.append(os.path.join(rootPath, 'libs'))
 
-from common import Log
+from libs.common import Log
 
 from station.handler import RequestHandler
 

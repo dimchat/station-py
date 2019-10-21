@@ -37,13 +37,13 @@ from dimp import Profile, Station
 #
 #  Common Libs
 #
-from common import Log, Server
-from common import Database, Facebook, AddressNameService, KeyStore, Messenger
-from common import ApplePushNotificationService, SessionServer
-from common import Tuling, XiaoI
+from libs.common import Log
+from libs.common import Database, Facebook, AddressNameService, KeyStore, Messenger
+from libs.server import ApplePushNotificationService, SessionServer, Server
+from libs.client import ChatBot, Tuling, XiaoI
 
-from common.immortals import moki_id, moki_sk, moki_meta, moki_profile
-from common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
+from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
+from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 
 #
 #  Configurations
@@ -172,25 +172,33 @@ g_receptionist.apns = g_apns
 """
     Chat Bots
     ~~~~~~~~~
-    
-    Chat bots for station
-"""
-# Tuling
-key = tuling_keys.get('api_key')
-g_tuling = Tuling(api_key=key)
-# ignore codes
-for item in tuling_ignores:
-    if item not in g_tuling.ignores:
-        g_tuling.ignores.append(item)
 
-# XiaoI
-key = xiaoi_keys.get('app_key')
-secret = xiaoi_keys.get('app_secret')
-g_xiaoi = XiaoI(app_key=key, app_secret=secret)
-# ignore responses
-for item in xiaoi_ignores:
-    if item not in g_xiaoi.ignores:
-        g_xiaoi.ignores.append(item)
+    Chat bots from 3rd-party
+"""
+
+
+def chat_bot(name: str) -> ChatBot:
+    if 'tuling' == name:
+        # Tuling
+        key = tuling_keys.get('api_key')
+        tuling = Tuling(api_key=key)
+        # ignore codes
+        for item in tuling_ignores:
+            if item not in tuling.ignores:
+                tuling.ignores.append(item)
+        return tuling
+    elif 'xiaoi' == name:
+        # XiaoI
+        key = xiaoi_keys.get('app_key')
+        secret = xiaoi_keys.get('app_secret')
+        xiaoi = XiaoI(app_key=key, app_secret=secret)
+        # ignore responses
+        for item in xiaoi_ignores:
+            if item not in xiaoi.ignores:
+                xiaoi.ignores.append(item)
+        return xiaoi
+    else:
+        raise NotImplementedError('unknown chat bot: %s' % name)
 
 
 """
