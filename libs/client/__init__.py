@@ -30,6 +30,7 @@
 """
 
 from .connection import Connection, IConnectionDelegate
+from .terminal import Terminal
 from .robot import Robot
 from .chatbot import ChatBot, Tuling, XiaoI
 from .dialog import Dialog
@@ -38,6 +39,7 @@ from .daemon import Daemon
 
 __all__ = [
     'Connection', 'IConnectionDelegate',
+    'Terminal',
     'Robot',
     'ChatBot', 'Tuling', 'XiaoI',
     'Dialog',

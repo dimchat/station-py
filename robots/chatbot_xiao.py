@@ -42,6 +42,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from robots.config import g_station
 from robots.config import chat_bot
 from robots.config import create_daemon, xiaoxiao_id
+from robots.freshmen import FreshmenScanner
 
 
 if __name__ == '__main__':
@@ -49,3 +50,7 @@ if __name__ == '__main__':
     daemon = create_daemon(identifier=xiaoxiao_id)
     daemon.bots = [chat_bot('xiaoi')]
     daemon.connect(station=g_station)
+
+    scanner = FreshmenScanner()
+    scanner.delegate = daemon
+    scanner.start()

@@ -228,6 +228,18 @@ def load_naruto():
     g_facebook.save_meta(identifier=gid, meta=meta)
 
 
+def load_freshmen() -> list:
+    freshmen = []
+    from etc.cfg_bots import load_freshmen as _loader
+    array = _loader()
+    if array is not None:
+        for item in array:
+            identifier = g_facebook.identifier(item)
+            if identifier is not None:
+                freshmen.append(identifier)
+    return freshmen
+
+
 """
     Loading info
     ~~~~~~~~~~~~

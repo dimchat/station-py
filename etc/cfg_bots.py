@@ -46,10 +46,19 @@ assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
 
 group_naruto = 'Group-Naruto@7ThVZeDuQAdG3eSDF6NeFjMDPjKN5SbrnM'
 
+freshmen_file = '/data/.dim/freshmen.txt'
+# freshmen_file = '/tmp/freshmen.txt'  # test
+
 
 #
 #  Info Loader
 #
 
-def load_robot_info(identifier: ID, filename: str):
+def load_robot_info(identifier: ID, filename: str) -> dict:
     return Storage.read_json(path=os.path.join(etc, identifier.address, filename))
+
+
+def load_freshmen() -> list:
+    text = Storage.read_text(freshmen_file)
+    if text is not None:
+        return text.splitlines()
