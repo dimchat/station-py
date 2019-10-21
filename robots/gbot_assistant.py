@@ -132,6 +132,11 @@ class FreshmenScanner(threading.Thread):
             for item in freshmen:
                 self.__send_content(content=cmd, receiver=item)
             Log.info('invite command sent: %s,\n freshmen: %s' % (cmd, freshmen))
+            #
+            #  5. update group members
+            #
+            g_facebook.save_members(members=members, group=gid)
+            Log.info('group members updated: %s, %s' % (gid, members))
 
 
 if __name__ == '__main__':
