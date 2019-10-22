@@ -92,8 +92,7 @@ class FreshmenScanner(threading.Thread):
         gid = self.__group.identifier
         return GroupCommand.invite(group=gid, members=members)
 
-    @staticmethod
-    def __welcome(freshmen: list) -> TextContent:
+    def __welcome(self, freshmen: list) -> TextContent:
         names = [g_facebook.nickname(item) for item in freshmen]
         count = len(names)
         if count == 1:
@@ -105,7 +104,9 @@ class FreshmenScanner(threading.Thread):
         else:
             # should not be here
             msg = 'Welcome!'
-        return TextContent.new(text=msg)
+        text = TextContent.new(text=msg)
+        text.group = self.__group.identifier
+        return text
 
     def run(self):
         while True:
@@ -151,6 +152,6 @@ class FreshmenScanner(threading.Thread):
             #  5. Welcome!
             #
             text = self.__welcome(freshmen=freshmen)
-            for item in members:
-                self.__send_content(content=text, receiver=item)
-            Log.info('Welcome sent: %s' % text)
+            gid = self.__group.identifier
+            self.__send_content(content=text, receiver=gid)
+            Log.info('Welcome sent to %s: %s' % (gid, text))
