@@ -94,7 +94,6 @@ class Terminal(LocalUser, IConnectionDelegate):
         return self.messenger.send_message(msg=i_msg, split=True)
 
     def __process_query(self, group: Group, commander: ID) -> bool:
-        facebook: Facebook = self.delegate
         # 0. check permission
         if not exists_member(member=commander, group=group):
             # only member can query
@@ -112,9 +111,9 @@ class Terminal(LocalUser, IConnectionDelegate):
         # 0. check permission
         if group.founder != commander:
             # only founder can reset group members
-            gMeta = group.meta
+            grp_meta = group.meta
             meta = facebook.meta(identifier=commander)
-            if gMeta is None or meta is None or not gMeta.match_public_key(meta.key):
+            if grp_meta is None or meta is None or not grp_meta.match_public_key(meta.key):
                 return False
         elif members is None or len(members) == 0:
             # command error?

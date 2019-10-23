@@ -33,7 +33,8 @@
 import threading
 import time
 
-from dimp import ID, Content, TextContent
+from dimp import ID
+from dimp import Content, TextContent
 from dimp import MetaCommand, ProfileCommand, GroupCommand, InviteCommand
 
 from libs.common import Log
@@ -45,26 +46,38 @@ from robots.config import group_naruto, load_freshmen
 
 class FreshmenScanner(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, terminal: Terminal):
         super().__init__()
+        # delegate for send message
+        self.__delegate = terminal
+        # group
         gid = g_facebook.identifier(group_naruto)
         self.__group = g_facebook.group(gid)
-        self.delegate: Terminal = None
 
     def __send_content(self, content: Content, receiver: ID) -> bool:
-        if self.delegate is not None:
-            return self.delegate.send_content(content=content, receiver=receiver)
+        return self.__delegate.send_content(content=content, receiver=receiver)
 
     def __freshmen(self) -> list:
-        users = load_freshmen()
-        if users is None:
+        freshmen = load_freshmen()
+        if freshmen is None:
             return []
         members = self.__group.members
         if members is not None:
             # remove existed members
             for item in members:
-                if item in users:
-                    users.remove(item)
+                if item in freshmen:
+                    freshmen.remove(item)
+        users = []
+        for item in freshmen:
+            profile = g_facebook.profile(identifier=item)
+            if profile is None:
+                # profile not found
+                continue
+            if 'data' not in profile:
+                # profile empty
+                continue
+            # profile OK
+            users.append(item)
         return users
 
     def __members(self) -> list:
@@ -112,19 +125,21 @@ class FreshmenScanner(threading.Thread):
         while True:
             time.sleep(30)
             #
-            #  1. get freshmen
+            #  1. get freshmen and group members
             #
             freshmen = self.__freshmen()
             if len(freshmen) == 0:
                 continue
+            Log.info('freshmen: %s' % freshmen)
+            members = self.__members()
+            Log.info('group members: %s' % members)
             #
             #  2. send 'invite' command to existed members
             #
             cmd = self.__invite_members(members=freshmen)
-            members = self.__members()
             for item in members:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('invite command sent: %s,\n members: %s' % (cmd, members))
+            Log.info('invite command sent: %s' % cmd)
             #
             #  3. update group members
             #
@@ -140,14 +155,14 @@ class FreshmenScanner(threading.Thread):
             cmd = self.__response_meta()
             for item in freshmen:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('meta/profile command sent: %s,\n freshmen: %s' % (cmd, freshmen))
+            Log.info('group meta/profile sent: %s' % cmd)
             #
             #  4.2. send 'invite' command to all freshmen
             #
             cmd = self.__invite_members(members=members)
             for item in freshmen:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('invite command sent: %s,\n freshmen: %s' % (cmd, freshmen))
+            Log.info('invite command sent: %s' % cmd)
             #
             #  5. Welcome!
             #
