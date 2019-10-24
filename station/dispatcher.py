@@ -30,9 +30,10 @@
     A dispatcher to decide which way to deliver message.
 """
 
+from typing import Optional
+
 from mkm import is_broadcast
-from dimp import ID
-from dimp import ReliableMessage
+from dimp import ContentType, ReliableMessage
 
 from libs.common import Database, Facebook, Log
 from libs.server import ApplePushNotificationService, SessionServer
@@ -90,22 +91,43 @@ class Dispatcher:
         # transmit to neighbor stations
         self.transmit(msg=msg)
         # push notification
-        sender = self.facebook.identifier(msg.envelope.sender)
-        group = self.facebook.identifier(msg.envelope.group)
-        text = self.__push_msg(sender=sender, receiver=receiver, group=group)
-        return self.apns.push(identifier=receiver, message=text)
+        text = self.__push_msg(msg=msg)
+        if text is not None:
+            return self.apns.push(identifier=receiver, message=text)
+        return True
 
-    def __push_msg(self, sender: ID, receiver: ID, group: ID=None) -> str:
+    def __push_msg(self, msg: ReliableMessage) -> Optional[str]:
+        msg_type = msg.envelope.type
+        if msg_type == 0:
+            something = 'something'
+        elif msg_type == ContentType.Text:
+            something = 'a text message'
+        elif msg_type == ContentType.File:
+            something = 'a file'
+        elif msg_type == ContentType.Image:
+            something = 'an image'
+        elif msg_type == ContentType.Audio:
+            something = 'a voice message'
+        elif msg_type == ContentType.Video:
+            something = 'a video message'
+        else:
+            Log.info('ignore msg type: %d' % msg_type)
+            return None
+        sender = self.facebook.identifier(msg.envelope.sender)
+        receiver = self.facebook.identifier(msg.envelope.receiver)
         from_name = self.facebook.nickname(identifier=sender)
         to_name = self.facebook.nickname(identifier=receiver)
-        if group is None:
-            # personal message
-            return 'Dear %s: %s sent you a message.' % (to_name, from_name)
-        else:
+        text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
+        # check group
+        group = msg.envelope.group
+        if group is not None:
             # group message
-            grp = self.facebook.group(identifier=group)
+            gid = self.facebook.identifier(group)
+            grp = self.facebook.group(identifier=gid)
             if grp is None:
-                g_name = group.name
+                g_name = gid.name
             else:
                 g_name = grp.name
-            return 'Dear %s: %s [%s] sent you a group message.' % (to_name, from_name, g_name)
+            text = text + ' in group %s' % g_name
+        # OK
+        return text
