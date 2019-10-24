@@ -30,8 +30,6 @@
     A dispatcher to decide which way to deliver message.
 """
 
-from typing import Optional
-
 from mkm import is_broadcast
 from dimp import ContentType, ReliableMessage
 
@@ -55,12 +53,12 @@ class Dispatcher:
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
-    def transmit(self, msg: ReliableMessage) -> bool:
+    def __transmit(self, msg: ReliableMessage) -> bool:
         # TODO: broadcast to neighbor stations
         self.info('transmit to neighbors %s - %s' % (self.neighbors, msg))
         return False
 
-    def broadcast(self, msg: ReliableMessage) -> bool:
+    def __broadcast(self, msg: ReliableMessage) -> bool:
         # TODO: split for all users
         self.info('broadcast message %s' % msg)
         return False
@@ -68,7 +66,7 @@ class Dispatcher:
     def deliver(self, msg: ReliableMessage) -> bool:
         receiver = self.facebook.identifier(msg.envelope.receiver)
         if is_broadcast(identifier=receiver):
-            return self.broadcast(msg=msg)
+            return self.__broadcast(msg=msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -89,14 +87,11 @@ class Dispatcher:
         self.info('%s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
         # transmit to neighbor stations
-        self.transmit(msg=msg)
+        self.__transmit(msg=msg)
         # push notification
-        text = self.__push_msg(msg=msg)
-        if text is not None:
-            return self.apns.push(identifier=receiver, message=text)
-        return True
+        return self.__push_msg(msg=msg)
 
-    def __push_msg(self, msg: ReliableMessage) -> Optional[str]:
+    def __push_msg(self, msg: ReliableMessage) -> bool:
         msg_type = msg.envelope.type
         if msg_type == 0:
             something = 'something'
@@ -111,8 +106,8 @@ class Dispatcher:
         elif msg_type == ContentType.Video:
             something = 'a video message'
         else:
-            Log.info('ignore msg type: %d' % msg_type)
-            return None
+            self.info('ignore msg type: %d' % msg_type)
+            return False
         sender = self.facebook.identifier(msg.envelope.sender)
         receiver = self.facebook.identifier(msg.envelope.receiver)
         from_name = self.facebook.nickname(identifier=sender)
@@ -129,5 +124,6 @@ class Dispatcher:
             else:
                 g_name = grp.name
             text = text + ' in group %s' % g_name
-        # OK
-        return text
+        # push it
+        self.info('APNs message: %s' % text)
+        return self.apns.push(identifier=receiver, message=text)
