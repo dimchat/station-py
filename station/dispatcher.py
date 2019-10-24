@@ -31,7 +31,9 @@
 """
 
 from mkm import is_broadcast
-from dimp import ContentType, ReliableMessage
+from dimp import ID
+from dimp import ReliableMessage
+from dimp import ContentType
 
 from libs.common import Database, Facebook, Log
 from libs.server import ApplePushNotificationService, SessionServer
@@ -55,18 +57,38 @@ class Dispatcher:
 
     def __transmit(self, msg: ReliableMessage) -> bool:
         # TODO: broadcast to neighbor stations
-        self.info('transmit to neighbors %s - %s' % (self.neighbors, msg))
+        self.info('transmitting to neighbors %s - %s' % (self.neighbors, msg))
         return False
 
     def __broadcast(self, msg: ReliableMessage) -> bool:
         # TODO: split for all users
-        self.info('broadcast message %s' % msg)
+        self.info('broadcasting message %s' % msg)
+        return False
+
+    def __blocked(self, sender: ID, group: ID) -> bool:
+        # TODO: support blocked conversation
+        self.info('checking block-list for sender: %s, group: %s' % (sender, group))
+        return False
+
+    def __muted(self, sender: ID, group: ID) -> bool:
+        # TODO: support muted conversation
+        self.info('checking mute-list for sender: %s, group: %s' % (sender, group))
         return False
 
     def deliver(self, msg: ReliableMessage) -> bool:
+        sender = self.facebook.identifier(msg.envelope.sender)
         receiver = self.facebook.identifier(msg.envelope.receiver)
-        if is_broadcast(identifier=receiver):
+        group = self.facebook.identifier(msg.envelope.group)
+        # check broadcast message
+        if group is None:
+            if is_broadcast(identifier=receiver):
+                return self.__broadcast(msg=msg)
+        elif is_broadcast(identifier=group):
             return self.__broadcast(msg=msg)
+        # check block-list
+        if self.__blocked(sender=sender, group=group):
+            self.info('this sender/group is blocked: %s' % msg)
+            return False
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -88,13 +110,16 @@ class Dispatcher:
         self.database.store_message(msg)
         # transmit to neighbor stations
         self.__transmit(msg=msg)
+        if self.__muted(sender=sender, group=group):
+            self.info('this sender/group is muted: %s' % msg)
+            return True
         # push notification
-        return self.__push_msg(msg=msg)
-
-    def __push_msg(self, msg: ReliableMessage) -> bool:
         msg_type = msg.envelope.type
+        return self.__push_msg(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+
+    def __push_msg(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> bool:
         if msg_type == 0:
-            something = 'something'
+            something = 'a message'
         elif msg_type == ContentType.Text:
             something = 'a text message'
         elif msg_type == ContentType.File:
@@ -104,17 +129,14 @@ class Dispatcher:
         elif msg_type == ContentType.Audio:
             something = 'a voice message'
         elif msg_type == ContentType.Video:
-            something = 'a video message'
+            something = 'a video'
         else:
             self.info('ignore msg type: %s' % msg_type)
             return False
-        sender = self.facebook.identifier(msg.envelope.sender)
-        receiver = self.facebook.identifier(msg.envelope.receiver)
         from_name = self.facebook.nickname(identifier=sender)
         to_name = self.facebook.nickname(identifier=receiver)
         text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
         # check group
-        group = msg.envelope.group
         if group is not None:
             # group message
             gid = self.facebook.identifier(group)
