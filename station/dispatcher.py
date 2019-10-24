@@ -106,7 +106,7 @@ class Dispatcher:
         elif msg_type == ContentType.Video:
             something = 'a video message'
         else:
-            self.info('ignore msg type: %d' % msg_type)
+            self.info('ignore msg type: %s' % msg_type)
             return False
         sender = self.facebook.identifier(msg.envelope.sender)
         receiver = self.facebook.identifier(msg.envelope.receiver)
@@ -123,7 +123,7 @@ class Dispatcher:
                 g_name = gid.name
             else:
                 g_name = grp.name
-            text = text + ' in group %s' % g_name
+            text += ' in group [%s]' % g_name
         # push it
         self.info('APNs message: %s' % text)
         return self.apns.push(identifier=receiver, message=text)
