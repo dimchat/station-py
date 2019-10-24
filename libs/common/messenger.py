@@ -86,9 +86,16 @@ class Messenger(Transceiver):
         # 1. encrypt 'content' to 'data' for receiver
         s_msg = self.encrypt_message(msg=msg)
         # 1.1. check group
-        group = msg.group
+        group = msg.content.group
         if group is not None:
-            s_msg.group = group
+            # NOTICE: this help the receiver knows the group ID
+            #         when the group message separated to multi-messages,
+            #         if don't want the others know you are the group members,
+            #         remove it.
+            s_msg.envelope.group = group
+        # 1.2. copy content type to envelope
+        #      NOTICE: this help the intermediate nodes to recognize message type
+        s_msg.envelope.type = msg.content.type
         # 2. sign 'data' by sender
         r_msg = self.sign_message(msg=s_msg)
         # OK

@@ -91,7 +91,7 @@ class Dispatcher:
         self.transmit(msg=msg)
         # push notification
         sender = self.facebook.identifier(msg.envelope.sender)
-        group = self.facebook.identifier(msg.group)
+        group = self.facebook.identifier(msg.envelope.group)
         text = self.__push_msg(sender=sender, receiver=receiver, group=group)
         return self.apns.push(identifier=receiver, message=text)
 
