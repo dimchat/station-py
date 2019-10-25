@@ -65,6 +65,18 @@ class Dispatcher:
         self.info('broadcasting message %s' % msg)
         return False
 
+    def __split_group_message(self, msg: ReliableMessage) -> bool:
+        receiver = self.facebook.identifier(msg.envelope.receiver)
+        assert receiver.type.is_group(), 'receiver not a group: %s' % receiver
+        members = self.facebook.members(identifier=receiver)
+        if members is not None:
+            messages = msg.split(members=members)
+            ok = True
+            for item in messages:
+                if not self.deliver(msg=item):
+                    ok = False
+            return ok
+
     def __blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
         self.info('checking block-list for %s <- (%s, %s)' % (receiver, sender, group))
         cmd = self.facebook.block_command(identifier=receiver)
@@ -113,6 +125,10 @@ class Dispatcher:
         if self.__blocked(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is blocked: %s' % msg)
             return False
+        # check group message (not split yet)
+        if receiver.type.is_group():
+            # split and deliver them
+            return self.__split_group_message(msg=msg)
         # try for online user
         sessions = self.session_server.search(identifier=receiver)
         if sessions and len(sessions) > 0:

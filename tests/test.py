@@ -17,9 +17,11 @@ class StationTestCase(unittest.TestCase):
 
     def test_identifier(self):
         print('\n---------------- %s' % self)
-
-        id1 = ID('gsp-s001@x77uVYBT1G48CLzW9iwe2dr5jhUNEM772G')
+        str1 = 'gsp-s001@x77uVYBT1G48CLzW9iwe2dr5jhUNEM772G'
+        id1 = ID(str1)
         self.assertEqual(id1.address.network, NetworkID.Station)
+        arr1 = [str1]
+        self.assertTrue(id1 in arr1)
 
     def test_btc(self):
         total_money = 2100 * 10000
