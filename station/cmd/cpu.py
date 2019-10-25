@@ -67,7 +67,7 @@ class CPU:
             if clazz is None:
                 self.error('command "%s" not supported yet!' % command)
                 return None
-            cpu = clazz()
+            cpu = clazz(self.facebook, self.database, self.session_server)
             self.__processors[command] = cpu
         # process by subclass
         return cpu.process(cmd=cmd, sender=sender)

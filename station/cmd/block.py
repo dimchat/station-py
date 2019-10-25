@@ -24,29 +24,23 @@
 # ==============================================================================
 
 """
-    Command Process Module
-    ~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'block'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Processors for commands
+    Mute protocol
 """
 
-from .cpu import CPU, processor_classes
+from dimp import ID
+from dimp import Content, Command
 
-from .login import LoginCommandProcessor
-from .search import SearchCommandProcessor
-from .users import UsersCommandProcessor
-from .contacts import ContactsCommandProcessor
-from .mute import MuteCommandProcessor
-from .block import BlockCommandProcessor
+from libs.common import ReceiptCommand
 
-# register processors
-processor_classes['login'] = LoginCommandProcessor
-processor_classes['search'] = SearchCommandProcessor
-processor_classes['users'] = UsersCommandProcessor
-processor_classes['contacts'] = ContactsCommandProcessor
-processor_classes['mute'] = MuteCommandProcessor
-processor_classes['block'] = BlockCommandProcessor
+from .cpu import CPU
 
-__all__ = [
-    'CPU',
-]
+
+class BlockCommandProcessor(CPU):
+
+    def process(self, cmd: Command, sender: ID) -> Content:
+        # TODO: update block-list
+        self.info('Block command: %s' % cmd)
+        return ReceiptCommand.receipt(message='Block-list received')

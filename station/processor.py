@@ -132,6 +132,7 @@ class MessageProcessor:
             # broadcast or report
             return self.process_broadcast_command(cmd=cmd)
         # extra commands will be processed by Command Process Units
+        self.info('extra command: %s, sender: %s' % (cmd, sender))
         self.__cpu.process(cmd=cmd, sender=sender)
 
     def process_handshake(self, sender: ID, cmd: HandshakeCommand=None) -> Content:
