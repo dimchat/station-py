@@ -23,14 +23,18 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .receipt import ReceiptCommand
-
 from .address import BTCAddress, ETHAddress
 from .meta import BTCMeta, ETHMeta
 
+from .receipt import ReceiptCommand
+from .block import BlockCommand
+from .mute import MuteCommand
+
 __all__ = [
-    'ReceiptCommand',
 
     'BTCAddress', 'ETHAddress',
     'BTCMeta', 'ETHMeta',
+
+    'ReceiptCommand',
+    'BlockCommand', 'MuteCommand',
 ]
