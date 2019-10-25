@@ -24,62 +24,25 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Command Process Module
+    ~~~~~~~~~~~~~~~~~~~~~~
 
-    Common libs for Server or Client
+    Processors for commands
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
-from .utils import Log
+from .cpu import CPU, processor_classes
 
-from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-from .extension import ReceiptCommand, BlockCommand, MuteCommand
+from .login import LoginCommandProcessor
+from .search import SearchCommandProcessor
+from .users import UsersCommandProcessor
+from .contacts import ContactsCommandProcessor
 
-from .database import Storage, Database
-
-from .mars import NetMsgHead, NetMsg
-
-from .ans import AddressNameService
-from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
-
+# register processors
+processor_classes['login'] = LoginCommandProcessor
+processor_classes['search'] = SearchCommandProcessor
+processor_classes['users'] = UsersCommandProcessor
+processor_classes['contacts'] = ContactsCommandProcessor
 
 __all__ = [
-    #
-    #  Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
-
-    #
-    #  Extension
-    #
-    'BTCAddress', 'ETHAddress',
-    'BTCMeta', 'ETHMeta',
-    'ReceiptCommand', 'BlockCommand', 'MuteCommand',
-
-    #
-    #  Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
-
-    #
-    #  Common libs
-    #
-    'AddressNameService',
-    'Facebook',
-    'KeyStore',
-    'Messenger',
+    'CPU',
 ]

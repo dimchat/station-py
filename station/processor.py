@@ -40,6 +40,7 @@ from libs.common import Log
 from libs.server import Session, Server
 from libs.client import Dialog
 
+from .cmd import CPU
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor
 from .config import station_name, chat_bot
 
@@ -48,8 +49,9 @@ class MessageProcessor:
 
     def __init__(self, request_handler):
         super().__init__()
-        self.request_handler = request_handler
-        self.dialog: Dialog = None
+        self.__handler = request_handler
+        self.__dialog: Dialog = None
+        self.__cpu = CPU(facebook=g_facebook, database=g_database, session_server=g_session_server)
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -59,21 +61,21 @@ class MessageProcessor:
 
     @property
     def client_address(self) -> str:
-        return self.request_handler.client_address
+        return self.__handler.client_address
 
     @property
     def identifier(self) -> ID:
-        return self.request_handler.identifier
+        return self.__handler.identifier
 
     @property
     def station(self) -> Server:
-        return self.request_handler.station
+        return self.__handler.station
 
     def current_session(self, identifier: ID=None) -> Session:
-        return self.request_handler.current_session(identifier=identifier)
+        return self.__handler.current_session(identifier=identifier)
 
     def check_session(self, identifier: ID) -> Content:
-        return self.request_handler.check_session(identifier=identifier)
+        return self.__handler.check_session(identifier=identifier)
 
     """
         main entrance
@@ -87,19 +89,19 @@ class MessageProcessor:
         elif isinstance(content, Command):
             # the client is talking with station (handshake, search users, get meta/profile, ...)
             self.info('command from client %s, %s' % (self.client_address, content))
-            return self.process_command(content=content, sender=sender)
+            return self.process_command(cmd=Command(content), sender=sender)
         else:
             # talk with station?
             self.info('message from client %s, %s' % (self.client_address, content))
             return self.process_dialog(content=content, sender=sender)
 
     def process_dialog(self, content: Content, sender: ID) -> Content:
-        if self.dialog is None:
-            self.dialog = Dialog()
-            self.dialog.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
+        if self.__dialog is None:
+            self.__dialog = Dialog()
+            self.__dialog.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
         self.info('@@@ call NLP and response to the client %s, %s' % (self.client_address, sender))
         nickname = g_facebook.nickname(identifier=sender)
-        response = self.dialog.query(content=content, sender=sender)
+        response = self.__dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
             assert isinstance(content, TextContent)
@@ -111,42 +113,26 @@ class MessageProcessor:
         Log.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
         return content
 
-    def process_command(self, content: Content, sender: ID) -> Content:
-        command = content['command']
+    def process_command(self, cmd: Command, sender: ID) -> Content:
+        command = cmd.command
         if 'handshake' == command:
             # handshake protocol
-            return self.process_handshake(sender=sender, cmd=HandshakeCommand(content))
+            return self.process_handshake(sender=sender, cmd=HandshakeCommand(cmd))
         if 'meta' == command:
             # meta protocol
-            return self.process_meta_command(cmd=MetaCommand(content))
+            return self.process_meta_command(cmd=MetaCommand(cmd))
         if 'profile' == command:
             # profile protocol
-            return self.process_profile_command(cmd=ProfileCommand(content))
+            return self.process_profile_command(cmd=ProfileCommand(cmd))
         # check session valid
         handshake = self.check_session(identifier=sender)
         if handshake is not None:
             return handshake
-        # commands after handshake accepted
-        if 'login' == command:
-            # login protocol
-            return self.process_login_command(cmd=Command(content))
-        if 'contacts' == command:
-            # storage protocol: post/get contacts
-            return self.process_contacts_command(cmd=Command(content), sender=sender)
-        if 'members' == command:
-            # storage protocol: post/get groups
-            return self.process_group_command(cmd=Command(content), sender=sender)
-        if 'users' == command:
-            # show online users (connected)
-            return self.process_users_command()
-        if 'search' == command:
-            # search users with keyword(s)
-            return self.process_search_command(cmd=Command(content))
         if 'broadcast' == command or 'report' == command:
             # broadcast or report
-            return self.process_broadcast_command(cmd=Command(content))
-        # error
-        self.error('unknown command %s' % content)
+            return self.process_broadcast_command(cmd=cmd)
+        # extra commands will be processed by Command Process Units
+        self.__cpu.process(cmd=cmd, sender=sender)
 
     def process_handshake(self, sender: ID, cmd: HandshakeCommand=None) -> Content:
         # set/update session in session server with new session key
@@ -231,76 +217,6 @@ class MessageProcessor:
             return ProfileCommand.response(identifier=identifier, profile=profile)
         else:
             return TextContent.new(text='Sorry, profile for %s not found.' % identifier)
-
-    def process_group_command(self, cmd: Command, sender: ID) -> Content:
-
-        if 'group' not in cmd:
-            return TextContent.new(text='Sorry, need group identifier.' % sender)
-
-        group_identifier = cmd['group']
-        # query members, load it
-        self.info('search members for %s' % group_identifier)
-        stored: Command = g_facebook.members(identifier=group_identifier)
-        # response
-        if stored is not None:
-            # response the stored group members command directly
-            return stored
-        else:
-            return TextContent.new(text='Sorry, group of %s not found.' % group_identifier)
-
-    def process_contacts_command(self, cmd: Command, sender: ID) -> Content:
-        if 'data' in cmd or 'contacts' in cmd:
-            # receive encrypted contacts, save it
-            if g_facebook.save_contacts_command(cmd=cmd, sender=sender):
-                self.info('contacts command saved for %s' % sender)
-                return ReceiptCommand.receipt(message='Contacts of %s received!' % sender)
-            else:
-                self.error('failed to save contacts command: %s' % cmd)
-                return TextContent.new(text='Contacts not stored %s!' % cmd)
-        # query encrypted contacts, load it
-        self.info('search contacts(command with encrypted data) for %s' % sender)
-        stored: Command = g_facebook.contacts_command(identifier=sender)
-        # response
-        if stored is not None:
-            # response the stored contacts command directly
-            return stored
-        else:
-            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
-
-    def process_login_command(self, cmd: Command) -> Content:
-        # TODO: update login status
-        self.info('Login command: %s' % cmd)
-        return ReceiptCommand.receipt(message='Login received')
-
-    def process_users_command(self) -> Content:
-        self.info('get online user(s) for %s' % self.identifier)
-        users = g_session_server.random_users(max_count=20)
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
-
-    def process_search_command(self, cmd: Command) -> Content:
-        self.info('search users for %s, %s' % (self.identifier, cmd))
-        # keywords
-        keywords = cmd.get('keywords')
-        if keywords is None:
-            keywords = cmd.get('keyword')
-            if keywords is None:
-                keywords = cmd.get('kw')
-        # search for each keyword
-        if keywords is None:
-            keywords = []
-        else:
-            keywords = keywords.split(' ')
-        results = g_database.search(keywords=keywords)
-        # response
-        users = list(results.keys())
-        response = Command.new(command='search')
-        response['message'] = '%d user(s) found' % len(users)
-        response['users'] = users
-        response['results'] = results
-        return response
 
     def process_broadcast_command(self, cmd: Command) -> Content:
         self.info('client broadcast %s, %s' % (self.identifier, cmd))

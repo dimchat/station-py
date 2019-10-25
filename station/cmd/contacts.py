@@ -24,62 +24,37 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Command Processor for 'contacts'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Common libs for Server or Client
+    storage protocol: post/get contacts
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
-from .utils import Log
+from dimp import ID
+from dimp import Content, TextContent, Command
 
-from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-from .extension import ReceiptCommand, BlockCommand, MuteCommand
+from libs.common import ReceiptCommand
 
-from .database import Storage, Database
-
-from .mars import NetMsgHead, NetMsg
-
-from .ans import AddressNameService
-from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
+from .cpu import CPU
 
 
-__all__ = [
-    #
-    #  Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
+class ContactsCommandProcessor(CPU):
 
-    #
-    #  Extension
-    #
-    'BTCAddress', 'ETHAddress',
-    'BTCMeta', 'ETHMeta',
-    'ReceiptCommand', 'BlockCommand', 'MuteCommand',
-
-    #
-    #  Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
-
-    #
-    #  Common libs
-    #
-    'AddressNameService',
-    'Facebook',
-    'KeyStore',
-    'Messenger',
-]
+    def process(self, cmd: Command, sender: ID) -> Content:
+        if 'data' in cmd or 'contacts' in cmd:
+            # receive encrypted contacts, save it
+            if self.facebook.save_contacts_command(cmd=cmd, sender=sender):
+                self.info('contacts command saved for %s' % sender)
+                return ReceiptCommand.receipt(message='Contacts of %s received!' % sender)
+            else:
+                self.error('failed to save contacts command: %s' % cmd)
+                return TextContent.new(text='Contacts not stored %s!' % cmd)
+        # query encrypted contacts, load it
+        self.info('search contacts(command with encrypted data) for %s' % sender)
+        stored: Command = self.facebook.contacts_command(identifier=sender)
+        # response
+        if stored is not None:
+            # response the stored contacts command directly
+            return stored
+        else:
+            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)

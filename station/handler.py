@@ -168,10 +168,7 @@ class RequestHandler(BaseRequestHandler):
         i_msg = self.decrypt_message(msg=s_msg)
         if i_msg is not None:
             # decrypt OK, process by current station
-            res = self.processor.process(msg=i_msg)
-            if res is not None:
-                # finished
-                return res
+            return self.processor.process(msg=i_msg)
         # check session valid
         sender = g_facebook.identifier(msg.envelope.sender)
         res = self.check_session(identifier=sender)

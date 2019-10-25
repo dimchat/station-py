@@ -24,62 +24,23 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Command Processor for 'login'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Common libs for Server or Client
+    login protocol
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
-from .utils import Log
+from dimp import ID
+from dimp import Content, Command
 
-from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-from .extension import ReceiptCommand, BlockCommand, MuteCommand
+from libs.common import ReceiptCommand
 
-from .database import Storage, Database
-
-from .mars import NetMsgHead, NetMsg
-
-from .ans import AddressNameService
-from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
+from .cpu import CPU
 
 
-__all__ = [
-    #
-    #  Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
+class LoginCommandProcessor(CPU):
 
-    #
-    #  Extension
-    #
-    'BTCAddress', 'ETHAddress',
-    'BTCMeta', 'ETHMeta',
-    'ReceiptCommand', 'BlockCommand', 'MuteCommand',
-
-    #
-    #  Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
-
-    #
-    #  Common libs
-    #
-    'AddressNameService',
-    'Facebook',
-    'KeyStore',
-    'Messenger',
-]
+    def process(self, cmd: Command, sender: ID) -> Content:
+        # TODO: update login status
+        self.info('Login command: %s' % cmd)
+        return ReceiptCommand.receipt(message='Login received')
