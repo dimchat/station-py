@@ -157,6 +157,30 @@ class Database:
         return self.__user_table.contacts_command(identifier=identifier)
 
     """
+        Block-list of User
+        ~~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/block_stored.js'
+    """
+    def save_block_command(self, cmd: Command, sender: ID) -> bool:
+        return self.__user_table.save_block_command(cmd=cmd, sender=sender)
+
+    def block_command(self, identifier: ID) -> Command:
+        return self.__user_table.block_command(identifier=identifier)
+
+    """
+        Mute-list of User
+        ~~~~~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/mute_stored.js'
+    """
+    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
+        return self.__user_table.save_mute_command(cmd=cmd, sender=sender)
+
+    def mute_command(self, identifier: ID) -> Command:
+        return self.__user_table.mute_command(identifier=identifier)
+
+    """
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 

@@ -34,6 +34,9 @@ class UserTable(Storage):
 
     def __init__(self):
         super().__init__()
+        self.__contacts_command: Command = None
+        self.__block_command: Command = None
+        self.__mute_command: Command = None
 
     """
         Contacts Command
@@ -44,24 +47,65 @@ class UserTable(Storage):
     def __contacts_command_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', identifier.address, 'contacts_stored.js')
 
-    def __load_contacts_command(self, identifier: ID) -> Command:
-        path = self.__contacts_command_path(identifier=identifier)
-        self.info('Loading stored contacts command from: %s' % path)
-        dictionary = self.read_json(path=path)
-        return Command(dictionary)
+    def contacts_command(self, identifier: ID) -> Command:
+        if self.__contacts_command is None:
+            path = self.__contacts_command_path(identifier=identifier)
+            self.info('Loading stored contacts command from: %s' % path)
+            dictionary = self.read_json(path=path)
+            self.__contacts_command = Command(dictionary)
+        return self.__contacts_command
 
-    def __save_contacts_command(self, cmd: Command, identifier: ID) -> bool:
-        path = self.__contacts_command_path(identifier=identifier)
+    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
+        assert cmd is not None, 'contacts command cannot be empty'
+        self.__contacts_command = cmd
+        path = self.__contacts_command_path(identifier=sender)
         self.info('Saving contacts command into: %s' % path)
         return self.write_json(container=cmd, path=path)
 
-    def contacts_command(self, identifier: ID) -> Command:
-        return self.__load_contacts_command(identifier=identifier)
+    """
+        Block Command
+        ~~~~~~~~~~~~~
 
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
-        identifier = cmd.get('ID')
-        if identifier is not None and identifier != sender:
-            return False
-        if 'data' not in cmd and 'contacts' not in cmd:
-            return False
-        return self.__save_contacts_command(cmd=cmd, identifier=sender)
+        file path: '.dim/protected/{ADDRESS}/block_stored.js'
+    """
+    def __block_command_path(self, identifier: ID) -> str:
+        return os.path.join(self.root, 'protected', identifier.address, 'block_stored.js')
+
+    def block_command(self, identifier: ID) -> Command:
+        if self.__block_command is None:
+            path = self.__block_command_path(identifier=identifier)
+            self.info('Loading stored block command from: %s' % path)
+            dictionary = self.read_json(path=path)
+            self.__block_command = Command(dictionary)
+        return self.__block_command
+
+    def save_block_command(self, cmd: Command, sender: ID) -> bool:
+        assert cmd is not None, 'block command cannot be empty'
+        self.__block_command = cmd
+        path = self.__block_command_path(identifier=sender)
+        self.info('Saving block command into: %s' % path)
+        return self.write_json(container=cmd, path=path)
+
+    """
+        Mute Command
+        ~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/mute_stored.js'
+    """
+    def __mute_command_path(self, identifier: ID) -> str:
+        return os.path.join(self.root, 'protected', identifier.address, 'mute_stored.js')
+
+    def mute_command(self, identifier: ID) -> Command:
+        if self.__mute_command is None:
+            path = self.__mute_command_path(identifier=identifier)
+            self.info('Loading stored mute command from: %s' % path)
+            dictionary = self.read_json(path=path)
+            self.__mute_command = Command(dictionary)
+        return self.__mute_command
+
+    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
+        assert cmd is not None, 'mute command cannot be empty'
+        self.__mute_command = cmd
+        path = self.__mute_command_path(identifier=sender)
+        self.info('Saving mute command into: %s' % path)
+        return self.write_json(container=cmd, path=path)

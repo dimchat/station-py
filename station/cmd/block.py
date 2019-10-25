@@ -31,7 +31,7 @@
 """
 
 from dimp import ID
-from dimp import Content, Command
+from dimp import Content, TextContent, Command
 
 from libs.common import ReceiptCommand
 
@@ -41,6 +41,20 @@ from .cpu import CPU
 class BlockCommandProcessor(CPU):
 
     def process(self, cmd: Command, sender: ID) -> Content:
-        # TODO: update block-list
-        self.info('Block command: %s' % cmd)
-        return ReceiptCommand.receipt(message='Block-list received')
+        if 'list' in cmd:
+            # receive block command, save it
+            if self.facebook.save_block_command(cmd=cmd, sender=sender):
+                self.info('block command saved for %s' % sender)
+                return ReceiptCommand.receipt(message='Block command of %s received!' % sender)
+            else:
+                self.error('failed to save block command: %s' % cmd)
+                return TextContent.new(text='Block-list not stored %s!' % cmd)
+        # query block-list, load it
+        self.info('search block-list for %s' % sender)
+        stored: Command = self.facebook.block_command(identifier=sender)
+        # response
+        if stored is not None:
+            # response the stored block command directly
+            return stored
+        else:
+            return TextContent.new(text='Sorry, block-list of %s not found.' % sender)

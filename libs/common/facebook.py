@@ -66,14 +66,38 @@ class Facebook(Barrack):
         if user is not None:
             return user.name
 
+    """
+        Group members
+    """
     def save_members(self, members: list, group: ID) -> bool:
         return self.database.save_members(members=members, group=group)
 
+    """
+        User contacts
+    """
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_contacts_command(cmd=cmd, sender=sender)
 
     def contacts_command(self, identifier: ID) -> Command:
         return self.database.contacts_command(identifier=identifier)
+
+    """
+        Block-list
+    """
+    def save_block_command(self, cmd: Command, sender: ID) -> bool:
+        return self.database.save_block_command(cmd=cmd, sender=sender)
+
+    def block_command(self, identifier: ID) -> Command:
+        return self.database.block_command(identifier=identifier)
+
+    """
+        Mute-list
+    """
+    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
+        return self.database.save_mute_command(cmd=cmd, sender=sender)
+
+    def mute_command(self, identifier: ID) -> Command:
+        return self.database.mute_command(identifier=identifier)
 
     #
     #   ISocialNetworkDataSource

@@ -65,15 +65,39 @@ class Dispatcher:
         self.info('broadcasting message %s' % msg)
         return False
 
-    def __blocked(self, sender: ID, group: ID) -> bool:
-        # TODO: support blocked conversation
-        self.info('checking block-list for sender: %s, group: %s' % (sender, group))
-        return False
+    def __blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+        self.info('checking block-list for %s <- (%s, %s)' % (receiver, sender, group))
+        cmd = self.facebook.block_command(identifier=receiver)
+        if cmd is None:
+            self.info('block-list not found')
+            return False
+        array = cmd.get('list')
+        if array is None:
+            self.error('block-list error')
+            return False
+        if group is None:
+            # check for personal message
+            return sender in array
+        else:
+            # check for group message
+            return group in array
 
-    def __muted(self, sender: ID, group: ID) -> bool:
-        # TODO: support muted conversation
-        self.info('checking mute-list for sender: %s, group: %s' % (sender, group))
-        return False
+    def __muted(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+        self.info('checking mute-list for %s <- (%s, %s)' % (receiver, sender, group))
+        cmd = self.facebook.mute_command(identifier=receiver)
+        if cmd is None:
+            self.info('mute-list not found')
+            return False
+        array = cmd.get('list')
+        if array is None:
+            self.error('mute-list error')
+            return False
+        if group is None:
+            # check for personal message
+            return sender in array
+        else:
+            # check for group message
+            return group in array
 
     def deliver(self, msg: ReliableMessage) -> bool:
         sender = self.facebook.identifier(msg.envelope.sender)
@@ -86,7 +110,7 @@ class Dispatcher:
         elif is_broadcast(identifier=group):
             return self.__broadcast(msg=msg)
         # check block-list
-        if self.__blocked(sender=sender, group=group):
+        if self.__blocked(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is blocked: %s' % msg)
             return False
         # try for online user
@@ -110,7 +134,8 @@ class Dispatcher:
         self.database.store_message(msg)
         # transmit to neighbor stations
         self.__transmit(msg=msg)
-        if self.__muted(sender=sender, group=group):
+        # check mute-list
+        if self.__muted(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is muted: %s' % msg)
             return True
         # push notification
