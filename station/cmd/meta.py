@@ -24,25 +24,41 @@
 # ==============================================================================
 
 """
-    Command Processor for 'users'
+    Command Processor for 'meta'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    show online users (connected)
+    meta protocol
 """
 
 from dimp import ID
-from dimp import Content
-from dimp import Command
+from dimp import Content, TextContent
+from dimp import Command, MetaCommand
+
+from libs.common import ReceiptCommand
 
 from .cpu import CPU
 
 
-class UsersCommandProcessor(CPU):
+class MetaCommandProcessor(CPU):
 
     def process(self, cmd: Command, sender: ID) -> Content:
-        self.info('get online user(s) for %s' % sender)
-        users = self.session_server.random_users(max_count=20)
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
+        assert isinstance(cmd, MetaCommand)
+        identifier = self.facebook.identifier(cmd.identifier)
+        meta = cmd.meta
+        if meta is not None:
+            # received a meta for ID
+            self.info('received meta %s' % identifier)
+            if self.facebook.save_meta(identifier=identifier, meta=meta):
+                self.info('meta saved %s, %s' % (identifier, meta))
+                return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
+            else:
+                self.error('meta not match %s, %s' % (identifier, meta))
+                return TextContent.new(text='Meta not match %s!' % identifier)
+        # querying meta for ID
+        self.info('search meta %s' % identifier)
+        meta = self.facebook.meta(identifier=identifier)
+        # response
+        if meta is not None:
+            return MetaCommand.response(identifier=identifier, meta=meta)
+        else:
+            return TextContent.new(text='Sorry, meta for %s not found.' % identifier)

@@ -24,8 +24,8 @@
 # ==============================================================================
 
 """
-    Command Process Units
-    ~~~~~~~~~~~~~~~~~~~~~
+    Command Processing Unit
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
     Processors for commands
 """
@@ -33,7 +33,8 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import Content, Command
+from dimp import Content
+from dimp import Command
 
 from libs.common import Log, Facebook, Database
 from libs.server import SessionServer
@@ -41,11 +42,17 @@ from libs.server import SessionServer
 
 class CPU:
 
-    def __init__(self, facebook: Facebook, database: Database, session_server: SessionServer):
+    def __init__(self, request_handler,
+                 facebook: Facebook, database: Database, session_server: SessionServer,
+                 receptionist, monitor):
         super().__init__()
+        self.request_handler = request_handler
         self.facebook = facebook
         self.database = database
         self.session_server = session_server
+        self.receptionist = receptionist
+        self.monitor = monitor
+        self.station_name = 'DIMs'
         # cache
         self.__processors = {}
 
@@ -54,6 +61,13 @@ class CPU:
 
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
+    def __create_cpu(self, clazz):
+        cpu = clazz(self.request_handler,
+                    self.facebook, self.database, self.session_server,
+                    self.receptionist, self.monitor)
+        cpu.station_name = self.station_name
+        return cpu
 
     def process(self, cmd: Command, sender: ID) -> Optional[Content]:
         if type(self) != CPU:
@@ -64,13 +78,15 @@ class CPU:
         if cpu is None:
             # try to create new processor
             clazz = processor_classes.get(command)
-            if clazz is None:
-                self.error('command "%s" not supported yet!' % command)
-                return None
-            cpu = clazz(self.facebook, self.database, self.session_server)
-            self.__processors[command] = cpu
-        # process by subclass
-        return cpu.process(cmd=cmd, sender=sender)
+            if clazz is not None:
+                cpu = self.__create_cpu(clazz)
+                self.__processors[command] = cpu
+        if cpu is None:
+            self.error('command "%s" not supported yet!' % command)
+            return None
+        else:
+            # process by subclass
+            return cpu.process(cmd=cmd, sender=sender)
 
 
 """

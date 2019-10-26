@@ -24,25 +24,41 @@
 # ==============================================================================
 
 """
-    Command Processor for 'users'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'handshake'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    show online users (connected)
+    handshake protocol
 """
 
 from dimp import ID
 from dimp import Content
-from dimp import Command
+from dimp import Command, HandshakeCommand
 
 from .cpu import CPU
 
 
-class UsersCommandProcessor(CPU):
+class HandshakeCommandProcessor(CPU):
 
     def process(self, cmd: Command, sender: ID) -> Content:
-        self.info('get online user(s) for %s' % sender)
-        users = self.session_server.random_users(max_count=20)
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
+        # set/update session in session server with new session key
+        client_address = self.request_handler.client_address
+        self.info('handshake with client %s, %s' % (client_address, sender))
+        if cmd is None:
+            session_key = None
+        else:
+            assert isinstance(cmd, HandshakeCommand)
+            session_key = cmd.session
+        session = self.request_handler.current_session(identifier=sender)
+        if session_key == session.session_key:
+            # session verified success
+            session.valid = True
+            session.active = True
+            nickname = self.facebook.nickname(identifier=sender)
+            self.info('handshake accepted %s %s %s, %s' % (nickname, client_address, sender, session_key))
+            self.monitor.report(message='User %s logged in %s %s' % (nickname, client_address, sender))
+            # add the new guest for checking offline messages
+            self.receptionist.add_guest(identifier=sender)
+            return HandshakeCommand.success()
+        else:
+            # session key not match, ask client to sign it with the new session key
+            return HandshakeCommand.again(session=session.session_key)

@@ -31,7 +31,8 @@
 """
 
 from dimp import ID
-from dimp import Content, Command
+from dimp import Content
+from dimp import Command
 
 from libs.common import ReceiptCommand
 
