@@ -84,9 +84,11 @@ class CPU:
         if cpu is None:
             self.error('command "%s" not supported yet!' % command)
             return None
-        else:
+        try:
             # process by subclass
             return cpu.process(cmd=cmd, sender=sender)
+        except Exception as error:
+            self.error('command error: %s' % error)
 
 
 """
