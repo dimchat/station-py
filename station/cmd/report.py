@@ -55,6 +55,9 @@ class ReportCommandProcessor(CPU):
             if clazz is not None:
                 cpu = self.create_cpu(clazz)
                 self.processors[title] = cpu
+        elif cpu is self:
+            # NOTICE: dead cycle!
+            cpu = None
         if cpu is not None:
             # process by subclass
             return cpu.process(cmd=cmd, sender=sender)

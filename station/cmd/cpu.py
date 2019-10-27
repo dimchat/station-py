@@ -81,6 +81,8 @@ class CPU:
             if clazz is not None:
                 cpu = self.create_cpu(clazz)
                 self.processors[command] = cpu
+        elif cpu is self:
+            raise AssertionError('Do NOT add this object into processors pool!')
         if cpu is None:
             self.error('command "%s" not supported yet!' % command)
             return None
