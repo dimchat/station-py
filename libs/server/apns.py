@@ -61,6 +61,14 @@ class ApplePushNotificationService:
         # counting offline messages
         self.badge_table = {}
 
+    @staticmethod
+    def info(msg: str):
+        Log.info('APNs:\t%s' % msg)
+
+    @staticmethod
+    def error(msg: str):
+        Log.error('APNs ERROR:\t%s' % msg)
+
     def badge(self, identifier: str) -> int:
         num = self.badge_table.get(identifier)
         if num is None:
@@ -83,13 +91,13 @@ class ApplePushNotificationService:
                                      proxy_host=self.proxy_host, proxy_port=self.proxy_port)
             return True
         except IOError as error:
-            Log.info('APNs: failed to connect apple server: %s' % error)
+            self.error('failed to connect apple server: %s' % error)
             return False
 
     def send_notification(self, token_hex, notification, topic=None,
                           priority=NotificationPriority.Immediate, expiration=None, collapse_id=None) -> int:
         if self.client is None and self.connect() is False:
-            Log.info('APNs: cannot connect apple server, message dropped: %s' % notification)
+            self.error('cannot connect apple server, message dropped: %s' % notification)
             return -503  # Service Unavailable
         try:
             if topic is None:
@@ -99,31 +107,31 @@ class ApplePushNotificationService:
                                           priority=priority, expiration=expiration, collapse_id=collapse_id)
             return 200  # OK
         except IOError as error:
-            Log.info('APNs: connection lost: %s' % error)
+            self.error('connection lost: %s' % error)
             return -408  # Request Timeout
         except APNsException as error:
-            Log.info('APNs: failed to push notification: %s, error %s' % (notification, error))
+            self.error('failed to push notification: %s, error %s' % (notification, error))
             return -400  # Bad Request
 
     def push(self, identifier: str, message: str) -> bool:
         # 1. check
         tokens = self.delegate.device_tokens(identifier=identifier)
         if tokens is None:
-            Log.info('APNs: cannot get device token for user %s' % identifier)
+            self.info('cannot get device token for user %s' % identifier)
             return False
         # 2. send
         badge = self.badge(identifier)
         payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:
-            Log.info('APNs: sending notification %s to user %s with token %s' % (message, identifier, token))
+            self.info('sending notification %s to user %s with token %s' % (message, identifier, token))
             # first try
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable
                 # connection failed
                 break
             elif result == -408:  # Request Timeout
-                Log.info('APNs: Broken pipe? try to reconnect again!')
+                self.error('Broken pipe? try to reconnect again!')
                 # reset APNs client
                 self.client = None
                 # try again
@@ -131,7 +139,7 @@ class ApplePushNotificationService:
             if result == 200:  # OK
                 success = success + 1
         if success > 0:
-            Log.info('APNs: sending notification success:%d badge=%d, %s' % (success, badge, identifier))
+            self.info('sending notification success:%d badge=%d, %s' % (success, badge, identifier))
             return True
 
 

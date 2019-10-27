@@ -63,6 +63,14 @@ class SessionServer:
         super().__init__()
         self.session_table = {}  # {identifier: [session]}
 
+    @staticmethod
+    def info(msg: str):
+        Log.info('SS:\t%s' % msg)
+
+    @staticmethod
+    def error(msg: str):
+        Log.error('SS ERROR:\t%s' % msg)
+
     def session_create(self, identifier: ID, request_handler) -> Session:
         """ Session factory """
         # 1. get all sessions with identifier
@@ -79,7 +87,7 @@ class SessionServer:
         # 3. create a new session
         sess = Session(identifier=identifier, request_handler=request_handler)
         sessions.append(sess)
-        Log.info('[SS] create new session: %s' % sess)
+        self.info('create new session: %s' % sess)
         return sess
 
     def remove_session(self, session: Session=None, identifier: ID=None, request_handler=None):
@@ -90,12 +98,12 @@ class SessionServer:
         if sessions is not None and len(sessions) == 1:
             session = sessions[0]
             # 2. remove this session
-            Log.info('[SS] removing session: %s' % session)
+            self.info('removing session: %s' % session)
             sessions = self.session_table.get(identifier)
             sessions.remove(session)
             if len(sessions) == 0:
                 # 3. remove the user if all sessions closed
-                Log.info('[SS] user %s is offline now' % identifier)
+                self.info('user %s is offline now' % identifier)
                 self.session_table.pop(identifier)
         else:
             raise AssertionError('unexpected result of searching session: (%s, %s) -> %s' %

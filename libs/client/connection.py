@@ -70,6 +70,12 @@ class Connection(threading.Thread, ITransceiverDelegate):
         self.__thread_heartbeat = None
         self.__last_time: int = 0
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
     def __del__(self):
         self.disconnect()
 
@@ -149,7 +155,7 @@ class Connection(threading.Thread, ITransceiverDelegate):
         try:
             self.__sock.sendall(data)
         except IOError as error:
-            Log.error('failed to send data: %s' % error)
+            self.error('failed to send data: %s' % error)
             if not self.__connected:
                 return error
             # reconnect
@@ -168,7 +174,7 @@ class Connection(threading.Thread, ITransceiverDelegate):
         try:
             data = self.__sock.recv(buffer_size)
         except IOError as error:
-            Log.error('failed to receive data: %s' % error)
+            self.error('failed to receive data: %s' % error)
             if not self.__connected:
                 return b''
             # reconnect
@@ -178,7 +184,7 @@ class Connection(threading.Thread, ITransceiverDelegate):
                 data = self.__sock.recv(buffer_size)
             except IOError as error:
                 # failed
-                Log.error('failed to receive data again: %s' % error)
+                self.error('failed to receive data again: %s' % error)
         if data is not None:
             # receive OK, record the current time
             self.__last_time = int(time.time())
@@ -188,7 +194,7 @@ class Connection(threading.Thread, ITransceiverDelegate):
         try:
             self.delegate.receive_package(data=data)
         except Exception as error:
-            Log.error('receive package error: %s' % error)
+            self.error('receive package error: %s' % error)
 
     #
     #   ITransceiverDelegate

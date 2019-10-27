@@ -94,9 +94,9 @@ class Daemon(Robot):
             answer = response.text
             group = content.group
             if group is None:
-                Log.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+                self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
                 return self.send_content(content=response, receiver=sender)
             else:
                 group = facebook.identifier(group)
-                Log.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
+                self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
                 return self.send_content(content=response, receiver=group)

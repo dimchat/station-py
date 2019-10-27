@@ -112,7 +112,7 @@ class MessageProcessor:
             self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
             return response
         # TEST: response client with the same message here
-        Log.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
+        self.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
         return content
 
     def process_command(self, cmd: Command, sender: ID) -> Content:

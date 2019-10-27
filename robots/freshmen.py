@@ -54,6 +54,12 @@ class FreshmenScanner(threading.Thread):
         gid = g_facebook.identifier(group_naruto)
         self.__group = g_facebook.group(gid)
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
     def __send_content(self, content: Content, receiver: ID) -> bool:
         return self.__delegate.send_content(content=content, receiver=receiver)
 
@@ -130,16 +136,16 @@ class FreshmenScanner(threading.Thread):
             freshmen = self.__freshmen()
             if len(freshmen) == 0:
                 continue
-            Log.info('freshmen: %s' % freshmen)
+            self.info('freshmen: %s' % freshmen)
             members = self.__members()
-            Log.info('group members: %s' % members)
+            self.info('group members: %s' % members)
             #
             #  2. send 'invite' command to existed members
             #
             cmd = self.__invite_members(members=freshmen)
             for item in members:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('invite command sent: %s' % cmd)
+            self.info('invite command sent: %s' % cmd)
             #
             #  3. update group members
             #
@@ -148,25 +154,25 @@ class FreshmenScanner(threading.Thread):
                 if item not in members:
                     members.append(item)
             if self.__save_members(members=members):
-                Log.info('group members updated: %s' % members)
+                self.info('group members updated: %s' % members)
             #
             #  4.1. send group meta to all freshmen
             #
             cmd = self.__response_meta()
             for item in freshmen:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('group meta/profile sent: %s' % cmd)
+            self.info('group meta/profile sent: %s' % cmd)
             #
             #  4.2. send 'invite' command to all freshmen
             #
             cmd = self.__invite_members(members=members)
             for item in freshmen:
                 self.__send_content(content=cmd, receiver=item)
-            Log.info('invite command sent: %s' % cmd)
+            self.info('invite command sent: %s' % cmd)
             #
             #  5. Welcome!
             #
             text = self.__welcome(freshmen=freshmen)
             gid = self.__group.identifier
             self.__send_content(content=text, receiver=gid)
-            Log.info('Welcome sent to %s: %s' % (gid, text))
+            self.info('Welcome sent to %s: %s' % (gid, text))

@@ -42,6 +42,12 @@ from ..common import hex_encode, sha1, Log
 
 class ChatBot(metaclass=ABCMeta):
 
+    def info(self, msg: str):
+        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
     @abstractmethod
     def ask(self, question: str, user: str=None) -> str:
         """Talking with the chat bot
@@ -87,7 +93,7 @@ class Tuling(ChatBot):
     def __post(self, text: str) -> dict:
         request = self.__request(text=text)
         headers = {'content-type': 'application/json'}
-        Log.info('Tuling > request: %s\n%s\n%s' % (self.api_url, headers, request))
+        self.info('Tuling > request: %s\n%s\n%s' % (self.api_url, headers, request))
         http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
@@ -115,7 +121,7 @@ class Tuling(ChatBot):
             self.user_id = user
         response = self.__post(text=question)
         if response is not None:
-            Log.info('Tuling > response: %s' % response)
+            self.info('Tuling > response: %s' % response)
             return self.__fetch(response)
 
 
@@ -157,7 +163,7 @@ class XiaoI(ChatBot):
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Auth': self.__auth(),
         }
-        Log.info('XiaoI > request: %s\n%s\n%s' % (self.api_url, headers, request))
+        self.info('XiaoI > request: %s\n%s\n%s' % (self.api_url, headers, request))
         http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
@@ -177,5 +183,5 @@ class XiaoI(ChatBot):
             self.user_id = user
         response = self.__post(text=question)
         if response is not None:
-            Log.info('XiaoI > response: %s' % response)
+            self.info('XiaoI > response: %s' % response)
             return self.__fetch(response)
