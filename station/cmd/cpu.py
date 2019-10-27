@@ -62,7 +62,7 @@ class CPU:
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
-    def __create_cpu(self, clazz):
+    def create_cpu(self, clazz):
         cpu = clazz(self.request_handler,
                     self.facebook, self.database, self.session_server,
                     self.receptionist, self.monitor)
@@ -79,7 +79,7 @@ class CPU:
             # try to create new processor
             clazz = processor_classes.get(command)
             if clazz is not None:
-                cpu = self.__create_cpu(clazz)
+                cpu = self.create_cpu(clazz)
                 self.processors[command] = cpu
         if cpu is None:
             self.error('command "%s" not supported yet!' % command)

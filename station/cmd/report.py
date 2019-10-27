@@ -53,7 +53,7 @@ class ReportCommandProcessor(CPU):
             # try to create new processor
             clazz = processor_classes.get(title)
             if clazz is not None:
-                cpu = self.__create_cpu(clazz)
+                cpu = self.create_cpu(clazz)
                 self.processors[title] = cpu
         if cpu is not None:
             # process by subclass
