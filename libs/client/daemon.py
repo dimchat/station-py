@@ -78,6 +78,12 @@ class Daemon(Robot):
         if sender.type.is_robot():
             # ignore message from another robot
             return True
+        # check time
+        now = int(time.time())
+        dt = now - msg.envelope.time
+        if dt > 600:
+            self.info('Old message, ignore it: %s' % msg)
+            return False
         content: Content = msg.content
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:

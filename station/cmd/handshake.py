@@ -46,7 +46,7 @@ class HandshakeCommandProcessor(CPU):
         if cmd is None:
             session_key = None
         else:
-            assert isinstance(cmd, HandshakeCommand)
+            assert isinstance(cmd, HandshakeCommand), 'handshake cmd error: %s' % cmd
             session_key = cmd.session
         session = self.request_handler.current_session(identifier=sender)
         if session_key == session.session_key:
