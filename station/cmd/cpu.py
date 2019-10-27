@@ -54,7 +54,7 @@ class CPU:
         self.monitor = monitor
         self.station_name = 'DIMs'
         # cache
-        self.__processors = {}
+        self.processors = {}
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -74,13 +74,13 @@ class CPU:
             raise AssertionError('override me!')
         command = cmd.command
         # get processor from cache
-        cpu = self.__processors.get(command)
+        cpu = self.processors.get(command)
         if cpu is None:
             # try to create new processor
             clazz = processor_classes.get(command)
             if clazz is not None:
                 cpu = self.__create_cpu(clazz)
-                self.__processors[command] = cpu
+                self.processors[command] = cpu
         if cpu is None:
             self.error('command "%s" not supported yet!' % command)
             return None

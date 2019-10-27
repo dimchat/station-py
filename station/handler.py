@@ -35,7 +35,7 @@ from socketserver import BaseRequestHandler
 
 from mkm import is_broadcast
 from dimp import ID
-from dimp import Content, TextContent
+from dimp import Content, TextContent, HandshakeCommand
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 
 from libs.common import ReceiptCommand
@@ -92,7 +92,7 @@ class RequestHandler(BaseRequestHandler):
             # session invalid, handshake first
             # NOTICE: if the client try to send message to another user before handshake,
             #         the message will be lost!
-            return self.processor.process_handshake(sender=identifier)
+            return HandshakeCommand.restart()
 
     def verify_message(self, msg: ReliableMessage) -> SecureMessage:
         return self.station.verify_message(msg=msg)

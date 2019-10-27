@@ -48,13 +48,13 @@ class ReportCommandProcessor(CPU):
         self.info('client broadcast %s, %s' % (sender, cmd))
         title = cmd.get('title')
         # get processor from cache
-        cpu = self.__processors.get(title)
+        cpu = self.processors.get(title)
         if cpu is None:
             # try to create new processor
             clazz = processor_classes.get(title)
             if clazz is not None:
                 cpu = self.__create_cpu(clazz)
-                self.__processors[title] = cpu
+                self.processors[title] = cpu
         if cpu is not None:
             # process by subclass
             return cpu.process(cmd=cmd, sender=sender)
