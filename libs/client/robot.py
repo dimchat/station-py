@@ -90,9 +90,9 @@ class Robot(Terminal):
         content.group = EVERYONE
         return self.send_content(content=content, receiver=receiver)
 
-    def execute(self, cmd: Command, sender: ID) -> bool:
+    def process(self, cmd: Command, sender: ID) -> bool:
         """ Execute commands sent by commander """
-        if super().execute(cmd=cmd, sender=sender):
+        if super().process(cmd=cmd, sender=sender):
             return True
         if sender == self.station.identifier:
             # command from station

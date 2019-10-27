@@ -198,53 +198,19 @@ class Terminal(LocalUser, IConnectionDelegate):
             # save new members list
             return facebook.save_members(members=existed, group=group.identifier)
 
-    def process(self, cmd: HistoryCommand, sender: ID) -> bool:
+    def process(self, cmd: Command, sender: ID) -> bool:
         """Process group history
 
             :param cmd - group command
             :param sender - commander
             :return True on success
         """
-        group = cmd.group
-        if group is None:
-            # TODO: only group command now
-            return False
-        facebook: Facebook = self.delegate
-        group = facebook.identifier(group)
-        if group.type.value != NetworkID.Polylogue:
-            # TODO: only Polylogue supported now
-            return False
-        members = cmd.get('members')
-        if members is None:
-            member = cmd.get('member')
-            if member is not None:
-                members = [member]
-        polylogue = facebook.group(identifier=group)
-        if polylogue is None:
-            # TODO: query group meta form DIM network
-            return False
-        command = cmd.command
-        if GroupCommand.INVITE == command:
-            return self.__process_invite(group=polylogue, commander=sender, members=members)
-        elif GroupCommand.EXPEL == command:
-            return self.__process_expel(group=polylogue, commander=sender, members=members)
-        elif GroupCommand.QUIT == command:
-            return self.__process_quit(group=polylogue, commander=sender)
-        elif GroupCommand.QUERY == command:
-            return self.__process_query(group=polylogue, commander=sender)
-        elif GroupCommand.RESET == command:
-            return self.__process_reset(group=polylogue, commander=sender, members=members)
-
-    def execute(self, cmd: Command, sender: ID) -> bool:
-        """Execute commands sent by commander
-
-            :param cmd - command
-            :param sender - commander
-            :return True on success
-        """
         assert sender.valid, 'sender error: %s' % sender
         facebook: Facebook = self.delegate
         command = cmd.command
+        #
+        #  system commands
+        #
         if 'meta' == command:
             cmd = MetaCommand(cmd)
             identifier = facebook.identifier(cmd.identifier)
@@ -271,6 +237,37 @@ class Terminal(LocalUser, IConnectionDelegate):
             else:
                 ok2 = False
             return ok1 and ok2
+        #
+        #  group commands
+        #
+        group = cmd.group
+        if group is None:
+            # TODO: only group command now
+            return False
+        facebook: Facebook = self.delegate
+        group = facebook.identifier(group)
+        if group.type.value != NetworkID.Polylogue:
+            # TODO: only Polylogue supported now
+            return False
+        members = cmd.get('members')
+        if members is None:
+            member = cmd.get('member')
+            if member is not None:
+                members = [member]
+        polylogue = facebook.group(identifier=group)
+        if polylogue is None:
+            # TODO: query group meta form DIM network
+            return False
+        if GroupCommand.INVITE == command:
+            return self.__process_invite(group=polylogue, commander=sender, members=members)
+        elif GroupCommand.EXPEL == command:
+            return self.__process_expel(group=polylogue, commander=sender, members=members)
+        elif GroupCommand.QUIT == command:
+            return self.__process_quit(group=polylogue, commander=sender)
+        elif GroupCommand.QUERY == command:
+            return self.__process_query(group=polylogue, commander=sender)
+        elif GroupCommand.RESET == command:
+            return self.__process_reset(group=polylogue, commander=sender, members=members)
 
     def receive_message(self, msg: InstantMessage) -> bool:
         """Receive instant message
@@ -317,10 +314,8 @@ class Terminal(LocalUser, IConnectionDelegate):
                 query = GroupCommand.query(group=gid)
                 self.send_content(content=query, receiver=sender)
         # process command
-        if isinstance(content, HistoryCommand):
+        if isinstance(content, Command):
             return self.process(cmd=content, sender=sender)
-        elif isinstance(content, Command):
-            return self.execute(cmd=content, sender=sender)
         else:
             return self.receive_message(msg=i_msg)
 
