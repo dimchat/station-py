@@ -58,4 +58,8 @@ class BlockCommandProcessor(CPU):
             # response the stored block command directly
             return stored
         else:
-            return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
+            # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
+            # TODO: here should response an empty HistoryCommand: 'block'
+            res = Command.new(command='block')
+            res['list'] = []
+            return res

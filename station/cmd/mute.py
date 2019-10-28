@@ -58,4 +58,8 @@ class MuteCommandProcessor(CPU):
             # response the stored mute command directly
             return stored
         else:
-            return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
+            # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
+            # TODO: here should response an empty HistoryCommand: 'mute'
+            res = Command.new(command='mute')
+            res['list'] = []
+            return res
