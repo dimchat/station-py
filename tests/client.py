@@ -39,7 +39,7 @@ from dimp import ID, Profile
 from dimp import Content, ContentType, TextContent
 from dimp import Command, ProfileCommand
 from dimp import InstantMessage
-from dimp import Station
+from dimsdk import Station
 
 import sys
 import os

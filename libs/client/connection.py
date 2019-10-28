@@ -35,8 +35,9 @@ import threading
 import time
 from abc import ABCMeta, abstractmethod
 
-from dimp import Station, ITransceiverDelegate, ICompletionHandler
+from dimp import ITransceiverDelegate, ICompletionHandler
 from dimp import InstantMessage
+from dimsdk import Station
 
 from ..common import Log
 

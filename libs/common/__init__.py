@@ -36,11 +36,8 @@ from .utils import sha1
 from .utils import Log
 
 from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-from .extension import ReceiptCommand
 
 from .database import Storage, Database
-
-from .mars import NetMsgHead, NetMsg
 
 from .ans import AddressNameService
 from .facebook import Facebook
@@ -62,18 +59,12 @@ __all__ = [
     #
     'BTCAddress', 'ETHAddress',
     'BTCMeta', 'ETHMeta',
-    'ReceiptCommand',
 
     #
     #  Database module
     #
     'Storage',
     'Database',
-
-    #
-    #  Mars for data packing
-    #
-    'NetMsgHead', 'NetMsg',
 
     #
     #  Common libs

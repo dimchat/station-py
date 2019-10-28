@@ -30,9 +30,8 @@
     Configuration for DIM network server node
 """
 
-from mkm import Meta, PrivateKey
-
-from dimp import Profile, Station
+from dimp import PrivateKey, Meta, Profile
+from dimsdk import Station
 
 #
 #  Common Libs

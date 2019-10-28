@@ -33,8 +33,7 @@
 from dimp import ID, Profile
 from dimp import Content, TextContent
 from dimp import Command, ProfileCommand
-
-from libs.common import ReceiptCommand
+from dimsdk import ReceiptCommand
 
 from .cpu import CPU
 

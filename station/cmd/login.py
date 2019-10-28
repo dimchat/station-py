@@ -33,8 +33,7 @@
 from dimp import ID
 from dimp import Content
 from dimp import Command
-
-from libs.common import ReceiptCommand
+from dimsdk import ReceiptCommand
 
 from .cpu import CPU
 

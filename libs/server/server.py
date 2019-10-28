@@ -32,8 +32,9 @@
 
 import os
 
-from dimp import ID, Meta, Station
+from dimp import ID, Meta
 from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import Station
 
 from ..common import Storage, Facebook, Messenger
 

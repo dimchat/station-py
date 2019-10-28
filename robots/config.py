@@ -31,7 +31,7 @@
 """
 
 from dimp import PrivateKey, Meta, Profile
-from dimp import Station
+from dimsdk import Station
 
 #
 #  Common Libs

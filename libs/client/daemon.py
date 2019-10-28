@@ -35,7 +35,7 @@ from typing import Union
 
 from dimp import ID
 from dimp import InstantMessage, Content, TextContent
-from dimp import Station
+from dimsdk import Station
 
 from ..common import Log
 from ..common import Facebook

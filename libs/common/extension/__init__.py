@@ -26,12 +26,8 @@
 from .address import BTCAddress, ETHAddress
 from .meta import BTCMeta, ETHMeta
 
-from .receipt import ReceiptCommand
-
 __all__ = [
 
     'BTCAddress', 'ETHAddress',
     'BTCMeta', 'ETHMeta',
-
-    'ReceiptCommand',
 ]

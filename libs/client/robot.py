@@ -31,8 +31,9 @@
 """
 
 from mkm import EVERYONE
-from dimp import ID, Station
+from dimp import ID
 from dimp import Content, Command, HandshakeCommand
+from dimsdk import Station
 
 from .connection import Connection
 from .terminal import Terminal

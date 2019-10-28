@@ -37,10 +37,10 @@ from mkm import is_broadcast
 from dimp import ID
 from dimp import Content, TextContent, HandshakeCommand
 from dimp import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import NetMsgHead, NetMsg
+from dimsdk import ReceiptCommand
 
-from libs.common import ReceiptCommand
 from libs.common import Log
-from libs.common import NetMsgHead, NetMsg
 from libs.server import Session, Server
 
 from .processor import MessageProcessor
