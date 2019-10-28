@@ -36,7 +36,7 @@ from .utils import sha1
 from .utils import Log
 
 from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-from .extension import ReceiptCommand, BlockCommand, MuteCommand
+from .extension import ReceiptCommand
 
 from .database import Storage, Database
 
@@ -62,7 +62,7 @@ __all__ = [
     #
     'BTCAddress', 'ETHAddress',
     'BTCMeta', 'ETHMeta',
-    'ReceiptCommand', 'BlockCommand', 'MuteCommand',
+    'ReceiptCommand',
 
     #
     #  Database module

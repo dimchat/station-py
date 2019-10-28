@@ -27,8 +27,6 @@ from .address import BTCAddress, ETHAddress
 from .meta import BTCMeta, ETHMeta
 
 from .receipt import ReceiptCommand
-from .block import BlockCommand
-from .mute import MuteCommand
 
 __all__ = [
 
@@ -36,5 +34,4 @@ __all__ = [
     'BTCMeta', 'ETHMeta',
 
     'ReceiptCommand',
-    'BlockCommand', 'MuteCommand',
 ]
