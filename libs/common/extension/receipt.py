@@ -49,6 +49,22 @@ class ReceiptCommand(Command):
         }
     """
 
+    def __new__(cls, cmd: dict):
+        """
+        Create receipt command
+
+        :param cmd: command info
+        :return: ReceiptCommand object
+        """
+        if cmd is None:
+            return None
+        elif cls is ReceiptCommand:
+            if isinstance(cmd, ReceiptCommand):
+                # return ReceiptCommand object directly
+                return cmd
+        # new ReceiptCommand(dict)
+        return super().__new__(cls, cmd)
+
     #
     #   message
     #
@@ -64,15 +80,25 @@ class ReceiptCommand(Command):
             self['message'] = value
 
     #
-    #   Factory
+    #   Factories
     #
     @classmethod
-    def receipt(cls, message: str):
-        content = {
-            'command': Command.RECEIPT,
-            'message': message,
-        }
-        return Command.new(content)
+    def new(cls, content: dict=None, message: str=None):
+        """
+        Create receipt command
+
+        :param content: command info
+        :param message: receipt message
+        :return: ReceiptCommand object
+        """
+        if content is None:
+            # create empty content
+            content = {}
+        # set receipt message
+        if message is not None:
+            content['message'] = message
+        # new ReceiptCommand(dict)
+        return super().new(content=content, command=Command.RECEIPT)
 
 
 # register command class

@@ -30,8 +30,6 @@
     Processors for commands
 """
 
-from typing import Optional
-
 from dimp import ID
 from dimp import Content
 from dimp import Command
@@ -54,7 +52,7 @@ class CPU:
         self.monitor = monitor
         self.station_name = 'DIMs'
         # cache
-        self.processors = {}
+        self.__processors = {}
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -62,35 +60,40 @@ class CPU:
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
-    def create_cpu(self, clazz):
-        cpu = clazz(self.request_handler,
-                    self.facebook, self.database, self.session_server,
-                    self.receptionist, self.monitor)
-        cpu.station_name = self.station_name
-        return cpu
+    def cpu(self, name: str):
+        # get processor from cache
+        cpu = self.__processors.get(name)
+        if cpu is not None:
+            return cpu
+        # try to create new processor
+        clazz = processor_classes.get(name)
+        if clazz is not None:
+            cpu = clazz(self.request_handler,
+                        self.facebook, self.database, self.session_server,
+                        self.receptionist, self.monitor)
+            cpu.station_name = self.station_name
+            self.__processors[name] = cpu
+            return cpu
 
-    def process(self, cmd: Command, sender: ID) -> Optional[Content]:
+    def process(self, cmd: Command, sender: ID) -> Content:
         if type(self) != CPU:
             raise AssertionError('override me!')
         command = cmd.command
-        # get processor from cache
-        cpu = self.processors.get(command)
-        if cpu is None:
-            # try to create new processor
-            clazz = processor_classes.get(command)
-            if clazz is not None:
-                cpu = self.create_cpu(clazz)
-                self.processors[command] = cpu
-        elif cpu is self:
-            raise AssertionError('Do NOT add this object into processors pool!')
+        # get CPU by command name
+        cpu = self.cpu(name=command)
+        # check and run
         if cpu is None:
             self.error('command "%s" not supported yet!' % command)
-            return None
-        try:
-            # process by subclass
-            return cpu.process(cmd=cmd, sender=sender)
-        except Exception as error:
-            self.error('command error: %s' % error)
+        elif cpu is self:
+            # should not happen
+            self.error('Dead cycle! command: %s' % cmd)
+            raise AssertionError('Dead cycle!')
+        else:
+            try:
+                # process by subclass
+                return cpu.process(cmd=cmd, sender=sender)
+            except Exception as error:
+                self.error('command error: %s' % error)
 
 
 """

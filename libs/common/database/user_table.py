@@ -34,9 +34,10 @@ class UserTable(Storage):
 
     def __init__(self):
         super().__init__()
-        self.__contacts_command: Command = None
-        self.__block_command: Command = None
-        self.__mute_command: Command = None
+        # caches
+        self.__contacts_commands = {}
+        self.__block_commands = {}
+        self.__mute_commands = {}
 
     """
         Contacts Command
@@ -48,16 +49,19 @@ class UserTable(Storage):
         return os.path.join(self.root, 'protected', identifier.address, 'contacts_stored.js')
 
     def contacts_command(self, identifier: ID) -> Command:
-        if self.__contacts_command is None:
+        cmd = self.__contacts_commands.get(identifier)
+        if cmd is None:
             path = self.__contacts_command_path(identifier=identifier)
             self.info('Loading stored contacts command from: %s' % path)
             dictionary = self.read_json(path=path)
-            self.__contacts_command = Command(dictionary)
-        return self.__contacts_command
+            if dictionary is not None:
+                cmd = Command(dictionary)
+                self.__contacts_commands[identifier] = cmd
+        return cmd
 
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         assert cmd is not None, 'contacts command cannot be empty'
-        self.__contacts_command = cmd
+        self.__contacts_commands[sender] = cmd
         path = self.__contacts_command_path(identifier=sender)
         self.info('Saving contacts command into: %s' % path)
         return self.write_json(container=cmd, path=path)
@@ -72,16 +76,19 @@ class UserTable(Storage):
         return os.path.join(self.root, 'protected', identifier.address, 'block_stored.js')
 
     def block_command(self, identifier: ID) -> Command:
-        if self.__block_command is None:
+        cmd = self.__block_commands.get(identifier)
+        if cmd is None:
             path = self.__block_command_path(identifier=identifier)
             self.info('Loading stored block command from: %s' % path)
             dictionary = self.read_json(path=path)
-            self.__block_command = Command(dictionary)
-        return self.__block_command
+            if dictionary is not None:
+                cmd = Command(dictionary)
+                self.__block_commands[identifier] = cmd
+        return cmd
 
     def save_block_command(self, cmd: Command, sender: ID) -> bool:
         assert cmd is not None, 'block command cannot be empty'
-        self.__block_command = cmd
+        self.__block_commands[sender] = cmd
         path = self.__block_command_path(identifier=sender)
         self.info('Saving block command into: %s' % path)
         return self.write_json(container=cmd, path=path)
@@ -96,16 +103,19 @@ class UserTable(Storage):
         return os.path.join(self.root, 'protected', identifier.address, 'mute_stored.js')
 
     def mute_command(self, identifier: ID) -> Command:
-        if self.__mute_command is None:
+        cmd = self.__mute_commands.get(identifier)
+        if cmd is None:
             path = self.__mute_command_path(identifier=identifier)
             self.info('Loading stored mute command from: %s' % path)
             dictionary = self.read_json(path=path)
-            self.__mute_command = Command(dictionary)
-        return self.__mute_command
+            if dictionary is not None:
+                cmd = Command(dictionary)
+                self.__mute_commands[identifier] = cmd
+        return cmd
 
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         assert cmd is not None, 'mute command cannot be empty'
-        self.__mute_command = cmd
+        self.__mute_commands[sender] = cmd
         path = self.__mute_command_path(identifier=sender)
         self.info('Saving mute command into: %s' % path)
         return self.write_json(container=cmd, path=path)

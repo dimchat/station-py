@@ -44,4 +44,4 @@ class LoginCommandProcessor(CPU):
     def process(self, cmd: Command, sender: ID) -> Content:
         # TODO: update login status
         self.info('Login command: %s' % cmd)
-        return ReceiptCommand.receipt(message='Login received')
+        return ReceiptCommand.new(message='Login received')

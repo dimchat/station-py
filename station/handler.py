@@ -137,7 +137,7 @@ class RequestHandler(BaseRequestHandler):
         self.info('deliver message %s, %s' % (self.identifier, msg.envelope))
         g_dispatcher.deliver(msg)
         # response to sender
-        response = ReceiptCommand.receipt(message='Message delivering')
+        response = ReceiptCommand.new(message='Message delivering')
         # extra info
         sender = msg.get('sender')
         receiver = msg.get('receiver')

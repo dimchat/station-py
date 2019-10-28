@@ -46,7 +46,7 @@ class ContactsCommandProcessor(CPU):
             # receive encrypted contacts, save it
             if self.facebook.save_contacts_command(cmd=cmd, sender=sender):
                 self.info('contacts command saved for %s' % sender)
-                return ReceiptCommand.receipt(message='Contacts of %s received!' % sender)
+                return ReceiptCommand.new(message='Contacts of %s received!' % sender)
             else:
                 self.error('failed to save contacts command: %s' % cmd)
                 return TextContent.new(text='Contacts not stored %s!' % cmd)

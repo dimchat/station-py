@@ -46,7 +46,7 @@ class MuteCommandProcessor(CPU):
             # receive mute command, save it
             if self.facebook.save_mute_command(cmd=cmd, sender=sender):
                 self.info('mute command saved for %s' % sender)
-                return ReceiptCommand.receipt(message='Mute command of %s received!' % sender)
+                return ReceiptCommand.new(message='Mute command of %s received!' % sender)
             else:
                 self.error('failed to save mute command: %s' % cmd)
                 return TextContent.new(text='Mute-list not stored %s!' % cmd)

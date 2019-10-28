@@ -42,42 +42,44 @@ from .cpu import CPU, processor_classes
 
 class ReportCommandProcessor(CPU):
 
+    def __process_old_report(self, cmd: Command, sender: ID) -> Content:
+        # compatible with v1.0
+        state = cmd.get('state')
+        self.info('client report state %s' % state)
+        if state is not None:
+            session = self.request_handler.current_session(identifier=sender)
+            if 'background' == state:
+                session.active = False
+            elif 'foreground' == state:
+                # welcome back!
+                self.receptionist.add_guest(identifier=session.identifier)
+                session.active = True
+            else:
+                self.error('unknown state %s' % state)
+                session.active = True
+            return ReceiptCommand.new(message='Client state received')
+        self.error('report info error: %s' % cmd)
+
     def process(self, cmd: Command, sender: ID) -> Content:
         if type(self) != ReportCommandProcessor:
             raise AssertionError('override me!')
         self.info('client broadcast %s, %s' % (sender, cmd))
+        # report title
         title = cmd.get('title')
-        # get processor from cache
-        cpu = self.processors.get(title)
+        if 'report' == title:
+            return self.__process_old_report(cmd=cmd, sender=sender)
+        # get CPU by report title
+        cpu = self.cpu(name=title)
+        # check and run
         if cpu is None:
-            # try to create new processor
-            clazz = processor_classes.get(title)
-            if clazz is not None:
-                cpu = self.create_cpu(clazz)
-                self.processors[title] = cpu
+            self.error('command not supported yet: %s' % cmd)
         elif cpu is self:
-            # NOTICE: dead cycle!
-            cpu = None
-        if cpu is not None:
+            # FIXME: dead cycle!
+            self.error('Dead cycle! command: %s' % cmd)
+            raise AssertionError('Dead cycle!')
+        else:
             # process by subclass
             return cpu.process(cmd=cmd, sender=sender)
-        if 'report' == title:
-            # compatible with v1.0
-            state = cmd.get('state')
-            self.info('client report state %s' % state)
-            if state is not None:
-                session = self.request_handler.current_session(identifier=sender)
-                if 'background' == state:
-                    session.active = False
-                elif 'foreground' == state:
-                    # welcome back!
-                    self.receptionist.add_guest(identifier=session.identifier)
-                    session.active = True
-                else:
-                    self.error('unknown state %s' % state)
-                    session.active = True
-                return ReceiptCommand.receipt(message='Client state received')
-        self.error('command not supported yet: %s' % cmd)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
@@ -88,7 +90,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
         self.info('client report token %s' % token)
         if token is not None:
             self.database.save_device_token(token=token, identifier=sender)
-            return ReceiptCommand.receipt(message='Token received')
+            return ReceiptCommand.new(message='Token received')
 
 
 class OnlineCommandProcessor(ReportCommandProcessor):
@@ -100,7 +102,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         session = self.request_handler.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = True
-        return ReceiptCommand.receipt(message='Client online received')
+        return ReceiptCommand.new(message='Client online received')
 
 
 class OfflineCommandProcessor(ReportCommandProcessor):
@@ -111,7 +113,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = self.request_handler.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = False
-        return ReceiptCommand.receipt(message='Client offline received')
+        return ReceiptCommand.new(message='Client offline received')
 
 
 # register

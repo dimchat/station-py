@@ -31,8 +31,6 @@
     If value of 'list' is None, means querying block-list from station
 """
 
-from typing import Union
-
 from dimp import ID, HistoryCommand
 from dimp.protocol.command import command_classes
 
@@ -54,8 +52,28 @@ class BlockCommand(HistoryCommand):
 
     BLOCK = 'block'
 
+    def __new__(cls, cmd: dict):
+        """
+        Create block command
+
+        :param cmd: command info
+        :return: BlockCommand object
+        """
+        if cmd is None:
+            return None
+        elif cls is BlockCommand:
+            if isinstance(cmd, BlockCommand):
+                # return BlockCommand object directly
+                return cmd
+        # new BlockCommand(dict)
+        return super().__new__(cls, cmd)
+
     def __init__(self, content: dict):
+        if self is content:
+            # no need to init again
+            return
         super().__init__(content)
+        # block-list
         self.__list: list = None
 
     #
@@ -95,25 +113,26 @@ class BlockCommand(HistoryCommand):
         return True
 
     #
-    #   Factory
+    #   Factories
     #
     @classmethod
-    def new(cls, block: Union[list, dict, None]):
-        if block is None:
-            content = {
-                'command': BlockCommand.BLOCK,
-            }
-        elif isinstance(block, list):
-            content = {
-                'command': BlockCommand.BLOCK,
-                'list': block,
-            }
-        elif isinstance(block, dict):
-            content = block
-        else:
-            raise TypeError('block command argument error: %s' % block)
-        return HistoryCommand.new(content)
+    def new(cls, content: dict=None, block: list=None):
+        """
+        Create block command
+
+        :param content: command info
+        :param block: block-list
+        :return: BluckCommand object
+        """
+        if content is None:
+            # create empty content
+            content = {}
+        # set block-list
+        if block is not None:
+            content['list'] = block
+        # new BlockCommand(dict)
+        return super().new(content=content, command=cls.BLOCK)
 
 
 # register command class
-command_classes[BlockCommand.BLOCK] = BlockCommand
+command_classes[BlockCommand.BLOCK] = BlockCommandkCommand

@@ -58,7 +58,7 @@ class ProfileCommandProcessor(CPU):
             self.info('received profile %s' % identifier)
             if self.facebook.save_profile(profile=profile):
                 self.info('profile saved %s' % profile)
-                return ReceiptCommand.receipt(message='Profile of %s received!' % identifier)
+                return ReceiptCommand.new(message='Profile of %s received!' % identifier)
             else:
                 self.error('profile not valid %s' % profile)
                 return TextContent.new(text='Profile signature not match %s!' % identifier)

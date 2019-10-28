@@ -46,7 +46,7 @@ class BlockCommandProcessor(CPU):
             # receive block command, save it
             if self.facebook.save_block_command(cmd=cmd, sender=sender):
                 self.info('block command saved for %s' % sender)
-                return ReceiptCommand.receipt(message='Block command of %s received!' % sender)
+                return ReceiptCommand.new(message='Block command of %s received!' % sender)
             else:
                 self.error('failed to save block command: %s' % cmd)
                 return TextContent.new(text='Block-list not stored %s!' % cmd)

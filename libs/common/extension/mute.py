@@ -31,8 +31,6 @@
     If value of 'list' is None, means querying mute-list from station
 """
 
-from typing import Union
-
 from dimp import ID, HistoryCommand
 from dimp.protocol.command import command_classes
 
@@ -54,8 +52,28 @@ class MuteCommand(HistoryCommand):
 
     MUTE = 'mute'
 
+    def __new__(cls, cmd: dict):
+        """
+        Create mute command
+
+        :param cmd: command info
+        :return: MuteCommand object
+        """
+        if cmd is None:
+            return None
+        elif cls is MuteCommand:
+            if isinstance(cmd, MuteCommand):
+                # return MuteCommand object directly
+                return cmd
+        # new MuteCommand(dict)
+        return super().__new__(cls, cmd)
+
     def __init__(self, content: dict):
+        if self is content:
+            # no need to init again
+            return
         super().__init__(content)
+        # mute-list
         self.__list: list = None
 
     #
@@ -95,24 +113,25 @@ class MuteCommand(HistoryCommand):
         return True
 
     #
-    #   Factory
+    #   Factories
     #
     @classmethod
-    def new(cls, mute: Union[list, dict, None]):
-        if mute is None:
-            content = {
-                'command': MuteCommand.MUTE,
-            }
-        elif isinstance(mute, list):
-            content = {
-                'command': MuteCommand.MUTE,
-                'list': mute,
-            }
-        elif isinstance(mute, dict):
-            content = mute
-        else:
-            raise TypeError('mute command argument error: %s' % mute)
-        return HistoryCommand.new(content)
+    def new(cls, content: dict=None, mute: list=None):
+        """
+        Create mute command
+
+        :param content: command info
+        :param mute: mute-list
+        :return: MuteCommand object
+        """
+        if content is None:
+            # create empty content
+            content = {}
+        # set mute-list
+        if mute is not None:
+            content['list'] = mute
+        # new MuteCommand(dict)
+        return super().new(content=content, command=cls.MUTE)
 
 
 # register command class

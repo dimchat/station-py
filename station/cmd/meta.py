@@ -50,7 +50,7 @@ class MetaCommandProcessor(CPU):
             self.info('received meta %s' % identifier)
             if self.facebook.save_meta(identifier=identifier, meta=meta):
                 self.info('meta saved %s, %s' % (identifier, meta))
-                return ReceiptCommand.receipt(message='Meta for %s received!' % identifier)
+                return ReceiptCommand.new(message='Meta for %s received!' % identifier)
             else:
                 self.error('meta not match %s, %s' % (identifier, meta))
                 return TextContent.new(text='Meta not match %s!' % identifier)
