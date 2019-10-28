@@ -86,9 +86,7 @@ class MessageProcessor:
         # try to decrypt message
         sender = g_facebook.identifier(msg.envelope.sender)
         content = msg.content
-        if isinstance(content, HistoryCommand):
-            pass
-        elif isinstance(content, Command):
+        if isinstance(content, Command):
             # the client is talking with station (handshake, search users, get meta/profile, ...)
             self.info('command from client %s, %s' % (self.client_address, content))
             return self.process_command(cmd=Command(content), sender=sender)

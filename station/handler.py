@@ -257,7 +257,8 @@ class RequestHandler(BaseRequestHandler):
                         mars = True
                         self.push_message = self.push_mars_message
                 except ValueError as error:
-                    self.error('not mars message pack: %s' % error)
+                    # self.error('not mars message pack: %s' % error)
+                    pass
                 # check mars head
                 if mars:
                     self.info('@@@ msg via mars, len: %d+%d' % (head.head_length, head.body_length))
@@ -290,6 +291,9 @@ class RequestHandler(BaseRequestHandler):
                     # raw data OK
                     continue
 
+                if data == b'\n':
+                    # NOOP: heartbeat package
+                    pass
                 # (Protocol ?)
                 # TODO: split and unwrap data package(s)
                 self.error('unknown protocol %s' % data)

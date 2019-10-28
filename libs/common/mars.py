@@ -68,7 +68,7 @@ class NetMsgHead(bytes):
             # check data length
             data_len = len(data)
             if data_len < MIN_HEAD_LEN:
-                raise ValueError('net message pack data length error:', data_len)
+                raise ValueError('net message pack data length error: %d' % data_len)
             # get fields
             head_len = read_int(data, 0)
             version = read_int(data, 4)
@@ -81,7 +81,7 @@ class NetMsgHead(bytes):
                 data = data[:head_len]
                 # data_len = head_len
             elif head_len > data_len:
-                raise ValueError('net message pack head length error:', head_len)
+                raise ValueError('net message pack head length error: %d' % head_len)
             # get options
             if head_len == MIN_HEAD_LEN:
                 options = None
@@ -89,7 +89,7 @@ class NetMsgHead(bytes):
                 options = data[MIN_HEAD_LEN:]
             # check body length
             if body_len < 0:
-                raise ValueError('net message pack body length error:', body_len)
+                raise ValueError('net message pack body length error: %d' % body_len)
         else:
             if options:
                 head_len = MIN_HEAD_LEN + len(options)
