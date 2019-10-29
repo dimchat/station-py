@@ -23,8 +23,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.crypto.asymmetric import public_key_classes, private_key_classes
-
 from dimp import PublicKey, PrivateKey
 
 
@@ -63,10 +61,8 @@ class ECCPrivateKey(PrivateKey):
         pass
 
 
-#
-#  register key classes
-#
+# register public key class with algorithm
+PublicKey.register(algorithm=PublicKey.ECC, key_class=ECCPublicKey)
 
-public_key_classes[PublicKey.ECC] = ECCPublicKey
-
-private_key_classes[PrivateKey.ECC] = ECCPrivateKey
+# register private key class with algorithm
+PrivateKey.register(algorithm=PrivateKey.ECC, key_class=ECCPrivateKey)

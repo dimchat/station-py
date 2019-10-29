@@ -287,7 +287,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         gid = content.group
         if gid is not None:
             gid = facebook.identifier(gid)
-            if not is_broadcast(gid):
+            if not gid.is_broadcast:
                 # check meta
                 meta = facebook.meta(identifier=gid)
                 if meta is None:

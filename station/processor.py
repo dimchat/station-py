@@ -31,7 +31,7 @@
 """
 
 from dimp import ID
-from dimp import Content, TextContent, Command, HistoryCommand
+from dimp import Content, TextContent, Command
 from dimp import InstantMessage
 
 from libs.common import Log

@@ -27,7 +27,6 @@ import os
 import random
 
 from dimp import ID, Meta
-from dimp import NetworkID
 
 from .storage import Storage
 
