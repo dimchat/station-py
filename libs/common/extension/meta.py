@@ -23,8 +23,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.meta import meta_classes
-
 from dimp import Meta, NetworkID
 
 from .address import BTCAddress, ETHAddress
@@ -69,8 +67,8 @@ class ETHMeta(Meta):
 #  register meta classes
 #
 
-meta_classes[Meta.Version_BTC] = BTCMeta
-meta_classes[Meta.Version_ExBTC] = BTCMeta
+Meta.register(version=Meta.Version_BTC, meta_class=BTCMeta)
+Meta.register(version=Meta.Version_ExBTC, meta_class=BTCMeta)
 
-meta_classes[Meta.Version_ETH] = ETHMeta
-meta_classes[Meta.Version_ExETH] = ETHMeta
+Meta.register(version=Meta.Version_ETH, meta_class=ETHMeta)
+Meta.register(version=Meta.Version_ExETH, meta_class=ETHMeta)

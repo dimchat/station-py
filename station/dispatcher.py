@@ -30,7 +30,6 @@
     A dispatcher to decide which way to deliver message.
 """
 
-from mkm import is_broadcast
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import ContentType
@@ -117,9 +116,9 @@ class Dispatcher:
         group = self.facebook.identifier(msg.envelope.group)
         # check broadcast message
         if group is None:
-            if is_broadcast(identifier=receiver):
+            if receiver.is_broadcast:
                 return self.__broadcast(msg=msg)
-        elif is_broadcast(identifier=group):
+        elif group.is_broadcast:
             return self.__broadcast(msg=msg)
         # check block-list
         if self.__blocked(sender=sender, receiver=receiver, group=group):

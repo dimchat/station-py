@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from mkm.address import DefaultAddress, address_classes
+from mkm.address import DefaultAddress
 from mkm import Address
 
 

@@ -32,8 +32,6 @@
 
 import json
 
-from mkm import is_broadcast
-
 from dimp import ID, NetworkID, LocalUser, Group
 from dimp import Content, Command, MetaCommand, ProfileCommand, HistoryCommand, GroupCommand
 from dimp import InstantMessage, ReliableMessage
@@ -78,7 +76,7 @@ class Terminal(LocalUser, IConnectionDelegate):
     def send_content(self, content: Content, receiver: ID) -> bool:
         """ Send message content to receiver """
         # check meta
-        if not is_broadcast(receiver):
+        if not receiver.is_broadcast:
             meta = self.delegate.meta(identifier=receiver)
             if meta is None:
                 # NOTICE: if meta for sender not found,

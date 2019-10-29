@@ -29,7 +29,6 @@
 
 """
 
-from mkm import is_broadcast
 from dimp import PrivateKey
 from dimp import NetworkID, ID, Meta, Profile
 from dimp import Command
@@ -213,7 +212,7 @@ class Database:
         if identifier is not None:
             return identifier
         # check for broadcast
-        if is_broadcast(identifier=group):
+        if group.is_broadcast:
             name = identifier.name
             if name is None:
                 length = 0

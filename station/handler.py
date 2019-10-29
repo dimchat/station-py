@@ -33,7 +33,6 @@
 import json
 from socketserver import BaseRequestHandler
 
-from mkm import is_broadcast
 from dimp import ID
 from dimp import Content, TextContent, HandshakeCommand
 from dimp import InstantMessage, SecureMessage, ReliableMessage
@@ -112,7 +111,7 @@ class RequestHandler(BaseRequestHandler):
                         station = srv
                         self.station = station
                         break
-        elif is_broadcast(identifier=receiver):
+        elif receiver.is_broadcast:
             # anyone
             station = self.station
         if station is not None:
@@ -256,7 +255,7 @@ class RequestHandler(BaseRequestHandler):
                         # OK, it seems be a mars package!
                         mars = True
                         self.push_message = self.push_mars_message
-                except ValueError as error:
+                except ValueError:
                     # self.error('not mars message pack: %s' % error)
                     pass
                 # check mars head
