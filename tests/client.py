@@ -92,8 +92,8 @@ class Client(Robot):
         self.info('%s is shaking hands with %s' % (self.identifier, station))
         return self.handshake()
 
-    def execute(self, cmd: Command, sender: ID) -> bool:
-        if super().execute(cmd=cmd, sender=sender):
+    def process(self, cmd: Command, sender: ID) -> bool:
+        if super().process(cmd=cmd, sender=sender):
             return True
         command = cmd.command
         if 'search' == command:
