@@ -31,13 +31,14 @@
 """
 
 from dimp import PrivateKey, Meta, Profile
-from dimsdk import Station
+from dimsdk import AddressNameService
+from dimsdk import Station, KeyStore, Messenger
 
 #
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, AddressNameService, KeyStore, Messenger
+from libs.common import Database, Facebook
 from libs.client import ChatBot, Tuling, XiaoI
 from libs.client import Daemon
 

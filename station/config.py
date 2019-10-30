@@ -31,13 +31,14 @@
 """
 
 from dimp import PrivateKey, Meta, Profile
-from dimsdk import Station
+from dimsdk import AddressNameService
+from dimsdk import Station, KeyStore, Messenger
 
 #
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, AddressNameService, KeyStore, Messenger
+from libs.common import Database, Facebook
 from libs.server import ApplePushNotificationService, SessionServer, Server
 from libs.client import ChatBot, Tuling, XiaoI
 
@@ -80,16 +81,6 @@ Log.info("database directory: %s" % g_database.base_dir)
 
 
 """
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = Facebook()
-g_facebook.database = g_database
-
-
-"""
     Address Name Service
     ~~~~~~~~~~~~~~~~~~~~
 
@@ -97,6 +88,17 @@ g_facebook.database = g_database
 """
 g_ans = AddressNameService()
 g_ans.database = g_database
+
+
+"""
+    Facebook
+    ~~~~~~~~
+
+    Barrack for cache entities
+"""
+g_facebook = Facebook()
+g_facebook.database = g_database
+g_facebook.ans = g_ans
 
 
 """

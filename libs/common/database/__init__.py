@@ -30,7 +30,7 @@
 """
 
 from dimp import PrivateKey
-from dimp import NetworkID, ID, Meta, Profile
+from dimp import ID, Meta, Profile
 from dimp import Command
 from dimp import ReliableMessage
 
@@ -96,19 +96,10 @@ class Database:
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        # verify and save
-        if self.verify_meta(meta=meta, identifier=identifier):
-            return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+        return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
     def meta(self, identifier: ID) -> Meta:
         return self.__meta_table.meta(identifier=identifier)
-
-    @staticmethod
-    def verify_meta(meta: Meta, identifier: ID) -> bool:
-        if meta is None:
-            return False
-        else:
-            return meta.match_identifier(identifier)
 
     """
         Profile for Accounts
@@ -117,31 +108,10 @@ class Database:
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
     def save_profile(self, profile: Profile) -> bool:
-        # verify and save
-        if self.verify_profile(profile=profile):
-            return self.__profile_table.save_profile(profile=profile)
+        return self.__profile_table.save_profile(profile=profile)
 
     def profile(self, identifier: ID) -> Profile:
         return self.__profile_table.profile(identifier=identifier)
-
-    def verify_profile(self, profile: Profile) -> bool:
-        if profile is None:
-            return False
-        elif profile.valid:
-            # already verified
-            return True
-        # try to verify the profile
-        identifier = Storage.identifier(profile.identifier)
-        if identifier.type.is_user() or identifier.type.value == NetworkID.Polylogue:
-            # if this is a user profile,
-            #     verify it with the user's meta.key
-            # else if this is a polylogue profile,
-            #     verify it with the founder's meta.key (which equals to the group's meta.key)
-            meta = self.meta(identifier=identifier)
-            if meta is not None:
-                return profile.verify(public_key=meta.key)
-        else:
-            raise NotImplementedError('unsupported profile ID: %s' % profile)
 
     """
         Contacts of User

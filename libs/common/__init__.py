@@ -39,10 +39,7 @@ from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
 
 from .database import Storage, Database
 
-from .ans import AddressNameService
 from .facebook import Facebook
-from .keystore import KeyStore
-from .messenger import Messenger
 
 
 __all__ = [
@@ -69,8 +66,5 @@ __all__ = [
     #
     #  Common libs
     #
-    'AddressNameService',
     'Facebook',
-    'KeyStore',
-    'Messenger',
 ]

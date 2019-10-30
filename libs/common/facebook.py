@@ -32,9 +32,8 @@
 
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile
-from dimp import User, LocalUser, Group
 from dimp import Command
-from dimp import Barrack
+from dimsdk import Facebook as Barrack
 
 from .database import Database
 
@@ -51,20 +50,8 @@ class Facebook(Barrack):
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.database.save_meta(meta=meta, identifier=identifier)
 
-    def verify_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.database.verify_meta(meta=meta, identifier=identifier)
-
     def save_profile(self, profile: Profile) -> bool:
         return self.database.save_profile(profile=profile)
-
-    def verify_profile(self, profile: Profile) -> bool:
-        return self.database.verify_profile(profile=profile)
-
-    def nickname(self, identifier: ID) -> str:
-        assert identifier.type.is_user(), 'ID error: %s' % identifier
-        user = self.user(identifier=identifier)
-        if user is not None:
-            return user.name
 
     """
         Group members
@@ -98,48 +85,6 @@ class Facebook(Barrack):
 
     def mute_command(self, identifier: ID) -> Command:
         return self.database.mute_command(identifier=identifier)
-
-    #
-    #   ISocialNetworkDataSource
-    #
-    def identifier(self, string: str) -> ID:
-        if string is not None:
-            # try from ANS record
-            identifier = self.database.ans_record(name=string)
-            if identifier is not None:
-                return identifier
-            # get from barrack
-            return super().identifier(string=string)
-
-    def user(self, identifier: ID) -> User:
-        #  get from barrack cache
-        user = super().user(identifier=identifier)
-        if user is not None:
-            return user
-        # check meta and private key
-        meta = self.meta(identifier=identifier)
-        if meta is not None:
-            key = self.private_key_for_signature(identifier=identifier)
-            if key is None:
-                user = User(identifier=identifier)
-            else:
-                user = LocalUser(identifier=identifier)
-            # cache it in barrack
-            self.cache_user(user=user)
-            return user
-
-    def group(self, identifier: ID) -> Group:
-        # get from barrack cache
-        group = super().group(identifier=identifier)
-        if group is not None:
-            return group
-        # check meta
-        meta = self.meta(identifier=identifier)
-        if meta is not None:
-            group = Group(identifier=identifier)
-            # cache it in barrack
-            self.cache_group(group=group)
-            return group
 
     #
     #   IEntityDataSource

@@ -35,9 +35,9 @@ import threading
 import time
 from abc import ABCMeta, abstractmethod
 
-from dimp import ITransceiverDelegate, ICompletionHandler
+from dimp import TransceiverDelegate
 from dimp import InstantMessage
-from dimsdk import Station
+from dimsdk import Station, CompletionHandler
 
 from ..common import Log
 
@@ -54,7 +54,7 @@ class IConnectionDelegate(metaclass=ABCMeta):
         pass
 
 
-class Connection(threading.Thread, ITransceiverDelegate):
+class Connection(threading.Thread, TransceiverDelegate):
 
     # boundary for packages
     BOUNDARY = b'\n'
@@ -200,7 +200,7 @@ class Connection(threading.Thread, ITransceiverDelegate):
     #
     #   ITransceiverDelegate
     #
-    def send_package(self, data: bytes, handler: ICompletionHandler) -> bool:
+    def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
         """ Send out a data package onto network """
         # pack
         pack = data + self.BOUNDARY

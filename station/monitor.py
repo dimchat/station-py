@@ -35,8 +35,9 @@ import time
 from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
+from dimsdk import Messenger
 
-from libs.common import Database, Facebook, Messenger, Log
+from libs.common import Database, Facebook, Log
 from libs.server import ApplePushNotificationService, SessionServer
 
 

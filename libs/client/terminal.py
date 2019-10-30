@@ -35,8 +35,9 @@ import json
 from dimp import ID, NetworkID, LocalUser, Group
 from dimp import Content, Command, MetaCommand, ProfileCommand, HistoryCommand, GroupCommand
 from dimp import InstantMessage, ReliableMessage
+from dimsdk import Messenger
 
-from ..common import Facebook, Messenger
+from ..common import Facebook
 
 from .connection import IConnectionDelegate
 
