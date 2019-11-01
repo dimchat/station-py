@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -33,62 +34,17 @@
 
 import sys
 import os
-from binascii import Error
 
 from flask import Flask, jsonify, render_template, request
 
-from dimp import ID, Meta, Profile
 from dimp import MetaCommand, ProfileCommand
-from mkm.crypto.utils import base64_decode
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log
-from webserver.config import g_facebook
-
-
-class Worker:
-
-    def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
-
-    def identifier(self, identifier: str) -> ID:
-        try:
-            return g_facebook.identifier(string=identifier)
-        except ValueError:
-            self.error('ID error: %s' % identifier)
-
-    def meta(self, identifier: ID) -> Meta:
-        info = g_facebook.meta(identifier=identifier)
-        if info is None:
-            self.info('meta not found: %s' % identifier)
-        else:
-            return info
-
-    def profile(self, identifier: ID) -> Profile:
-        info = g_facebook.profile(identifier=identifier)
-        if info is None:
-            self.info('profile not found: %s' % identifier)
-        else:
-            return info
-
-    def decode_data(self, data: str) -> bytes:
-        try:
-            return base64_decode(data)
-        except Error:
-            self.error('data not base64: %s' % data)
-
-    def decode_signature(self, signature: str) -> bytes:
-        try:
-            return base64_decode(signature)
-        except Error:
-            self.error('signature not base64: %s' % signature)
+from webserver.worker import Worker
 
 
 g_worker = Worker()
