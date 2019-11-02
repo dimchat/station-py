@@ -120,7 +120,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         # replace items with ID objects
         members = id_list(members=members, facebook=facebook)
         # save new members list
-        return facebook.save_members(members=members, group=group.identifier)
+        return facebook.save_members(members=members, identifier=group.identifier)
 
     def __process_invite(self, group: Group, commander: ID, members: list) -> bool:
         facebook: Facebook = self.delegate
@@ -154,7 +154,7 @@ class Terminal(LocalUser, IConnectionDelegate):
                 count += 1
         if count > 0:
             # save new members list
-            return facebook.save_members(members=existed, group=group.identifier)
+            return facebook.save_members(members=existed, identifier=group.identifier)
 
     def __process_expel(self, group: Group, commander: ID, members: list) -> bool:
         facebook: Facebook = self.delegate
@@ -178,7 +178,7 @@ class Terminal(LocalUser, IConnectionDelegate):
                 count += 1
         if count > 0:
             # save new members list
-            return facebook.save_members(members=existed, group=group.identifier)
+            return facebook.save_members(members=existed, identifier=group.identifier)
 
     def __process_quit(self, group: Group, commander: ID) -> bool:
         facebook: Facebook = self.delegate
@@ -195,7 +195,7 @@ class Terminal(LocalUser, IConnectionDelegate):
         if commander in existed:
             existed.remove(commander)
             # save new members list
-            return facebook.save_members(members=existed, group=group.identifier)
+            return facebook.save_members(members=existed, identifier=group.identifier)
 
     def process(self, cmd: Command, sender: ID) -> bool:
         """Process group history

@@ -95,7 +95,7 @@ class FreshmenScanner(threading.Thread):
     def __save_members(self, members: list) -> bool:
         gid = self.__group.identifier
         # TODO: check permission (whether myself in this group)
-        return g_facebook.save_members(members=members, group=gid)
+        return g_facebook.save_members(members=members, identifier=gid)
 
     def __response_meta(self) -> MetaCommand:
         gid = self.__group.identifier
