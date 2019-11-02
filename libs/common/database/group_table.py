@@ -35,7 +35,7 @@ class GroupTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
+        self.__members: dict = {}
 
     """
         Group members
@@ -43,31 +43,31 @@ class GroupTable(Storage):
 
         file path: '.dim/protected/{ADDRESS}/members.txt'
     """
-    def __path(self, identifier: ID) -> str:
+    def __members_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', identifier.address, 'members.txt')
 
     def __cache_members(self, members: list, identifier: ID) -> bool:
+        assert identifier.type.is_group(), 'group ID error: %s' % identifier
         if members is None or len(members) == 0:
             return False
-        assert identifier.valid, 'ID not valid: %s' % identifier
-        self.__caches[identifier] = members
+        self.__members[identifier] = members
         return True
 
     def __load_members(self, identifier: ID) -> list:
-        path = self.__path(identifier=identifier)
+        path = self.__members_path(identifier=identifier)
         self.info('Loading members from: %s' % path)
         data = self.read_text(path=path)
         if data is not None and len(data) > 1:
             return data.splitlines()
 
     def __save_members(self, members: list, identifier: ID) -> bool:
-        path = self.__path(identifier=identifier)
+        path = self.__members_path(identifier=identifier)
         self.info('Saving members into: %s' % path)
         text = '\n'.join(members)
         return self.write_text(text=text, path=path)
 
     def members(self, group: ID) -> list:
-        array = self.__caches.get(group)
+        array = self.__members.get(group)
         if array is not None:
             return array
         array = self.__load_members(identifier=group)

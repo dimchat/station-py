@@ -35,9 +35,52 @@ class UserTable(Storage):
     def __init__(self):
         super().__init__()
         # caches
+        self.__contacts = {}
+        # stored commands
         self.__contacts_commands = {}
         self.__block_commands = {}
         self.__mute_commands = {}
+
+    """
+        User contacts
+        ~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/contacts.txt'
+    """
+    def __contacts_path(self, identifier: ID) -> str:
+        return os.path.join(self.root, 'protected', identifier.address, 'contacts.txt')
+
+    def __cache_contacts(self, contacts: list, identifier: ID) -> bool:
+        assert identifier.type.is_user(), 'user ID error: %s' % identifier
+        if contacts is None:
+            return False
+        self.__contacts[identifier] = contacts
+        return True
+
+    def __load_contacts(self, identifier: ID) -> list:
+        path = self.__contacts_path(identifier=identifier)
+        self.info('Loading contacts from: %s' % path)
+        data = self.read_text(path=path)
+        if data is not None and len(data) > 1:
+            return data.splitlines()
+
+    def __save_contacts(self, contacts: list, identifier: ID) -> bool:
+        path = self.__contacts_path(identifier=identifier)
+        self.info('Saving contacts into: %s' % path)
+        text = '\n'.join(contacts)
+        return self.write_text(text=text, path=path)
+
+    def contacts(self, user: ID) -> list:
+        array = self.__contacts.get(user)
+        if array is not None:
+            return array
+        array = self.__load_contacts(identifier=user)
+        if self.__cache_contacts(contacts=array, identifier=user):
+            return array
+
+    def save_contacts(self, contacts: list, user: ID) -> bool:
+        if self.__cache_contacts(contacts=contacts, identifier=user):
+            return self.__save_contacts(contacts=contacts, identifier=user)
 
     """
         Contacts Command

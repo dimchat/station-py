@@ -51,49 +51,42 @@ class Facebook(Barrack):
         if user is not None:
             return user.name
 
-    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
-        return self.database.save_private_key(private_key=private_key, identifier=identifier)
-
-    def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
-        # TODO: load private key from secret storage
-        pass
-
+    #
+    #   super()
+    #
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.database.save_meta(meta=meta, identifier=identifier)
 
     def load_meta(self, identifier: ID) -> Optional[Meta]:
-        # TODO: load meta from local storage
-        pass
+        return self.database.meta(identifier=identifier)
 
     def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
         return self.database.save_profile(profile=profile)
 
     def load_profile(self, identifier: ID) -> Optional[Profile]:
-        # TODO: load profile from database
-        pass
+        return self.database.profile(identifier=identifier)
 
-    """
-        Group members
-    """
+    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
+        return self.database.save_private_key(private_key=private_key, identifier=identifier)
+
+    def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
+        return self.database.private_key(identifier=identifier)
+
+    def save_contacts(self, contacts: list, identifier: ID) -> bool:
+        return self.database.save_contacts(contacts=contacts, user=identifier)
+
+    def load_contacts(self, identifier: ID) -> Optional[list]:
+        return self.database.contacts(user=identifier)
+
     def save_members(self, members: list, group: ID) -> bool:
         return self.database.save_members(members=members, group=group)
 
-    def load_members(self, identifier: ID) -> Optional[list]:
-        # TODO: load members from database
-        pass
+    def load_members(self, group: ID) -> Optional[list]:
+        return self.database.members(group=group)
 
     """
-        User contacts
+        Contacts Command
     """
-    def save_contacts(self, contacts: list, identifier: ID) -> bool:
-        if super().save_contacts(contacts=contacts, identifier=identifier):
-            return True
-        # TODO: save contacts into database
-
-    def load_contacts(self, identifier: ID) -> Optional[list]:
-        # TODO: load contacts from database
-        pass
-
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_contacts_command(cmd=cmd, sender=sender)
 
@@ -101,7 +94,7 @@ class Facebook(Barrack):
         return self.database.contacts_command(identifier=identifier)
 
     """
-        Block-list
+        Block-list Command
     """
     def save_block_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_block_command(cmd=cmd, sender=sender)
@@ -110,9 +103,8 @@ class Facebook(Barrack):
         return self.database.block_command(identifier=identifier)
 
     """
-        Mute-list
+        Mute-list Command
     """
-
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_mute_command(cmd=cmd, sender=sender)
 
@@ -123,54 +115,34 @@ class Facebook(Barrack):
     #   IEntityDataSource
     #
     def meta(self, identifier: ID) -> Meta:
-        #  get from barrack cache
-        meta = super().meta(identifier=identifier)
-        if meta is None:
-            meta = self.database.meta(identifier=identifier)
-            if meta is not None:
+        info = super().meta(identifier=identifier)
+        if info is None:
+            info = self.database.meta(identifier=identifier)
+            if info is not None:
                 # cache it in barrack
-                self.cache_meta(meta=meta, identifier=identifier)
-        return meta
+                self.cache_meta(meta=info, identifier=identifier)
+        return info
 
     def profile(self, identifier: ID) -> Profile:
         tai = super().profile(identifier=identifier)
         if tai is None:
             tai = self.database.profile(identifier=identifier)
+        # TODO: check expired time
         return tai
-
-    #
-    #   IUserDataSource
-    #
-    def private_key_for_signature(self, identifier: ID) -> PrivateKey:
-        return self.database.private_key(identifier=identifier)
-
-    def private_keys_for_decryption(self, identifier: ID) -> list:
-        sk = self.database.private_key(identifier=identifier)
-        return [sk]
-
-    def contacts(self, identifier: ID) -> list:
-        pass
 
     #
     #    IGroupDataSource
     #
     def founder(self, identifier: ID) -> ID:
         # get from database
-        founder = self.database.founder(group=identifier)
-        if founder is not None:
-            return self.identifier(founder)
+        user = self.database.founder(group=identifier)
+        if user is not None:
+            return user
         return super().founder(identifier=identifier)
 
     def owner(self, identifier: ID) -> ID:
         # get from database
-        owner = self.database.owner(group=identifier)
-        if owner is not None:
-            return self.identifier(owner)
+        user = self.database.owner(group=identifier)
+        if user is not None:
+            return user
         return super().owner(identifier=identifier)
-
-    def members(self, identifier: ID) -> list:
-        # get from database
-        members = self.database.members(group=identifier)
-        if members is not None:
-            return [self.identifier(item) for item in members]
-        return super().members(identifier=identifier)

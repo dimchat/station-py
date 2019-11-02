@@ -54,7 +54,7 @@ g_worker = Worker()
     WWW Config
 """
 WWW_HOST = '0.0.0.0'
-WWW_PORT = 8384
+WWW_PORT = 9395
 
 BASE_URI = '/dimp/v1'
 

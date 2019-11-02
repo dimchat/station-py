@@ -114,6 +114,18 @@ class Database:
         return self.__profile_table.profile(identifier=identifier)
 
     """
+        User contacts
+        ~~~~~~~~~~~~~
+
+        file path: '.dim/protected/{ADDRESS}/contacts.txt'
+    """
+    def save_contacts(self, contacts: list, user: ID) -> bool:
+        return self.__user_table.save_contacts(contacts=contacts, user=user)
+
+    def contacts(self, user: ID) -> list:
+        return self.__user_table.contacts(user=user)
+
+    """
         Contacts of User
         ~~~~~~~~~~~~~~~~
 
@@ -178,38 +190,7 @@ class Database:
         return self.__group_table.members(group=group)
 
     def founder(self, group: ID) -> ID:
-        identifier = self.__group_table.founder(group=group)
-        if identifier is not None:
-            return identifier
-        # check for broadcast
-        if group.is_broadcast:
-            name = identifier.name
-            if name is None:
-                length = 0
-            else:
-                length = len(name)
-            if length == 0 or (length == 8 and name == 'everyone'):
-                # Consensus: the founder of group 'everyone@everywhere'
-                #            'Albert Moky'
-                founder = 'founder'
-            else:
-                # DISCUSS: who should be the founder of group 'xxx@everywhere'?
-                #          'anyone@anywhere', or 'xxx.founder@anywhere'
-                founder = 'anyone'
-            return self.ans_record(name=founder)
-        # check each member's public key with group's meta.key
-        meta = self.meta(identifier=group)
-        members = self.members(group=group)
-        if meta is not None and members is not None:
-            for item in members:
-                identifier = ID(item)
-                m = self.meta(identifier=identifier)
-                if m is None:
-                    # TODO: query meta for this member from DIM network
-                    continue
-                if meta.match_public_key(m.key):
-                    # if public key matched, means the group is created by this member
-                    return identifier
+        return self.__group_table.founder(group=group)
 
     def owner(self, group: ID) -> ID:
         return self.__group_table.owner(group=group)

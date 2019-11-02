@@ -35,8 +35,6 @@ from .utils import hex_encode, hex_decode
 from .utils import sha1
 from .utils import Log
 
-from .extension import BTCAddress, ETHAddress, BTCMeta, ETHMeta
-
 from .database import Storage, Database
 
 from .facebook import Facebook
@@ -50,12 +48,6 @@ __all__ = [
     'hex_encode', 'hex_decode',
     'sha1',
     'Log',
-
-    #
-    #  Extension
-    #
-    'BTCAddress', 'ETHAddress',
-    'BTCMeta', 'ETHMeta',
 
     #
     #  Database module
