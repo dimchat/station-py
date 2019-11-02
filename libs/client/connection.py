@@ -35,9 +35,8 @@ import threading
 import time
 from abc import ABCMeta, abstractmethod
 
-from dimp import TransceiverDelegate
 from dimp import InstantMessage
-from dimsdk import Station, CompletionHandler
+from dimsdk import Station, CompletionHandler, MessengerDelegate
 
 from ..common import Log
 
@@ -54,7 +53,7 @@ class IConnectionDelegate(metaclass=ABCMeta):
         pass
 
 
-class Connection(threading.Thread, TransceiverDelegate):
+class Connection(threading.Thread, MessengerDelegate):
 
     # boundary for packages
     BOUNDARY = b'\n'

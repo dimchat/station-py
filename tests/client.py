@@ -69,9 +69,9 @@ g_station.port = 9394
 g_database.base_dir = '/tmp/.dim/'
 
 # Address Name Service
-g_ans.save_record('moki', moki.identifier)
-g_ans.save_record('hulk', hulk.identifier)
-g_ans.save_record('station', g_station.identifier)
+g_ans.save('moki', moki.identifier)
+g_ans.save('hulk', hulk.identifier)
+g_ans.save('station', g_station.identifier)
 
 
 class Client(Robot):

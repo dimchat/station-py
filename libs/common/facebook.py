@@ -29,6 +29,7 @@
 
     Barrack for cache entities
 """
+from typing import Optional
 
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile
@@ -44,14 +45,32 @@ class Facebook(Barrack):
         super().__init__()
         self.database: Database = None
 
+    def nickname(self, identifier: ID) -> str:
+        assert identifier.type.is_user(), 'ID error: %s' % identifier
+        user = self.user(identifier=identifier)
+        if user is not None:
+            return user.name
+
     def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
         return self.database.save_private_key(private_key=private_key, identifier=identifier)
+
+    def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
+        # TODO: load private key from secret storage
+        pass
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.database.save_meta(meta=meta, identifier=identifier)
 
-    def save_profile(self, profile: Profile) -> bool:
+    def load_meta(self, identifier: ID) -> Optional[Meta]:
+        # TODO: load meta from local storage
+        pass
+
+    def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
         return self.database.save_profile(profile=profile)
+
+    def load_profile(self, identifier: ID) -> Optional[Profile]:
+        # TODO: load profile from database
+        pass
 
     """
         Group members
@@ -59,9 +78,22 @@ class Facebook(Barrack):
     def save_members(self, members: list, group: ID) -> bool:
         return self.database.save_members(members=members, group=group)
 
+    def load_members(self, identifier: ID) -> Optional[list]:
+        # TODO: load members from database
+        pass
+
     """
         User contacts
     """
+    def save_contacts(self, contacts: list, identifier: ID) -> bool:
+        if super().save_contacts(contacts=contacts, identifier=identifier):
+            return True
+        # TODO: save contacts into database
+
+    def load_contacts(self, identifier: ID) -> Optional[list]:
+        # TODO: load contacts from database
+        pass
+
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_contacts_command(cmd=cmd, sender=sender)
 
@@ -80,6 +112,7 @@ class Facebook(Barrack):
     """
         Mute-list
     """
+
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         return self.database.save_mute_command(cmd=cmd, sender=sender)
 
