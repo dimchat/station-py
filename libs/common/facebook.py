@@ -78,11 +78,11 @@ class Facebook(Barrack):
     def load_contacts(self, identifier: ID) -> Optional[list]:
         return self.database.contacts(user=identifier)
 
-    def save_members(self, members: list, group: ID) -> bool:
-        return self.database.save_members(members=members, group=group)
+    def save_members(self, members: list, identifier: ID) -> bool:
+        return self.database.save_members(members=members, group=identifier)
 
-    def load_members(self, group: ID) -> Optional[list]:
-        return self.database.members(group=group)
+    def load_members(self, identifier: ID) -> Optional[list]:
+        return self.database.members(group=identifier)
 
     """
         Contacts Command
