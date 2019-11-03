@@ -36,12 +36,11 @@ from typing import Union
 from dimp import ID
 from dimp import InstantMessage, Content, TextContent
 from dimsdk import Station
+from dimsdk import Dialog, ChatBot
 
 from ..common import Facebook
 
 from .robot import Robot
-from .chatbot import ChatBot
-from .dialog import Dialog
 
 
 class Daemon(Robot):

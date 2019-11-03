@@ -35,9 +35,10 @@ from json import JSONDecodeError
 from threading import Thread
 
 from dimp import ID
+from dimsdk import ApplePushNotificationService
 
 from libs.common import Database, Log
-from libs.server import ApplePushNotificationService, Server, SessionServer
+from libs.server import Server, SessionServer
 
 
 class Receptionist(Thread):

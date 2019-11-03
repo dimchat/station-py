@@ -34,13 +34,15 @@ from dimp import PrivateKey, Meta, Profile
 from dimsdk import AddressNameService
 from dimsdk import Station, KeyStore, Messenger
 
+from dimsdk import ApplePushNotificationService
+from dimsdk import ChatBot, Tuling, XiaoI
+
 #
 #  Common Libs
 #
 from libs.common import Log
 from libs.common import Database, Facebook
-from libs.server import ApplePushNotificationService, SessionServer, Server
-from libs.client import ChatBot, Tuling, XiaoI
+from libs.server import SessionServer, Server
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile

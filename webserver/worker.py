@@ -31,9 +31,9 @@
 from binascii import Error
 
 from dimp import ID, Meta, Profile
-from mkm.crypto.utils import base64_decode
 
-from libs.common import Log
+from libs.common import Log, base64_decode
+
 from webserver.config import g_facebook
 
 

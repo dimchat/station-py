@@ -33,10 +33,10 @@
 from dimp import ID
 from dimp import Content, TextContent, Command
 from dimp import InstantMessage
+from dimsdk import Dialog
 
 from libs.common import Log
 from libs.server import Session, Server
-from libs.client import Dialog
 
 from .cmd import CPU
 from .config import g_facebook, g_database, g_session_server, g_receptionist, g_monitor

@@ -29,13 +29,11 @@
 
 """
 
-from .apns import ApplePushNotificationService, IAPNsDelegate
 from .session import Session, SessionServer
 from .server import Server
 
 
 __all__ = [
-    'ApplePushNotificationService', 'IAPNsDelegate',
     'Session', 'SessionServer',
     'Server',
 ]
