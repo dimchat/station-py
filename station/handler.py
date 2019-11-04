@@ -197,6 +197,7 @@ class RequestHandler(BaseRequestHandler):
 
     def setup(self):
         self.info('%s: set up with %s' % (self, self.client_address))
+        g_session_server.set_handler(client_address=self.client_address, request_handler=self)
         g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
         # message processor
         self.processor = MessageProcessor(request_handler=self)
@@ -218,6 +219,7 @@ class RequestHandler(BaseRequestHandler):
             self.session = None
         else:
             g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
+        g_session_server.clear_handler(client_address=self.client_address)
         self.info('finish (%s, %s)' % self.client_address)
 
     """

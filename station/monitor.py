@@ -87,7 +87,8 @@ class Monitor:
                 if sess.valid is False or sess.active is False:
                     self.info('session invalid %s' % sess)
                     continue
-                if sess.request_handler.push_message(r_msg):
+                request_handler = self.session_server.get_handler(client_address=sess.client_address)
+                if request_handler.push_message(r_msg):
                     success = success + 1
                 else:
                     self.error('failed to push report via connection (%s, %s)' % sess.client_address)
