@@ -79,7 +79,7 @@ class Monitor:
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
         r_msg = self.messenger.encrypt_sign(i_msg)
         # try for online user
-        sessions = self.session_server.search(identifier=receiver)
+        sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:
             self.info('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0

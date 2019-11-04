@@ -69,7 +69,7 @@ class Receptionist(Thread):
                 for identifier in guests:
                     # 1. get all sessions of the receiver
                     self.info('checking session for new guest %s' % identifier)
-                    sessions = self.session_server.search(identifier=identifier)
+                    sessions = self.session_server.all(identifier=identifier)
                     if sessions is None or len(sessions) == 0:
                         self.info('guest not connect, remove it: %s' % identifier)
                         self.guests.remove(identifier)

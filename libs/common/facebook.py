@@ -112,25 +112,6 @@ class Facebook(Barrack):
         return self.database.mute_command(identifier=identifier)
 
     #
-    #   IEntityDataSource
-    #
-    def meta(self, identifier: ID) -> Meta:
-        info = super().meta(identifier=identifier)
-        if info is None:
-            info = self.database.meta(identifier=identifier)
-            if info is not None:
-                # cache it in barrack
-                self.cache_meta(meta=info, identifier=identifier)
-        return info
-
-    def profile(self, identifier: ID) -> Profile:
-        tai = super().profile(identifier=identifier)
-        if tai is None:
-            tai = self.database.profile(identifier=identifier)
-        # TODO: check expired time
-        return tai
-
-    #
     #    IGroupDataSource
     #
     def founder(self, identifier: ID) -> ID:

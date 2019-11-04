@@ -79,10 +79,10 @@ class RequestHandler(BaseRequestHandler):
             if self.session.identifier == identifier:
                 return self.session
             # user switched, clear current session
-            g_session_server.remove_session(session=self.session)
+            g_session_server.remove(session=self.session)
             self.session = None
         # get new session with identifier
-        self.session = g_session_server.session_create(identifier=identifier, request_handler=self)
+        self.session = g_session_server.new(identifier=identifier, client_address=self.client_address)
         return self.session
 
     def check_session(self, identifier: ID) -> Content:
@@ -214,7 +214,7 @@ class RequestHandler(BaseRequestHandler):
             msg = self.station.pack(receiver=self.identifier, content=response)
             self.push_message(msg)
             # clear current session
-            g_session_server.remove_session(session=self.session)
+            g_session_server.remove(session=self.session)
             self.session = None
         else:
             g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))

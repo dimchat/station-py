@@ -130,7 +130,7 @@ class Dispatcher:
             # split and deliver them
             return self.__split_group_message(msg=msg)
         # try for online user
-        sessions = self.session_server.search(identifier=receiver)
+        sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:
             self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
             success = 0

@@ -29,7 +29,9 @@
 
 """
 
-from .session import Session, SessionServer
+from dimsdk import Session
+
+from .session import SessionServer
 from .server import Server
 
 
