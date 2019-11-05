@@ -31,13 +31,13 @@
 """
 
 from dimsdk import AddressNameService
-from dimsdk import KeyStore, Messenger
+from dimsdk import KeyStore
 
 #
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, Messenger
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile

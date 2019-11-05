@@ -27,32 +27,22 @@
     Command Processor for 'block'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Mute protocol
+    Block protocol
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class BlockCommandProcessor(CommandProcessor):
 
-class BlockCommandProcessor(CPU):
-
-    def process(self, cmd: Command, sender: ID) -> Content:
-        if 'list' in cmd:
-            # receive block command, save it
-            if self.facebook.save_block_command(cmd=cmd, sender=sender):
-                self.info('block command saved for %s' % sender)
-                return ReceiptCommand.new(message='Block command of %s received!' % sender)
-            else:
-                self.error('failed to save block command: %s' % cmd)
-                return TextContent.new(text='Block-list not stored %s!' % cmd)
-        # query block-list, load it
+    def __query(self, sender: ID) -> Content:
         self.info('search block-list for %s' % sender)
         stored: Command = self.facebook.block_command(identifier=sender)
-        # response
         if stored is not None:
             # response the stored block command directly
             return stored
@@ -62,3 +52,30 @@ class BlockCommandProcessor(CPU):
             res = Command.new(command='block')
             res['list'] = []
             return res
+
+    def __upload(self, cmd: Command, sender: ID) -> Content:
+        # receive block command, save it
+        if self.facebook.save_block_command(cmd=cmd, sender=sender):
+            self.info('block command saved for %s' % sender)
+            return ReceiptCommand.new(message='Block command of %s received!' % sender)
+        else:
+            self.error('failed to save block command: %s' % cmd)
+            return TextContent.new(text='Block-list not stored %s!' % cmd)
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != BlockCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
+        if 'list' in content:
+            # upload block-list, save it
+            return self.__upload(cmd=content, sender=sender)
+        else:
+            # query block-list, load it
+            return self.__query(sender=sender)
+
+
+# register
+CommandProcessor.register(command='block', processor_class=BlockCommandProcessor)

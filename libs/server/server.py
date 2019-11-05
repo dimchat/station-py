@@ -34,9 +34,9 @@ import os
 
 from dimp import ID, Meta
 from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import Station, Messenger
+from dimsdk import Station
 
-from ..common import Storage, Facebook
+from ..common import Storage, Facebook, Messenger
 
 
 def save_freshman(identifier: ID) -> bool:

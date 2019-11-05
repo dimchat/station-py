@@ -31,18 +31,44 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class UsersCommandProcessor(CommandProcessor):
 
-class UsersCommandProcessor(CPU):
+    def __init__(self, context: dict):
+        super().__init__(context=context)
+        self.session_server = self.context['session_server']
 
-    def process(self, cmd: Command, sender: ID) -> Content:
-        self.info('get online user(s) for %s' % sender)
-        users = self.session_server.random_users(max_count=20)
+    def __random_users(self, max_count=20) -> Content:
+        users = self.session_server.random_users(max_count=max_count)
         response = Command.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
         return response
+
+    def __update(self, content: Content) -> Content:
+        # TODO: response, update
+        pass
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != UsersCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
+        # message
+        message = content.get('message')
+        if message is None:
+            self.info('get online user(s) for %s' % sender)
+            return self.__random_users()
+        else:
+            return self.__update(content=content)
+
+
+# register
+CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)

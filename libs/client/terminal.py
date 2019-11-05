@@ -35,9 +35,8 @@ import json
 from dimp import ID, NetworkID, LocalUser, Group
 from dimp import Content, Command, MetaCommand, ProfileCommand, HistoryCommand, GroupCommand
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Messenger
 
-from ..common import Facebook
+from ..common import Facebook, Messenger
 
 from .connection import IConnectionDelegate
 
@@ -324,10 +323,9 @@ class Terminal(LocalUser, IConnectionDelegate):
     def receive_package(self, data: bytes):
         """ Receive data package """
         try:
-            # decode message
-            line = data.decode('utf-8')
-            msg = json.loads(line)
-            r_msg = ReliableMessage(msg)
+            # deserialize message
+            r_msg = self.messenger.deserialize_message(data=data)
+            # process message
             self.process_message(r_msg)
         except UnicodeDecodeError as error:
             print('Terminal > decode error: %s' % error)

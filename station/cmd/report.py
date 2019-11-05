@@ -31,16 +31,23 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
 from dimsdk import ReceiptCommand
+from dimsdk import CommandProcessor
 
 from libs.server import Session
 
-from .cpu import CPU, processor_classes
 
+class ReportCommandProcessor(CommandProcessor):
 
-class ReportCommandProcessor(CPU):
+    def __init__(self, context: dict):
+        super().__init__(context=context)
+        self.database = self.context['database']
+        self.session_server = self.context['session_server']
+        self.request_handler = self.context['request_handler']
+        self.receptionist = self.context['receptionist']
 
     def __process_old_report(self, cmd: Command, sender: ID) -> Content:
         # compatible with v1.0
@@ -60,33 +67,43 @@ class ReportCommandProcessor(CPU):
             return ReceiptCommand.new(message='Client state received')
         self.error('report info error: %s' % cmd)
 
-    def process(self, cmd: Command, sender: ID) -> Content:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
         if type(self) != ReportCommandProcessor:
             raise AssertionError('override me!')
-        self.info('client broadcast %s, %s' % (sender, cmd))
+        assert isinstance(content, Command), 'command error: %s' % content
+        self.info('client broadcast %s, %s' % (sender, content))
         # report title
-        title = cmd.get('title')
+        title = content.get('title')
         if 'report' == title:
-            return self.__process_old_report(cmd=cmd, sender=sender)
+            return self.__process_old_report(cmd=content, sender=sender)
         # get CPU by report title
-        cpu = self.cpu(name=title)
+        cpu = self.cpu(command=title)
         # check and run
         if cpu is None:
-            self.error('command not supported yet: %s' % cmd)
+            self.error('command not supported yet: %s' % content)
         elif cpu is self:
             # FIXME: dead cycle!
-            self.error('Dead cycle! command: %s' % cmd)
+            self.error('Dead cycle! command: %s' % content)
             raise AssertionError('Dead cycle!')
         else:
             # process by subclass
-            return cpu.process(cmd=cmd, sender=sender)
+            return cpu.process(content=content, sender=sender, msg=msg)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
 
-    def process(self, cmd: Command, sender: ID) -> Content:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != ReportCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
         # submit device token for APNs
-        token = cmd.get('device_token')
+        token = content.get('device_token')
         self.info('client report token %s' % token)
         if token is not None:
             self.database.save_device_token(token=token, identifier=sender)
@@ -95,7 +112,13 @@ class APNsCommandProcessor(ReportCommandProcessor):
 
 class OnlineCommandProcessor(ReportCommandProcessor):
 
-    def process(self, cmd: Command, sender: ID) -> Content:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != ReportCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
         # welcome back!
         self.info('client online')
         self.receptionist.add_guest(identifier=sender)
@@ -107,7 +130,13 @@ class OnlineCommandProcessor(ReportCommandProcessor):
 
 class OfflineCommandProcessor(ReportCommandProcessor):
 
-    def process(self, cmd: Command, sender: ID) -> Content:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != ReportCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
         # goodbye!
         self.info('client offline')
         session = self.request_handler.current_session(identifier=sender)
@@ -117,6 +146,6 @@ class OfflineCommandProcessor(ReportCommandProcessor):
 
 
 # register
-processor_classes['apns'] = APNsCommandProcessor
-processor_classes['online'] = OnlineCommandProcessor
-processor_classes['offline'] = OfflineCommandProcessor
+CommandProcessor.register(command='apns', processor_class=APNsCommandProcessor)
+CommandProcessor.register(command='online', processor_class=OnlineCommandProcessor)
+CommandProcessor.register(command='offline', processor_class=OfflineCommandProcessor)

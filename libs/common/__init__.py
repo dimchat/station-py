@@ -38,6 +38,7 @@ from .utils import Log
 from .database import Storage, Database
 
 from .facebook import Facebook
+from .messenger import Messenger
 
 
 __all__ = [
@@ -58,5 +59,5 @@ __all__ = [
     #
     #  Common libs
     #
-    'Facebook',
+    'Facebook', 'Messenger',
 ]

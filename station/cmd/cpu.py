@@ -30,74 +30,74 @@
     Processors for commands
 """
 
-from dimp import ID
-from dimp import Content
-from dimp import Command
-
-from libs.common import Log, Facebook, Database
-from libs.server import SessionServer
-
-
-class CPU:
-
-    def __init__(self, request_handler,
-                 facebook: Facebook, database: Database, session_server: SessionServer,
-                 receptionist, monitor):
-        super().__init__()
-        self.request_handler = request_handler
-        self.facebook = facebook
-        self.database = database
-        self.session_server = session_server
-        self.receptionist = receptionist
-        self.monitor = monitor
-        self.station_name = 'DIMs'
-        # cache
-        self.__processors = {}
-
-    def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
-
-    def cpu(self, name: str):
-        # get processor from cache
-        cpu = self.__processors.get(name)
-        if cpu is not None:
-            return cpu
-        # try to create new processor
-        clazz = processor_classes.get(name)
-        if clazz is not None:
-            cpu = clazz(self.request_handler,
-                        self.facebook, self.database, self.session_server,
-                        self.receptionist, self.monitor)
-            cpu.station_name = self.station_name
-            self.__processors[name] = cpu
-            return cpu
-
-    def process(self, cmd: Command, sender: ID) -> Content:
-        if type(self) != CPU:
-            raise AssertionError('override me!')
-        command = cmd.command
-        # get CPU by command name
-        cpu = self.cpu(name=command)
-        # check and run
-        if cpu is None:
-            self.error('command "%s" not supported yet!' % command)
-        elif cpu is self:
-            # should not happen
-            self.error('Dead cycle! command: %s' % cmd)
-            raise AssertionError('Dead cycle!')
-        else:
-            try:
-                # process by subclass
-                return cpu.process(cmd=cmd, sender=sender)
-            except Exception as error:
-                self.error('command error: %s' % error)
-
-
-"""
-    Commander Processor Classes Map
-"""
-
-processor_classes = {}
+# from dimp import ID
+# from dimp import Content
+# from dimp import Command
+#
+# from libs.common import Log, Facebook, Database
+# from libs.server import SessionServer
+#
+#
+# class CPU:
+#
+#     def __init__(self, request_handler,
+#                  facebook: Facebook, database: Database, session_server: SessionServer,
+#                  receptionist, monitor):
+#         super().__init__()
+#         self.request_handler = request_handler
+#         self.facebook = facebook
+#         self.database = database
+#         self.session_server = session_server
+#         self.receptionist = receptionist
+#         self.monitor = monitor
+#         self.station_name = 'DIMs'
+#         # cache
+#         self.__processors = {}
+#
+#     def info(self, msg: str):
+#         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+#
+#     def error(self, msg: str):
+#         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+#
+#     def cpu(self, name: str):
+#         # get processor from cache
+#         cpu = self.__processors.get(name)
+#         if cpu is not None:
+#             return cpu
+#         # try to create new processor
+#         clazz = processor_classes.get(name)
+#         if clazz is not None:
+#             cpu = clazz(self.request_handler,
+#                         self.facebook, self.database, self.session_server,
+#                         self.receptionist, self.monitor)
+#             cpu.station_name = self.station_name
+#             self.__processors[name] = cpu
+#             return cpu
+#
+#     def process(self, cmd: Command, sender: ID) -> Content:
+#         if type(self) != CPU:
+#             raise AssertionError('override me!')
+#         command = cmd.command
+#         # get CPU by command name
+#         cpu = self.cpu(name=command)
+#         # check and run
+#         if cpu is None:
+#             self.error('command "%s" not supported yet!' % command)
+#         elif cpu is self:
+#             # should not happen
+#             self.error('Dead cycle! command: %s' % cmd)
+#             raise AssertionError('Dead cycle!')
+#         else:
+#             try:
+#                 # process by subclass
+#                 return cpu.process(cmd=cmd, sender=sender)
+#             except Exception as error:
+#                 self.error('command error: %s' % error)
+#
+#
+# """
+#     Commander Processor Classes Map
+# """
+#
+# processor_classes = {}

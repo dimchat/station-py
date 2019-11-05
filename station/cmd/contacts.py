@@ -31,24 +31,16 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class ContactsCommandProcessor(CommandProcessor):
 
-class ContactsCommandProcessor(CPU):
-
-    def process(self, cmd: Command, sender: ID) -> Content:
-        if 'data' in cmd or 'contacts' in cmd:
-            # receive encrypted contacts, save it
-            if self.facebook.save_contacts_command(cmd=cmd, sender=sender):
-                self.info('contacts command saved for %s' % sender)
-                return ReceiptCommand.new(message='Contacts of %s received!' % sender)
-            else:
-                self.error('failed to save contacts command: %s' % cmd)
-                return TextContent.new(text='Contacts not stored %s!' % cmd)
+    def __query(self, sender: ID) -> Content:
         # query encrypted contacts, load it
         self.info('search contacts(command with encrypted data) for %s' % sender)
         stored: Command = self.facebook.contacts_command(identifier=sender)
@@ -58,3 +50,30 @@ class ContactsCommandProcessor(CPU):
             return stored
         else:
             return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
+
+    def __upload(self, cmd: Command, sender: ID) -> Content:
+        # receive encrypted contacts, save it
+        if self.facebook.save_contacts_command(cmd=cmd, sender=sender):
+            self.info('contacts command saved for %s' % sender)
+            return ReceiptCommand.new(message='Contacts of %s received!' % sender)
+        else:
+            self.error('failed to save contacts command: %s' % cmd)
+            return TextContent.new(text='Contacts not stored %s!' % cmd)
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != ContactsCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
+        if 'data' in content or 'contacts' in content:
+            # upload contacts, save it
+            return self.__upload(cmd=content, sender=sender)
+        else:
+            # query contacts, load it
+            return self.__query(sender=sender)
+
+
+# register
+CommandProcessor.register(command='contacts', processor_class=ContactsCommandProcessor)

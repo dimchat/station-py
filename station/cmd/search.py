@@ -31,32 +31,47 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class SearchCommandProcessor(CommandProcessor):
 
-class SearchCommandProcessor(CPU):
+    def __init__(self, context: dict):
+        super().__init__(context=context)
+        self.database = self.context['database']
 
-    def process(self, cmd: Command, sender: ID) -> Content:
-        self.info('search users for %s, %s' % (sender, cmd))
-        # keywords
-        keywords = cmd.get('keywords')
-        if keywords is None:
-            keywords = cmd.get('keyword')
-            if keywords is None:
-                keywords = cmd.get('kw')
-        # search for each keyword
-        if keywords is None:
-            keywords = []
-        else:
-            keywords = keywords.split(' ')
+    def __search(self, keywords: list) -> Content:
         results = self.database.search(keywords=keywords)
-        # response
         users = list(results.keys())
         response = Command.new(command='search')
         response['message'] = '%d user(s) found' % len(users)
         response['users'] = users
         response['results'] = results
         return response
+
+    def __update(self, content: Content) -> Content:
+        # TODO: response, update
+        pass
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != SearchCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
+        # message
+        message = content.get('message')
+        if message is None:
+            self.info('search users for %s, %s' % (sender, content))
+            keywords = content['keywords']
+            return self.__search(keywords=keywords.split(' '))
+        else:
+            return self.__update(content=content)
+
+
+# register
+CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)

@@ -29,6 +29,7 @@
 
     Barrack for cache entities
 """
+
 from typing import Optional
 
 from dimp import PrivateKey

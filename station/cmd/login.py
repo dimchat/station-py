@@ -31,16 +31,26 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
 from dimsdk import ReceiptCommand
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class LoginCommandProcessor(CommandProcessor):
 
-class LoginCommandProcessor(CPU):
-
-    def process(self, cmd: Command, sender: ID) -> Content:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != LoginCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, Command), 'command error: %s' % content
         # TODO: update login status
-        self.info('Login command: %s' % cmd)
+        self.info('Login command: %s' % content)
         return ReceiptCommand.new(message='Login received')
+
+
+# register
+CommandProcessor.register(command='login', processor_class=LoginCommandProcessor)

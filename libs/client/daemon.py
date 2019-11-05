@@ -99,7 +99,7 @@ class Daemon(Robot):
                 # ignore message that not querying me
                 return False
             # TODO: remove all '@nickname'
-            text = text.replace(old=at, new='')
+            text = text.replace(at, '')
             content.text = text
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:

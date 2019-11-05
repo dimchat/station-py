@@ -32,7 +32,7 @@
 
 from dimp import PrivateKey, Meta, Profile
 from dimsdk import AddressNameService
-from dimsdk import Station, KeyStore, Messenger
+from dimsdk import Station, KeyStore
 from dimsdk import ChatBot, Tuling, XiaoI
 
 #
@@ -40,7 +40,7 @@ from dimsdk import ChatBot, Tuling, XiaoI
 #
 
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, Messenger
 from libs.client import Daemon
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile

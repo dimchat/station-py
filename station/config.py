@@ -32,7 +32,7 @@
 
 from dimp import PrivateKey, Meta, Profile
 from dimsdk import AddressNameService
-from dimsdk import Station, KeyStore, Messenger
+from dimsdk import Station, KeyStore
 
 from dimsdk import ApplePushNotificationService
 from dimsdk import ChatBot, Tuling, XiaoI
@@ -41,7 +41,7 @@ from dimsdk import ChatBot, Tuling, XiaoI
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, Messenger
 from libs.server import SessionServer, Server
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
@@ -57,6 +57,7 @@ from etc.cfg_gsp import all_stations, local_servers, load_station_info
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
+from .cmd import *
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
 from .monitor import Monitor

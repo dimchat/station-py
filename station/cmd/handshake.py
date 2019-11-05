@@ -31,23 +31,26 @@
 """
 
 from dimp import ID
+from dimp import InstantMessage
 from dimp import Content
 from dimp import Command, HandshakeCommand
+from dimsdk import CommandProcessor
 
-from .cpu import CPU
 
+class HandshakeCommandProcessor(CommandProcessor):
 
-class HandshakeCommandProcessor(CPU):
+    def __init__(self, context: dict):
+        super().__init__(context=context)
+        self.session_server = self.context['session_server']
+        self.request_handler = self.context['request_handler']
+        self.monitor = self.context['monitor']
+        self.receptionist = self.context['receptionist']
 
-    def process(self, cmd: Command, sender: ID) -> Content:
+    def __offer(self, sender: ID, session_key: str=None) -> Content:
+        # TODO: get session
         # set/update session in session server with new session key
         client_address = self.request_handler.client_address
         self.info('handshake with client %s, %s' % (client_address, sender))
-        if cmd is None:
-            session_key = None
-        else:
-            assert isinstance(cmd, HandshakeCommand), 'handshake cmd error: %s' % cmd
-            session_key = cmd.session
         session = self.request_handler.current_session(identifier=sender)
         if session_key == session.session_key:
             # session verified success
@@ -62,3 +65,36 @@ class HandshakeCommandProcessor(CPU):
         else:
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.session_key)
+        pass
+
+    @staticmethod
+    def __ask(session_key: str) -> Content:
+        # handshake again
+        return HandshakeCommand.restart(session=session_key)
+
+    def __success(self) -> Content:
+        # handshake accepted
+        # TODO: report 'login'
+        pass
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+        if type(self) != HandshakeCommandProcessor:
+            raise AssertionError('override me!')
+        assert isinstance(content, HandshakeCommand), 'command error: %s' % content
+        message = content.message
+        if 'DIM!' == message:
+            # S -> C
+            return self.__success()
+        elif 'DIM?' == message:
+            # S -> C
+            return self.__ask(session_key=content.session)
+        else:
+            # C -> S: Hello world!
+            return self.__offer(session_key=content.session, sender=sender)
+
+
+# register
+CommandProcessor.register(command=Command.HANDSHAKE, processor_class=HandshakeCommandProcessor)

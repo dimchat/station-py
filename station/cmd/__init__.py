@@ -30,38 +30,24 @@
     Processors for commands
 """
 
-from .cpu import CPU, processor_classes
-
 from .handshake import HandshakeCommandProcessor
-from .meta import MetaCommandProcessor
-from .profile import ProfileCommandProcessor
-
-from .login import LoginCommandProcessor
-from .search import SearchCommandProcessor
-from .users import UsersCommandProcessor
-from .contacts import ContactsCommandProcessor
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
 
 from .report import ReportCommandProcessor
-
-#
-#  register processors
-#
-processor_classes['handshake'] = HandshakeCommandProcessor
-processor_classes['meta'] = MetaCommandProcessor
-processor_classes['profile'] = ProfileCommandProcessor
-
-processor_classes['login'] = LoginCommandProcessor
-processor_classes['search'] = SearchCommandProcessor
-processor_classes['users'] = UsersCommandProcessor
-processor_classes['contacts'] = ContactsCommandProcessor
-processor_classes['mute'] = MuteCommandProcessor
-processor_classes['block'] = BlockCommandProcessor
-
-processor_classes['report'] = ReportCommandProcessor
-processor_classes['broadcast'] = ReportCommandProcessor
+from .login import LoginCommandProcessor
+from .search import SearchCommandProcessor
+from .users import UsersCommandProcessor
+from .contacts import ContactsCommandProcessor
 
 __all__ = [
-    'CPU',
+    'HandshakeCommandProcessor',
+    'MuteCommandProcessor',
+    'BlockCommandProcessor',
+
+    'ReportCommandProcessor',
+    'LoginCommandProcessor',
+    'SearchCommandProcessor',
+    'UsersCommandProcessor',
+    'ContactsCommandProcessor',
 ]
