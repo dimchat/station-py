@@ -88,17 +88,19 @@ class Daemon(Robot):
             if not isinstance(content, TextContent):
                 self.info('Group Dialog > only support text message in polylogue: %s' % content)
                 return False
-            receiver = facebook.identifier(msg.envelope.receiver)
-            at = '@%s ' % facebook.nickname(identifier=receiver)
             text = content.text
             if text is None:
                 raise ValueError('text content error: %s' % content)
-            self.info('Group Dialog > searching %s in %s' % (at, text))
+            # checking '@nickname'
+            receiver = facebook.identifier(msg.envelope.receiver)
+            at = '@%s' % facebook.nickname(identifier=receiver)
+            self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
             if text.find(at) < 0:
                 # ignore message that not querying me
                 return False
-            # TODO: remove all '@xxx ' substrings
-            text.replace(at, '')
+            # TODO: remove all '@nickname'
+            text = text.replace(old=at, new='')
+            content.text = text
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
