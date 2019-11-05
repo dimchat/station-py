@@ -75,7 +75,7 @@ class Daemon(Robot):
         sender = facebook.identifier(msg.envelope.sender)
         if sender.type.is_robot():
             # ignore message from another robot
-            return True
+            return False
         # check time
         now = int(time.time())
         dt = now - msg.envelope.time
@@ -83,6 +83,19 @@ class Daemon(Robot):
             self.info('Old message, ignore it: %s' % msg)
             return False
         content: Content = msg.content
+        if content.group is not None:
+            # group message
+            if not isinstance(content, TextContent):
+                # only support text message in polylogue
+                return False
+            receiver = facebook.identifier(msg.envelope.receiver)
+            at = '@%s ' % facebook.nickname(identifier=receiver)
+            text = content.text
+            if text is None:
+                raise ValueError('text content error: %s' % content)
+            if text.find(at) < 0:
+                # ignore message that not querying me
+                return False
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
