@@ -74,7 +74,7 @@ class Daemon(Robot):
         facebook: Facebook = self.delegate
         sender = facebook.identifier(msg.envelope.sender)
         if sender.type.is_robot():
-            # ignore message from another robot
+            self.info('Dialog > ignore message from another robot: %s' % msg.content)
             return False
         # check time
         now = int(time.time())
@@ -86,16 +86,19 @@ class Daemon(Robot):
         if content.group is not None:
             # group message
             if not isinstance(content, TextContent):
-                # only support text message in polylogue
+                self.info('Group Dialog > only support text message in polylogue: %s' % content)
                 return False
             receiver = facebook.identifier(msg.envelope.receiver)
             at = '@%s ' % facebook.nickname(identifier=receiver)
             text = content.text
             if text is None:
                 raise ValueError('text content error: %s' % content)
+            self.info('Group Dialog > searching %s in %s' % (at, text))
             if text.find(at) < 0:
                 # ignore message that not querying me
                 return False
+            # TODO: remove all '@xxx ' substrings
+            text.replace(at, '')
         response = self.__dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
