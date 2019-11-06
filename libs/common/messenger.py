@@ -95,16 +95,17 @@ class Messenger(Transceiver):
         if receiver.type.is_group():
             # trim it
             msg = self.__trim(msg=msg, group=receiver)
-            if msg is None:
-                return None
         else:
-            self.__alter(identifier=receiver)
-        return super().decrypt_message(msg=msg)
+            msg = self.__select(msg=msg, receiver=receiver)
+        if msg is not None:
+            return super().decrypt_message(msg=msg)
 
-    def __alter(self, identifier: ID):
+    def __select(self, msg: SecureMessage, receiver: ID) -> Optional[SecureMessage]:
         index = 0
+        current = None
         for item in self.users:
-            if item.identifier == identifier:
+            if item.identifier == receiver:
+                current = item
                 break
             else:
                 index += 1
@@ -112,6 +113,8 @@ class Messenger(Transceiver):
             # move this user in front for next message
             current = self.users.pop(index)
             self.users.insert(0, current)
+        if current is not None:
+            return msg
 
     def __trim(self, msg: SecureMessage, group: ID) -> Optional[SecureMessage]:
         facebook: Facebook = self.barrack
