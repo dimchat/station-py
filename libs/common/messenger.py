@@ -35,6 +35,7 @@ from typing import Optional
 from dimp import ID, User
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, ForwardContent
+from dimsdk import Session
 from dimsdk import Messenger as Transceiver
 from dimsdk import ContentProcessor
 
@@ -45,21 +46,119 @@ class Messenger(Transceiver):
 
     def __init__(self):
         super().__init__()
-        self.users = []  # list of User
         self.context = {}
 
+    #
+    #   Session with ID, (IP, port), session key, valid
+    #
     @property
-    def current_user(self) -> User:
-        return self.users[0]
+    def session(self) -> Session:
+        return self.context.get('session')
+
+    @session.setter
+    def session(self, value: Session):
+        if value is None:
+            self.context.pop('session', None)
+        else:
+            self.context['session'] = value
+
+    #
+    #   Remote user(for station) or station(for client)
+    #
+    @property
+    def remote_user(self) -> User:
+        return self.context.get('remote_user')
+
+    @remote_user.setter
+    def remote_user(self, value: User):
+        if value is None:
+            self.context.pop('remote_user', None)
+        else:
+            self.context['remote_user'] = value
+
+    #
+    #   All local users (for decrypting received message)
+    #
+    @property
+    def local_users(self) -> list:
+        array = self.context.get('local_users')
+        if array is None:
+            array = []
+            self.context['local_users'] = array
+        return array
+
+    @local_users.setter
+    def local_users(self, value: list):
+        if value is None:
+            self.context.pop('local_users', None)
+        else:
+            self.context['local_users'] = value
+
+    def __alter(self, current_user: User):
+        """ Alter the position of this user to the front """
+        local_users = self.local_users
+        for index, user in enumerate(local_users):
+            if user.identifier == current_user.identifier:
+                # got it
+                if index > 0:
+                    # move this user in front for next message
+                    item = local_users.pop(index)
+                    assert item == current_user
+                    local_users.insert(index=0, object=current_user)
+                # done!
+                break
+
+    def __select(self, receiver: ID=None, group: ID=None) -> Optional[User]:
+        """ Select a local user for decrypting message """
+        local_users = self.local_users
+        if receiver is None:
+            # group message (recipient not designated)
+            assert group.type.is_group(), 'group ID error: %s' % group
+            facebook: Facebook = self.barrack
+            members = facebook.members(identifier=group)
+            if members is None:
+                # TODO: query group members
+                return None
+            # check which local user is in the group's member-list
+            for user in local_users:
+                if user.identifier in members:
+                    # got it
+                    self.__alter(current_user=user)
+                    return user
+            # FIXME: not for you?
+        else:
+            # 1. personal message
+            # 2. split group message
+            assert receiver.type.is_user(), 'receiver ID error: %s' % receiver
+            for user in local_users:
+                if user.identifier == receiver:
+                    # got it
+                    self.__alter(current_user=user)
+                    return user
+
+    #
+    #   Current user (for signing and sending message)
+    #
+    @property
+    def current_user(self) -> Optional[User]:
+        users = self.local_users
+        if len(users) > 0:
+            return users[0]
+
+    @current_user.setter
+    def current_user(self, value: User):
+        users = self.local_users
+        if value in users:
+            self.__alter(current_user=value)
+        else:
+            users.insert(index=0, object=value)
 
     #
     #   super()
     #
-    def cpu(self) -> ContentProcessor:
-        processor = super().cpu()
-        for key, value in self.context.items():
-            processor.context[key] = value
-        return processor
+    def cpu(self, context: dict=None) -> ContentProcessor:
+        assert context is None, 'use messenger.context only'
+        return super().cpu(context=self.context)
 
     def send_content(self, content: Content, receiver: ID) -> bool:
         sender = self.current_user.identifier
@@ -92,39 +191,15 @@ class Messenger(Transceiver):
 
     def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
         receiver = self.barrack.identifier(msg.envelope.receiver)
-        if receiver.type.is_group():
-            # trim it
-            msg = self.__trim(msg=msg, group=receiver)
-        else:
-            msg = self.__select(msg=msg, receiver=receiver)
-        if msg is not None:
-            return super().decrypt_message(msg=msg)
-
-    def __select(self, msg: SecureMessage, receiver: ID) -> Optional[SecureMessage]:
-        index = 0
-        current = None
-        for item in self.users:
-            if item.identifier == receiver:
-                current = item
-                break
-            else:
-                index += 1
-        if 0 < index < len(self.users):
-            # move this user in front for next message
-            current = self.users.pop(index)
-            self.users.insert(0, current)
-        if current is not None:
-            return msg
-
-    def __trim(self, msg: SecureMessage, group: ID) -> Optional[SecureMessage]:
-        facebook: Facebook = self.barrack
-        members = facebook.members(identifier=group)
-        if members is None:
-            # TODO: query group members
-            return None
-        for item in self.users:
-            identifier = item.identifier
-            if identifier in members:
-                # got it
-                self.__alter(identifier=identifier)
-                return msg.trim(member=identifier)
+        if receiver.type.is_user():
+            # check whether the receiver is in local users
+            user = self.__select(receiver=receiver)
+            if user is not None:
+                return super().decrypt_message(msg=msg)
+        elif receiver.type.is_group():
+            # check which local user is in the group's member-list
+            user = self.__select(group=receiver)
+            if user is not None:
+                # trim it
+                msg = msg.trim(member=user.identifier)
+                return super().decrypt_message(msg=msg)

@@ -34,7 +34,7 @@ import json
 from socketserver import BaseRequestHandler
 from typing import Optional
 
-from dimp import ID
+from dimp import ID, User
 from dimp import Content
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import NetMsgHead, NetMsg, CompletionHandler
@@ -86,48 +86,48 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
         return self.__messenger
 
     @property
-    def identifier(self) -> Optional[ID]:
-        if self.__messenger is None:
-            return None
-        cpu = self.__messenger.cpu()
-        return cpu.context.get('ID')
-
-    @property
     def session(self) -> Optional[Session]:
-        if self.__messenger is None:
-            return None
-        cpu = self.__messenger.cpu()
-        return cpu.context.get('session')
+        if self.__messenger is not None:
+            return self.__messenger.session
 
     @session.setter
     def session(self, value: Session):
-        if value is None:
-            if self.__messenger is not None:
-                cpu = self.__messenger.cpu()
-                cpu.context.pop('session', None)
-        else:
-            cpu = self.messenger.cpu()
-            cpu.context['session'] = value
+        if value is not None and self.__messenger is not None:
+            self.__messenger.session = value
 
-    def current_session(self, identifier: ID = None) -> Session:
-        # check whether the current session's identifier matched
+    @property
+    def remote_user(self) -> Optional[User]:
+        if self.__messenger is not None:
+            return self.__messenger.remote_user
+
+    @property
+    def identifier(self) -> Optional[ID]:
+        user = self.remote_user
+        if user is not None:
+            return user.identifier
+
+    def current_session(self, identifier: ID=None) -> Optional[Session]:
         if identifier is None:
+            # get current session
             return self.session
         if self.session is not None:
-            # current session belongs to the same user
+            # check whether the current session's identifier matched
             if self.session.identifier == identifier:
+                # current session belongs to the same user
                 return self.session
-            # user switched, clear current session
-            g_session_server.remove(session=self.session)
-            self.session = None
+            else:
+                # user switched, clear current session
+                g_session_server.remove(session=self.session)
         # get new session with identifier
         self.session = g_session_server.new(identifier=identifier, client_address=self.client_address)
         return self.session
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
+        # upload encrypted file data
         pass
 
     def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+        # download encrypted file data
         pass
 
     def send_package(self, data: bytes, handler: CompletionHandler) -> bool:

@@ -35,7 +35,7 @@ import json
 import time
 from cmd import Cmd
 
-from dimp import ID, Profile
+from dimp import ID, Profile, LocalUser
 from dimp import Content, ContentType, TextContent
 from dimp import Command, ProfileCommand
 from dimp import InstantMessage
@@ -92,6 +92,11 @@ class Client(Robot):
         self.info('%s is shaking hands with %s' % (self.identifier, station))
         return self.handshake()
 
+    def login(self, identifier: ID):
+        user = g_facebook.user(identifier=identifier)
+        assert isinstance(user, LocalUser), 'user error: %s' % identifier
+        self.messenger.users = [user]
+
     def process(self, cmd: Command, sender: ID) -> bool:
         if super().process(cmd=cmd, sender=sender):
             return True
@@ -145,6 +150,7 @@ class Console(Cmd):
         self.info('connecting to %s ...' % g_station)
         client = Client(identifier=identifier)
         client.connect(station=g_station)
+        client.login(identifier=identifier)
         self.client = client
         if self.receiver is None:
             self.receiver = client.station.identifier
