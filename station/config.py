@@ -41,7 +41,7 @@ from dimsdk import ChatBot, Tuling, XiaoI
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, Messenger
+from libs.common import Database, Facebook
 from libs.server import SessionServer, Server
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile

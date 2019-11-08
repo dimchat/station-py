@@ -63,12 +63,17 @@ class Facebook(Barrack):
     #   super()
     #
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        if not self.cache_meta(meta=meta, identifier=identifier):
+            return False
         return self.database.save_meta(meta=meta, identifier=identifier)
 
     def load_meta(self, identifier: ID) -> Optional[Meta]:
         return self.database.meta(identifier=identifier)
 
     def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
+        if not self.cache_profile(profile=profile, identifier=identifier):
+            # profile error
+            return False
         return self.database.save_profile(profile=profile)
 
     def load_profile(self, identifier: ID) -> Optional[Profile]:
