@@ -56,9 +56,6 @@ from etc.cfg_bots import load_robot_info, group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
 
-# import Command Processing Units
-from .cpu import *
-
 
 """
     Key Store
