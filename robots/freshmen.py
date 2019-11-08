@@ -33,12 +33,11 @@
 import threading
 import time
 
-from dimp import ID
+from dimp import ID, Group
 from dimp import Content, TextContent
 from dimp import MetaCommand, ProfileCommand, GroupCommand, InviteCommand
 
-from libs.common import Log
-from libs.client import Terminal
+from libs.common import Log, Messenger
 
 from robots.config import g_facebook
 from robots.config import group_naruto, load_freshmen
@@ -46,13 +45,13 @@ from robots.config import group_naruto, load_freshmen
 
 class FreshmenScanner(threading.Thread):
 
-    def __init__(self, terminal: Terminal):
+    def __init__(self):
         super().__init__()
         # delegate for send message
-        self.__delegate = terminal
+        self.messenger: Messenger = None
         # group
         gid = g_facebook.identifier(group_naruto)
-        self.__group = g_facebook.group(gid)
+        self.__group: Group = g_facebook.group(gid)
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -61,7 +60,7 @@ class FreshmenScanner(threading.Thread):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
     def __send_content(self, content: Content, receiver: ID) -> bool:
-        return self.__delegate.send_content(content=content, receiver=receiver)
+        return self.messenger.send_content(content=content, receiver=receiver)
 
     def __freshmen(self) -> list:
         freshmen = load_freshmen()

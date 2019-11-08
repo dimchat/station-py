@@ -52,5 +52,6 @@ if __name__ == '__main__':
     # chat bot
     client.messenger.context['bots'] = [chat_bot('xiaoi')]
     # start
-    scanner = FreshmenScanner(terminal=client)
+    scanner = FreshmenScanner()
+    scanner.messenger = client.messenger
     scanner.start()
