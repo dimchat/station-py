@@ -37,12 +37,18 @@ from dimp import Command
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ..database import Database
+
 
 class MuteCommandProcessor(CommandProcessor):
 
-    def __query(self, sender: ID) -> Content:
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    def __get(self, sender: ID) -> Content:
         self.info('search mute-list for %s' % sender)
-        stored: Command = self.facebook.mute_command(identifier=sender)
+        stored: Command = self.database.mute_command(identifier=sender)
         if stored is not None:
             # response the stored mute command directly
             return stored
@@ -53,9 +59,9 @@ class MuteCommandProcessor(CommandProcessor):
             res['list'] = []
             return res
 
-    def __upload(self, cmd: Command, sender: ID) -> Content:
+    def __put(self, cmd: Command, sender: ID) -> Content:
         # receive mute command, save it
-        if self.facebook.save_mute_command(cmd=cmd, sender=sender):
+        if self.database.save_mute_command(cmd=cmd, sender=sender):
             self.info('mute command saved for %s' % sender)
             return ReceiptCommand.new(message='Mute command of %s received!' % sender)
         else:
@@ -71,10 +77,10 @@ class MuteCommandProcessor(CommandProcessor):
         assert isinstance(content, Command), 'command error: %s' % content
         if 'list' in content:
             # upload mute-list, save it
-            return self.__upload(cmd=content, sender=sender)
+            return self.__put(cmd=content, sender=sender)
         else:
             # query mute-list, load it
-            return self.__query(sender=sender)
+            return self.__get(sender=sender)
 
 
 # register

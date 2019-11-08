@@ -30,52 +30,67 @@
     handshake protocol
 """
 
+from abc import ABCMeta, abstractmethod
+from typing import Optional
+
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
 from dimp import Command, HandshakeCommand
-from dimsdk import CommandProcessor
+from dimsdk import CommandProcessor, Session
+
+from ..messenger import Messenger
+
+
+class HandshakeDelegate(metaclass=ABCMeta):
+
+    @abstractmethod
+    def handshake_accepted(self, session: Session) -> Optional[Content]:
+        """ Processed by Station """
+        pass
+
+    @abstractmethod
+    def handshake_success(self) -> Optional[Content]:
+        """ Processed by Client """
+        pass
 
 
 class HandshakeCommandProcessor(CommandProcessor):
 
-    def __init__(self, context: dict):
-        super().__init__(context=context)
-        self.session_server = self.context['session_server']
-        self.request_handler = self.context['request_handler']
-        self.monitor = self.context['monitor']
-        self.receptionist = self.context['receptionist']
+    @property
+    def delegate(self) -> HandshakeDelegate:
+        return self.context.get('handshake_delegate')
+
+    # @property
+    # def session_server(self):
+    #     return self.context.get('session_server')
 
     def __offer(self, sender: ID, session_key: str=None) -> Content:
-        # TODO: get session
-        # set/update session in session server with new session key
-        client_address = self.request_handler.client_address
+        messenger: Messenger = self.messenger
+        client_address = messenger.remote_address
         self.info('handshake with client %s, %s' % (client_address, sender))
-        session = self.request_handler.current_session(identifier=sender)
+        # set/update session in session server with new session key
+        session = self.messenger.current_session(identifier=sender)
         if session_key == session.session_key:
             # session verified success
             session.valid = True
             session.active = True
-            nickname = self.facebook.nickname(identifier=sender)
-            self.info('handshake accepted %s %s %s, %s' % (nickname, client_address, sender, session_key))
-            self.monitor.report(message='User %s logged in %s %s' % (nickname, client_address, sender))
-            # add the new guest for checking offline messages
-            self.receptionist.add_guest(identifier=sender)
-            return HandshakeCommand.success()
+            response = self.delegate.handshake_accepted(session=session)
+            if response is None:
+                response = HandshakeCommand.success()
+            return response
         else:
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.session_key)
-        pass
 
     @staticmethod
     def __ask(session_key: str) -> Content:
-        # handshake again
+        # station ask client to handshake again
         return HandshakeCommand.restart(session=session_key)
 
-    def __success(self) -> Content:
-        # handshake accepted
-        # TODO: report 'login'
-        pass
+    def __success(self) -> Optional[Content]:
+        # handshake accepted by station
+        return self.delegate.handshake_success()
 
     #
     #   main

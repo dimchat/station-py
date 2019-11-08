@@ -30,8 +30,6 @@
     Local User
 """
 
-import json
-
 from dimp import ID, NetworkID, LocalUser, Group
 from dimp import Content, Command, MetaCommand, ProfileCommand, HistoryCommand, GroupCommand
 from dimp import InstantMessage, ReliableMessage
@@ -71,7 +69,15 @@ class Terminal(LocalUser, IConnectionDelegate):
 
     def __init__(self, identifier: ID):
         super().__init__(identifier=identifier)
-        self.messenger: Messenger = None
+        self._messenger: Messenger = None
+
+    @property
+    def messenger(self) -> Messenger:
+        return self._messenger
+
+    @messenger.setter
+    def messenger(self, value: Messenger):
+        self._messenger = value
 
     def send_content(self, content: Content, receiver: ID) -> bool:
         """ Send message content to receiver """

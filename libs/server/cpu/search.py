@@ -24,56 +24,56 @@
 # ==============================================================================
 
 """
-    Command Processor for 'contacts'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'search'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    storage protocol: post/get contacts
+    search users with keyword(s)
 """
 
 from dimp import ID
 from dimp import InstantMessage
-from dimp import Content, TextContent
+from dimp import Content
 from dimp import Command
-from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ...common import Database
 
-class ContactsCommandProcessor(CommandProcessor):
 
-    def __query(self, sender: ID) -> Content:
-        # query encrypted contacts, load it
-        self.info('search contacts(command with encrypted data) for %s' % sender)
-        stored: Command = self.facebook.contacts_command(identifier=sender)
-        # response
-        if stored is not None:
-            # response the stored contacts command directly
-            return stored
-        else:
-            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
+class SearchCommandProcessor(CommandProcessor):
 
-    def __upload(self, cmd: Command, sender: ID) -> Content:
-        # receive encrypted contacts, save it
-        if self.facebook.save_contacts_command(cmd=cmd, sender=sender):
-            self.info('contacts command saved for %s' % sender)
-            return ReceiptCommand.new(message='Contacts of %s received!' % sender)
-        else:
-            self.error('failed to save contacts command: %s' % cmd)
-            return TextContent.new(text='Contacts not stored %s!' % cmd)
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    def __search(self, keywords: list) -> Content:
+        results = self.database.search(keywords=keywords)
+        users = list(results.keys())
+        response = Command.new(command='search')
+        response['message'] = '%d user(s) found' % len(users)
+        response['users'] = users
+        response['results'] = results
+        return response
+
+    def __update(self, content: Content) -> Content:
+        # TODO: response, update
+        pass
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != ContactsCommandProcessor:
+        if type(self) != SearchCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
-        if 'data' in content or 'contacts' in content:
-            # upload contacts, save it
-            return self.__upload(cmd=content, sender=sender)
+        # message
+        message = content.get('message')
+        if message is None:
+            self.info('search users for %s, %s' % (sender, content))
+            keywords = content['keywords']
+            return self.__search(keywords=keywords.split(' '))
         else:
-            # query contacts, load it
-            return self.__query(sender=sender)
+            return self.__update(content=content)
 
 
 # register
-CommandProcessor.register(command='contacts', processor_class=ContactsCommandProcessor)
+CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)

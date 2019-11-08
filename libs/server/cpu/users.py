@@ -36,12 +36,14 @@ from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
+from ..session import SessionServer
+
 
 class UsersCommandProcessor(CommandProcessor):
 
-    def __init__(self, context: dict):
-        super().__init__(context=context)
-        self.session_server = self.context['session_server']
+    @property
+    def session_server(self) -> SessionServer:
+        return self.context['session_server']
 
     def __random_users(self, max_count=20) -> Content:
         users = self.session_server.random_users(max_count=max_count)

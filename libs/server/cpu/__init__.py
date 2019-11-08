@@ -24,30 +24,20 @@
 # ==============================================================================
 
 """
-    Command Processing Module
+    Command Processing Unites
     ~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Processors for commands
 """
 
-from .handshake import HandshakeCommandProcessor
-from .mute import MuteCommandProcessor
-from .block import BlockCommandProcessor
-
 from .report import ReportCommandProcessor
 from .login import LoginCommandProcessor
 from .search import SearchCommandProcessor
 from .users import UsersCommandProcessor
-from .contacts import ContactsCommandProcessor
 
 __all__ = [
-    'HandshakeCommandProcessor',
-    'MuteCommandProcessor',
-    'BlockCommandProcessor',
-
     'ReportCommandProcessor',
     'LoginCommandProcessor',
     'SearchCommandProcessor',
     'UsersCommandProcessor',
-    'ContactsCommandProcessor',
 ]

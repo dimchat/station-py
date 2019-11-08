@@ -30,9 +30,12 @@
     A dispatcher to decide which way to deliver message.
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import ContentType
+from dimp import ContentType, Content, TextContent
+from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
 from libs.common import Database, Facebook, Log
@@ -55,31 +58,9 @@ class Dispatcher:
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
-    def __transmit(self, msg: ReliableMessage) -> bool:
-        # TODO: broadcast to neighbor stations
-        self.info('transmitting to neighbors %s - %s' % (self.neighbors, msg))
-        return False
-
-    def __broadcast(self, msg: ReliableMessage) -> bool:
-        # TODO: split for all users
-        self.info('broadcasting message %s' % msg)
-        return False
-
-    def __split_group_message(self, msg: ReliableMessage) -> bool:
-        receiver = self.facebook.identifier(msg.envelope.receiver)
-        assert receiver.type.is_group(), 'receiver not a group: %s' % receiver
-        members = self.facebook.members(identifier=receiver)
-        if members is not None:
-            messages = msg.split(members=members)
-            ok = True
-            for item in messages:
-                if not self.deliver(msg=item):
-                    ok = False
-            return ok
-
     def __blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
         self.info('checking block-list for %s <- (%s, %s)' % (receiver, sender, group))
-        cmd = self.facebook.block_command(identifier=receiver)
+        cmd = self.database.block_command(identifier=receiver)
         if cmd is None:
             self.info('block-list not found')
             return False
@@ -96,7 +77,7 @@ class Dispatcher:
 
     def __muted(self, receiver: ID, sender: ID, group: ID=None) -> bool:
         self.info('checking mute-list for %s <- (%s, %s)' % (receiver, sender, group))
-        cmd = self.facebook.mute_command(identifier=receiver)
+        cmd = self.database.mute_command(identifier=receiver)
         if cmd is None:
             self.info('mute-list not found')
             return False
@@ -111,7 +92,46 @@ class Dispatcher:
             # check for group message
             return group in array
 
-    def deliver(self, msg: ReliableMessage) -> bool:
+    @staticmethod
+    def __receipt(message: str, msg: ReliableMessage) -> Content:
+        receipt = ReceiptCommand.new(message=message)
+        for key in ['sender', 'receiver', 'time', 'signature', 'group', 'type']:
+            value = msg.get(key)
+            if value is not None:
+                receipt[key] = value
+        return receipt
+
+    def __transmit(self, msg: ReliableMessage) -> bool:
+        # TODO: broadcast to neighbor stations
+        self.info('transmitting to neighbors %s - %s' % (self.neighbors, msg))
+        return False
+
+    def __broadcast(self, msg: ReliableMessage) -> Optional[Content]:
+        # TODO: split for all users
+        self.info('broadcasting message %s' % msg)
+        return self.__receipt(message='Message broadcasting', msg=msg)
+
+    def __split_group_message(self, msg: ReliableMessage) -> Optional[Content]:
+        receiver = self.facebook.identifier(msg.envelope.receiver)
+        assert receiver.type.is_group(), 'receiver not a group: %s' % receiver
+        members = self.facebook.members(identifier=receiver)
+        if members is not None:
+            messages = msg.split(members=members)
+            success_list = []
+            failed_list = []
+            for item in messages:
+                if self.deliver(msg=item) is None:
+                    failed_list.append(item.envelope.receiver)
+                else:
+                    success_list.append(item.envelope.receiver)
+            response = ReceiptCommand.new(message='Message split and delivering')
+            if len(success_list) > 0:
+                response['success'] = success_list
+            if len(failed_list) > 0:
+                response['failed'] = failed_list
+            return response
+
+    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         sender = self.facebook.identifier(msg.envelope.sender)
         receiver = self.facebook.identifier(msg.envelope.receiver)
         group = self.facebook.identifier(msg.envelope.group)
@@ -124,7 +144,13 @@ class Dispatcher:
         # check block-list
         if self.__blocked(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is blocked: %s' % msg)
-            return False
+            nickname = self.facebook.nickname(identifier=receiver)
+            if group is None:
+                text = 'Message is blocked by %s' % nickname
+            else:
+                grp_name = self.facebook.group_name(identifier=group)
+                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
+            return TextContent.new(text=text)
         # check group message (not split yet)
         if receiver.type.is_group():
             # split and deliver them
@@ -145,7 +171,7 @@ class Dispatcher:
                     self.error('failed to push message via connection (%s, %s)' % sess.client_address)
             if success > 0:
                 self.info('message pushed to activated session(%d) of user: %s' % (success, receiver))
-                return True
+                return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file
         self.info('%s is offline, store message: %s' % (receiver, msg.envelope))
         self.database.store_message(msg)
@@ -154,10 +180,12 @@ class Dispatcher:
         # check mute-list
         if self.__muted(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is muted: %s' % msg)
-            return True
-        # push notification
-        msg_type = msg.envelope.type
-        return self.__push_msg(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        else:
+            # push notification
+            msg_type = msg.envelope.type
+            self.__push_msg(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        # response
+        return self.__receipt(message='Message delivering', msg=msg)
 
     def __push_msg(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> bool:
         if msg_type == 0:
@@ -181,13 +209,7 @@ class Dispatcher:
         # check group
         if group is not None:
             # group message
-            gid = self.facebook.identifier(group)
-            grp = self.facebook.group(identifier=gid)
-            if grp is None:
-                g_name = gid.name
-            else:
-                g_name = grp.name
-            text += ' in group [%s]' % g_name
+            text += ' in group [%s]' % self.facebook.group_name(identifier=group)
         # push it
         self.info('APNs message: %s' % text)
         return self.apns.push(identifier=receiver, message=text)

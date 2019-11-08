@@ -34,8 +34,8 @@ from typing import Optional
 
 from dimp import ID, User
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content, ForwardContent
-from dimsdk import Session
+from dimp import Content, ForwardContent, TextContent
+from dimsdk import Session, SessionServer, ReceiptCommand
 from dimsdk import Messenger as Transceiver
 from dimsdk import ContentProcessor
 
@@ -48,19 +48,47 @@ class Messenger(Transceiver):
         super().__init__()
         self.context = {}
 
+    @property
+    def facebook(self) -> Facebook:
+        barrack = self.context.get('facebook')
+        if barrack is None:
+            barrack = self.barrack
+        return barrack
+
+    @property
+    def dispatcher(self):
+        return self.context['dispatcher']
+
     #
     #   Session with ID, (IP, port), session key, valid
     #
-    @property
-    def session(self) -> Session:
-        return self.context.get('session')
+    def current_session(self, identifier: ID=None) -> Optional[Session]:
+        session: Session = self.context.get('session')
+        if identifier is None:
+            # get current session
+            return session
+        if session is not None:
+            # check whether the current session's identifier matched
+            if session.identifier == identifier:
+                # current session belongs to the same user
+                return session
+            else:
+                # user switched, clear current session
+                self.session_server.remove(session=session)
+        # get new session with identifier
+        session = self.session_server.new(identifier=identifier, client_address=self.remote_address)
+        self.context['session'] = session
+        return session
 
-    @session.setter
-    def session(self, value: Session):
-        if value is None:
-            self.context.pop('session', None)
-        else:
-            self.context['session'] = value
+    def clear_session(self):
+        session: Session = self.context.get('session')
+        if session is not None:
+            self.session_server.remove(session=session)
+            self.context.pop('session')
+
+    @property
+    def session_server(self) -> SessionServer:
+        return self.context.get('session_server')
 
     #
     #   Remote user(for station) or station(for client)
@@ -75,6 +103,17 @@ class Messenger(Transceiver):
             self.context.pop('remote_user', None)
         else:
             self.context['remote_user'] = value
+
+    @property
+    def remote_address(self):  # (IP, port)
+        return self.context.get('remote_address')
+
+    # @remote_address.setter
+    # def remote_address(self, value):
+    #     if value is None:
+    #         self.context.pop('remote_address', None)
+    #     else:
+    #         self.context['remote_address'] = value
 
     #
     #   All local users (for decrypting received message)
@@ -104,7 +143,7 @@ class Messenger(Transceiver):
                     # move this user in front for next message
                     item = local_users.pop(index)
                     assert item == current_user
-                    local_users.insert(index=0, object=current_user)
+                    local_users.insert(0, current_user)
                 # done!
                 break
 
@@ -114,8 +153,7 @@ class Messenger(Transceiver):
         if receiver is None:
             # group message (recipient not designated)
             assert group.type.is_group(), 'group ID error: %s' % group
-            facebook: Facebook = self.barrack
-            members = facebook.members(identifier=group)
+            members = self.facebook.members(identifier=group)
             if members is None:
                 # TODO: query group members
                 return None
@@ -151,7 +189,7 @@ class Messenger(Transceiver):
         if value in users:
             self.__alter(current_user=value)
         else:
-            users.insert(index=0, object=value)
+            users.insert(0, value)
 
     #
     #   super()
@@ -166,14 +204,29 @@ class Messenger(Transceiver):
         return self.send_message(msg=msg)
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # TODO: call dispatcher to deliver this message
-        pass
-
-    def forward_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        # call dispatcher to deliver this message
+        response = self.dispatcher.deliver(msg=msg)
+        if response is None:
+            return None
+        # response
         sender = self.current_user.identifier
         receiver = self.barrack.identifier(msg.envelope.receiver)
+        msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
+        return self.encrypt_sign(msg=msg)
+
+    def forward_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        receiver = self.barrack.identifier(msg.envelope.receiver)
+        nickname = self.facebook.nickname(identifier=receiver)
         cmd = ForwardContent.new(message=msg)
-        msg = InstantMessage.new(content=cmd, sender=sender, receiver=receiver)
+        if self.send_content(content=cmd, receiver=receiver):
+            text = 'Top-secret message forwarded: %s' % nickname
+            response = ReceiptCommand.new(message=text)
+        else:
+            text = 'Top-secret message not forwarded: %s' % nickname
+            response = TextContent.new(text=text)
+        # response
+        sender = self.current_user.identifier
+        msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
         return self.encrypt_sign(msg=msg)
 
     #
@@ -181,9 +234,8 @@ class Messenger(Transceiver):
     #
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         if msg.meta is None:
-            facebook: Facebook = self.barrack
-            sender = facebook.identifier(msg.envelope.sender)
-            meta = facebook.meta(identifier=sender)
+            sender = self.facebook.identifier(msg.envelope.sender)
+            meta = self.facebook.meta(identifier=sender)
             if meta is None:
                 # TODO: keep this message in waiting list for meta response
                 return None

@@ -31,6 +31,8 @@
 
 from dimsdk import Session
 
+from .cpu import *
+
 from .session import SessionServer
 from .server import Server
 

@@ -24,10 +24,10 @@
 # ==============================================================================
 
 """
-    Command Processor for 'block'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'contacts'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Block protocol
+    storage protocol: post/get contacts
 """
 
 from dimp import ID
@@ -37,45 +37,49 @@ from dimp import Command
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ..database import Database
 
-class BlockCommandProcessor(CommandProcessor):
 
-    def __query(self, sender: ID) -> Content:
-        self.info('search block-list for %s' % sender)
-        stored: Command = self.facebook.block_command(identifier=sender)
+class ContactsCommandProcessor(CommandProcessor):
+
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    def __get(self, sender: ID) -> Content:
+        # query encrypted contacts, load it
+        self.info('search contacts(command with encrypted data) for %s' % sender)
+        stored: Command = self.database.contacts_command(identifier=sender)
+        # response
         if stored is not None:
-            # response the stored block command directly
+            # response the stored contacts command directly
             return stored
         else:
-            # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
-            # TODO: here should response an empty HistoryCommand: 'block'
-            res = Command.new(command='block')
-            res['list'] = []
-            return res
+            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
 
-    def __upload(self, cmd: Command, sender: ID) -> Content:
-        # receive block command, save it
-        if self.facebook.save_block_command(cmd=cmd, sender=sender):
-            self.info('block command saved for %s' % sender)
-            return ReceiptCommand.new(message='Block command of %s received!' % sender)
+    def __put(self, cmd: Command, sender: ID) -> Content:
+        # receive encrypted contacts, save it
+        if self.database.save_contacts_command(cmd=cmd, sender=sender):
+            self.info('contacts command saved for %s' % sender)
+            return ReceiptCommand.new(message='Contacts of %s received!' % sender)
         else:
-            self.error('failed to save block command: %s' % cmd)
-            return TextContent.new(text='Block-list not stored %s!' % cmd)
+            self.error('failed to save contacts command: %s' % cmd)
+            return TextContent.new(text='Contacts not stored %s!' % cmd)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != BlockCommandProcessor:
+        if type(self) != ContactsCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
-        if 'list' in content:
-            # upload block-list, save it
-            return self.__upload(cmd=content, sender=sender)
+        if 'data' in content or 'contacts' in content:
+            # upload contacts, save it
+            return self.__put(cmd=content, sender=sender)
         else:
-            # query block-list, load it
-            return self.__query(sender=sender)
+            # query contacts, load it
+            return self.__get(sender=sender)
 
 
 # register
-CommandProcessor.register(command='block', processor_class=BlockCommandProcessor)
+CommandProcessor.register(command='contacts', processor_class=ContactsCommandProcessor)

@@ -34,14 +34,12 @@ import json
 from socketserver import BaseRequestHandler
 from typing import Optional
 
-from dimp import ID, User
-from dimp import Content
+from dimp import User
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import NetMsgHead, NetMsg, CompletionHandler
-from dimsdk import ReceiptCommand
 from dimsdk import MessengerDelegate
 
-from libs.common import Log, Messenger
+from libs.common import Log, Messenger, HandshakeDelegate
 from libs.server import Session
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
@@ -49,7 +47,7 @@ from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, local_servers
 
 
-class RequestHandler(BaseRequestHandler, MessengerDelegate):
+class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
 
     def __init__(self, request, client_address, server):
         super().__init__(request=request, client_address=client_address, server=server)
@@ -70,30 +68,17 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
             m.key_cache = g_keystore
             m.delegate = self
             # set all local servers
-            m.users = [current_station]
-            for srv in local_servers:
-                if srv in m.users:
-                    continue
-                m.users.append(srv)
+            m.local_users = local_servers
+            m.current_user = current_station
             # set context
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
-            m.context['monitor'] = g_monitor
-            m.context['request_handler'] = self
-            m.context['client_address'] = self.client_address
+            m.context['dispatcher'] = g_dispatcher
+            m.context['handshake_delegate'] = self
+            m.context['remote_address'] = self.client_address
             self.__messenger = m
         return self.__messenger
-
-    @property
-    def session(self) -> Optional[Session]:
-        if self.__messenger is not None:
-            return self.__messenger.session
-
-    @session.setter
-    def session(self, value: Session):
-        if value is not None and self.__messenger is not None:
-            self.__messenger.session = value
 
     @property
     def remote_user(self) -> Optional[User]:
@@ -101,89 +86,11 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
             return self.__messenger.remote_user
 
     @property
-    def identifier(self) -> Optional[ID]:
+    def session(self) -> Optional[Session]:
         user = self.remote_user
-        if user is not None:
-            return user.identifier
-
-    def current_session(self, identifier: ID=None) -> Optional[Session]:
-        if identifier is None:
-            # get current session
-            return self.session
-        if self.session is not None:
-            # check whether the current session's identifier matched
-            if self.session.identifier == identifier:
-                # current session belongs to the same user
-                return self.session
-            else:
-                # user switched, clear current session
-                g_session_server.remove(session=self.session)
-        # get new session with identifier
-        self.session = g_session_server.new(identifier=identifier, client_address=self.client_address)
-        return self.session
-
-    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
-        # upload encrypted file data
-        pass
-
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
-        # download encrypted file data
-        pass
-
-    def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
-        try:
-            self.request.sendall(data)
-            if handler is not None:
-                handler.success()
-            return True
-        except IOError as error:
-            self.error('failed to send data %s' % error)
-            if handler is not None:
-                handler.failed(error=error)
-            return False
-
-    def send(self, data: bytes) -> bool:
-        try:
-            self.request.sendall(data)
-            return True
-        except IOError as error:
-            self.error('failed to send data %s' % error)
-            return False
-
-    def receive(self, buffer_size=1024) -> bytes:
-        try:
-            return self.request.recv(buffer_size)
-        except IOError as error:
-            self.error('failed to receive data %s' % error)
-
-    def deliver_message(self, msg: ReliableMessage) -> Content:
-        self.info('deliver message %s, %s' % (self.identifier, msg.envelope))
-        g_dispatcher.deliver(msg)
-        # response to sender
-        response = ReceiptCommand.new(message='Message delivering')
-        # extra info
-        sender = msg.get('sender')
-        receiver = msg.get('receiver')
-        time = msg.get('time')
-        group = msg.get('group')
-        signature = msg.get('signature')
-        # envelope
-        response['sender'] = sender
-        response['receiver'] = receiver
-        if time is not None:
-            response['time'] = time
-        # group message?
-        if group is not None and group != receiver:
-            response['group'] = group
-        # signature
-        response['signature'] = signature
-        return response
-
-    def process_package(self, pack: bytes) -> Optional[bytes]:
-        try:
-            return self.messenger.received_package(data=pack)
-        except Exception as error:
-            self.error('parse message failed: %s' % error)
+        if user is None:
+            return None
+        return self.messenger.current_session(identifier=user.identifier)
 
     #
     #
@@ -196,20 +103,23 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
         g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
 
     def finish(self):
-        if self.session is not None:
-            nickname = g_facebook.nickname(identifier=self.identifier)
-            self.info('disconnect from session %s, %s' % (self.identifier, self.client_address))
-            g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, self.identifier))
+        session = self.session
+        if session is None:
+            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
+        else:
+            identifier = session.identifier
+            nickname = g_facebook.nickname(identifier=identifier)
+            self.info('disconnect from session %s, %s' % (identifier, self.client_address))
+            g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, identifier))
             # clear current session
             g_session_server.remove(session=self.session)
-        else:
-            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
         g_session_server.clear_handler(client_address=self.client_address)
         self.info('finish (%s, %s)' % self.client_address)
 
     """
         DIM Request Handler
     """
+
     def handle(self):
         self.info('client connected (%s, %s)' % self.client_address)
         data = b''
@@ -287,7 +197,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
                 # raise AssertionError('unknown protocol')
 
     #
-    #
+    #   process and response message
     #
 
     def handle_mars_package(self, pack: bytes):
@@ -333,6 +243,10 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
             self.error('process error %s' % pack)
             # self.send(pack)
 
+    #
+    #   push message
+    #
+
     def push_mars_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg) + '\n'
         body = data.encode('utf-8')
@@ -349,3 +263,66 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate):
         return self.send(data)
 
     push_message = push_raw_message
+
+    def process_package(self, pack: bytes) -> Optional[bytes]:
+        try:
+            return self.messenger.received_package(data=pack)
+        except Exception as error:
+            self.error('parse message failed: %s' % error)
+
+    #
+    #   Socket IO
+    #
+    def receive(self, buffer_size=1024) -> bytes:
+        try:
+            return self.request.recv(buffer_size)
+        except IOError as error:
+            self.error('failed to receive data %s' % error)
+
+    def send(self, data: bytes) -> bool:
+        try:
+            self.request.sendall(data)
+            return True
+        except IOError as error:
+            self.error('failed to send data %s' % error)
+            return False
+
+    #
+    #   MessengerDelegate
+    #
+    def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
+        try:
+            self.request.sendall(data)
+            if handler is not None:
+                handler.success()
+            return True
+        except IOError as error:
+            self.error('failed to send data %s' % error)
+            if handler is not None:
+                handler.failed(error=error)
+            return False
+
+    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
+        # upload encrypted file data
+        pass
+
+    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+        # download encrypted file data
+        pass
+
+    #
+    #   HandshakeDelegate
+    #
+    def handshake_accepted(self, session: Session):
+        sender = session.identifier
+        session_key = session.session_key
+        client_address = session.client_address
+        nickname = g_facebook.nickname(identifier=sender)
+        self.info('handshake accepted %s %s %s, %s' % (nickname, client_address, sender, session_key))
+        g_monitor.report(message='User %s logged in %s %s' % (nickname, client_address, sender))
+        # add the new guest for checking offline messages
+        g_receptionist.add_guest(identifier=sender)
+
+    def handshake_success(self):
+        # TODO: broadcast 'login'
+        pass

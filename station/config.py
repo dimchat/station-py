@@ -57,7 +57,6 @@ from etc.cfg_gsp import all_stations, local_servers, load_station_info
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
-from .cmd import *
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
 from .monitor import Monitor

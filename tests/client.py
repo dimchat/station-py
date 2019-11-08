@@ -34,12 +34,13 @@
 import json
 import time
 from cmd import Cmd
+from typing import Optional
 
 from dimp import ID, Profile, LocalUser
 from dimp import Content, ContentType, TextContent
 from dimp import Command, ProfileCommand
 from dimp import InstantMessage
-from dimsdk import Station
+from dimsdk import Station, Session
 
 import sys
 import os
@@ -50,6 +51,7 @@ sys.path.append(rootPath)
 
 from libs.client import Robot
 from libs.common.immortals import moki, hulk
+from libs.common import Messenger, HandshakeDelegate
 
 from station.config import g_database, g_facebook, g_ans, g_messenger
 from station.config import current_station
@@ -74,13 +76,31 @@ g_ans.save('hulk', hulk.identifier)
 g_ans.save('station', g_station.identifier)
 
 
-class Client(Robot):
+class Client(Robot, HandshakeDelegate):
 
     def __init__(self, identifier: ID):
         super().__init__(identifier=identifier)
         # station connection
         self.delegate = g_facebook
-        self.messenger = g_messenger
+
+    @property
+    def messenger(self) -> Messenger:
+        if self._messenger is None:
+            m = g_messenger
+            m.context['database'] = g_database
+            m.context['handshake_delegate'] = self
+            m.context['remote_address'] = (g_station.host, g_station.port)
+            self._messenger = m
+        return self._messenger
+
+    #
+    #   HandshakeDelegate
+    #
+    def handshake_accepted(self, session: Session) -> Optional[Content]:
+        pass
+
+    def handshake_success(self) -> Optional[Content]:
+        pass
 
     def connect(self, station: Station) -> bool:
         if not super().connect(station=station):
@@ -95,7 +115,7 @@ class Client(Robot):
     def login(self, identifier: ID):
         user = g_facebook.user(identifier=identifier)
         assert isinstance(user, LocalUser), 'user error: %s' % identifier
-        self.messenger.users = [user]
+        self.messenger.local_users = [user]
 
     def process(self, cmd: Command, sender: ID) -> bool:
         if super().process(cmd=cmd, sender=sender):

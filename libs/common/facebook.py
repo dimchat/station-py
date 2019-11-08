@@ -34,7 +34,6 @@ from typing import Optional
 
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile
-from dimp import Command
 from dimsdk import Facebook as Barrack
 
 from .database import Database
@@ -51,6 +50,14 @@ class Facebook(Barrack):
         user = self.user(identifier=identifier)
         if user is not None:
             return user.name
+
+    def group_name(self, identifier: ID) -> str:
+        assert identifier.type.is_group(), 'ID error: %s' % identifier
+        group = self.group(identifier=identifier)
+        if group is None:
+            return identifier.name
+        else:
+            return group.name
 
     #
     #   super()
@@ -84,33 +91,6 @@ class Facebook(Barrack):
 
     def load_members(self, identifier: ID) -> Optional[list]:
         return self.database.members(group=identifier)
-
-    """
-        Contacts Command
-    """
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
-        return self.database.save_contacts_command(cmd=cmd, sender=sender)
-
-    def contacts_command(self, identifier: ID) -> Command:
-        return self.database.contacts_command(identifier=identifier)
-
-    """
-        Block-list Command
-    """
-    def save_block_command(self, cmd: Command, sender: ID) -> bool:
-        return self.database.save_block_command(cmd=cmd, sender=sender)
-
-    def block_command(self, identifier: ID) -> Command:
-        return self.database.block_command(identifier=identifier)
-
-    """
-        Mute-list Command
-    """
-    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
-        return self.database.save_mute_command(cmd=cmd, sender=sender)
-
-    def mute_command(self, identifier: ID) -> Command:
-        return self.database.mute_command(identifier=identifier)
 
     #
     #    IGroupDataSource

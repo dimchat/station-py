@@ -34,27 +34,34 @@ from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
+from dimsdk import Session
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
-from libs.server import Session
+from ...common import Database
+from ...common import Messenger
 
 
 class ReportCommandProcessor(CommandProcessor):
 
-    def __init__(self, context: dict):
-        super().__init__(context=context)
-        self.database = self.context['database']
-        self.session_server = self.context['session_server']
-        self.request_handler = self.context['request_handler']
-        self.receptionist = self.context['receptionist']
+    @property
+    def messenger(self) -> Messenger:
+        return super().messenger
+
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    @property
+    def receptionist(self):
+        return self.context['receptionist']
 
     def __process_old_report(self, cmd: Command, sender: ID) -> Content:
         # compatible with v1.0
         state = cmd.get('state')
         self.info('client report state %s' % state)
         if state is not None:
-            session = self.request_handler.current_session(identifier=sender)
+            session = self.messenger.current_session(identifier=sender)
             if 'background' == state:
                 session.active = False
             elif 'foreground' == state:
@@ -122,7 +129,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         # welcome back!
         self.info('client online')
         self.receptionist.add_guest(identifier=sender)
-        session = self.request_handler.current_session(identifier=sender)
+        session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = True
         return ReceiptCommand.new(message='Client online received')
@@ -139,7 +146,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         assert isinstance(content, Command), 'command error: %s' % content
         # goodbye!
         self.info('client offline')
-        session = self.request_handler.current_session(identifier=sender)
+        session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = False
         return ReceiptCommand.new(message='Client offline received')
