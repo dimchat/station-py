@@ -49,16 +49,10 @@ class SearchCommandProcessor(CommandProcessor):
         return self.context['database']
 
     def __search(self, keywords: list) -> Optional[Content]:
-        results = self.database.search(keywords=keywords)
-        users = list(results.keys())
-        response = Command.new(command='search')
-        response['message'] = '%d user(s) found' % len(users)
-        response['users'] = users
-        response['results'] = results
-        return response
+        pass
 
     def __update(self, content: Content) -> Optional[Content]:
-        self.info('##### received search response')
+        self.info('received search response')
         if 'users' in content:
             users = content['users']
             print('      users:', json.dumps(users))
@@ -71,15 +65,13 @@ class SearchCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != SearchCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')
         if message is None:
             self.info('search users for %s, %s' % (sender, content))
-            keywords = content['keywords']
-            return self.__search(keywords=keywords.split(' '))
+            keywords = content['keywords'].split(' ')
+            return self.__search(keywords=keywords)
         else:
             return self.__update(content=content)
 

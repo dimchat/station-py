@@ -34,10 +34,9 @@
 import json
 from cmd import Cmd
 
-from dimp import ID, Profile, LocalUser
-from dimp import Content, TextContent
+from dimp import ID, Profile
+from dimp import TextContent
 from dimp import Command, ProfileCommand
-from dimsdk import Station, Session
 
 import sys
 import os

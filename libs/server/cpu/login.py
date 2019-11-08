@@ -46,8 +46,6 @@ class LoginCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != LoginCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
         # TODO: update login status
         self.info('Login command: %s' % content)

@@ -62,8 +62,6 @@ class UsersCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != UsersCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')

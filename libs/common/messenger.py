@@ -153,6 +153,8 @@ class Messenger(Transceiver):
         if receiver is None:
             # group message (recipient not designated)
             assert group.type.is_group(), 'group ID error: %s' % group
+            if group.is_broadcast:
+                return self.current_user
             members = self.facebook.members(identifier=group)
             if members is None:
                 # TODO: query group members
@@ -168,6 +170,8 @@ class Messenger(Transceiver):
             # 1. personal message
             # 2. split group message
             assert receiver.type.is_user(), 'receiver ID error: %s' % receiver
+            if receiver.is_broadcast:
+                return self.current_user
             for user in local_users:
                 if user.identifier == receiver:
                     # got it

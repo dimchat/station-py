@@ -64,15 +64,13 @@ class SearchCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != SearchCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')
         if message is None:
             self.info('search users for %s, %s' % (sender, content))
-            keywords = content['keywords']
-            return self.__search(keywords=keywords.split(' '))
+            keywords = content['keywords'].split(' ')
+            return self.__search(keywords=keywords)
         else:
             return self.__update(content=content)
 

@@ -36,14 +36,15 @@ import unittest
 import sys
 import os
 
+from dimp import PrivateKey
+from dimp import NetworkID, Meta
+
+from mkm.address import DefaultAddress as BTCAddress
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from dimp import PrivateKey
-from dimp import NetworkID, Meta
-
-from libs.common import BTCAddress
 from libs.common import base64_encode
 from station.config import g_facebook
 

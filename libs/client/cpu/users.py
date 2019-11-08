@@ -39,24 +39,18 @@ from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
-from ...server import SessionServer
-
 
 class UsersCommandProcessor(CommandProcessor):
 
     @property
-    def session_server(self) -> SessionServer:
+    def session_server(self):  # SessionServer
         return self.context['session_server']
 
     def __random_users(self, max_count=20) -> Optional[Content]:
-        users = self.session_server.random_users(max_count=max_count)
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
+        pass
 
     def __update(self, content: Content) -> Optional[Content]:
-        self.info('##### online users: %s' % content.get('message'))
+        self.info('online users: %s' % content.get('message'))
         if 'users' in content:
             users = content['users']
             print('      users:', json.dumps(users))
@@ -66,8 +60,6 @@ class UsersCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != UsersCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')

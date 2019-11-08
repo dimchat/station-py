@@ -204,7 +204,7 @@ class Dispatcher:
         elif msg_type == ContentType.Video:
             something = 'a video'
         else:
-            self.info('ignore msg type: %s' % msg_type)
+            self.info('ignore msg type: %d' % msg_type)
             return False
         from_name = self.facebook.nickname(identifier=sender)
         to_name = self.facebook.nickname(identifier=receiver)
