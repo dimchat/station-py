@@ -57,14 +57,13 @@ from etc.cfg_gsp import all_stations, local_servers, load_station_info
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
+# import Command Processing Units
+from .cpu import *
+
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
 from .monitor import Monitor
-from .text import *
 
-
-# register
-ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
 
 """
     Key Store
@@ -105,15 +104,6 @@ g_ans.database = g_database
 g_facebook = Facebook()
 g_facebook.database = g_database
 g_facebook.ans = g_ans
-
-
-"""
-    Messenger
-    ~~~~~~~~~
-"""
-g_messenger = Messenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
 
 
 """
@@ -159,7 +149,7 @@ g_dispatcher.apns = g_apns
 g_monitor = Monitor()
 g_monitor.database = g_database
 g_monitor.facebook = g_facebook
-g_monitor.messenger = g_messenger
+g_monitor.keystore = g_keystore
 g_monitor.session_server = g_session_server
 g_monitor.apns = g_apns
 
@@ -303,7 +293,6 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
     identifier = g_facebook.identifier(identifier)
     server = Server(identifier=identifier, host=host, port=port)
     g_facebook.cache_user(user=server)
-    server.messenger = g_messenger
     Log.info('local station created: %s' % server)
     return server
 

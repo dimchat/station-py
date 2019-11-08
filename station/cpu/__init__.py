@@ -24,39 +24,14 @@
 # ==============================================================================
 
 """
-    Session Server
-    ~~~~~~~~~~~~~~
+    Command Processing Unites
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    for login user
+    Processors for commands
 """
 
-import random
-from weakref import WeakValueDictionary
+from .text import TextContentProcessor
 
-from dimsdk import SessionServer as Server
-
-
-class SessionServer(Server):
-
-    def __init__(self):
-        super().__init__()
-        self.__handlers: dict = WeakValueDictionary()
-
-    def set_handler(self, client_address, request_handler):
-        self.__handlers[client_address] = request_handler
-
-    def get_handler(self, client_address):
-        return self.__handlers.get(client_address)
-
-    def clear_handler(self, client_address):
-        self.__handlers.pop(client_address, None)
-
-    def random_users(self, max_count=20) -> list:
-        array = self.online_users()
-        count = len(array)
-        # limit the response
-        if count < 2:
-            return array
-        elif count > max_count:
-            count = max_count
-        return random.sample(array, count)
+__all__ = [
+    'TextContentProcessor',
+]

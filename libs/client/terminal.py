@@ -29,18 +29,17 @@
 
     Local User
 """
+from typing import Optional
 
-import time
-
-from dimp import ID, EVERYONE, LocalUser
+from dimp import ID, EVERYONE, User
 from dimp import Content, Command, HandshakeCommand
-from dimsdk import Station
+from dimsdk import Station, Session
 
 from .connection import Connection
-from ..common import Messenger
+from ..common import Messenger, HandshakeDelegate
 
 
-class Terminal:
+class Terminal(HandshakeDelegate):
 
     def __init__(self):
         super().__init__()
@@ -81,8 +80,12 @@ class Terminal:
         return True
 
     @property
-    def current_user(self) -> LocalUser:
-        return self.messenger.local_users[0]
+    def current_user(self) -> User:
+        return self.messenger.current_user
+
+    @current_user.setter
+    def current_user(self, value: User):
+        self.messenger.current_user = value
 
     @property
     def messenger(self) -> Messenger:
@@ -103,3 +106,14 @@ class Terminal:
     def handshake(self):
         cmd = HandshakeCommand.start()
         return self.send_command(cmd=cmd)
+
+    #
+    #   HandshakeDelegate
+    #
+    def handshake_accepted(self, session: Session) -> Optional[Content]:
+        self.info('handshake accepted: %s' % session)
+        return None
+
+    def handshake_success(self) -> Optional[Content]:
+        self.info('handshake success')
+        return None

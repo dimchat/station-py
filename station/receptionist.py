@@ -98,6 +98,9 @@ class Receptionist(Thread):
                                 self.info('session invalid %s' % sess)
                                 continue
                             request_handler = self.session_server.get_handler(client_address=sess.client_address)
+                            if request_handler is None:
+                                self.error('handler lost: %s' % sess)
+                                continue
                             if request_handler.push_message(msg):
                                 success = success + 1
                             else:

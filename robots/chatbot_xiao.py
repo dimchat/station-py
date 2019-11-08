@@ -39,16 +39,18 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from robots.config import create_daemon, g_station
-from robots.config import chat_bot, xiaoxiao_id
 from robots.freshmen import FreshmenScanner
+
+from robots.config import load_user, create_client
+from robots.config import chat_bot, xiaoxiao_id
 
 
 if __name__ == '__main__':
 
-    daemon = create_daemon(identifier=xiaoxiao_id)
-    daemon.bots = [chat_bot('xiaoi')]
-    daemon.connect(station=g_station)
-
-    scanner = FreshmenScanner(terminal=daemon)
+    user = load_user(xiaoxiao_id)
+    client = create_client(user)
+    # chat bot
+    client.messenger.context['bots'] = [chat_bot('xiaoi')]
+    # start
+    scanner = FreshmenScanner(terminal=client)
     scanner.start()

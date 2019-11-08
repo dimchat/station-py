@@ -36,6 +36,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
 from dimsdk import ApplePushNotificationService
+from dimsdk import KeyStore
 
 from libs.common import Database, Facebook, Messenger, Log
 from libs.server import SessionServer
@@ -49,16 +50,26 @@ class Monitor:
         self.session_server: SessionServer = None
         self.database: Database = None
         self.facebook: Facebook = None
-        self.messenger: Messenger = None
+        self.keystore: KeyStore = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
+        self.__messenger: Messenger = None
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def messenger(self) -> Messenger:
+        if self.__messenger is None:
+            m = Messenger()
+            m.barrack = self.facebook
+            m.key_cache = self.keystore
+            self.__messenger = m
+        return self.__messenger
 
     def report(self, message: str) -> int:
         success = 0
@@ -87,6 +98,9 @@ class Monitor:
                     self.info('session invalid %s' % sess)
                     continue
                 request_handler = self.session_server.get_handler(client_address=sess.client_address)
+                if request_handler is None:
+                    self.error('handler lost: %s' % sess)
+                    continue
                 if request_handler.push_message(r_msg):
                     success = success + 1
                 else:

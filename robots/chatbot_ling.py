@@ -39,13 +39,13 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from robots.config import g_station
-from robots.config import chat_bot
-from robots.config import create_daemon, lingling_id
+from robots.config import load_user, create_client
+from robots.config import chat_bot, lingling_id
 
 
 if __name__ == '__main__':
 
-    daemon = create_daemon(identifier=lingling_id)
-    daemon.bots = [chat_bot('tuling')]
-    daemon.connect(station=g_station)
+    user = load_user(lingling_id)
+    client = create_client(user)
+    # chat bot
+    client.messenger.context['bots'] = [chat_bot('tuling')]

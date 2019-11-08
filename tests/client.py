@@ -32,9 +32,7 @@
 """
 
 import json
-import time
 from cmd import Cmd
-from typing import Optional
 
 from dimp import ID, Profile, LocalUser
 from dimp import Content, TextContent
@@ -49,44 +47,9 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.client import Terminal
-from libs.common import Messenger, HandshakeDelegate
 
-from robots.config import g_database, g_facebook, g_messenger
-from robots.config import g_station
-
-
-class Client(Terminal, HandshakeDelegate):
-
-    def __init__(self):
-        super().__init__()
-        # station connection
-        self.delegate = g_facebook
-
-    @property
-    def messenger(self) -> Messenger:
-        if self._messenger is None:
-            m = g_messenger
-            m.context['database'] = g_database
-            m.context['handshake_delegate'] = self
-            m.context['remote_address'] = (g_station.host, g_station.port)
-            self._messenger = m
-        return self._messenger
-
-    #
-    #   HandshakeDelegate
-    #
-    def handshake_accepted(self, session: Session) -> Optional[Content]:
-        pass
-
-    def handshake_success(self) -> Optional[Content]:
-        pass
-
-    def login(self, identifier: ID):
-        user = g_facebook.user(identifier=identifier)
-        assert isinstance(user, LocalUser), 'user error: %s' % identifier
-        self.messenger.local_users = [user]
-        self.info('%s is shaking hands with %s' % (self.current_user.identifier, self.station.identifier))
-        return self.handshake()
+from robots.config import create_client
+from robots.config import g_facebook, g_station
 
 
 class Console(Cmd):
@@ -96,7 +59,7 @@ class Console(Cmd):
 
     def __init__(self):
         super().__init__()
-        self.client: Client = None
+        self.client: Terminal = None
         self.receiver = None
         self.do_call('station')
 
@@ -109,12 +72,10 @@ class Console(Cmd):
         self.logout()
         # login with user ID
         self.info('connecting to %s ...' % g_station)
-        client = Client()
-        client.connect(station=g_station)
-        client.login(identifier=identifier)
-        self.client = client
+        user = g_facebook.user(identifier)
+        self.client = create_client(user)
         if self.receiver is None:
-            self.receiver = client.station.identifier
+            self.receiver = g_station.identifier
 
     def logout(self):
         client = self.client

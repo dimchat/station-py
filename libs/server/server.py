@@ -30,24 +30,10 @@
     Local station
 """
 
-import os
+from typing import Optional
 
-from dimp import ID, Meta
-from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
+from dimp import ID, PrivateKey, UserDataSource
 from dimsdk import Station
-
-from ..common import Storage, Facebook, Messenger
-
-
-def save_freshman(identifier: ID) -> bool:
-    """ Save freshman ID in a text file for the robot
-
-        file path: '.dim/freshmen.txt'
-    """
-    path = os.path.join(Storage.root, 'freshmen.txt')
-    line = identifier + '\n'
-    Storage.info('saving freshman: %s' % identifier)
-    return Storage.append_text(text=line, path=path)
 
 
 class Server(Station):
@@ -58,50 +44,41 @@ class Server(Station):
 
     def __init__(self, identifier: ID, host: str, port: int=9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.messenger: Messenger = None
         self.running = False
 
-    def pack(self, content: Content, receiver: ID) -> ReliableMessage:
-        """ Pack message from this station """
-        i_msg = InstantMessage.new(content=content, sender=self.identifier, receiver=receiver)
-        r_msg = self.messenger.encrypt_sign(msg=i_msg)
-        return r_msg
+    def __sign_key(self) -> PrivateKey:
+        assert isinstance(self.delegate, UserDataSource), 'user delegate error: %s' % self.delegate
+        return self.delegate.private_key_for_signature(identifier=self.identifier)
 
-    def verify_message(self, msg: ReliableMessage) -> SecureMessage:
-        """ Verify message data and signature """
-        # check new user for the robot
-        facebook: Facebook = self.delegate
-        sender = facebook.identifier(msg.envelope.sender)
-        meta = facebook.meta(identifier=sender)
-        if meta is None:
-            meta = Meta(msg.meta)
-            if meta is not None and meta.match_identifier(sender):
-                # new user
-                save_freshman(identifier=sender)
-        return self.messenger.verify_message(msg=msg)
-
-    def decrypt_message(self, msg: SecureMessage) -> InstantMessage:
-        """ Decrypt message for this station """
-        s_msg = msg.trim(self.identifier)
-        return self.messenger.decrypt_message(msg=s_msg)
+    def __decrypt_keys(self) -> list:
+        assert isinstance(self.delegate, UserDataSource), 'user delegate error: %s' % self.delegate
+        return self.delegate.private_keys_for_decryption(identifier=self.identifier)
 
     def sign(self, data: bytes) -> bytes:
-        facebook: Facebook = self.delegate
-        key = facebook.private_key_for_signature(identifier=self.identifier)
-        if key is not None:
-            return key.sign(data=data)
+        """
+        Sign data with user's private key
 
-    def decrypt(self, data: bytes) -> bytes:
-        facebook: Facebook = self.delegate
-        keys = facebook.private_keys_for_decryption(identifier=self.identifier)
-        plaintext = None
+        :param data: message data
+        :return: signature
+        """
+        key = self.__sign_key()
+        return key.sign(data=data)
+
+    def decrypt(self, data: bytes) -> Optional[bytes]:
+        """
+        Decrypt data with user's private key(s)
+
+        :param data: ciphertext
+        :return: plaintext
+        """
+        keys = self.__decrypt_keys()
+        # try decrypting it with each private key
         for key in keys:
             try:
                 plaintext = key.decrypt(data=data)
+                if plaintext is not None:
+                    # OK!
+                    return plaintext
             except ValueError:
-                # If the dat length is incorrect
+                # this key not match, try next one
                 continue
-            if plaintext is not None:
-                # decryption success
-                break
-        return plaintext

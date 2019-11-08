@@ -151,7 +151,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     if head.version == 200:
                         # OK, it seems be a mars package!
                         mars = True
-                        self.push_message = self.push_mars_message
+                        self.push_data = self.push_mars_data
                 except ValueError:
                     # self.error('not mars message pack: %s' % error)
                     pass
@@ -170,11 +170,16 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     # mars OK
                     continue
 
+                if data.startswith(b'\n'):
+                    # NOOP: heartbeat package
+                    self.info('trim <heartbeats>: %s' % data)
+                    data = data.lstrip(b'\n')
+                    continue
+
                 # (Protocol B) raw data with no wrap?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
                     # OK, it seems be a raw package!
-                    self.push_message = self.push_raw_message
-
+                    self.push_data = self.push_raw_data
                     # check completion
                     pos = data.find(b'\n')
                     if pos < 0:
@@ -187,9 +192,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     # raw data OK
                     continue
 
-                if data == b'\n':
-                    # NOOP: heartbeat package
-                    pass
                 # (Protocol ?)
                 # TODO: split and unwrap data package(s)
                 self.error('unknown protocol %s' % data)
@@ -247,22 +249,26 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #   push message
     #
 
-    def push_mars_message(self, msg: ReliableMessage) -> bool:
-        data = json.dumps(msg) + '\n'
-        body = data.encode('utf-8')
+    def push_mars_data(self, body: bytes) -> bool:
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
-        # self.info('pushing mars message %s' % data)
         return self.send(data)
 
-    def push_raw_message(self, msg: ReliableMessage) -> bool:
-        data = json.dumps(msg) + '\n'
-        data = data.encode('utf-8')
-        # self.info('pushing raw message %s' % data)
-        return self.send(data)
+    def push_raw_data(self, body: bytes) -> bool:
+        data = body + b'\n'
+        return self.send(data=data)
 
-    push_message = push_raw_message
+    push_data = push_raw_data
+
+    def push_message(self, msg: ReliableMessage) -> bool:
+        data = json.dumps(msg)
+        body = data.encode('utf-8')
+        return self.push_data(body=body)
+
+    #
+    #   receive message
+    #
 
     def process_package(self, pack: bytes) -> Optional[bytes]:
         try:
@@ -291,14 +297,13 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
-        try:
-            self.request.sendall(data)
+        if self.push_data(body=data):
             if handler is not None:
                 handler.success()
             return True
-        except IOError as error:
-            self.error('failed to send data %s' % error)
+        else:
             if handler is not None:
+                error = IOError('MessengerDelegate error: failed to send data package')
                 handler.failed(error=error)
             return False
 
@@ -317,9 +322,10 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         sender = session.identifier
         session_key = session.session_key
         client_address = session.client_address
-        nickname = g_facebook.nickname(identifier=sender)
-        self.info('handshake accepted %s %s %s, %s' % (nickname, client_address, sender, session_key))
-        g_monitor.report(message='User %s logged in %s %s' % (nickname, client_address, sender))
+        user = g_facebook.user(identifier=sender)
+        self.messenger.remote_user = user
+        self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
+        g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
         # add the new guest for checking offline messages
         g_receptionist.add_guest(identifier=sender)
 

@@ -142,7 +142,7 @@ class Messenger(Transceiver):
                 if index > 0:
                     # move this user in front for next message
                     item = local_users.pop(index)
-                    assert item == current_user
+                    assert item == current_user, 'should not happen'
                     local_users.insert(0, current_user)
                 # done!
                 break
@@ -210,7 +210,7 @@ class Messenger(Transceiver):
             return None
         # response
         sender = self.current_user.identifier
-        receiver = self.barrack.identifier(msg.envelope.receiver)
+        receiver = self.barrack.identifier(msg.envelope.sender)
         msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
         return self.encrypt_sign(msg=msg)
 

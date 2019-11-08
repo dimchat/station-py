@@ -95,7 +95,7 @@ class Dispatcher:
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:
         receipt = ReceiptCommand.new(message=message)
-        for key in ['sender', 'receiver', 'time', 'signature', 'group', 'type']:
+        for key in ['sender', 'receiver', 'time', 'group', 'signature']:
             value = msg.get(key)
             if value is not None:
                 receipt[key] = value
@@ -165,6 +165,9 @@ class Dispatcher:
                     self.info('session invalid %s' % sess)
                     continue
                 request_handler = self.session_server.get_handler(client_address=sess.client_address)
+                if request_handler is None:
+                    self.error('handler lost: %s' % sess)
+                    continue
                 if request_handler.push_message(msg):
                     success = success + 1
                 else:

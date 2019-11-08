@@ -30,7 +30,7 @@
     Configuration for Robot
 """
 
-from dimp import PrivateKey, Meta, Profile
+from dimp import PrivateKey, Meta, Profile, User
 from dimsdk import AddressNameService
 from dimsdk import Station, KeyStore
 from dimsdk import ChatBot, Tuling, XiaoI
@@ -56,11 +56,8 @@ from etc.cfg_bots import load_robot_info, group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
 
-from .text import *
-
-
-# register
-ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
+# import Command Processing Units
+from .cpu import *
 
 
 """
@@ -172,7 +169,7 @@ def chat_bot(name: str) -> ChatBot:
 """
 
 
-def create_client(identifier: str) -> Terminal:
+def load_user(identifier: str) -> User:
     identifier = g_facebook.identifier(identifier)
     # check meta
     meta = g_facebook.meta(identifier=identifier)
@@ -209,11 +206,21 @@ def create_client(identifier: str) -> Terminal:
     if not g_facebook.save_profile(profile):
         raise AssertionError('failed to save profile: %s' % profile)
     # create local user
-    user = g_facebook.user(identifier=identifier)
+    return g_facebook.user(identifier=identifier)
+
+
+def create_client(user: User) -> Terminal:
     client = Terminal()
     client.messenger = g_messenger
-    client.local_users = [user]
-    Log.info('robot loaded: %s' % client)
+    # context
+    client.messenger.context['database'] = g_database
+    client.messenger.context['remote_address'] = (g_station.host, g_station.port)
+    client.messenger.context['handshake_delegate'] = client
+    # current user
+    client.current_user = user
+    # connect
+    client.connect(station=g_station)
+    client.handshake()
     return client
 
 

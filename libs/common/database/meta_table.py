@@ -31,6 +31,17 @@ from dimp import ID, Meta
 from .storage import Storage
 
 
+def save_freshman(identifier: ID) -> bool:
+    """ Save freshman ID in a text file for the robot
+
+        file path: '.dim/freshmen.txt'
+    """
+    path = os.path.join(Storage.root, 'freshmen.txt')
+    line = identifier + '\n'
+    Storage.info('saving freshman: %s' % identifier)
+    return Storage.append_text(text=line, path=path)
+
+
 class MetaTable(Storage):
 
     def __init__(self):
@@ -65,7 +76,7 @@ class MetaTable(Storage):
             # meta file already exists
             return True
         self.info('Saving meta into: %s' % path)
-        return self.write_json(container=meta, path=path)
+        return self.write_json(container=meta, path=path) and save_freshman(identifier=identifier)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not self.__cache_meta(meta=meta, identifier=identifier):

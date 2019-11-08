@@ -45,11 +45,18 @@ class TextContentProcessor(ContentProcessor):
         self.__dialog: Dialog = None
 
     @property
+    def bots(self) -> list:
+        array = self.context.get('bots')
+        if array is None:
+            array = []
+            self.context['bots'] = array
+        return array
+
+    @property
     def dialog(self) -> Dialog:
         if self.__dialog is None:
-            from .config import chat_bot
             d = Dialog()
-            d.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
+            d.bots = self.bots
             self.__dialog = d
         return self.__dialog
 

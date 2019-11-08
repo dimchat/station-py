@@ -46,11 +46,18 @@ class TextContentProcessor(ContentProcessor):
         self.__dialog: Dialog = None
 
     @property
+    def bots(self) -> list:
+        array = self.context.get('bots')
+        if array is None:
+            array = []
+            self.context['bots'] = array
+        return array
+
+    @property
     def dialog(self) -> Dialog:
         if self.__dialog is None:
-            from .config import chat_bot
             d = Dialog()
-            d.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
+            d.bots = self.bots
             self.__dialog = d
         return self.__dialog
 
@@ -64,7 +71,7 @@ class TextContentProcessor(ContentProcessor):
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         nickname = self.facebook.nickname(identifier=sender)
-        self.info('Received text message from %s: %s' % (nickname, content.text))
+        self.info('Received text message from %s: %s' % (nickname, content))
         if sender.type.is_robot() or sender.type.is_station():
             self.info('Dialog > ignore message from another robot: %s' % msg.content)
             return None
