@@ -39,21 +39,11 @@ from dimsdk import Session, SessionServer, ReceiptCommand
 from dimsdk import Messenger as Transceiver
 from dimsdk import ContentProcessor
 
-from .facebook import Facebook
-
 
 class Messenger(Transceiver):
 
     def __init__(self):
         super().__init__()
-        self.context = {}
-
-    @property
-    def facebook(self) -> Facebook:
-        barrack = self.context.get('facebook')
-        if barrack is None:
-            barrack = self.barrack
-        return barrack
 
     @property
     def dispatcher(self):
@@ -115,23 +105,17 @@ class Messenger(Transceiver):
     #     else:
     #         self.context['remote_address'] = value
 
-    #
-    #   All local users (for decrypting received message)
-    #
     @property
-    def local_users(self) -> list:
-        array = self.context.get('local_users')
-        if array is None:
-            array = []
-            self.context['local_users'] = array
-        return array
+    def current_user(self) -> Optional[User]:
+        return super().current_user
 
-    @local_users.setter
-    def local_users(self, value: list):
-        if value is None:
-            self.context.pop('local_users', None)
+    @current_user.setter
+    def current_user(self, value: User):
+        users = self.local_users
+        if value in users:
+            self.__alter(current_user=value)
         else:
-            self.context['local_users'] = value
+            users.insert(0, value)
 
     def __alter(self, current_user: User):
         """ Alter the position of this user to the front """
@@ -179,23 +163,6 @@ class Messenger(Transceiver):
                     return user
 
     #
-    #   Current user (for signing and sending message)
-    #
-    @property
-    def current_user(self) -> Optional[User]:
-        users = self.local_users
-        if len(users) > 0:
-            return users[0]
-
-    @current_user.setter
-    def current_user(self, value: User):
-        users = self.local_users
-        if value in users:
-            self.__alter(current_user=value)
-        else:
-            users.insert(0, value)
-
-    #
     #   super()
     #
     def cpu(self, context: dict=None) -> ContentProcessor:
@@ -220,13 +187,13 @@ class Messenger(Transceiver):
 
     def forward_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = self.barrack.identifier(msg.envelope.receiver)
-        nickname = self.facebook.nickname(identifier=receiver)
+        contact = self.facebook.user(identifier=receiver)
         cmd = ForwardContent.new(message=msg)
         if self.send_content(content=cmd, receiver=receiver):
-            text = 'Top-secret message forwarded: %s' % nickname
+            text = 'Top-secret message forwarded: %s' % contact.name
             response = ReceiptCommand.new(message=text)
         else:
-            text = 'Top-secret message not forwarded: %s' % nickname
+            text = 'Top-secret message not forwarded: %s' % contact.name
             response = TextContent.new(text=text)
         # response
         sender = self.current_user.identifier
