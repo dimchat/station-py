@@ -41,10 +41,11 @@ from dimsdk import ChatBot, Tuling, XiaoI
 
 from libs.common import Log
 from libs.common import Database, Facebook, Messenger
-from libs.client import Daemon
+from libs.client import Terminal
 
 from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
 from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
+from libs.common.immortals import moki, hulk
 
 #
 #  Configurations
@@ -54,6 +55,12 @@ from etc.cfg_gsp import station_id
 from etc.cfg_bots import load_robot_info, group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
+
+from .text import *
+
+
+# register
+ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
 
 
 """
@@ -75,14 +82,6 @@ g_database = Database()
 g_database.base_dir = base_dir
 Log.info("database directory: %s" % g_database.base_dir)
 
-"""
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = Facebook()
-g_facebook.database = g_database
 
 """
     Address Name Service
@@ -92,6 +91,17 @@ g_facebook.database = g_database
 """
 g_ans = AddressNameService()
 g_ans.database = g_database
+
+
+"""
+    Facebook
+    ~~~~~~~~
+
+    Barrack for cache entities
+"""
+g_facebook = Facebook()
+g_facebook.database = g_database
+g_facebook.ans = g_ans
 
 
 """
@@ -116,6 +126,11 @@ station_port = 9394
 
 g_station = Station(identifier=station_id, host=station_host, port=station_port)
 g_facebook.cache_user(user=g_station)
+
+# Address Name Service
+g_ans.save('station', g_station.identifier)
+g_ans.save('moki', moki.identifier)
+g_ans.save('hulk', hulk.identifier)
 
 
 """
@@ -151,14 +166,13 @@ def chat_bot(name: str) -> ChatBot:
 
 
 """
-    Local Robot
-    ~~~~~~~~~~~
+    Client
+    ~~~~~~
     
-    Robot as a daemon
 """
 
 
-def create_daemon(identifier: str) -> Daemon:
+def create_client(identifier: str) -> Terminal:
     identifier = g_facebook.identifier(identifier)
     # check meta
     meta = g_facebook.meta(identifier=identifier)
@@ -194,12 +208,13 @@ def create_daemon(identifier: str) -> Daemon:
     profile.sign(private_key=private_key)
     if not g_facebook.save_profile(profile):
         raise AssertionError('failed to save profile: %s' % profile)
-    # create robot
-    robot = Daemon(identifier=identifier)
-    robot.messenger = g_messenger
-    g_facebook.cache_user(user=robot)
-    Log.info('robot loaded: %s' % robot)
-    return robot
+    # create local user
+    user = g_facebook.user(identifier=identifier)
+    client = Terminal()
+    client.messenger = g_messenger
+    client.local_users = [user]
+    Log.info('robot loaded: %s' % client)
+    return client
 
 
 def load_immortals():

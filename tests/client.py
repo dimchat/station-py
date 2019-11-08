@@ -37,9 +37,8 @@ from cmd import Cmd
 from typing import Optional
 
 from dimp import ID, Profile, LocalUser
-from dimp import Content, ContentType, TextContent
+from dimp import Content, TextContent
 from dimp import Command, ProfileCommand
-from dimp import InstantMessage
 from dimsdk import Station, Session
 
 import sys
@@ -49,37 +48,17 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.client import Robot
-from libs.common.immortals import moki, hulk
+from libs.client import Terminal
 from libs.common import Messenger, HandshakeDelegate
 
-from station.config import g_database, g_facebook, g_ans, g_messenger
-from station.config import current_station
+from robots.config import g_database, g_facebook, g_messenger
+from robots.config import g_station
 
 
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-g_station = current_station
+class Client(Terminal, HandshakeDelegate):
 
-g_station.host = '127.0.0.1'
-# g_station.host = '124.156.108.150'  # dimchat-hk
-# g_station.host = '134.175.87.98'  # dimchat-gz
-g_station.port = 9394
-
-g_database.base_dir = '/tmp/.dim/'
-
-# Address Name Service
-g_ans.save('moki', moki.identifier)
-g_ans.save('hulk', hulk.identifier)
-g_ans.save('station', g_station.identifier)
-
-
-class Client(Robot, HandshakeDelegate):
-
-    def __init__(self, identifier: ID):
-        super().__init__(identifier=identifier)
+    def __init__(self):
+        super().__init__()
         # station connection
         self.delegate = g_facebook
 
@@ -102,50 +81,12 @@ class Client(Robot, HandshakeDelegate):
     def handshake_success(self) -> Optional[Content]:
         pass
 
-    def connect(self, station: Station) -> bool:
-        if not super().connect(station=station):
-            self.error('failed to connect station: %s' % station)
-            return False
-        self.info('connected to station: %s' % station)
-        # handshake after connected
-        time.sleep(0.5)
-        self.info('%s is shaking hands with %s' % (self.identifier, station))
-        return self.handshake()
-
     def login(self, identifier: ID):
         user = g_facebook.user(identifier=identifier)
         assert isinstance(user, LocalUser), 'user error: %s' % identifier
         self.messenger.local_users = [user]
-
-    def process(self, cmd: Command, sender: ID) -> bool:
-        if super().process(cmd=cmd, sender=sender):
-            return True
-        command = cmd.command
-        if 'search' == command:
-            self.info('##### received search response')
-            if 'users' in cmd:
-                users = cmd['users']
-                print('      users:', json.dumps(users))
-            if 'results' in cmd:
-                results = cmd['results']
-                print('      results:', results)
-        elif 'users' == command:
-            self.info('##### online users: %s' % cmd.get('message'))
-            if 'users' in cmd:
-                users = cmd['users']
-                print('      users:', json.dumps(users))
-        else:
-            self.info('***** command from "%s": %s (%s)' % (sender.name, cmd['command'], cmd))
-
-    def receive_message(self, msg: InstantMessage) -> bool:
-        if super().receive_message(msg=msg):
-            return True
-        sender = g_facebook.identifier(msg.envelope.sender)
-        content: Content = msg.content
-        if content.type == ContentType.Text:
-            self.info('***** Message from "%s": %s' % (sender.name, content['text']))
-        else:
-            self.info('!!!!! Message from "%s": %s' % (sender.name, content))
+        self.info('%s is shaking hands with %s' % (self.current_user.identifier, self.station.identifier))
+        return self.handshake()
 
 
 class Console(Cmd):
@@ -168,7 +109,7 @@ class Console(Cmd):
         self.logout()
         # login with user ID
         self.info('connecting to %s ...' % g_station)
-        client = Client(identifier=identifier)
+        client = Client()
         client.connect(station=g_station)
         client.login(identifier=identifier)
         self.client = client
@@ -198,9 +139,9 @@ class Console(Cmd):
         print('')
         if self.client:
             if self.receiver:
-                print('You(%s) are talking with "%s" now.' % (self.client.identifier, self.receiver))
+                print('You(%s) are talking with "%s" now.' % (self.client.current_user.identifier, self.receiver))
             else:
-                print('%s is login in' % self.client.identifier)
+                print('%s is login in' % self.client.current_user.identifier)
 
     def do_exit(self, arg):
         if self.client:
@@ -222,7 +163,7 @@ class Console(Cmd):
         if self.client is None:
             self.info('not login yet')
         else:
-            self.info('%s logout' % self.client.identifier)
+            self.info('%s logout' % self.client.current_user.identifier)
             self.logout()
         self.prompt = Console.prompt
 
@@ -245,7 +186,7 @@ class Console(Cmd):
             return
         if len(msg) > 0:
             content = TextContent.new(text=msg)
-            self.client.send_content(content=content, receiver=self.receiver)
+            self.client.messenger.send_content(content=content, receiver=self.receiver)
 
     def do_broadcast(self, msg: str):
         if self.client is None:
@@ -279,9 +220,9 @@ class Console(Cmd):
             return
         profile = None
         if name is None:
-            identifier = self.client.identifier
+            identifier = self.client.current_user.identifier
         elif name.startswith('{') and name.endswith('}'):
-            identifier = self.client.identifier
+            identifier = self.client.current_user.identifier
             profile = json.loads(name)
         else:
             identifier = g_facebook.identifier(name)
@@ -289,7 +230,7 @@ class Console(Cmd):
                 self.info('I don\'t understand.')
                 return
         if profile:
-            private_key = g_facebook.private_key_for_signature(identifier=self.client.identifier)
+            private_key = g_facebook.private_key_for_signature(identifier=self.client.current_user.identifier)
             assert private_key is not None, 'failed to get private key for client: %s' % self.client
             # create new profile and set all properties
             tai = Profile.new(identifier=identifier)

@@ -302,7 +302,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 handler.failed(error=error)
             return False
 
-    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
+    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         # upload encrypted file data
         pass
 

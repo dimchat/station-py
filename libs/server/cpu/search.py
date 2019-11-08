@@ -30,6 +30,8 @@
     search users with keyword(s)
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
@@ -45,7 +47,7 @@ class SearchCommandProcessor(CommandProcessor):
     def database(self) -> Database:
         return self.context['database']
 
-    def __search(self, keywords: list) -> Content:
+    def __search(self, keywords: list) -> Optional[Content]:
         results = self.database.search(keywords=keywords)
         users = list(results.keys())
         response = Command.new(command='search')
@@ -54,14 +56,14 @@ class SearchCommandProcessor(CommandProcessor):
         response['results'] = results
         return response
 
-    def __update(self, content: Content) -> Content:
+    def __update(self, content: Content) -> Optional[Content]:
         # TODO: response, update
         pass
 
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         if type(self) != SearchCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content

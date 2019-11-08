@@ -60,7 +60,11 @@ from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from .dispatcher import Dispatcher
 from .receptionist import Receptionist
 from .monitor import Monitor
+from .text import *
 
+
+# register
+ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
 
 """
     Key Store

@@ -30,6 +30,8 @@
     show online users (connected)
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
@@ -45,21 +47,21 @@ class UsersCommandProcessor(CommandProcessor):
     def session_server(self) -> SessionServer:
         return self.context['session_server']
 
-    def __random_users(self, max_count=20) -> Content:
+    def __random_users(self, max_count=20) -> Optional[Content]:
         users = self.session_server.random_users(max_count=max_count)
         response = Command.new(command='users')
         response['message'] = '%d user(s) connected' % len(users)
         response['users'] = users
         return response
 
-    def __update(self, content: Content) -> Content:
+    def __update(self, content: Content) -> Optional[Content]:
         # TODO: response, update
         pass
 
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         if type(self) != UsersCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content

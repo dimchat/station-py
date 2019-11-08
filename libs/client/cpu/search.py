@@ -24,35 +24,65 @@
 # ==============================================================================
 
 """
-    Command Processor for 'login'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'search'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    login protocol
+    search users with keyword(s)
 """
 
+import json
 from typing import Optional
 
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
-from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ...common import Database
 
-class LoginCommandProcessor(CommandProcessor):
+
+class SearchCommandProcessor(CommandProcessor):
+
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    def __search(self, keywords: list) -> Optional[Content]:
+        results = self.database.search(keywords=keywords)
+        users = list(results.keys())
+        response = Command.new(command='search')
+        response['message'] = '%d user(s) found' % len(users)
+        response['users'] = users
+        response['results'] = results
+        return response
+
+    def __update(self, content: Content) -> Optional[Content]:
+        self.info('##### received search response')
+        if 'users' in content:
+            users = content['users']
+            print('      users:', json.dumps(users))
+        if 'results' in content:
+            results = content['results']
+            print('      results:', results)
+        return None
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != LoginCommandProcessor:
+        if type(self) != SearchCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
-        # TODO: update login status
-        self.info('Login command: %s' % content)
-        return ReceiptCommand.new(message='Login received')
+        # message
+        message = content.get('message')
+        if message is None:
+            self.info('search users for %s, %s' % (sender, content))
+            keywords = content['keywords']
+            return self.__search(keywords=keywords.split(' '))
+        else:
+            return self.__update(content=content)
 
 
 # register
-CommandProcessor.register(command='login', processor_class=LoginCommandProcessor)
+CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)

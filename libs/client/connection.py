@@ -33,24 +33,13 @@
 import socket
 import threading
 import time
-from abc import ABCMeta, abstractmethod
+from typing import Optional
 
 from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
+from dimsdk.delegate import ConnectionDelegate
 
 from ..common import Log
-
-
-class IConnectionDelegate(metaclass=ABCMeta):
-
-    @abstractmethod
-    def receive_package(self, data: bytes):
-        """ Receive data package
-
-        :param data: data package
-        :return:
-        """
-        pass
 
 
 class Connection(threading.Thread, MessengerDelegate):
@@ -61,7 +50,7 @@ class Connection(threading.Thread, MessengerDelegate):
     def __init__(self):
         super().__init__()
         self.__running = threading.Event()
-        self.delegate: IConnectionDelegate = None
+        self.delegate: ConnectionDelegate = None
         # current station
         self.__station: Station = None
         self.__connected = False
@@ -99,15 +88,20 @@ class Connection(threading.Thread, MessengerDelegate):
                 data += self.receive()
             except IOError:
                 continue
+            response = b''
             # split package(s)
             pos = data.find(self.BOUNDARY)
             while pos != -1:
                 pack = data[:pos]
-                self.receive_package(data=pack)
+                res = self.receive_package(data=pack)
+                if res is not None:
+                    response += res + b'\n'
                 # next package
                 pos += len(self.BOUNDARY)
                 data = data[pos:]
                 pos = data.find(self.BOUNDARY)
+            if len(response) > 0:
+                self.send(data=response)
 
     def disconnect(self):
         self.__connected = False
@@ -190,14 +184,14 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__last_time = int(time.time())
             return data
 
-    def receive_package(self, data: bytes):
+    def receive_package(self, data: bytes) -> Optional[bytes]:
         try:
-            self.delegate.receive_package(data=data)
+            return self.delegate.received_package(data=data)
         except Exception as error:
             self.error('receive package error: %s' % error)
 
     #
-    #   ITransceiverDelegate
+    #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
         """ Send out a data package onto network """
@@ -216,6 +210,6 @@ class Connection(threading.Thread, MessengerDelegate):
         """ Upload encrypted data to CDN """
         pass
 
-    def download_data(self, url: str, msg: InstantMessage) -> bytes:
+    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         """ Download encrypted data from CDN, and decrypt it when finished """
         pass

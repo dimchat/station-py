@@ -24,95 +24,84 @@
 # ==============================================================================
 
 """
-    Daemon Robot
-    ~~~~~~~~~~~~
+    Text Content Processor
+    ~~~~~~~~~~~~~~~~~~~~~~
 
-    Robot keep running
 """
 
 import time
-from typing import Union
+from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage, Content, TextContent
-from dimsdk import Station
-from dimsdk import Dialog, ChatBot
-
-from ..common import Facebook
-
-from .robot import Robot
+from dimp import InstantMessage
+from dimp import ContentType, Content, TextContent
+from dimsdk import ContentProcessor
+from dimsdk import Dialog
 
 
-class Daemon(Robot):
+class TextContentProcessor(ContentProcessor):
 
-    def __init__(self, identifier: ID):
-        super().__init__(identifier=identifier)
-        # dialog agent
-        self.__dialog = Dialog()
+    def __init__(self, context: dict):
+        super().__init__(context=context)
+        self.__dialog: Dialog = None
 
     @property
-    def bots(self) -> list:
-        return self.__dialog.bots
+    def dialog(self) -> Dialog:
+        if self.__dialog is None:
+            from .config import chat_bot
+            d = Dialog()
+            d.bots = [chat_bot('tuling'), chat_bot('xiaoi')]
+            self.__dialog = d
+        return self.__dialog
 
-    @bots.setter
-    def bots(self, array: Union[list, ChatBot]):
-        self.__dialog.bots = array
+    @property
+    def remote_address(self):  # (IP, port)
+        return self.context.get('remote_address')
 
-    def connect(self, station: Station) -> bool:
-        if not super().connect(station=station):
-            self.error('failed to connect station: %s' % station)
-            return False
-        self.info('connected to station: %s' % station)
-        # handshake after connected
-        time.sleep(0.5)
-        self.info('%s is shaking hands with %s' % (self.identifier, station))
-        return self.handshake()
-
-    def receive_message(self, msg: InstantMessage) -> bool:
-        if super().receive_message(msg=msg):
-            return True
-        facebook: Facebook = self.delegate
-        sender = facebook.identifier(msg.envelope.sender)
-        if sender.type.is_robot():
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, TextContent), 'text content error: %s' % content
+        nickname = self.facebook.nickname(identifier=sender)
+        self.info('Received text message from %s: %s' % (nickname, content.text))
+        if sender.type.is_robot() or sender.type.is_station():
             self.info('Dialog > ignore message from another robot: %s' % msg.content)
-            return False
+            return None
         # check time
         now = int(time.time())
         dt = now - msg.envelope.time
         if dt > 600:
             self.info('Old message, ignore it: %s' % msg)
-            return False
-        content: Content = msg.content
+            return None
         if content.group is not None:
             # group message
-            if not isinstance(content, TextContent):
-                self.info('Group Dialog > only support text message in polylogue: %s' % content)
-                return False
             text = content.text
             if text is None:
                 raise ValueError('text content error: %s' % content)
             # checking '@nickname'
-            receiver = facebook.identifier(msg.envelope.receiver)
-            at = '@%s' % facebook.nickname(identifier=receiver)
+            receiver = self.facebook.identifier(msg.envelope.receiver)
+            at = '@%s' % self.facebook.nickname(identifier=receiver)
             self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
             if text.find(at) < 0:
-                # ignore message that not querying me
-                return False
+                self.info('ignore message that not querying me: %s' % text)
+                return None
             # TODO: remove all '@nickname'
             text = text.replace(at, '')
             content.text = text
-        response = self.__dialog.query(content=content, sender=sender)
+        response = self.dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
-            assert isinstance(content, TextContent)
-            nickname = facebook.nickname(identifier=sender)
             question = content.text
             answer = response.text
             group = content.group
             if group is None:
                 self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
-                return self.send_content(content=response, receiver=sender)
             else:
-                group = facebook.identifier(group)
+                group = self.facebook.identifier(group)
                 self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
-                return self.send_content(content=response, receiver=group)
+            return response
+
+
+# register
+ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)

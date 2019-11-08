@@ -24,35 +24,59 @@
 # ==============================================================================
 
 """
-    Command Processor for 'login'
+    Command Processor for 'users'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    login protocol
+    show online users (connected)
 """
 
+import json
 from typing import Optional
 
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
 from dimp import Command
-from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ...server import SessionServer
 
-class LoginCommandProcessor(CommandProcessor):
+
+class UsersCommandProcessor(CommandProcessor):
+
+    @property
+    def session_server(self) -> SessionServer:
+        return self.context['session_server']
+
+    def __random_users(self, max_count=20) -> Optional[Content]:
+        users = self.session_server.random_users(max_count=max_count)
+        response = Command.new(command='users')
+        response['message'] = '%d user(s) connected' % len(users)
+        response['users'] = users
+        return response
+
+    def __update(self, content: Content) -> Optional[Content]:
+        self.info('##### online users: %s' % content.get('message'))
+        if 'users' in content:
+            users = content['users']
+            print('      users:', json.dumps(users))
+        return None
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        if type(self) != LoginCommandProcessor:
+        if type(self) != UsersCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
-        # TODO: update login status
-        self.info('Login command: %s' % content)
-        return ReceiptCommand.new(message='Login received')
+        # message
+        message = content.get('message')
+        if message is None:
+            self.info('get online user(s) for %s' % sender)
+            return self.__random_users()
+        else:
+            return self.__update(content=content)
 
 
 # register
-CommandProcessor.register(command='login', processor_class=LoginCommandProcessor)
+CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)

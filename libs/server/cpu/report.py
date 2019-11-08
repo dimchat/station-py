@@ -30,6 +30,8 @@
     Report protocol
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content
@@ -56,7 +58,7 @@ class ReportCommandProcessor(CommandProcessor):
     def receptionist(self):
         return self.context['receptionist']
 
-    def __process_old_report(self, cmd: Command, sender: ID) -> Content:
+    def __process_old_report(self, cmd: Command, sender: ID) -> Optional[Content]:
         # compatible with v1.0
         state = cmd.get('state')
         self.info('client report state %s' % state)
@@ -77,7 +79,7 @@ class ReportCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         if type(self) != ReportCommandProcessor:
             raise AssertionError('override me!')
         assert isinstance(content, Command), 'command error: %s' % content
