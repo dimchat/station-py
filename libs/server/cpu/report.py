@@ -105,7 +105,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # submit device token for APNs
         token = content.get('device_token')
@@ -120,7 +120,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # welcome back!
         self.info('client online')
@@ -136,7 +136,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # goodbye!
         self.info('client offline')
