@@ -220,9 +220,13 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 response = self.process_package(line)
                 if response:
                     body = body + response + b'\n'
-            data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-            # self.info('mars response %s' % data)
-            self.send(data)
+            if body:
+                data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+                # self.info('mars response %s' % data)
+                self.send(data)
+            else:
+                # TODO: handle error message
+                self.info('nothing to response')
         elif head.cmd == 6:
             # TODO: handle NOOP request
             self.info('receive NOOP package, response %s' % pack)
