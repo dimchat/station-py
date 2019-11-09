@@ -25,6 +25,7 @@
 
 import os
 import random
+from typing import Optional
 
 from dimp import ID, Meta
 
@@ -48,6 +49,7 @@ class MetaTable(Storage):
         super().__init__()
         # memory caches
         self.__caches: dict = {}
+        self.__empty_meta = {'desc': 'just to avoid loading non-exists file again'}
 
     """
         Meta file for Entities (User/Group)
@@ -85,17 +87,22 @@ class MetaTable(Storage):
             return False
         return self.__save_meta(meta=meta, identifier=identifier)
 
-    def meta(self, identifier: ID) -> Meta:
+    def meta(self, identifier: ID) -> Optional[Meta]:
         # 1. get from cache
         info = self.__caches.get(identifier)
         if info is not None:
+            if info is self.__empty_meta:
+                self.info('empty meta: %s, %s' % (identifier, info))
+                info = None
             return info
         # 2. load from storage
         info = self.__load_meta(identifier=identifier)
-        if info is not None:
-            # 3. update memory cache
-            self.__caches[identifier] = info
-            return info
+        if info is None:
+            self.__caches[identifier] = self.__empty_meta
+            return None
+        # 3. update memory cache
+        self.__caches[identifier] = info
+        return info
 
     """
         Search Engine

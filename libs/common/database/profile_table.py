@@ -24,6 +24,7 @@
 # ==============================================================================
 
 import os
+from typing import Optional
 
 from dimp import ID, Profile
 
@@ -82,17 +83,20 @@ class ProfileTable(Storage):
             return False
         return self.__save_profile(profile=profile)
 
-    def profile(self, identifier: ID) -> Profile:
+    def profile(self, identifier: ID) -> Optional[Profile]:
         # 1. get from cache
         info = self.__caches.get(identifier)
         if info is not None:
+            if 'data' not in info:
+                self.info('empty profile: %s' % info)
             return info
         # 2. load from storage
         info = self.__load_profile(identifier=identifier)
-        if info is not None:
-            # 3. update memory cache
-            self.__caches[identifier] = info
-            return info
+        if info is None:
+            info = Profile.new(identifier=identifier)
+        # 3. update memory cache
+        self.__caches[identifier] = info
+        return info
 
 
 class DeviceTable(Storage):
