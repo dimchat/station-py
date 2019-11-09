@@ -30,12 +30,13 @@
     Configuration for DIM network server node
 """
 
-from dimp import PrivateKey, Meta, Profile
+from dimp import PrivateKey, Meta, ID, Profile
 from dimsdk import AddressNameService
 from dimsdk import Station, KeyStore
 
 from dimsdk import ApplePushNotificationService
 from dimsdk import ChatBot, Tuling, XiaoI
+from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
@@ -51,7 +52,7 @@ from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
 #  Configurations
 #
 from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
-from etc.cfg_db import base_dir
+from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_admins import administrators
 from etc.cfg_gsp import all_stations, local_servers, load_station_info
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
@@ -90,7 +91,6 @@ Log.info("database directory: %s" % g_database.base_dir)
 """
 g_ans = AddressNameService()
 g_ans.database = g_database
-
 
 """
     Facebook
@@ -174,8 +174,8 @@ g_receptionist.apns = g_apns
 def chat_bot(name: str) -> ChatBot:
     if 'tuling' == name:
         # Tuling
-        key = tuling_keys.get('api_key')
-        tuling = Tuling(api_key=key)
+        api_key = tuling_keys.get('api_key')
+        tuling = Tuling(api_key=api_key)
         # ignore codes
         for item in tuling_ignores:
             if item not in tuling.ignores:
@@ -183,9 +183,9 @@ def chat_bot(name: str) -> ChatBot:
         return tuling
     elif 'xiaoi' == name:
         # XiaoI
-        key = xiaoi_keys.get('app_key')
-        secret = xiaoi_keys.get('app_secret')
-        xiaoi = XiaoI(app_key=key, app_secret=secret)
+        app_key = xiaoi_keys.get('app_key')
+        app_secret = xiaoi_keys.get('app_secret')
+        xiaoi = XiaoI(app_key=app_key, app_secret=app_secret)
         # ignore responses
         for item in xiaoi_ignores:
             if item not in xiaoi.ignores:
@@ -311,6 +311,23 @@ def load_immortals():
     Loading info
     ~~~~~~~~~~~~
 """
+
+# load ANS reserved records
+Log.info('-------- loading ANS reserved records')
+for key, value in ans_reserved_records.items():
+    value = ID(value)
+    assert value.valid, 'ANS record error: %s, %s' % (key, value)
+    Log.info('Name: %s -> ID: %s' % (key, value))
+    if key in ans_keywords:
+        # remove reserved name temporary
+        index = ans_keywords.index(key)
+        ans_keywords.remove(key)
+        g_ans.save(key, value)
+        ans_keywords.insert(index, key)
+    else:
+        # not reserved name, save it directly
+        g_ans.save(key, value)
+
 
 # load immortal accounts
 Log.info('-------- loading immortals accounts')

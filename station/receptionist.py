@@ -95,7 +95,7 @@ class Receptionist(Thread):
                         success = 0
                         for sess in sessions:
                             if sess.valid is False or sess.active is False:
-                                self.info('session invalid %s' % sess)
+                                # self.info('session invalid %s' % sess)
                                 continue
                             request_handler = self.session_server.get_handler(client_address=sess.client_address)
                             if request_handler is None:
