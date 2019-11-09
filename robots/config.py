@@ -240,8 +240,14 @@ def load_freshmen() -> list:
     if array is not None:
         for item in array:
             identifier = g_facebook.identifier(item)
-            if identifier is not None:
+            if identifier is None:
+                Log.error('ID error: %s' % item)
+                continue
+            if identifier.type.is_user():
+                Log.info('Got a freshmen: %s' % identifier)
                 freshmen.append(identifier)
+            else:
+                Log.error('Not a user ID: %s' % identifier)
     return freshmen
 
 
