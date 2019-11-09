@@ -32,8 +32,10 @@
 
 from typing import Optional
 
+from mkm.immortals import Immortals
+
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile
+from dimp import ID, Meta, Profile, User
 from dimsdk import Facebook as Barrack
 
 from .database import Database
@@ -44,6 +46,10 @@ class Facebook(Barrack):
     def __init__(self):
         super().__init__()
         self.database: Database = None
+        # built-in accounts
+        #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
+        #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
+        self.__immortals = Immortals()
 
     def nickname(self, identifier: ID) -> str:
         assert identifier.type.is_user(), 'ID error: %s' % identifier
@@ -96,6 +102,61 @@ class Facebook(Barrack):
 
     def load_members(self, identifier: ID) -> Optional[list]:
         return self.database.members(group=identifier)
+
+    #
+    #   SocialNetworkDataSource
+    #
+    def identifier(self, string: str) -> Optional[ID]:
+        if string is None:
+            return None
+        if isinstance(string, ID):
+            return string
+        obj = self.__immortals.identifier(string=string)
+        if obj is not None:
+            return obj
+        return super().identifier(string=string)
+
+    def user(self, identifier: ID) -> Optional[User]:
+        obj = self.__immortals.user(identifier=identifier)
+        if obj is not None:
+            return obj
+        return super().user(identifier=identifier)
+
+    #
+    #   EntityDataSource
+    #
+    def meta(self, identifier: ID) -> Optional[Meta]:
+        obj = self.__immortals.meta(identifier=identifier)
+        if obj is not None:
+            return obj
+        return super().meta(identifier=identifier)
+
+    def profile(self, identifier: ID) -> Optional[Profile]:
+        obj = self.__immortals.profile(identifier=identifier)
+        if obj is not None:
+            return obj
+        return super().profile(identifier=identifier)
+
+    #
+    #   UserDataSource
+    #
+    def private_key_for_signature(self, identifier: ID) -> Optional[PrivateKey]:
+        obj = self.__immortals.private_key_for_signature(identifier=identifier)
+        if obj is not None:
+            return obj
+        return super().private_key_for_signature(identifier=identifier)
+
+    def private_keys_for_decryption(self, identifier: ID) -> Optional[list]:
+        arr = self.__immortals.private_keys_for_decryption(identifier=identifier)
+        if arr is not None:
+            return arr
+        return super().private_keys_for_decryption(identifier=identifier)
+
+    def contacts(self, identifier: ID) -> Optional[list]:
+        arr = self.__immortals.contacts(identifier=identifier)
+        if arr is not None:
+            return arr
+        return super().contacts(identifier=identifier)
 
     #
     #    IGroupDataSource

@@ -39,9 +39,6 @@ from dimsdk import KeyStore
 from libs.common import Log
 from libs.common import Database, Facebook, Messenger
 
-from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
-from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
-
 #
 #  Configurations
 #
@@ -91,27 +88,5 @@ g_messenger = Messenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
 
-
-def load_immortals():
-    # load immortals
-    Log.info('immortal user: %s' % moki_id)
-    g_facebook.save_meta(identifier=moki_id, meta=moki_meta)
-    g_facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
-    g_facebook.save_profile(profile=moki_profile)
-
-    Log.info('immortal user: %s' % hulk_id)
-    g_facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
-    g_facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    g_facebook.save_profile(profile=hulk_profile)
-
-
-"""
-    Loading info
-    ~~~~~~~~~~~~
-"""
-
-# load immortal accounts
-Log.info('-------- loading immortals accounts')
-load_immortals()
 
 Log.info('======== configuration OK!')

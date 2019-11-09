@@ -44,7 +44,7 @@ from libs.server import Session
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
-from .config import current_station, station_name, local_servers
+from .config import current_station, station_name, local_servers, chat_bot
 
 
 class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
@@ -75,6 +75,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
             m.context['dispatcher'] = g_dispatcher
+            m.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
             m.context['handshake_delegate'] = self
             m.context['remote_address'] = self.client_address
             self.__messenger = m

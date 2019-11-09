@@ -45,9 +45,6 @@ from libs.common import Log
 from libs.common import Database, Facebook
 from libs.server import SessionServer, Server
 
-from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
-from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
-
 #
 #  Configurations
 #
@@ -294,19 +291,6 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
     return server
 
 
-def load_immortals():
-    # load immortals
-    Log.info('immortal user: %s' % moki_id)
-    g_facebook.save_meta(identifier=moki_id, meta=moki_meta)
-    g_facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
-    g_facebook.save_profile(profile=moki_profile)
-
-    Log.info('immortal user: %s' % hulk_id)
-    g_facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
-    g_facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    g_facebook.save_profile(profile=hulk_profile)
-
-
 """
     Loading info
     ~~~~~~~~~~~~
@@ -328,10 +312,6 @@ for key, value in ans_reserved_records.items():
         # not reserved name, save it directly
         g_ans.save(key, value)
 
-
-# load immortal accounts
-Log.info('-------- loading immortals accounts')
-load_immortals()
 
 # scan accounts
 Log.info('-------- scanning accounts')

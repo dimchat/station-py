@@ -44,10 +44,6 @@ from libs.common import Log
 from libs.common import Database, Facebook, Messenger
 from libs.client import Terminal
 
-from libs.common.immortals import moki_id, moki_sk, moki_meta, moki_profile
-from libs.common.immortals import hulk_id, hulk_sk, hulk_meta, hulk_profile
-from libs.common.immortals import moki, hulk
-
 #
 #  Configurations
 #
@@ -124,8 +120,8 @@ g_facebook.cache_user(user=g_station)
 
 # Address Name Service
 g_ans.save('station', g_station.identifier)
-g_ans.save('moki', moki.identifier)
-g_ans.save('hulk', hulk.identifier)
+g_ans.save('moki', g_facebook.identifier('moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
+g_ans.save('hulk', g_facebook.identifier('hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
 
 
 """
@@ -222,19 +218,6 @@ def create_client(user: User) -> Terminal:
     return client
 
 
-def load_immortals():
-    # load immortals
-    Log.info('immortal user: %s' % moki_id)
-    g_facebook.save_meta(identifier=moki_id, meta=moki_meta)
-    g_facebook.save_private_key(identifier=moki_id, private_key=moki_sk)
-    g_facebook.save_profile(profile=moki_profile)
-
-    Log.info('immortal user: %s' % hulk_id)
-    g_facebook.save_meta(identifier=hulk_id, meta=hulk_meta)
-    g_facebook.save_private_key(identifier=hulk_id, private_key=hulk_sk)
-    g_facebook.save_profile(profile=hulk_profile)
-
-
 """
     Shodai Hokage
     ~~~~~~~~~~~~~
@@ -284,10 +267,7 @@ for key, value in ans_reserved_records.items():
         g_ans.save(key, value)
 
 
-# load immortal accounts
-Log.info('-------- loading immortals accounts')
-load_immortals()
-
+# load group 'DIM Plaza'
 Log.info('-------- loading group contains all users')
 load_naruto()
 
