@@ -41,14 +41,9 @@ from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
 from ...common import Database
-from ...common import Messenger
 
 
 class ReportCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> Messenger:
-        return super().messenger
 
     @property
     def database(self) -> Database:

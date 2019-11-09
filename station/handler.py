@@ -226,7 +226,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 self.send(data)
             else:
                 # TODO: handle error message
-                self.info('nothing to response')
+                self.info('nothing to response, requests: %s' % lines)
         elif head.cmd == 6:
             # TODO: handle NOOP request
             self.info('receive NOOP package, response %s' % pack)
