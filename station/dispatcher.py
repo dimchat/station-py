@@ -186,11 +186,13 @@ class Dispatcher:
         else:
             # push notification
             msg_type = msg.envelope.type
+            if msg_type is None:
+                msg_type = 0
             self.__push_msg(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
         # response
         return self.__receipt(message='Message delivering', msg=msg)
 
-    def __push_msg(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> bool:
+    def __push_msg(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
         if msg_type == 0:
             something = 'a message'
         elif msg_type == ContentType.Text:
