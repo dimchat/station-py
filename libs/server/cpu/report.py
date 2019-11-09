@@ -147,6 +147,9 @@ class OfflineCommandProcessor(ReportCommandProcessor):
 
 
 # register
+CommandProcessor.register(command='report', processor_class=ReportCommandProcessor)
+CommandProcessor.register(command='broadcast', processor_class=ReportCommandProcessor)
+
 CommandProcessor.register(command='apns', processor_class=APNsCommandProcessor)
 CommandProcessor.register(command='online', processor_class=OnlineCommandProcessor)
 CommandProcessor.register(command='offline', processor_class=OfflineCommandProcessor)
