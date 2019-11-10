@@ -36,6 +36,7 @@ from typing import Optional
 
 from dimp import User
 from dimp import InstantMessage, ReliableMessage
+from dimp import Content, TextContent, ForwardContent
 from dimsdk import NetMsgHead, NetMsg, CompletionHandler
 from dimsdk import MessengerDelegate
 
@@ -46,6 +47,8 @@ from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, local_servers, chat_bot
 
+from .filter import Filter
+
 
 class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
 
@@ -53,6 +56,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         super().__init__(request=request, client_address=client_address, server=server)
         # messenger
         self.__messenger: Messenger = None
+        self.__filter: Filter = None
 
     def info(self, msg: str):
         Log.info('%s:\t%s' % (self.__class__.__name__, msg))
@@ -82,6 +86,12 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         return self.__messenger
 
     @property
+    def filter(self) -> Filter:
+        if self.__filter is None:
+            self.__filter = Filter(messenger=self.messenger)
+        return self.__filter
+
+    @property
     def remote_user(self) -> Optional[User]:
         if self.__messenger is not None:
             return self.__messenger.remote_user
@@ -96,7 +106,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #
     #
-
     def setup(self):
         self.__messenger: Messenger = None
         self.info('%s: set up with %s' % (self, self.client_address))
@@ -202,7 +211,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   process and response message
     #
-
     def handle_mars_package(self, pack: bytes):
         pack = NetMsg(pack)
         head = pack.head
@@ -249,7 +257,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   push message
     #
-
     def push_mars_data(self, body: bytes) -> bool:
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
@@ -270,7 +277,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   receive message
     #
-
     def process_package(self, pack: bytes) -> Optional[bytes]:
         try:
             return self.messenger.received_package(data=pack)
@@ -307,6 +313,41 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 error = IOError('MessengerDelegate error: failed to send data package')
                 handler.failed(error=error)
             return False
+
+    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Deliver message to everyone@everywhere, including all neighbours """
+        if self.filter.allow_broadcast(msg=msg):
+            # call dispatcher to deliver this message
+            text = 'Message broadcast to "%s" is not implemented' % msg.envelope.receiver
+            return TextContent.new(text=text)
+        else:
+            text = 'Message broadcast to "%s" is not allowed' % msg.envelope.receiver
+            return TextContent.new(text=text)
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Deliver message to the receiver, or broadcast to neighbours """
+        if self.filter.allow_deliver(msg=msg):
+            # call dispatcher to deliver this message
+            return g_dispatcher.deliver(msg=msg)
+        else:
+            text = 'Message deliver to "%s" is not allowed' % msg.envelope.receiver
+            return TextContent.new(text=text)
+
+    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Re-pack and deliver (Top-Secret) message to the real receiver """
+        if self.filter.allow_forward(msg=msg):
+            # call dispatcher to deliver this message
+            # repack the top-secret message
+            sender = self.messenger.current_user.identifier
+            receiver = g_facebook.identifier(msg.envelope.receiver)
+            content = ForwardContent.new(message=msg)
+            i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+            # encrypt, sign & deliver it
+            r_msg = self.messenger.encrypt_sign(msg=i_msg)
+            return self.deliver_message(msg=r_msg)
+        else:
+            text = 'Message forward to "%s" is not allowed' % msg.envelope.receiver
+            return TextContent.new(text=text)
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         # upload encrypted file data

@@ -35,7 +35,8 @@ import threading
 import time
 from typing import Optional
 
-from dimp import InstantMessage
+from dimp import InstantMessage, ReliableMessage
+from dimp import Content
 from dimsdk import Station, CompletionHandler, MessengerDelegate
 from dimsdk.delegate import ConnectionDelegate
 
@@ -205,6 +206,18 @@ class Connection(threading.Thread, MessengerDelegate):
             else:
                 handler.failed(error=error)
         return error is None
+
+    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Deliver message to everyone@everywhere, including all neighbours """
+        pass
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Deliver message to the receiver, or broadcast to neighbours """
+        pass
+
+    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Re-pack and deliver (Top-Secret) message to the real receiver """
+        pass
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         """ Upload encrypted data to CDN """
