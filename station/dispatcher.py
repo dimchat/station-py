@@ -34,7 +34,7 @@ from typing import Optional
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import ContentType, Content, TextContent
+from dimp import ContentType, Content
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
@@ -57,40 +57,6 @@ class Dispatcher:
 
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
-
-    def __blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
-        self.info('checking block-list for %s <- (%s, %s)' % (receiver, sender, group))
-        cmd = self.database.block_command(identifier=receiver)
-        if cmd is None:
-            self.info('block-list not found')
-            return False
-        array = cmd.get('list')
-        if array is None:
-            self.error('block-list error')
-            return False
-        if group is None:
-            # check for personal message
-            return sender in array
-        else:
-            # check for group message
-            return group in array
-
-    def __muted(self, receiver: ID, sender: ID, group: ID=None) -> bool:
-        self.info('checking mute-list for %s <- (%s, %s)' % (receiver, sender, group))
-        cmd = self.database.mute_command(identifier=receiver)
-        if cmd is None:
-            self.info('mute-list not found')
-            return False
-        array = cmd.get('list')
-        if array is None:
-            self.error('mute-list error')
-            return False
-        if group is None:
-            # check for personal message
-            return sender in array
-        else:
-            # check for group message
-            return group in array
 
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:
@@ -141,16 +107,6 @@ class Dispatcher:
                 return self.__broadcast(msg=msg)
         elif group.is_broadcast:
             return self.__broadcast(msg=msg)
-        # check block-list
-        if self.__blocked(sender=sender, receiver=receiver, group=group):
-            self.info('this sender/group is blocked: %s' % msg)
-            nickname = self.facebook.nickname(identifier=receiver)
-            if group is None:
-                text = 'Message is blocked by %s' % nickname
-            else:
-                grp_name = self.facebook.group_name(identifier=group)
-                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
-            return TextContent.new(text=text)
         # check group message (not split yet)
         if receiver.type.is_group():
             # split and deliver them
@@ -181,7 +137,7 @@ class Dispatcher:
         # transmit to neighbor stations
         self.__transmit(msg=msg)
         # check mute-list
-        if self.__muted(sender=sender, receiver=receiver, group=group):
+        if self.database.is_muted(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is muted: %s' % msg)
         else:
             # push notification

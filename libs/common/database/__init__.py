@@ -149,6 +149,20 @@ class Database:
     def block_command(self, identifier: ID) -> Command:
         return self.__user_table.block_command(identifier=identifier)
 
+    def is_blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+        cmd = self.block_command(identifier=receiver)
+        if cmd is None:
+            return False
+        array = cmd.get('list')
+        if array is None:
+            return False
+        if group is None:
+            # check for personal message
+            return sender in array
+        else:
+            # check for group message
+            return group in array
+
     """
         Mute-list of User
         ~~~~~~~~~~~~~~~~~
@@ -160,6 +174,20 @@ class Database:
 
     def mute_command(self, identifier: ID) -> Command:
         return self.__user_table.mute_command(identifier=identifier)
+
+    def is_muted(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+        cmd = self.mute_command(identifier=receiver)
+        if cmd is None:
+            return False
+        array = cmd.get('list')
+        if array is None:
+            return False
+        if group is None:
+            # check for personal message
+            return sender in array
+        else:
+            # check for group message
+            return group in array
 
     """
         Device Tokens for APNS

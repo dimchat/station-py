@@ -34,16 +34,27 @@ from typing import Optional
 
 from dimp import ID, User
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content, ForwardContent, TextContent
-from dimsdk import Session, SessionServer, ReceiptCommand
+from dimp import Envelope, Content, ForwardContent, TextContent
+from dimsdk import Session, SessionServer
 from dimsdk import Messenger as Transceiver
 from dimsdk import ContentProcessor
+
+from .database import Database
+from .facebook import Facebook
 
 
 class Messenger(Transceiver):
 
     def __init__(self):
         super().__init__()
+
+    @property
+    def database(self) -> Database:
+        return self.context['database']
+
+    @property
+    def facebook(self) -> Facebook:
+        return super().facebook
 
     @property
     def dispatcher(self):
@@ -117,6 +128,9 @@ class Messenger(Transceiver):
         else:
             users.insert(0, value)
 
+    #
+    #   switch current user
+    #
     def __alter(self, current_user: User):
         """ Alter the position of this user to the front """
         local_users = self.local_users
@@ -163,6 +177,39 @@ class Messenger(Transceiver):
                     return user
 
     #
+    #   filters
+    #
+    def __blocked_filter(self, envelope: Envelope) -> Optional[Content]:
+        sender = self.facebook.identifier(envelope.sender)
+        receiver = self.facebook.identifier(envelope.receiver)
+        group = self.facebook.identifier(envelope.group)
+        # check block-list
+        if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
+            nickname = self.facebook.nickname(identifier=receiver)
+            if group is None:
+                text = 'Message is blocked by %s' % nickname
+            else:
+                grp_name = self.facebook.group_name(identifier=group)
+                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
+            return TextContent.new(text=text)
+
+    def __deliver_filter(self, msg: ReliableMessage) -> Optional[Content]:
+        # TODO: check whether deliver this message
+        # 1. session valid
+        session = self.current_session()
+        if session is None or not session.valid:
+            return TextContent.new(text='Delivering message failed, login first')
+        # 2. block list
+        response = self.__blocked_filter(envelope=msg.envelope)
+        if response is not None:
+            return response
+        # 3. flow control
+
+    def __forward_filter(self, msg: ReliableMessage) -> Optional[Content]:
+        # TODO: check whether forward this message
+        pass
+
+    #
     #   super()
     #
     def cpu(self, context: dict=None) -> ContentProcessor:
@@ -175,30 +222,34 @@ class Messenger(Transceiver):
         return self.send_message(msg=msg)
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # call dispatcher to deliver this message
-        response = self.dispatcher.deliver(msg=msg)
+        receiver = self.barrack.identifier(msg.envelope.sender)
+        response = self.__deliver_filter(msg=msg)
         if response is None:
-            return None
+            # call dispatcher to deliver this message
+            response = self.dispatcher.deliver(msg=msg)
+            if response is None:
+                contact = self.facebook.user(identifier=receiver)
+                text = 'Message deliver to "%s" failed' % contact.name
+                response = TextContent.new(text=text)
         # response
         sender = self.current_user.identifier
-        receiver = self.barrack.identifier(msg.envelope.sender)
         msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
         return self.encrypt_sign(msg=msg)
 
     def forward_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        receiver = self.barrack.identifier(msg.envelope.receiver)
-        contact = self.facebook.user(identifier=receiver)
-        cmd = ForwardContent.new(message=msg)
-        if self.send_content(content=cmd, receiver=receiver):
-            text = 'Top-secret message forwarded: %s' % contact.name
-            response = ReceiptCommand.new(message=text)
-        else:
-            text = 'Top-secret message not forwarded: %s' % contact.name
-            response = TextContent.new(text=text)
-        # response
         sender = self.current_user.identifier
-        msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
-        return self.encrypt_sign(msg=msg)
+        receiver = self.barrack.identifier(msg.envelope.receiver)
+        response = self.__forward_filter(msg=msg)
+        if response is None:
+            # repack the top-secret message
+            content = ForwardContent.new(message=msg)
+            i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+            # encrypt, sign & deliver it
+            r_msg = self.encrypt_sign(msg=i_msg)
+            response = self.deliver_message(msg=r_msg)
+        # response
+        i_msg = InstantMessage.new(content=response, sender=sender, receiver=receiver)
+        return self.encrypt_sign(msg=i_msg)
 
     #
     #   Transform
