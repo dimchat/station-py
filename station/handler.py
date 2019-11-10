@@ -108,6 +108,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     def setup(self):
         self.__messenger: Messenger = None
+        self.__filter: Filter = None
         self.info('%s: set up with %s' % (self, self.client_address))
         g_session_server.set_handler(client_address=self.client_address, request_handler=self)
         g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
