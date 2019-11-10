@@ -29,6 +29,7 @@
 """
 
 from binascii import Error
+from typing import Optional
 
 from dimp import ID, Meta, Profile
 from dimp import Content, MetaCommand, ProfileCommand
@@ -46,33 +47,39 @@ class Worker:
     def error(self, msg: str):
         Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
 
-    def identifier(self, identifier: str) -> ID:
+    def identifier(self, identifier: str) -> Optional[ID]:
         try:
             return g_facebook.identifier(string=identifier)
         except ValueError:
             self.error('ID error: %s' % identifier)
 
-    def meta(self, identifier: ID) -> Meta:
+    def meta(self, identifier: str) -> Optional[Meta]:
+        identifier = self.identifier(identifier)
+        if identifier is None:
+            return None
         info = g_facebook.meta(identifier=identifier)
         if info is None:
             self.info('meta not found: %s' % identifier)
         else:
             return info
 
-    def profile(self, identifier: ID) -> Profile:
+    def profile(self, identifier: str) -> Optional[Profile]:
+        identifier = self.identifier(identifier)
+        if identifier is None:
+            return None
         info = g_facebook.profile(identifier=identifier)
         if info is None:
             self.info('profile not found: %s' % identifier)
         else:
             return info
 
-    def decode_data(self, data: str) -> bytes:
+    def decode_data(self, data: str) -> Optional[bytes]:
         try:
             return base64_decode(data)
         except Error:
             self.error('data not base64: %s' % data)
 
-    def decode_signature(self, signature: str) -> bytes:
+    def decode_signature(self, signature: str) -> Optional[bytes]:
         try:
             return base64_decode(signature)
         except Error:
@@ -81,7 +88,7 @@ class Worker:
     #
     #   interfaces
     #
-    def query_meta(self, identifier: str) -> (int, Content):
+    def query_meta(self, identifier: str) -> (int, Optional[Content]):
         # check ID
         identifier = self.identifier(identifier)
         if identifier is None:
@@ -93,7 +100,7 @@ class Worker:
         # OK
         return 200, MetaCommand.new(identifier=identifier, meta=meta)
 
-    def query_profile(self, identifier: str) -> (int, Content):
+    def query_profile(self, identifier: str) -> (int, Optional[Content]):
         # check ID
         identifier = self.identifier(identifier)
         if identifier is None:

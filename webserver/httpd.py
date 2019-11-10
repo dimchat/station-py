@@ -64,6 +64,28 @@ def test() -> str:
     return render_template('test.html')
 
 
+@app.route(BASE_URI+'/<string:identifier>/meta.js', methods=['GET'])
+def meta_file(identifier: str) -> str:
+    response = g_worker.meta(identifier)
+    if response is None:
+        response = {
+            'code': 404,
+            'message': 'Meta not found',
+        }
+    return jsonify(response)
+
+
+@app.route(BASE_URI+'/<string:identifier>/profile.js', methods=['GET'])
+def profile_file(identifier: str) -> str:
+    response = g_worker.profile(identifier)
+    if response is None:
+        response = {
+            'code': 404,
+            'message': 'Profile not found',
+        }
+    return jsonify(response)
+
+
 @app.route(BASE_URI+'/meta/<string:identifier>', methods=['GET'])
 def query_meta(identifier: str) -> str:
     # query meta with ID
