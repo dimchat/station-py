@@ -37,8 +37,6 @@ import os
 
 from flask import Flask, jsonify, render_template, request
 
-from dimp import MetaCommand, ProfileCommand
-
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
@@ -68,59 +66,57 @@ def test() -> str:
 
 @app.route(BASE_URI+'/meta/<string:identifier>', methods=['GET'])
 def query_meta(identifier: str) -> str:
-    # check ID
-    identifier = g_worker.identifier(identifier)
-    if identifier is None:
+    # query meta with ID
+    code, cmd = g_worker.query_meta(identifier)
+    if code == 200:
+        response = {
+            'code': 200,
+            'message': 'OK',
+            'content': cmd,
+        }
+    elif code == 400:
         response = {
             'code': 400,  # Bad Request
             'message': 'ID error',
         }
+    elif code == 404:
+        response = {
+            'code': 404,
+            'message': 'Meta not found',
+        }
     else:
-        # get meta
-        meta = g_worker.meta(identifier=identifier)
-        if meta is None:
-            response = {
-                'code': 404,
-                'message': 'Meta not found',
-            }
-        else:
-            # response OK
-            cmd = MetaCommand.new(identifier=identifier, meta=meta)
-            response = {
-                'code': 200,
-                'message': 'OK',
-                'content': cmd,
-            }
+        response = {
+            'code': 500,
+            'message': 'Internal Server Error',
+        }
     return jsonify(response)
 
 
 @app.route(BASE_URI+'/profile/<string:identifier>', methods=['GET'])
 def query_profile(identifier: str) -> str:
-    # check ID
-    identifier = g_worker.identifier(identifier)
-    if identifier is None:
+    # query profile with ID
+    code, cmd = g_worker.query_profile(identifier)
+    if code == 200:
+        response = {
+            'code': 200,
+            'message': 'OK',
+            'content': cmd,
+        }
+    elif code == 400:
         response = {
             'code': 400,  # Bad Request
             'message': 'ID error',
         }
+    elif code == 404:
+        response = {
+            'code': 404,
+            'message': 'Profile not found',
+        }
     else:
-        # get profile
-        profile = g_worker.profile(identifier=identifier)
-        if profile is None:
-            response = {
-                'code': 404,
-                'message': 'Profile not found',
-            }
-        else:
-            # get meta
-            meta = g_worker.meta(identifier=identifier)
-            # response OK
-            cmd = ProfileCommand.new(identifier=identifier, meta=meta, profile=profile)
-            response = {
-                'code': 200,
-                'message': 'OK',
-                'content': cmd,
-            }
+        response = {
+            'code': 500,
+            'message': 'Internal Server Error',
+        }
     return jsonify(response)
 
 
@@ -131,40 +127,38 @@ def verify_message() -> str:
     sender = form.get('sender')
     data = form.get('data')
     signature = form.get('signature')
-    # check ID
-    identifier = g_worker.identifier(sender)
-    if identifier is None:
+    # check signature and data with sender ID
+    code = g_worker.verify_message(sender=sender, data=data, signature=signature)
+    if code == 200:
+        response = {
+            'code': 200,
+            'message': 'OK',
+        }
+    elif code == 400:
         response = {
             'code': 400,  # Bad Request
             'message': 'ID error',
         }
+    elif code == 403:
+        response = {
+            'code': 403,  # Forbidden
+            'message': 'Signature not match',
+        }
+    elif code == 404:
+        response = {
+            'code': 404,
+            'message': 'Meta not found',
+        }
+    elif code == 412:
+        response = {
+            'code': 412,  # Precondition Failed
+            'message': 'Data or signature error',
+        }
     else:
-        # get meta
-        meta = g_worker.meta(identifier=identifier)
-        if meta is None:
-            response = {
-                'code': 404,
-                'message': 'Meta not found',
-            }
-        else:
-            # check signature with data
-            data = g_worker.decode_data(data)
-            signature = g_worker.decode_signature(signature)
-            if data is None or signature is None:
-                response = {
-                    'code': 412,  # Precondition Failed
-                    'message': 'Data or signature error',
-                }
-            elif meta.key.verify(data=data, signature=signature):
-                response = {
-                    'code': 200,
-                    'message': 'OK',
-                }
-            else:
-                response = {
-                    'code': 403,  # Forbidden
-                    'message': 'Signature not match',
-                }
+        response = {
+            'code': 500,
+            'message': 'Internal Server Error',
+        }
     return jsonify(response)
 
 

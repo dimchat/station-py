@@ -31,6 +31,7 @@
 from binascii import Error
 
 from dimp import ID, Meta, Profile
+from dimp import Content, MetaCommand, ProfileCommand
 
 from libs.common import Log, base64_decode
 
@@ -76,3 +77,51 @@ class Worker:
             return base64_decode(signature)
         except Error:
             self.error('signature not base64: %s' % signature)
+
+    #
+    #   interfaces
+    #
+    def query_meta(self, identifier: str) -> (int, Content):
+        # check ID
+        identifier = self.identifier(identifier)
+        if identifier is None:
+            return 400, None  # Bad Request
+        # get meta
+        meta = self.meta(identifier)
+        if meta is None:
+            return 404, None  # Not Found
+        # OK
+        return 200, MetaCommand.new(identifier=identifier, meta=meta)
+
+    def query_profile(self, identifier: str) -> (int, Content):
+        # check ID
+        identifier = self.identifier(identifier)
+        if identifier is None:
+            return 400, None  # Bad Request
+        # get profile
+        profile = self.profile(identifier)
+        if profile is None:
+            return 404, None  # Not Found
+        # get meta
+        meta = self.meta(identifier)
+        # OK
+        return 200, ProfileCommand.new(identifier=identifier, meta=meta, profile=profile)
+
+    def verify_message(self, sender: str, data: str, signature: str) -> int:
+        # check ID
+        identifier = self.identifier(sender)
+        if identifier is None:
+            return 400  # Bad Request
+        # get meta
+        meta = self.meta(identifier)
+        if meta is None:
+            return 404  # Not Found
+        # check signature with data
+        data = self.decode_data(data)
+        signature = self.decode_signature(signature)
+        if data is None or signature is None:
+            return 412  # Precondition Failed
+        if meta.key.verify(data=data, signature=signature):
+            return 200  # OK
+        else:
+            return 403  # Forbidden
