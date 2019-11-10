@@ -252,7 +252,7 @@ def load_station(identifier: str) -> Station:
         private_key = PrivateKey(load_station_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
             pass
-        elif not g_facebook.save_private_key(private_key=private_key, identifier=identifier):
+        elif not g_facebook.save_private_key(key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
     # check profile
     profile = load_station_info(identifier=identifier, filename='profile.js')

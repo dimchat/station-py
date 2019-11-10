@@ -69,39 +69,84 @@ class Facebook(Barrack):
     #   super()
     #
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not self.cache_meta(meta=meta, identifier=identifier):
+        if not super().save_meta(meta=meta, identifier=identifier):
+            # meta not match
             return False
         return self.database.save_meta(meta=meta, identifier=identifier)
 
     def load_meta(self, identifier: ID) -> Optional[Meta]:
+        meta = super().load_meta(identifier=identifier)
+        if meta is not None:
+            # meta exists in cache
+            return meta
         return self.database.meta(identifier=identifier)
 
     def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
-        if not self.cache_profile(profile=profile, identifier=identifier):
+        if not super().save_profile(profile=profile, identifier=identifier):
             # profile error
             return False
         return self.database.save_profile(profile=profile)
 
     def load_profile(self, identifier: ID) -> Optional[Profile]:
+        # profile = super().load_profile(identifier=identifier)
+        # if profile is not None:
+        #     # profile exists in cache
+        #     return profile
         return self.database.profile(identifier=identifier)
 
-    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
-        return self.database.save_private_key(private_key=private_key, identifier=identifier)
+    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
+        if not super().save_private_key(key=key, identifier=identifier):
+            # key is None
+            return False
+        return self.database.save_private_key(private_key=key, identifier=identifier)
 
     def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
+        key = super().load_private_key(identifier=identifier)
+        if key is not None:
+            # private key exists in cache
+            return key
         return self.database.private_key(identifier=identifier)
 
     def save_contacts(self, contacts: list, identifier: ID) -> bool:
+        if not super().save_contacts(contacts=contacts, identifier=identifier):
+            # contacts is None (not empty list)
+            return False
         return self.database.save_contacts(contacts=contacts, user=identifier)
 
     def load_contacts(self, identifier: ID) -> Optional[list]:
+        # contacts = super().load_contacts(identifier=identifier)
+        # if contacts is not None:
+        #     # contacts exists in cache
+        #     return contacts
         return self.database.contacts(user=identifier)
 
     def save_members(self, members: list, identifier: ID) -> bool:
+        if not super().save_members(members=members, identifier=identifier):
+            # members is None (not empty list)
+            return False
         return self.database.save_members(members=members, group=identifier)
 
     def load_members(self, identifier: ID) -> Optional[list]:
+        # members = super().load_members(identifier=identifier)
+        # if members is not None:
+        #     # members exists in cache
+        #     return members
         return self.database.members(group=identifier)
+
+    def save_assistants(self, assistants: list, identifier: ID) -> bool:
+        # if not super().save_assistants(assistants=assistants, identifier=identifier):
+        #     # assistants is None (not empty list)
+        #     return False
+        return True
+
+    def load_assistants(self, identifier: ID) -> Optional[list]:
+        # assistants = super().load_assistants(identifier=identifier)
+        # if assistants is not None:
+        #     # assistants exists in cache
+        #     return assistants
+        robot = self.ans.identifier(name='assistant')
+        if robot is not None:
+            return [robot]
 
     #
     #   SocialNetworkDataSource

@@ -66,12 +66,11 @@ class FreshmenScanner(threading.Thread):
         freshmen = load_freshmen()
         if freshmen is None:
             return []
-        members = self.__group.members
-        if members is not None:
-            # remove existed members
-            for item in members:
-                if item in freshmen:
-                    freshmen.remove(item)
+        # remove existed members
+        members = self.__members()
+        for item in members:
+            if item in freshmen:
+                freshmen.remove(item)
         users = []
         for item in freshmen:
             profile = g_facebook.profile(identifier=item)

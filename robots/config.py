@@ -181,7 +181,7 @@ def load_user(identifier: str) -> User:
         private_key = PrivateKey(load_robot_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
             pass
-        elif not g_facebook.save_private_key(private_key=private_key, identifier=identifier):
+        elif not g_facebook.save_private_key(key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
     if private_key is None:
         raise AssertionError('private key not found for ID: %s' % identifier)
