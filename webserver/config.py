@@ -30,8 +30,10 @@
     Configuration for WWW
 """
 
+from dimp import ID
 from dimsdk import AddressNameService
 from dimsdk import KeyStore
+from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
@@ -42,7 +44,7 @@ from libs.common import Database, Facebook, Messenger
 #
 #  Configurations
 #
-from etc.cfg_db import base_dir
+from etc.cfg_db import base_dir, ans_reserved_records
 
 """
     Key Store
@@ -63,15 +65,6 @@ g_database.base_dir = base_dir
 Log.info("database directory: %s" % g_database.base_dir)
 
 """
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = Facebook()
-g_facebook.database = g_database
-
-"""
     Address Name Service
     ~~~~~~~~~~~~~~~~~~~~
 
@@ -81,12 +74,44 @@ g_ans = AddressNameService()
 g_ans.database = g_database
 
 """
+    Facebook
+    ~~~~~~~~
+
+    Barrack for cache entities
+"""
+g_facebook = Facebook()
+g_facebook.database = g_database
+g_facebook.ans = g_ans
+
+"""
     Messenger
     ~~~~~~~~~
 """
 g_messenger = Messenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
+
+
+"""
+    Loading info
+    ~~~~~~~~~~~~
+"""
+
+# load ANS reserved records
+Log.info('-------- loading ANS reserved records')
+for key, value in ans_reserved_records.items():
+    value = ID(value)
+    assert value.valid, 'ANS record error: %s, %s' % (key, value)
+    Log.info('Name: %s -> ID: %s' % (key, value))
+    if key in ans_keywords:
+        # remove reserved name temporary
+        index = ans_keywords.index(key)
+        ans_keywords.remove(key)
+        g_ans.save(key, value)
+        ans_keywords.insert(index, key)
+    else:
+        # not reserved name, save it directly
+        g_ans.save(key, value)
 
 
 Log.info('======== configuration OK!')
