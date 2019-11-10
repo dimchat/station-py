@@ -82,12 +82,14 @@ class FreshmenScanner(threading.Thread):
                 continue
             # profile OK
             users.append(item)
+        self.info('got freshmen: %s from %s' % (users, freshmen))
         return users
 
     def __members(self) -> list:
         members = self.__group.members
         if members is None:
             return []
+        self.info('got %d member(s) in group: %s' % (len(members), self.__group))
         return members
 
     def __save_members(self, members: list) -> bool:

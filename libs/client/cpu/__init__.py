@@ -33,11 +33,7 @@
 from .search import SearchCommandProcessor
 from .users import UsersCommandProcessor
 
-from .text import TextContentProcessor
-
 __all__ = [
     'SearchCommandProcessor',
     'UsersCommandProcessor',
-
-    'TextContentProcessor',
 ]

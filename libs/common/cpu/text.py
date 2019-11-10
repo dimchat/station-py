@@ -29,11 +29,13 @@
 
 """
 
+import time
 from typing import Optional
 
 from dimp import ID
 from dimp import InstantMessage
 from dimp import ContentType, Content, TextContent
+from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 from dimsdk import Dialog
 
@@ -60,28 +62,63 @@ class TextContentProcessor(ContentProcessor):
             self.__dialog = d
         return self.__dialog
 
-    @property
-    def remote_address(self):  # (IP, port)
-        return self.context.get('remote_address')
+    def __ignored(self, content: Content, sender: ID, msg: InstantMessage) -> bool:
+        # check robot
+        if sender.type.is_robot() or sender.type.is_station():
+            self.info('Dialog > ignore message from another robot: %s' % msg.content)
+            return True
+        # check time
+        now = int(time.time())
+        dt = now - msg.envelope.time
+        if dt > 600:
+            self.info('Old message, ignore it: %s' % msg)
+            return True
+        # check group message
+        if content.group is None:
+            # not a group message
+            return False
+        text = content.text
+        if text is None:
+            raise ValueError('text content error: %s' % content)
+        # checking '@nickname'
+        receiver = self.facebook.identifier(msg.envelope.receiver)
+        at = '@%s' % self.facebook.nickname(identifier=receiver)
+        self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
+        if text.find(at) < 0:
+            self.info('ignore group message that not querying me: %s' % text)
+            return True
+        # TODO: remove all '@nickname'
+        text = text.replace(at, '')
+        content.text = text
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
-        self.info('@@@ call NLP and response to the client %s, %s' % (self.remote_address, sender))
         nickname = self.facebook.nickname(identifier=sender)
+        self.info('Received text message from %s: %s' % (nickname, content))
+        if self.__ignored(content=content, sender=sender, msg=msg):
+            return None
         response = self.dialog.query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
-            assert isinstance(content, TextContent)
             question = content.text
             answer = response.text
-            self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+            group = self.facebook.identifier(content.group)
+            if group is None:
+                # personal message
+                self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+            else:
+                # group message
+                self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
+                if self.messenger.send_content(content=response, receiver=group):
+                    text = 'Group message responded'
+                    return ReceiptCommand.new(message=text)
+                else:
+                    text = 'Group message respond failed'
+                    return ReceiptCommand.new(message=text)
             return response
-        # TEST: response client with the same message here
-        self.info('Dialog > message from %s(%s): %s' % (nickname, sender, content))
-        return content
 
 
 # register

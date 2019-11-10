@@ -35,9 +35,13 @@ from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
 from .contacts import ContactsCommandProcessor
 
+from .text import TextContentProcessor
+
 __all__ = [
     'HandshakeCommandProcessor', 'HandshakeDelegate',
     'MuteCommandProcessor',
     'BlockCommandProcessor',
     'ContactsCommandProcessor',
+
+    'TextContentProcessor',
 ]

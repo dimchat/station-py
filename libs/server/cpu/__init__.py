@@ -35,13 +35,9 @@ from .login import LoginCommandProcessor
 from .search import SearchCommandProcessor
 from .users import UsersCommandProcessor
 
-from .text import TextContentProcessor
-
 __all__ = [
     'ReportCommandProcessor',
     'LoginCommandProcessor',
     'SearchCommandProcessor',
     'UsersCommandProcessor',
-
-    'TextContentProcessor',
 ]
