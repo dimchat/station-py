@@ -4,17 +4,17 @@ Demo project for [pypi/dimp](https://pypi.org/project/dimp/) packages.
 
 Source codes:
 
-1. [DIM Protocol (core-py)](https://github.com/dimchat/core-py)
-2. [Message Module (dkd-py)](https://github.com/dimchat/dkd-py)
-3. [Account Module (mkm-py)](https://github.com/dimchat/mkm-py)
+1. [DIM SDK (sdk-py)](https://github.com/dimchat/sdk-py)
+2. [DIM Protocol (core-py)](https://github.com/dimchat/core-py)
+3. [Message Module (dkd-py)](https://github.com/dimchat/dkd-py)
+4. [Account Module (mkm-py)](https://github.com/dimchat/mkm-py)
 
 ## Usages
 
 1.) Install Requirements
 
 ```
-pip3 install dimp
-pip3 install apns2
+pip3 install dimsdk
 ```
 
 2.) Run Server
