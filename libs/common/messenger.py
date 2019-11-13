@@ -199,3 +199,36 @@ class Messenger(Transceiver):
                 # trim it
                 msg = msg.trim(member=user.identifier)
                 return super().decrypt_message(msg=msg)
+
+    #
+    #  Conveniences
+    #
+    def encrypt_sign(self, msg: InstantMessage) -> ReliableMessage:
+        # 1. encrypt 'content' to 'data' for receiver
+        s_msg = self.encrypt_message(msg=msg)
+        # 1.1. check group
+        group = msg.content.group
+        if group is not None:
+            # NOTICE: this help the receiver knows the group ID
+            #         when the group message separated to multi-messages,
+            #         if don't want the others know you are the group members,
+            #         remove it.
+            s_msg.envelope.group = group
+        # 1.2. copy content type to envelope
+        #      NOTICE: this help the intermediate nodes to recognize message type
+        s_msg.envelope.type = msg.content.type
+        # 2. sign 'data' by sender
+        r_msg = self.sign_message(msg=s_msg)
+        # OK
+        return r_msg
+
+    def verify_decrypt(self, msg: ReliableMessage) -> Optional[InstantMessage]:
+        # 1. verify 'data' with 'signature'
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # failed to verify message
+            return None
+        # 2. decrypt 'data' to 'content'
+        i_msg = self.decrypt_message(msg=s_msg)
+        # OK
+        return i_msg
