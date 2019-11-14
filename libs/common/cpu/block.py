@@ -44,10 +44,9 @@ class BlockCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     def __get(self, sender: ID) -> Content:
-        self.info('search block-list for %s' % sender)
         stored: Command = self.database.block_command(identifier=sender)
         if stored is not None:
             # response the stored block command directly
@@ -62,10 +61,8 @@ class BlockCommandProcessor(CommandProcessor):
     def __put(self, cmd: Command, sender: ID) -> Content:
         # receive block command, save it
         if self.database.save_block_command(cmd=cmd, sender=sender):
-            self.info('block command saved for %s' % sender)
             return ReceiptCommand.new(message='Block command of %s received!' % sender)
         else:
-            self.error('failed to save block command: %s' % cmd)
             return TextContent.new(text='Block-list not stored %s!' % cmd)
 
     #

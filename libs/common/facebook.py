@@ -35,7 +35,7 @@ from typing import Optional
 from mkm.immortals import Immortals
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile, User
+from dimp import ID, Meta, Profile, User, LocalUser
 from dimsdk import Facebook as Barrack
 
 from .database import Database
@@ -165,7 +165,21 @@ class Facebook(Barrack):
         obj = self.__immortals.user(identifier=identifier)
         if obj is not None:
             return obj
-        return super().user(identifier=identifier)
+        try:
+            return super().user(identifier=identifier)
+        except NotImplementedError:
+            if identifier.type.is_robot():
+                return self.__robot(identifier=identifier)
+
+    def __robot(self, identifier: ID) -> Optional[User]:
+        private_key = self.private_key_for_signature(identifier=identifier)
+        if private_key is None:
+            user = User(identifier=identifier)
+        else:
+            user = LocalUser(identifier=identifier)
+        # cache it in barrack
+        self.cache_user(user=user)
+        return user
 
     #
     #   EntityDataSource

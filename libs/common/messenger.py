@@ -34,10 +34,10 @@ from typing import Optional
 
 from dimp import ID, User
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content
 from dimsdk import Session, SessionServer
 from dimsdk import Messenger as Transceiver
 from dimsdk import ContentProcessor
+from dkd import Content
 
 
 class Messenger(Transceiver):
@@ -49,7 +49,7 @@ class Messenger(Transceiver):
     #   Session with ID, (IP, port), session key, valid
     #
     def current_session(self, identifier: ID=None) -> Optional[Session]:
-        session: Session = self.context.get('session')
+        session: Session = self.get_context(key='session')
         if identifier is None:
             # get current session
             return session
@@ -63,55 +63,37 @@ class Messenger(Transceiver):
                 self.session_server.remove(session=session)
         # get new session with identifier
         session = self.session_server.new(identifier=identifier, client_address=self.remote_address)
-        self.context['session'] = session
+        self.set_context(key='session', value=session)
         return session
 
     def clear_session(self):
-        session: Session = self.context.get('session')
+        session: Session = self.get_context(key='session')
         if session is not None:
             self.session_server.remove(session=session)
-            self.context.pop('session')
+            self.set_context(key='session', value=None)
 
     @property
     def session_server(self) -> SessionServer:
-        return self.context.get('session_server')
+        return self.get_context(key='session_server')
 
     #
     #   Remote user(for station) or station(for client)
     #
     @property
     def remote_user(self) -> User:
-        return self.context.get('remote_user')
+        return self.get_context(key='remote_user')
 
     @remote_user.setter
     def remote_user(self, value: User):
-        if value is None:
-            self.context.pop('remote_user', None)
-        else:
-            self.context['remote_user'] = value
+        self.set_context(key='remote_user', value=value)
 
     @property
     def remote_address(self):  # (IP, port)
-        return self.context.get('remote_address')
+        return self.get_context(key='remote_address')
 
-    # @remote_address.setter
-    # def remote_address(self, value):
-    #     if value is None:
-    #         self.context.pop('remote_address', None)
-    #     else:
-    #         self.context['remote_address'] = value
-
-    @property
-    def current_user(self) -> Optional[User]:
-        return super().current_user
-
-    @current_user.setter
-    def current_user(self, value: User):
-        users = self.local_users
-        if value in users:
-            self.__alter(current_user=value)
-        else:
-            users.insert(0, value)
+    @remote_address.setter
+    def remote_address(self, value):
+        self.set_context(key='remote_address', value=value)
 
     #
     #   switch current user
@@ -164,14 +146,21 @@ class Messenger(Transceiver):
     #
     #   super()
     #
-    def cpu(self, context: dict=None) -> ContentProcessor:
-        assert context is None, 'use messenger.context only'
-        return super().cpu(context=self.context)
+    def cpu(self) -> ContentProcessor:
+        return super().cpu()
 
-    def send_content(self, content: Content, receiver: ID) -> bool:
-        sender = self.current_user.identifier
-        msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
-        return self.send_message(msg=msg)
+    def save_message(self, msg: InstantMessage) -> bool:
+        # TODO: save instant message
+        return True
+
+    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        pass
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
+        pass
+
+    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
+        pass
 
     #
     #   Transform

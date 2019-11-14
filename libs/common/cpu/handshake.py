@@ -39,8 +39,6 @@ from dimp import Content
 from dimp import Command, HandshakeCommand
 from dimsdk import CommandProcessor, Session
 
-from ..messenger import Messenger
-
 
 class HandshakeDelegate(metaclass=ABCMeta):
 
@@ -59,16 +57,13 @@ class HandshakeCommandProcessor(CommandProcessor):
 
     @property
     def delegate(self) -> HandshakeDelegate:
-        return self.context.get('handshake_delegate')
+        return self.get_context('handshake_delegate')
 
     # @property
     # def session_server(self):
     #     return self.context.get('session_server')
 
     def __offer(self, sender: ID, session_key: str=None) -> Content:
-        messenger: Messenger = self.messenger
-        client_address = messenger.remote_address
-        self.info('handshake with client %s, %s' % (client_address, sender))
         # set/update session in session server with new session key
         session = self.messenger.current_session(identifier=sender)
         if session_key == session.session_key:

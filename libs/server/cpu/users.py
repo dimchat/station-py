@@ -45,7 +45,7 @@ class UsersCommandProcessor(CommandProcessor):
 
     @property
     def session_server(self) -> SessionServer:
-        return self.context['session_server']
+        return self.get_context('session_server')
 
     def __random_users(self, max_count=20) -> Optional[Content]:
         users = self.session_server.random_users(max_count=max_count)
@@ -66,7 +66,6 @@ class UsersCommandProcessor(CommandProcessor):
         # message
         message = content.get('message')
         if message is None:
-            self.info('get online user(s) for %s' % sender)
             return self.__random_users()
         else:
             return self.__update(content=content)

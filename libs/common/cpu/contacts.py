@@ -44,11 +44,10 @@ class ContactsCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     def __get(self, sender: ID) -> Content:
         # query encrypted contacts, load it
-        self.info('search contacts(command with encrypted data) for %s' % sender)
         stored: Command = self.database.contacts_command(identifier=sender)
         # response
         if stored is not None:
@@ -60,10 +59,8 @@ class ContactsCommandProcessor(CommandProcessor):
     def __put(self, cmd: Command, sender: ID) -> Content:
         # receive encrypted contacts, save it
         if self.database.save_contacts_command(cmd=cmd, sender=sender):
-            self.info('contacts command saved for %s' % sender)
             return ReceiptCommand.new(message='Contacts of %s received!' % sender)
         else:
-            self.error('failed to save contacts command: %s' % cmd)
             return TextContent.new(text='Contacts not stored %s!' % cmd)
 
     #

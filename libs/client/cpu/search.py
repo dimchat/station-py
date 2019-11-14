@@ -46,13 +46,13 @@ class SearchCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     def __search(self, keywords: list) -> Optional[Content]:
         pass
 
-    def __update(self, content: Content) -> Optional[Content]:
-        self.info('received search response')
+    @staticmethod
+    def __update(content: Content) -> Optional[Content]:
         if 'users' in content:
             users = content['users']
             print('      users:', json.dumps(users))
@@ -69,7 +69,6 @@ class SearchCommandProcessor(CommandProcessor):
         # message
         message = content.get('message')
         if message is None:
-            self.info('search users for %s, %s' % (sender, content))
             keywords = content['keywords'].split(' ')
             return self.__search(keywords=keywords)
         else:

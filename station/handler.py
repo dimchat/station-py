@@ -40,7 +40,7 @@ from dimp import Content, TextContent, ForwardContent
 from dimsdk import NetMsgHead, NetMsg, CompletionHandler
 from dimsdk import MessengerDelegate
 
-from libs.common import Log, Messenger, HandshakeDelegate
+from libs.common import Log, HandshakeDelegate
 from libs.server import Session
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
@@ -48,6 +48,7 @@ from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, local_servers, chat_bot
 
 from .filter import Filter
+from .messenger import Messenger
 
 
 class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):

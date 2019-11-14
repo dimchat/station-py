@@ -48,7 +48,6 @@ class LoginCommandProcessor(CommandProcessor):
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # TODO: update login status
-        self.info('Login command: %s' % content)
         return ReceiptCommand.new(message='Login received')
 
 

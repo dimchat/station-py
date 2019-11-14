@@ -39,19 +39,26 @@ from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 from dimsdk import Dialog
 
+from ..utils import Log
+
 
 class TextContentProcessor(ContentProcessor):
 
-    def __init__(self, context: dict):
-        super().__init__(context=context)
+    def __init__(self, messenger):
+        super().__init__(messenger=messenger)
         self.__dialog: Dialog = None
+
+    @staticmethod
+    def info(msg: str):
+        Log.info('Text:\t%s' % msg)
+        pass
 
     @property
     def bots(self) -> list:
-        array = self.context.get('bots')
+        array = self.get_context('bots')
         if array is None:
             array = []
-            self.context['bots'] = array
+            self.set_context('bots', array)
         return array
 
     @property

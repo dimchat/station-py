@@ -44,13 +44,13 @@ class UsersCommandProcessor(CommandProcessor):
 
     @property
     def session_server(self):  # SessionServer
-        return self.context['session_server']
+        return self.get_context('session_server')
 
     def __random_users(self, max_count=20) -> Optional[Content]:
         pass
 
-    def __update(self, content: Content) -> Optional[Content]:
-        self.info('online users: %s' % content.get('message'))
+    @staticmethod
+    def __update(content: Content) -> Optional[Content]:
         if 'users' in content:
             users = content['users']
             print('      users:', json.dumps(users))
@@ -64,7 +64,6 @@ class UsersCommandProcessor(CommandProcessor):
         # message
         message = content.get('message')
         if message is None:
-            self.info('get online user(s) for %s' % sender)
             return self.__random_users()
         else:
             return self.__update(content=content)

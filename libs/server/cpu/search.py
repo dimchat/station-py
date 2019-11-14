@@ -45,7 +45,7 @@ class SearchCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     def __search(self, keywords: list) -> Optional[Content]:
         results = self.database.search(keywords=keywords)
@@ -68,7 +68,6 @@ class SearchCommandProcessor(CommandProcessor):
         # message
         message = content.get('message')
         if message is None:
-            self.info('search users for %s, %s' % (sender, content))
             keywords = content['keywords'].split(' ')
             return self.__search(keywords=keywords)
         else:

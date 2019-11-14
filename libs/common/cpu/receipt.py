@@ -24,26 +24,42 @@
 # ==============================================================================
 
 """
-    Command Processing Unites
+    Receipt Command Processor
     ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Processors for commands
 """
 
-from .handshake import HandshakeCommandProcessor, HandshakeDelegate
-from .mute import MuteCommandProcessor
-from .block import BlockCommandProcessor
-from .contacts import ContactsCommandProcessor
+from typing import Optional
 
-from .receipt import ReceiptCommandProcessor
-from .text import TextContentProcessor
+from dimp import ID
+from dimp import InstantMessage
+from dimp import Content
+from dimp import Command
+from dimsdk import ReceiptCommand
+from dimsdk import CommandProcessor
 
-__all__ = [
-    'HandshakeCommandProcessor', 'HandshakeDelegate',
-    'MuteCommandProcessor',
-    'BlockCommandProcessor',
-    'ContactsCommandProcessor',
+from ..utils import Log
 
-    'ReceiptCommandProcessor',
-    'TextContentProcessor',
-]
+
+class ReceiptCommandProcessor(CommandProcessor):
+
+    def __init__(self, messenger):
+        super().__init__(messenger=messenger)
+
+    @staticmethod
+    def info(msg: str):
+        Log.info('Receipt:\t%s' % msg)
+        pass
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, ReceiptCommand), 'text content error: %s' % content
+        nickname = self.facebook.nickname(identifier=sender)
+        self.info('Received receipt message from %s: %s' % (nickname, content))
+        return None
+
+
+# register
+CommandProcessor.register(command=Command.RECEIPT, processor_class=ReceiptCommandProcessor)

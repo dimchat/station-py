@@ -44,10 +44,9 @@ class MuteCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     def __get(self, sender: ID) -> Content:
-        self.info('search mute-list for %s' % sender)
         stored: Command = self.database.mute_command(identifier=sender)
         if stored is not None:
             # response the stored mute command directly
@@ -62,10 +61,8 @@ class MuteCommandProcessor(CommandProcessor):
     def __put(self, cmd: Command, sender: ID) -> Content:
         # receive mute command, save it
         if self.database.save_mute_command(cmd=cmd, sender=sender):
-            self.info('mute command saved for %s' % sender)
             return ReceiptCommand.new(message='Mute command of %s received!' % sender)
         else:
-            self.error('failed to save mute command: %s' % cmd)
             return TextContent.new(text='Mute-list not stored %s!' % cmd)
 
     #

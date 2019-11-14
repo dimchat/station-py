@@ -34,7 +34,7 @@ from typing import Optional
 
 from dimp import ID
 from dimp import InstantMessage
-from dimp import Content
+from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import Session
 from dimsdk import ReceiptCommand
@@ -47,16 +47,15 @@ class ReportCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.context['database']
+        return self.get_context('database')
 
     @property
     def receptionist(self):
-        return self.context['receptionist']
+        return self.get_context('receptionist')
 
     def __process_old_report(self, cmd: Command, sender: ID) -> Optional[Content]:
         # compatible with v1.0
         state = cmd.get('state')
-        self.info('client report state %s' % state)
         if state is not None:
             session = self.messenger.current_session(identifier=sender)
             if 'background' == state:
@@ -66,17 +65,14 @@ class ReportCommandProcessor(CommandProcessor):
                 self.receptionist.add_guest(identifier=session.identifier)
                 session.active = True
             else:
-                self.error('unknown state %s' % state)
                 session.active = True
             return ReceiptCommand.new(message='Client state received')
-        self.error('report info error: %s' % cmd)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
-        self.info('client broadcast %s, %s' % (sender, content))
         # report title
         title = content.get('title')
         if 'report' == title:
@@ -85,14 +81,9 @@ class ReportCommandProcessor(CommandProcessor):
         cpu = self.cpu(command=title)
         # check and run
         if cpu is None:
-            self.error('command not supported yet: %s' % content)
-        elif cpu is self:
-            # FIXME: dead cycle!
-            self.error('Dead cycle! command: %s' % content)
-            raise AssertionError('Dead cycle!')
-        else:
-            # process by subclass
-            return cpu.process(content=content, sender=sender, msg=msg)
+            return TextContent.new(text='Report command (title: %s) not support yet!' % title)
+        assert cpu is not self, 'Dead cycle! report cmd: %s' % content
+        return cpu.process(content=content, sender=sender, msg=msg)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
@@ -104,7 +95,6 @@ class APNsCommandProcessor(ReportCommandProcessor):
         assert isinstance(content, Command), 'command error: %s' % content
         # submit device token for APNs
         token = content.get('device_token')
-        self.info('client report token %s' % token)
         if token is not None:
             self.database.save_device_token(token=token, identifier=sender)
             return ReceiptCommand.new(message='Token received')
@@ -118,7 +108,6 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # welcome back!
-        self.info('client online')
         self.receptionist.add_guest(identifier=sender)
         session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
@@ -134,7 +123,6 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # goodbye!
-        self.info('client offline')
         session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = False

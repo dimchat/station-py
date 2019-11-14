@@ -24,26 +24,26 @@
 # ==============================================================================
 
 """
-    Command Processing Unites
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
+    Messenger for request handler in station
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Processors for commands
+    Transform and send message
 """
 
-from .handshake import HandshakeCommandProcessor, HandshakeDelegate
-from .mute import MuteCommandProcessor
-from .block import BlockCommandProcessor
-from .contacts import ContactsCommandProcessor
+from typing import Optional
 
-from .receipt import ReceiptCommandProcessor
-from .text import TextContentProcessor
+from dimp import Content
+from dimp import ReliableMessage
 
-__all__ = [
-    'HandshakeCommandProcessor', 'HandshakeDelegate',
-    'MuteCommandProcessor',
-    'BlockCommandProcessor',
-    'ContactsCommandProcessor',
+from libs.common import Messenger as Transceiver
 
-    'ReceiptCommandProcessor',
-    'TextContentProcessor',
-]
+from .config import g_dispatcher
+
+
+class Messenger(Transceiver):
+
+    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        pass
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
+        return g_dispatcher.deliver(msg=msg)
