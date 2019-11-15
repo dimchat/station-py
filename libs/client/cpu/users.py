@@ -24,7 +24,7 @@
 # ==============================================================================
 
 """
-    Command Processor for 'users'
+    Response Processor for 'users'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     show online users (connected)
@@ -42,20 +42,6 @@ from dimsdk import CommandProcessor
 
 class UsersCommandProcessor(CommandProcessor):
 
-    @property
-    def session_server(self):  # SessionServer
-        return self.get_context('session_server')
-
-    def __random_users(self, max_count=20) -> Optional[Content]:
-        pass
-
-    @staticmethod
-    def __update(content: Content) -> Optional[Content]:
-        if 'users' in content:
-            users = content['users']
-            print('      users:', json.dumps(users))
-        return None
-
     #
     #   main
     #
@@ -63,10 +49,12 @@ class UsersCommandProcessor(CommandProcessor):
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')
-        if message is None:
-            return self.__random_users()
-        else:
-            return self.__update(content=content)
+        print('online users response: %s' % message)
+        # users
+        users = content.get('users')
+        if users is not None:
+            print('      users:', json.dumps(users))
+        return None
 
 
 # register

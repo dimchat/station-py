@@ -36,14 +36,16 @@ from dimp import Content, Command, HandshakeCommand
 from dimsdk import Station, Session
 
 from .connection import Connection
-from ..common import Messenger, HandshakeDelegate
+from .cpu import HandshakeDelegate
+
+from .messenger import ClientMessenger
 
 
 class Terminal(HandshakeDelegate):
 
     def __init__(self):
         super().__init__()
-        self._messenger: Messenger = None
+        self._messenger: ClientMessenger = None
         # station connection
         self.station: Station = None
         self.session: str = None
@@ -88,11 +90,11 @@ class Terminal(HandshakeDelegate):
         self.messenger.current_user = value
 
     @property
-    def messenger(self) -> Messenger:
+    def messenger(self) -> ClientMessenger:
         return self._messenger
 
     @messenger.setter
-    def messenger(self, value: Messenger):
+    def messenger(self, value: ClientMessenger):
         self._messenger = value
 
     def send_command(self, cmd: Command) -> bool:

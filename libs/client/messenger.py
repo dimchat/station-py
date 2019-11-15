@@ -24,8 +24,8 @@
 # ==============================================================================
 
 """
-    Messenger for request handler in station
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Messenger for client
+    ~~~~~~~~~~~~~~~~~~~~
 
     Transform and send message
 """
@@ -33,17 +33,34 @@
 from typing import Optional
 
 from dimp import Content
-from dimp import ReliableMessage
+from dimp import InstantMessage, ReliableMessage
 
-from libs.common import Messenger as Transceiver
-
-from .config import g_dispatcher
+from ..common import CommonMessenger
 
 
-class Messenger(Transceiver):
+class ClientMessenger(CommonMessenger):
+
+    def __init__(self):
+        super().__init__()
+
+    #
+    #   Message
+    #
+    def save_message(self, msg: InstantMessage) -> bool:
+        # TODO: save instant message
+        return True
 
     def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
-        pass
+        # this job is for station
+        # client doesn't have to do it
+        return None
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
-        return g_dispatcher.deliver(msg=msg)
+        # this job is for station
+        # client doesn't have to do it
+        return None
+
+    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
+        # this job is for station
+        # client doesn't have to do it
+        return None

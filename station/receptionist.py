@@ -37,7 +37,8 @@ from threading import Thread
 from dimp import ID
 from dimsdk import ApplePushNotificationService
 
-from libs.common import Database, Log
+from libs.common import Database
+from libs.common import Log
 from libs.server import Server, SessionServer
 
 
@@ -53,10 +54,10 @@ class Receptionist(Thread):
         self.guests = []
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def add_guest(self, identifier: ID):
         self.guests.append(identifier)

@@ -40,7 +40,7 @@ from .cpu import *
 from .database import Storage, Database
 
 from .facebook import Facebook
-from .messenger import Messenger
+from .messenger import CommonMessenger
 
 
 __all__ = [
@@ -59,12 +59,7 @@ __all__ = [
     'Database',
 
     #
-    #   Command Processor Units
-    #
-    'HandshakeDelegate',
-
-    #
     #   Common libs
     #
-    'Facebook', 'Messenger',
+    'Facebook', 'CommonMessenger',
 ]

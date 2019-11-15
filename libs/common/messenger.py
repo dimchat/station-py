@@ -30,88 +30,19 @@
     Transform and send message
 """
 
+from abc import ABC
 from typing import Optional
 
 from dimp import ID, User
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import Session, SessionServer
-from dimsdk import Messenger as Transceiver
-from dimsdk import ContentProcessor
-from dkd import Content
+from dimsdk import Messenger
 
 
-class Messenger(Transceiver):
-
-    def __init__(self):
-        super().__init__()
-
-    #
-    #   Session with ID, (IP, port), session key, valid
-    #
-    def current_session(self, identifier: ID=None) -> Optional[Session]:
-        session: Session = self.get_context(key='session')
-        if identifier is None:
-            # get current session
-            return session
-        if session is not None:
-            # check whether the current session's identifier matched
-            if session.identifier == identifier:
-                # current session belongs to the same user
-                return session
-            else:
-                # user switched, clear current session
-                self.session_server.remove(session=session)
-        # get new session with identifier
-        session = self.session_server.new(identifier=identifier, client_address=self.remote_address)
-        self.set_context(key='session', value=session)
-        return session
-
-    def clear_session(self):
-        session: Session = self.get_context(key='session')
-        if session is not None:
-            self.session_server.remove(session=session)
-            self.set_context(key='session', value=None)
-
-    @property
-    def session_server(self) -> SessionServer:
-        return self.get_context(key='session_server')
-
-    #
-    #   Remote user(for station) or station(for client)
-    #
-    @property
-    def remote_user(self) -> User:
-        return self.get_context(key='remote_user')
-
-    @remote_user.setter
-    def remote_user(self, value: User):
-        self.set_context(key='remote_user', value=value)
-
-    @property
-    def remote_address(self):  # (IP, port)
-        return self.get_context(key='remote_address')
-
-    @remote_address.setter
-    def remote_address(self, value):
-        self.set_context(key='remote_address', value=value)
+class CommonMessenger(Messenger, ABC):
 
     #
     #   switch current user
     #
-    def __alter(self, current_user: User):
-        """ Alter the position of this user to the front """
-        local_users = self.local_users
-        for index, user in enumerate(local_users):
-            if user.identifier == current_user.identifier:
-                # got it
-                if index > 0:
-                    # move this user in front for next message
-                    item = local_users.pop(index)
-                    assert item == current_user, 'should not happen'
-                    local_users.insert(0, current_user)
-                # done!
-                break
-
     def __select(self, receiver: ID=None, group: ID=None) -> Optional[User]:
         """ Select a local user for decrypting message """
         local_users = self.local_users
@@ -128,7 +59,7 @@ class Messenger(Transceiver):
             for user in local_users:
                 if user.identifier in members:
                     # got it
-                    self.__alter(current_user=user)
+                    self.current_user = user
                     return user
             # FIXME: not for you?
         else:
@@ -140,84 +71,32 @@ class Messenger(Transceiver):
             for user in local_users:
                 if user.identifier == receiver:
                     # got it
-                    self.__alter(current_user=user)
+                    self.current_user = user
                     return user
-
-    #
-    #   super()
-    #
-    def cpu(self) -> ContentProcessor:
-        return super().cpu()
-
-    def save_message(self, msg: InstantMessage) -> bool:
-        # TODO: save instant message
-        return True
-
-    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
-        pass
-
-    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
-        pass
-
-    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
-        pass
 
     #
     #   Transform
     #
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        if msg.meta is None:
-            sender = self.facebook.identifier(msg.envelope.sender)
-            meta = self.facebook.meta(identifier=sender)
-            if meta is None:
-                # TODO: keep this message in waiting list for meta response
-                return None
-        return super().verify_message(msg=msg)
+        try:
+            return super().verify_message(msg=msg)
+        except LookupError:
+            # TODO: keep this message in waiting list for meta response
+            #       (facebook/database should query meta automatically)
+            return None
 
     def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
         receiver = self.barrack.identifier(msg.envelope.receiver)
         if receiver.type.is_user():
             # check whether the receiver is in local users
             user = self.__select(receiver=receiver)
-            if user is not None:
-                return super().decrypt_message(msg=msg)
+            if user is None:
+                return None
         elif receiver.type.is_group():
             # check which local user is in the group's member-list
             user = self.__select(group=receiver)
-            if user is not None:
-                # trim it
-                msg = msg.trim(member=user.identifier)
-                return super().decrypt_message(msg=msg)
-
-    #
-    #  Conveniences
-    #
-    def encrypt_sign(self, msg: InstantMessage) -> ReliableMessage:
-        # 1. encrypt 'content' to 'data' for receiver
-        s_msg = self.encrypt_message(msg=msg)
-        # 1.1. check group
-        group = msg.content.group
-        if group is not None:
-            # NOTICE: this help the receiver knows the group ID
-            #         when the group message separated to multi-messages,
-            #         if don't want the others know you are the group members,
-            #         remove it.
-            s_msg.envelope.group = group
-        # 1.2. copy content type to envelope
-        #      NOTICE: this help the intermediate nodes to recognize message type
-        s_msg.envelope.type = msg.content.type
-        # 2. sign 'data' by sender
-        r_msg = self.sign_message(msg=s_msg)
-        # OK
-        return r_msg
-
-    def verify_decrypt(self, msg: ReliableMessage) -> Optional[InstantMessage]:
-        # 1. verify 'data' with 'signature'
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # failed to verify message
-            return None
-        # 2. decrypt 'data' to 'content'
-        i_msg = self.decrypt_message(msg=s_msg)
-        # OK
-        return i_msg
+            if user is None:
+                return None
+            # trim it
+            msg = msg.trim(member=user.identifier)
+        return super().decrypt_message(msg=msg)

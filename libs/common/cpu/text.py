@@ -31,6 +31,7 @@
 
 import time
 from typing import Optional
+from urllib.error import URLError
 
 from dimp import ID
 from dimp import InstantMessage
@@ -48,10 +49,11 @@ class TextContentProcessor(ContentProcessor):
         super().__init__(messenger=messenger)
         self.__dialog: Dialog = None
 
-    @staticmethod
-    def info(msg: str):
-        Log.info('Text:\t%s' % msg)
-        pass
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def bots(self) -> list:
@@ -68,6 +70,13 @@ class TextContentProcessor(ContentProcessor):
             d.bots = self.bots
             self.__dialog = d
         return self.__dialog
+
+    def __query(self, content: Content, sender: ID) -> TextContent:
+        dialog = self.dialog
+        try:
+            return dialog.query(content=content, sender=sender)
+        except URLError as error:
+            self.error('%s' % error)
 
     def __ignored(self, content: Content, sender: ID, msg: InstantMessage) -> bool:
         # check robot
@@ -107,7 +116,7 @@ class TextContentProcessor(ContentProcessor):
         self.info('Received text message from %s: %s' % (nickname, content))
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
-        response = self.dialog.query(content=content, sender=sender)
+        response = self.__query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
             question = content.text

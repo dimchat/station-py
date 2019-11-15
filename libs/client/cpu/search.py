@@ -24,7 +24,7 @@
 # ==============================================================================
 
 """
-    Command Processor for 'search'
+    Response Processor for 'search'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     search users with keyword(s)
@@ -39,27 +39,8 @@ from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
-from ...common import Database
-
 
 class SearchCommandProcessor(CommandProcessor):
-
-    @property
-    def database(self) -> Database:
-        return self.get_context('database')
-
-    def __search(self, keywords: list) -> Optional[Content]:
-        pass
-
-    @staticmethod
-    def __update(content: Content) -> Optional[Content]:
-        if 'users' in content:
-            users = content['users']
-            print('      users:', json.dumps(users))
-        if 'results' in content:
-            results = content['results']
-            print('      results:', results)
-        return None
 
     #
     #   main
@@ -68,11 +49,16 @@ class SearchCommandProcessor(CommandProcessor):
         assert isinstance(content, Command), 'command error: %s' % content
         # message
         message = content.get('message')
-        if message is None:
-            keywords = content['keywords'].split(' ')
-            return self.__search(keywords=keywords)
-        else:
-            return self.__update(content=content)
+        print('search response: %s' % message)
+        # users
+        users = content.get('users')
+        if users is not None:
+            print('      users:', json.dumps(users))
+        # results
+        results = content.get('results')
+        if results is not None:
+            print('      results:', json.dumps(results))
+        return None
 
 
 # register

@@ -33,9 +33,16 @@ from .cpu import *
 
 from .connection import Connection
 from .terminal import Terminal
+from .messenger import ClientMessenger
 
 
 __all__ = [
+    #
+    #   Command Processor Units
+    #
+    'HandshakeDelegate',
+
     'Connection',
     'Terminal',
+    'ClientMessenger',
 ]

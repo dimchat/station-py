@@ -42,10 +42,10 @@ from webserver.config import g_facebook
 class Worker:
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def identifier(self, identifier: str) -> Optional[ID]:
         try:

@@ -30,12 +30,14 @@
     Processors for commands
 """
 
+from .handshake import HandshakeCommandProcessor, HandshakeDelegate
 from .report import ReportCommandProcessor
 from .login import LoginCommandProcessor
 from .search import SearchCommandProcessor
 from .users import UsersCommandProcessor
 
 __all__ = [
+    'HandshakeCommandProcessor', 'HandshakeDelegate',
     'ReportCommandProcessor',
     'LoginCommandProcessor',
     'SearchCommandProcessor',

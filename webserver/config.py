@@ -39,7 +39,9 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, Messenger
+from libs.common import Database, Facebook
+from libs.server import ServerMessenger
+
 
 #
 #  Configurations
@@ -84,10 +86,10 @@ g_facebook.database = g_database
 g_facebook.ans = g_ans
 
 """
-    Messenger
-    ~~~~~~~~~
+    Messenger for server
+    ~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = Messenger()
+g_messenger = ServerMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
 

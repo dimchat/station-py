@@ -61,10 +61,10 @@ class Connection(threading.Thread, MessengerDelegate):
         self.__last_time: int = 0
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def __del__(self):
         self.disconnect()

@@ -37,7 +37,8 @@ from dimp import ID, Group
 from dimp import Content, TextContent
 from dimp import MetaCommand, ProfileCommand, GroupCommand, InviteCommand
 
-from libs.common import Log, Messenger
+from libs.common import Log
+from libs.client import ClientMessenger
 
 from robots.config import g_facebook
 from robots.config import group_naruto, load_freshmen
@@ -48,16 +49,16 @@ class FreshmenScanner(threading.Thread):
     def __init__(self):
         super().__init__()
         # delegate for send message
-        self.messenger: Messenger = None
+        self.messenger: ClientMessenger = None
         # group
         gid = g_facebook.identifier(group_naruto)
         self.__group: Group = g_facebook.group(gid)
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def __send_content(self, content: Content, receiver: ID) -> bool:
         return self.messenger.send_content(content=content, receiver=receiver)

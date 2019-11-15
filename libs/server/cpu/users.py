@@ -47,28 +47,16 @@ class UsersCommandProcessor(CommandProcessor):
     def session_server(self) -> SessionServer:
         return self.get_context('session_server')
 
-    def __random_users(self, max_count=20) -> Optional[Content]:
-        users = self.session_server.random_users(max_count=max_count)
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
-
-    def __update(self, content: Content) -> Optional[Content]:
-        # TODO: response, update
-        pass
-
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
-        # message
-        message = content.get('message')
-        if message is None:
-            return self.__random_users()
-        else:
-            return self.__update(content=content)
+        users = self.session_server.random_users()
+        response = Command.new(command='users')
+        response['message'] = '%d user(s) connected' % len(users)
+        response['users'] = users
+        return response
 
 
 # register

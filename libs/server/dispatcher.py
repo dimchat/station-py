@@ -38,8 +38,9 @@ from dimp import ContentType, Content
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
-from libs.common import Database, Facebook, Log
-from libs.server import SessionServer
+from ..common import Database, Facebook
+from ..common import Log
+from .session import SessionServer
 
 
 class Dispatcher:
@@ -53,10 +54,10 @@ class Dispatcher:
         self.neighbors: list = []
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:

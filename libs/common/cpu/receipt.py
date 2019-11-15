@@ -46,10 +46,11 @@ class ReceiptCommandProcessor(CommandProcessor):
     def __init__(self, messenger):
         super().__init__(messenger=messenger)
 
-    @staticmethod
-    def info(msg: str):
-        Log.info('Receipt:\t%s' % msg)
-        pass
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     #
     #   main

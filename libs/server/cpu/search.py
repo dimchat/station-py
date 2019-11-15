@@ -34,7 +34,7 @@ from typing import Optional
 
 from dimp import ID
 from dimp import InstantMessage
-from dimp import Content
+from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import CommandProcessor
 
@@ -47,7 +47,17 @@ class SearchCommandProcessor(CommandProcessor):
     def database(self) -> Database:
         return self.get_context('database')
 
-    def __search(self, keywords: list) -> Optional[Content]:
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, Command), 'command error: %s' % content
+        # keywords
+        keywords = content.get('keywords')
+        if keywords is None:
+            return TextContent.new(text='Search command error')
+        keywords = keywords.split(' ')
+        # search in database
         results = self.database.search(keywords=keywords)
         users = list(results.keys())
         response = Command.new(command='search')
@@ -55,23 +65,6 @@ class SearchCommandProcessor(CommandProcessor):
         response['users'] = users
         response['results'] = results
         return response
-
-    def __update(self, content: Content) -> Optional[Content]:
-        # TODO: response, update
-        pass
-
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
-        # message
-        message = content.get('message')
-        if message is None:
-            keywords = content['keywords'].split(' ')
-            return self.__search(keywords=keywords)
-        else:
-            return self.__update(content=content)
 
 
 # register

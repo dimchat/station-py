@@ -38,7 +38,9 @@ from dimp import InstantMessage
 from dimsdk import ApplePushNotificationService
 from dimsdk import KeyStore
 
-from libs.common import Database, Facebook, Messenger, Log
+from libs.common import Database, Facebook
+from libs.common import Log
+from libs.server import ServerMessenger
 from libs.server import SessionServer
 
 
@@ -54,18 +56,18 @@ class Monitor:
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
-        self.__messenger: Messenger = None
+        self.__messenger: ServerMessenger = None
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
-    def messenger(self) -> Messenger:
+    def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
-            m = Messenger()
+            m = ServerMessenger()
             m.barrack = self.facebook
             m.key_cache = self.keystore
             self.__messenger = m
@@ -87,7 +89,8 @@ class Monitor:
         timestamp = int(time.time())
         content = TextContent.new(text=text)
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = self.messenger.encrypt_sign(i_msg)
+        s_msg = self.messenger.encrypt_message(msg=i_msg)
+        r_msg = self.messenger.sign_message(msg=s_msg)
         # try for online user
         sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:

@@ -109,4 +109,4 @@ class Storage:
 
     @classmethod
     def error(cls, msg: str):
-        print('[%s] Storage ERROR > %s' % (current_time(), msg))
+        print('[%s] ERROR - Storage > %s' % (current_time(), msg))

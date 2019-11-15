@@ -36,19 +36,17 @@ from typing import Optional
 
 from dimp import User
 from dimp import InstantMessage, ReliableMessage
-from dimp import Content, TextContent, ForwardContent
 from dimsdk import NetMsgHead, NetMsg, CompletionHandler
 from dimsdk import MessengerDelegate
 
-from libs.common import Log, HandshakeDelegate
+from libs.common import Log
 from libs.server import Session
+from libs.server import ServerMessenger
+from libs.server import HandshakeDelegate
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, local_servers, chat_bot
-
-from .filter import Filter
-from .messenger import Messenger
 
 
 class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
@@ -56,21 +54,21 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def __init__(self, request, client_address, server):
         super().__init__(request=request, client_address=client_address, server=server)
         # messenger
-        self.__messenger: Messenger = None
-        self.__filter: Filter = None
+        self.__messenger: ServerMessenger = None
 
     def info(self, msg: str):
-        Log.info('%s:\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s ERROR:\t%s' % (self.__class__.__name__, msg))
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
-    def messenger(self) -> Messenger:
+    def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
-            m = Messenger()
+            m = ServerMessenger()
             m.barrack = g_facebook
             m.key_cache = g_keystore
+            m.dispatcher = g_dispatcher
             m.delegate = self
             # set all local servers
             m.local_users = local_servers
@@ -79,18 +77,11 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
-            m.context['dispatcher'] = g_dispatcher
             m.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
             m.context['handshake_delegate'] = self
             m.context['remote_address'] = self.client_address
             self.__messenger = m
         return self.__messenger
-
-    @property
-    def filter(self) -> Filter:
-        if self.__filter is None:
-            self.__filter = Filter(messenger=self.messenger)
-        return self.__filter
 
     @property
     def remote_user(self) -> Optional[User]:
@@ -108,8 +99,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #
     def setup(self):
-        self.__messenger: Messenger = None
-        self.__filter: Filter = None
+        self.__messenger: ServerMessenger = None
         self.info('%s: set up with %s' % (self, self.client_address))
         g_session_server.set_handler(client_address=self.client_address, request_handler=self)
         g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
@@ -253,7 +243,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             data = response + b'\n'
             self.send(data)
         else:
-            self.error('process error %s' % pack)
+            self.info('respond nothing')
             # self.send(pack)
 
     #
@@ -315,41 +305,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 error = IOError('MessengerDelegate error: failed to send data package')
                 handler.failed(error=error)
             return False
-
-    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Deliver message to everyone@everywhere, including all neighbours """
-        if self.filter.allow_broadcast(msg=msg):
-            # call dispatcher to deliver this message
-            text = 'Message broadcast to "%s" is not implemented' % msg.envelope.receiver
-            return TextContent.new(text=text)
-        else:
-            text = 'Message broadcast to "%s" is not allowed' % msg.envelope.receiver
-            return TextContent.new(text=text)
-
-    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Deliver message to the receiver, or broadcast to neighbours """
-        if self.filter.allow_deliver(msg=msg):
-            # call dispatcher to deliver this message
-            return g_dispatcher.deliver(msg=msg)
-        else:
-            text = 'Message deliver to "%s" is not allowed' % msg.envelope.receiver
-            return TextContent.new(text=text)
-
-    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Re-pack and deliver (Top-Secret) message to the real receiver """
-        if self.filter.allow_forward(msg=msg):
-            # call dispatcher to deliver this message
-            # repack the top-secret message
-            sender = self.messenger.current_user.identifier
-            receiver = g_facebook.identifier(msg.envelope.receiver)
-            content = ForwardContent.new(message=msg)
-            i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
-            # encrypt, sign & deliver it
-            r_msg = self.messenger.encrypt_sign(msg=i_msg)
-            return self.deliver_message(msg=r_msg)
-        else:
-            text = 'Message forward to "%s" is not allowed' % msg.envelope.receiver
-            return TextContent.new(text=text)
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         # upload encrypted file data
