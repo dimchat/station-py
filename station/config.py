@@ -30,9 +30,9 @@
     Configuration for DIM network server node
 """
 
-from dimp import PrivateKey, Meta, ID, Profile
+from dimp import ID
 from dimsdk import AddressNameService
-from dimsdk import Station, KeyStore
+from dimsdk import KeyStore
 
 from dimsdk import ApplePushNotificationService
 from dimsdk import ChatBot, Tuling, XiaoI
@@ -52,9 +52,11 @@ from libs.server import Dispatcher
 from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_admins import administrators
-from etc.cfg_gsp import all_stations, local_servers, load_station_info
+from etc.cfg_gsp import all_stations, local_servers
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
+
+from etc.cfg_loader import load_station
 
 from .receptionist import Receptionist
 from .monitor import Monitor
@@ -229,59 +231,6 @@ def neighbor_stations(identifier: str) -> list:
     return array
 
 
-def load_station(identifier: str) -> Station:
-    """ Load station info from 'etc' directory
-
-        :param identifier - station ID
-        :return station with info from 'dims/etc/{address}/*'
-    """
-    identifier = g_facebook.identifier(identifier)
-    # check meta
-    meta = g_facebook.meta(identifier=identifier)
-    if meta is None:
-        # load from 'etc' directory
-        meta = Meta(load_station_info(identifier=identifier, filename='meta.js'))
-        if meta is None:
-            raise LookupError('failed to get meta for station: %s' % identifier)
-        elif not g_facebook.save_meta(meta=meta, identifier=identifier):
-            raise ValueError('meta error: %s' % meta)
-    # check private key
-    private_key = g_facebook.private_key_for_signature(identifier=identifier)
-    if private_key is None:
-        # load from 'etc' directory
-        private_key = PrivateKey(load_station_info(identifier=identifier, filename='secret.js'))
-        if private_key is None:
-            pass
-        elif not g_facebook.save_private_key(key=private_key, identifier=identifier):
-            raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
-    # check profile
-    profile = load_station_info(identifier=identifier, filename='profile.js')
-    if profile is None:
-        raise LookupError('failed to get profile for station: %s' % identifier)
-    Log.info('station profile: %s' % profile)
-    name = profile.get('name')
-    host = profile.get('host')
-    port = profile.get('port')
-    # create station
-    if private_key is None:
-        # remote station
-        station = Station(identifier=identifier, host=host, port=port)
-    else:
-        # create profile
-        profile = Profile.new(identifier=identifier)
-        profile.set_property('name', name)
-        profile.set_property('host', host)
-        profile.set_property('port', port)
-        profile.sign(private_key=private_key)
-        if not g_facebook.save_profile(profile=profile):
-            raise AssertionError('failed to save profile: %s' % profile)
-        # local station
-        station = Server(identifier=identifier, host=host, port=port)
-    g_facebook.cache_user(user=station)
-    Log.info('station loaded: %s' % station)
-    return station
-
-
 def create_server(identifier: str, host: str, port: int=9394) -> Server:
     """ Create Local Server """
     identifier = g_facebook.identifier(identifier)
@@ -319,7 +268,7 @@ g_database.scan_ids()
 
 # convert ID to Station
 Log.info('-------- loading stations: %d' % len(all_stations))
-all_stations = [load_station(identifier=item) for item in all_stations]
+all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
 
 # convert string to ID
 Log.info('-------- loading administrators: %d' % len(administrators))

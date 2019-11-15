@@ -9,10 +9,6 @@
 
 import os
 
-from dimp import ID
-
-from libs.common import Storage
-
 etc = os.path.abspath(os.path.dirname(__file__))
 
 #
@@ -40,11 +36,3 @@ local_servers = [
     'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC',
     'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW',
 ]
-
-
-#
-#  Info Loader
-#
-
-def load_station_info(identifier: ID, filename: str):
-    return Storage.read_json(path=os.path.join(etc, identifier.address, filename))

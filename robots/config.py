@@ -39,7 +39,6 @@ from dimsdk.ans import keywords as ans_keywords
 #
 #  Common Libs
 #
-
 from libs.common import Log
 from libs.common import Database, Facebook
 from libs.client import Terminal, ClientMessenger
@@ -48,11 +47,12 @@ from libs.client import Terminal, ClientMessenger
 #  Configurations
 #
 from etc.cfg_db import base_dir, ans_reserved_records
-from etc.cfg_gsp import station_id
-from etc.cfg_bots import load_robot_info, group_naruto
+from etc.cfg_gsp import station_id, all_stations
+from etc.cfg_bots import group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
 
+from etc.cfg_loader import load_robot_info, load_station
 
 """
     Key Store
@@ -270,6 +270,9 @@ for key, value in ans_reserved_records.items():
         # not reserved name, save it directly
         g_ans.save(key, value)
 
+# convert ID to Station
+Log.info('-------- loading stations: %d' % len(all_stations))
+all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
 
 # load group 'DIM Plaza'
 Log.info('-------- loading group contains all users')

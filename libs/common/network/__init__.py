@@ -23,31 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Server Module
-    ~~~~~~~~~~~~~
-
-"""
-
-from dimsdk import Session
-
-from .cpu import *
-
-from .session import SessionServer
-from libs.common.network.server import Server
-from .messenger import ServerMessenger
-from .dispatcher import Dispatcher
-from .filter import Filter
+from .server import Server
 
 
 __all__ = [
-    #
-    #   Command Processor Units
-    #
-    'HandshakeDelegate',
-
-    'Session', 'SessionServer',
     'Server',
-    'ServerMessenger',
-    'Dispatcher', 'Filter',
 ]
