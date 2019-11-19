@@ -206,7 +206,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def handle_mars_package(self, pack: bytes):
         pack = NetMsg(pack)
         head = pack.head
-        self.info('@@@ processing package: cmd=%d, seq=%d' % (head.cmd, head.seq))
         if head.cmd == 3:
             # TODO: handle SEND_MSG request
             if head.body_length == 0:
@@ -234,7 +233,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             self.send(pack)
         else:
             # TODO: handle Unknown request
-            self.error('unknown package %s' % pack)
+            self.error('cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
             self.send(pack)
 
     def handle_raw_package(self, pack: bytes):

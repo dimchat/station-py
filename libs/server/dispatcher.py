@@ -70,7 +70,8 @@ class Dispatcher:
 
     def __transmit(self, msg: ReliableMessage) -> bool:
         # TODO: broadcast to neighbor stations
-        self.info('transmitting to neighbors %s - %s' % (self.neighbors, msg))
+        receiver = msg.envelope.receiver
+        self.info('transmitting to neighbors %s, receiver: %s' % (self.neighbors, receiver))
         return False
 
     def __broadcast(self, msg: ReliableMessage) -> Optional[Content]:
@@ -133,7 +134,7 @@ class Dispatcher:
                 self.info('message pushed to activated session(%d) of user: %s' % (success, receiver))
                 return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file
-        self.info('%s is offline, store message: %s' % (receiver, msg.envelope))
+        self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
         # transmit to neighbor stations
         self.__transmit(msg=msg)
