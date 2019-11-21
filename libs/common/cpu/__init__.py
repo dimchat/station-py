@@ -35,7 +35,9 @@ from .block import BlockCommandProcessor
 from .contacts import ContactsCommandProcessor
 
 from .receipt import ReceiptCommandProcessor
+
 from .text import TextContentProcessor
+from .image import ImageContentProcessor
 
 __all__ = [
     'MuteCommandProcessor',
@@ -43,5 +45,7 @@ __all__ = [
     'ContactsCommandProcessor',
 
     'ReceiptCommandProcessor',
+
     'TextContentProcessor',
+    'ImageContentProcessor',
 ]
