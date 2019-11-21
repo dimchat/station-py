@@ -24,22 +24,42 @@
 # ==============================================================================
 
 """
-    Station Server
-    ~~~~~~~~~~~~~~
+    Image Content Processor
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-    Local station
 """
 
+from typing import Optional
+
 from dimp import ID
-from dimsdk import Station
+from dimp import InstantMessage
+from dimp import Content, ContentType
+from dimp import ImageContent
+from dimsdk import ContentProcessor
+
+from ..utils import Log
 
 
-class Server(Station):
-    """
-        Local Station
-        ~~~~~~~~~~~~~
-    """
+class ImageContentProcessor(ContentProcessor):
 
-    def __init__(self, identifier: ID, host: str, port: int=9394):
-        super().__init__(identifier=identifier, host=host, port=port)
-        self.running = False
+    def __init__(self, messenger):
+        super().__init__(messenger=messenger)
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, ImageContent), 'image content error: %s' % content
+        nickname = self.facebook.nickname(identifier=sender)
+        self.info('Received image message from %s: %s' % (nickname, content))
+        return None
+
+
+# register
+ContentProcessor.register(content_type=ContentType.Image, processor_class=ImageContentProcessor)

@@ -116,6 +116,7 @@ class Facebook(Barrack):
         pass
 
     def load_assistants(self, identifier: ID) -> Optional[list]:
+        assert identifier.type.is_group(), 'group ID error: %s' % identifier
         robot = self.ans.identifier(name='assistant')
         if robot is not None:
             return [robot]
