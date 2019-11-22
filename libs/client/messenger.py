@@ -32,8 +32,12 @@
 
 from typing import Optional
 
-from dimp import Content
+from dimp import ID
 from dimp import InstantMessage, ReliableMessage
+from dimp import Content
+from dimp import Command, MetaCommand
+
+from dimsdk import Station
 
 from ..common import CommonMessenger
 
@@ -42,6 +46,23 @@ class ClientMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
+
+    @property
+    def station(self) -> Station:
+        return self.get_context('station')
+
+    #
+    #   Command
+    #
+    def send_command(self, cmd: Command):
+        station = self.station
+        if station is None:
+            raise ValueError('current station not set')
+        return self.send_content(content=cmd, receiver=station.identifier)
+
+    def query_meta(self, identifier: ID) -> bool:
+        cmd = MetaCommand.new(identifier=identifier)
+        return self.send_command(cmd=cmd)
 
     #
     #   Message

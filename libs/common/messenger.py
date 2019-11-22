@@ -30,49 +30,37 @@
     Transform and send message
 """
 
-from abc import ABC
 from typing import Optional
 
-from dimp import ID, User
-from dimp import InstantMessage, SecureMessage, ReliableMessage
+from dimp import ID
+from dimp import SecureMessage, ReliableMessage
 from dimsdk import Messenger
+from dkd import InstantMessage, Content
 
 
-class CommonMessenger(Messenger, ABC):
+class CommonMessenger(Messenger):
 
     #
-    #   switch current user
+    #   Message
     #
-    def __select(self, receiver: ID=None, group: ID=None) -> Optional[User]:
-        """ Select a local user for decrypting message """
-        local_users = self.local_users
-        if receiver is None:
-            # group message (recipient not designated)
-            assert group.type.is_group(), 'group ID error: %s' % group
-            if group.is_broadcast:
-                return self.current_user
-            members = self.facebook.members(identifier=group)
-            if members is None:
-                # TODO: query group members
-                return None
-            # check which local user is in the group's member-list
-            for user in local_users:
-                if user.identifier in members:
-                    # got it
-                    self.current_user = user
-                    return user
-            # FIXME: not for you?
-        else:
-            # 1. personal message
-            # 2. split group message
-            assert receiver.type.is_user(), 'receiver ID error: %s' % receiver
-            if receiver.is_broadcast:
-                return self.current_user
-            for user in local_users:
-                if user.identifier == receiver:
-                    # got it
-                    self.current_user = user
-                    return user
+    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        # TODO: if this run in station, broadcast this message to everyone@everywhere
+        pass
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
+        # TODO: if this run in station, deliver this message to the receiver
+        pass
+
+    def save_message(self, msg: InstantMessage) -> bool:
+        pass
+
+    #
+    #   Command
+    #
+    def query_meta(self, identifier: ID) -> bool:
+        # TODO: if this run in client, query meta from the current station
+        #       else query from neighbour stations
+        pass
 
     #
     #   Transform
@@ -82,21 +70,4 @@ class CommonMessenger(Messenger, ABC):
             return super().verify_message(msg=msg)
         except LookupError:
             # TODO: keep this message in waiting list for meta response
-            #       (facebook/database should query meta automatically)
             return None
-
-    def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        receiver = self.barrack.identifier(msg.envelope.receiver)
-        if receiver.type.is_user():
-            # check whether the receiver is in local users
-            user = self.__select(receiver=receiver)
-            if user is None:
-                return None
-        elif receiver.type.is_group():
-            # check which local user is in the group's member-list
-            user = self.__select(group=receiver)
-            if user is None:
-                return None
-            # trim it
-            msg = msg.trim(member=user.identifier)
-        return super().decrypt_message(msg=msg)
