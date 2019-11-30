@@ -32,7 +32,7 @@
 
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
-from .contacts import ContactsCommandProcessor
+from .storage import StorageCommandProcessor
 
 from .receipt import ReceiptCommandProcessor
 
@@ -42,7 +42,7 @@ from .image import ImageContentProcessor
 __all__ = [
     'MuteCommandProcessor',
     'BlockCommandProcessor',
-    'ContactsCommandProcessor',
+    'StorageCommandProcessor',
 
     'ReceiptCommandProcessor',
 

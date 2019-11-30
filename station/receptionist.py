@@ -129,5 +129,5 @@ class Receptionist(Thread):
                 self.error('value error %s' % error)
             finally:
                 # sleep for next loop
-                time.sleep(0.1)
+                time.sleep(0.01)
         self.info('exit!')

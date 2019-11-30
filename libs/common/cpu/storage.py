@@ -24,29 +24,29 @@
 # ==============================================================================
 
 """
-    Command Processor for 'contacts'
+    Command Processor for 'storage'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    storage protocol: post/get contacts
+    storage protocol: post/get contacts, private_key, ...
 """
 
 from dimp import ID
 from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, StorageCommand
 from dimsdk import CommandProcessor
 
 from ..database import Database
 
 
-class ContactsCommandProcessor(CommandProcessor):
+class StorageCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
         return self.get_context('database')
 
-    def __get(self, sender: ID) -> Content:
+    def __get_contacts(self, sender: ID) -> Content:
         # query encrypted contacts, load it
         stored: Command = self.database.contacts_command(identifier=sender)
         # response
@@ -56,27 +56,34 @@ class ContactsCommandProcessor(CommandProcessor):
         else:
             return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
 
-    def __put(self, cmd: Command, sender: ID) -> Content:
+    def __put_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
         # receive encrypted contacts, save it
         if self.database.save_contacts_command(cmd=cmd, sender=sender):
             return ReceiptCommand.new(message='Contacts of %s received!' % sender)
         else:
             return TextContent.new(text='Contacts not stored %s!' % cmd)
 
+    def __process_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
+        if cmd.data is None and 'contacts' not in cmd:
+            # query contacts, load it
+            return self.__get_contacts(sender=sender)
+        else:
+            # upload contacts, save it
+            return self.__put_contacts(cmd=cmd, sender=sender)
+
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != ContactsCommandProcessor:
-            raise AssertionError('override me!')
-        assert isinstance(content, Command), 'command error: %s' % content
-        if 'data' in content or 'contacts' in content:
-            # upload contacts, save it
-            return self.__put(cmd=content, sender=sender)
-        else:
-            # query contacts, load it
-            return self.__get(sender=sender)
+        assert isinstance(content, StorageCommand), 'command error: %s' % content
+        title = content.title
+        if title == StorageCommand.CONTACTS:
+            return self.__process_contacts(cmd=content, sender=sender)
+        # error
+        return TextContent.new(text='Storage command (title: %s) not support yet!' % title)
 
 
 # register
-CommandProcessor.register(command='contacts', processor_class=ContactsCommandProcessor)
+CommandProcessor.register(command=StorageCommand.STORAGE, processor_class=StorageCommandProcessor)
+CommandProcessor.register(command=StorageCommand.CONTACTS, processor_class=StorageCommandProcessor)
+CommandProcessor.register(command=StorageCommand.PRIVATE_KEY, processor_class=StorageCommandProcessor)
