@@ -78,7 +78,7 @@ def load_station(facebook: Facebook, identifier: str) -> Station:
             raise AssertionError('failed to save profile: %s' % profile)
         # local station
         station = Server(identifier=identifier, host=host, port=port)
-        facebook.cache_user(user=station)
+    facebook.cache_user(user=station)
     Log.info('station loaded: %s' % station)
     return station
 

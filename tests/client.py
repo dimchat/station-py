@@ -196,7 +196,7 @@ class Console(Cmd):
             tai = Profile.new(identifier=identifier)
             for key in profile:
                 tai.set_property(key, profile.get(key))
-            tai.sign(private_key)
+            tai.sign(private_key=private_key)
             cmd = ProfileCommand.response(identifier=identifier, profile=tai)
         else:
             cmd = ProfileCommand.query(identifier=identifier)

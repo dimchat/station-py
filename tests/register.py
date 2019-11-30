@@ -128,7 +128,7 @@ class AccountTestCase(unittest.TestCase):
                 print('**** private key:\n', sk)
 
                 g_facebook.save_meta(identifier=id1, meta=meta)
-                g_facebook.save_private_key(identifier=id1, private_key=sk)
+                g_facebook.save_private_key(identifier=id1, key=sk)
                 break
 
 

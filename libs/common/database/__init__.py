@@ -83,8 +83,8 @@ class Database:
 
         file path: '.dim/private/{ADDRESS}/private_key.js'
     """
-    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
-        return self.__private_table.save_private_key(private_key=private_key, identifier=identifier)
+    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
+        return self.__private_table.save_private_key(key=key, identifier=identifier)
 
     def private_key(self, identifier: ID) -> PrivateKey:
         return self.__private_table.private_key(identifier=identifier)

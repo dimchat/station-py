@@ -95,7 +95,7 @@ class Facebook(Barrack):
         return self.database.profile(identifier=identifier)
 
     def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        return self.database.save_private_key(private_key=key, identifier=identifier)
+        return self.database.save_private_key(key=key, identifier=identifier)
 
     def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
         return self.database.private_key(identifier=identifier)

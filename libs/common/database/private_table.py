@@ -46,9 +46,9 @@ class PrivateKeyTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'private', identifier.address, 'secret.js')
 
-    def __cache_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
-        assert private_key is not None and identifier.valid, 'private key error: %s, %s' % (identifier, private_key)
-        self.__caches[identifier] = private_key
+    def __cache_private_key(self, key: PrivateKey, identifier: ID) -> bool:
+        assert key is not None and identifier.valid, 'private key error: %s, %s' % (identifier, key)
+        self.__caches[identifier] = key
         return True
 
     def __load_private_key(self, identifier: ID) -> PrivateKey:
@@ -57,20 +57,20 @@ class PrivateKeyTable(Storage):
         dictionary = self.read_json(path=path)
         return PrivateKey(dictionary)
 
-    def __save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
+    def __save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
         if self.exists(path=path):
             # meta file already exists
             return True
         self.info('Saving private key into: %s' % path)
-        return self.write_json(container=private_key, path=path)
+        return self.write_json(container=key, path=path)
 
-    def save_private_key(self, private_key: PrivateKey, identifier: ID) -> bool:
-        if not self.__cache_private_key(private_key=private_key, identifier=identifier):
-            raise ValueError('failed to cache private key for ID: %s, %s' % (identifier, private_key))
-            # self.error('failed to cache private key for ID: %s, %s' % (identifier, private_key))
+    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
+        if not self.__cache_private_key(key=key, identifier=identifier):
+            raise ValueError('failed to cache private key for ID: %s, %s' % (identifier, key))
+            # self.error('failed to cache private key for ID: %s, %s' % (identifier, key))
             # return False
-        return self.__save_private_key(private_key=private_key, identifier=identifier)
+        return self.__save_private_key(key=key, identifier=identifier)
 
     def private_key(self, identifier: ID) -> PrivateKey:
         # 1. get from cache
