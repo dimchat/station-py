@@ -63,6 +63,19 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
+    def chat_bots(self) -> list:
+        bots = []
+        # Tuling
+        tuling = chat_bot('tuling')
+        if tuling is not None:
+            bots.append(tuling)
+        # XiaoI
+        xiaoi = chat_bot('xiaoi')
+        if xiaoi is not None:
+            bots.append(xiaoi)
+        return bots
+
+    @property
     def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
             m = ServerMessenger()
@@ -77,7 +90,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
-            m.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
+            m.context['bots'] = self.chat_bots
             m.context['handshake_delegate'] = self
             m.context['remote_address'] = self.client_address
             self.__messenger = m

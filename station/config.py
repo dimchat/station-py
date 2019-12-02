@@ -30,6 +30,8 @@
     Configuration for DIM network server node
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimsdk import AddressNameService
 from dimsdk import KeyStore
@@ -170,10 +172,13 @@ g_receptionist.apns = g_apns
 """
 
 
-def chat_bot(name: str) -> ChatBot:
+def chat_bot(name: str) -> Optional[ChatBot]:
     if 'tuling' == name:
+        if tuling_keys is None or tuling_ignores is None:
+            return None
         # Tuling
         api_key = tuling_keys.get('api_key')
+        assert api_key is not None, 'Tuling keys error: %s' % tuling_keys
         tuling = Tuling(api_key=api_key)
         # ignore codes
         for item in tuling_ignores:
@@ -181,9 +186,12 @@ def chat_bot(name: str) -> ChatBot:
                 tuling.ignores.append(item)
         return tuling
     elif 'xiaoi' == name:
+        if xiaoi_keys is None or xiaoi_ignores is None:
+            return None
         # XiaoI
         app_key = xiaoi_keys.get('app_key')
         app_secret = xiaoi_keys.get('app_secret')
+        assert app_key is not None and app_secret is not None, 'XiaoI keys error: %s' % xiaoi_keys
         xiaoi = XiaoI(app_key=app_key, app_secret=app_secret)
         # ignore responses
         for item in xiaoi_ignores:
