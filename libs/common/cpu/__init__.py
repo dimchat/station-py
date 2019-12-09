@@ -39,6 +39,8 @@ from .receipt import ReceiptCommandProcessor
 from .text import TextContentProcessor
 from .image import ImageContentProcessor
 
+from .query import QueryCommandProcessor  # patch
+
 __all__ = [
     'MuteCommandProcessor',
     'BlockCommandProcessor',
