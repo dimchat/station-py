@@ -24,10 +24,11 @@
 # ==============================================================================
 
 """
-    Response Processor for 'search'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Response Processor for search/online users
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    search users with keyword(s)
+    1. search users with keyword(s)
+    2. show online users (connected)
 """
 
 import json
@@ -61,5 +62,23 @@ class SearchCommandProcessor(CommandProcessor):
         return None
 
 
+class UsersCommandProcessor(CommandProcessor):
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, Command), 'command error: %s' % content
+        # message
+        message = content.get('message')
+        print('online users response: %s' % message)
+        # users
+        users = content.get('users')
+        if users is not None:
+            print('      users:', json.dumps(users))
+        return None
+
+
 # register
 CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)
+CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)

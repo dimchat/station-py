@@ -58,8 +58,6 @@ class HandshakeCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != HandshakeCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, HandshakeCommand), 'command error: %s' % content
         message = content.message
         if 'DIM?' == message:

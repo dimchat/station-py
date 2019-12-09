@@ -50,6 +50,7 @@ class ServerMessenger(CommonMessenger):
         super().__init__()
         self.dispatcher: Dispatcher = None
         self.__filter: Filter = None
+        self.__session: Session = None
 
     @property
     def filter(self) -> Filter:
@@ -68,29 +69,27 @@ class ServerMessenger(CommonMessenger):
     def session_server(self) -> SessionServer:
         return self.get_context(key='session_server')
 
-    def current_session(self, identifier: ID=None) -> Optional[Session]:
-        session: Session = self.get_context(key='session')
-        if identifier is None:
-            # get current session
-            return session
+    def current_session(self, identifier: ID) -> Session:
+        session = self.__session
+        # if identifier is None:
+        #     user = self.remote_user
+        #     if user is None:
+        #         # FIXME: remote user not login?
+        #         return session
+        #     else:
+        #         identifier = user.identifier
         if session is not None:
             # check whether the current session's identifier matched
             if session.identifier == identifier:
                 # current session belongs to the same user
                 return session
-            else:
-                # user switched, clear current session
-                self.session_server.remove(session=session)
+            # TODO: user switched, clear session?
         # get new session with identifier
-        session = self.session_server.new(identifier=identifier, client_address=self.remote_address)
-        self.set_context(key='session', value=session)
+        address = self.remote_address
+        assert address is not None, 'client address not found: %s' % identifier
+        session = self.session_server.new(identifier=identifier, client_address=address)
+        self.__session = session
         return session
-
-    def clear_session(self):
-        session: Session = self.get_context(key='session')
-        if session is not None:
-            self.session_server.remove(session=session)
-            self.set_context(key='session', value=None)
 
     #
     #   Remote user

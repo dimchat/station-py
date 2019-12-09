@@ -24,10 +24,11 @@
 # ==============================================================================
 
 """
-    Command Processor for 'search'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for search/online users
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    search users with keyword(s)
+    1. search users with keyword(s)
+    2. show online users (connected)
 """
 
 from typing import Optional
@@ -39,6 +40,7 @@ from dimp import Command
 from dimsdk import CommandProcessor
 
 from ...common import Database
+from ..session import SessionServer
 
 
 class SearchCommandProcessor(CommandProcessor):
@@ -67,5 +69,24 @@ class SearchCommandProcessor(CommandProcessor):
         return response
 
 
+class UsersCommandProcessor(CommandProcessor):
+
+    @property
+    def session_server(self) -> SessionServer:
+        return self.get_context('session_server')
+
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+        assert isinstance(content, Command), 'command error: %s' % content
+        users = self.session_server.random_users()
+        response = Command.new(command='users')
+        response['message'] = '%d user(s) connected' % len(users)
+        response['users'] = users
+        return response
+
+
 # register
 CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)
+CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)

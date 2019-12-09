@@ -34,7 +34,7 @@ from dimp import ID
 from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, MuteCommand
 from dimsdk import CommandProcessor
 
 from ..database import Database
@@ -58,20 +58,18 @@ class MuteCommandProcessor(CommandProcessor):
             res['list'] = []
             return res
 
-    def __put(self, cmd: Command, sender: ID) -> Content:
+    def __put(self, cmd: MuteCommand, sender: ID) -> Content:
         # receive mute command, save it
         if self.database.save_mute_command(cmd=cmd, sender=sender):
             return ReceiptCommand.new(message='Mute command of %s received!' % sender)
         else:
-            return TextContent.new(text='Mute-list not stored %s!' % cmd)
+            return TextContent.new(text='Sorry, mute-list not stored %s!' % cmd)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != MuteCommandProcessor:
-            raise AssertionError('override me!')
-        assert isinstance(content, Command), 'command error: %s' % content
+        assert isinstance(content, MuteCommand), 'command error: %s' % content
         if 'list' in content:
             # upload mute-list, save it
             return self.__put(cmd=content, sender=sender)

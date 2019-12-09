@@ -39,8 +39,6 @@ from dimp import Content, TextContent
 from dimp import Command, HandshakeCommand
 from dimsdk import CommandProcessor, Session
 
-from ..messenger import ServerMessenger
-
 
 class HandshakeDelegate(metaclass=ABCMeta):
 
@@ -56,13 +54,9 @@ class HandshakeCommandProcessor(CommandProcessor):
     def delegate(self) -> HandshakeDelegate:
         return self.get_context('handshake_delegate')
 
-    def current_session(self, identifier: ID) -> Optional[Session]:
-        messenger: ServerMessenger = self.messenger
-        return messenger.current_session(identifier=identifier)
-
     def __offer(self, sender: ID, session_key: str=None) -> Content:
         # set/update session in session server with new session key
-        session = self.current_session(identifier=sender)
+        session = self.messenger.current_session(identifier=sender)
         if session_key == session.session_key:
             # session verified success
             session.valid = True
@@ -79,8 +73,6 @@ class HandshakeCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != HandshakeCommandProcessor:
-            raise AssertionError('override me!')
         assert isinstance(content, HandshakeCommand), 'command error: %s' % content
         message = content.message
         if message in ['DIM?', 'DIM!']:

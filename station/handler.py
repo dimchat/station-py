@@ -101,35 +101,34 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         if self.__messenger is not None:
             return self.__messenger.remote_user
 
-    @property
-    def session(self) -> Optional[Session]:
-        user = self.remote_user
-        if user is None:
-            return None
-        return self.messenger.current_session(identifier=user.identifier)
-
     #
     #
     #
     def setup(self):
+        address = self.client_address
         self.__messenger: ServerMessenger = None
-        self.info('%s: set up with %s' % (self, self.client_address))
-        g_session_server.set_handler(client_address=self.client_address, request_handler=self)
-        g_monitor.report(message='Client connected %s [%s]' % (self.client_address, station_name))
+        self.info('set up with %s [%s]' % (address, station_name))
+        g_session_server.set_handler(client_address=address, request_handler=self)
+        g_monitor.report(message='Client connected %s [%s]' % (address, station_name))
 
     def finish(self):
-        session = self.session
-        if session is None:
-            g_monitor.report(message='Client disconnected %s [%s]' % (self.client_address, station_name))
+        address = self.client_address
+        user = self.remote_user
+        if user is None:
+            g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
-            identifier = session.identifier
-            nickname = g_facebook.nickname(identifier=identifier)
-            self.info('disconnect from session %s, %s' % (identifier, self.client_address))
-            g_monitor.report(message='User %s logged out %s %s' % (nickname, self.client_address, identifier))
-            # clear current session
-            g_session_server.remove(session=self.session)
-        g_session_server.clear_handler(client_address=self.client_address)
-        self.info('finish (%s, %s)' % self.client_address)
+            nickname = g_facebook.nickname(identifier=user.identifier)
+            session = g_session_server.get(identifier=user.identifier, client_address=address)
+            if session is None:
+                self.error('user %s not login yet %s %s' % (user, address, station_name))
+            else:
+                g_monitor.report(message='User %s logged out %s [%s]' % (nickname, address, station_name))
+                # clear current session
+                g_session_server.remove(session=session)
+        # remove request handler fro session handler
+        g_session_server.clear_handler(client_address=address)
+        self.__messenger = None
+        self.info('finish with %s %s' % (address, user))
 
     """
         DIM Request Handler

@@ -36,7 +36,6 @@ from dimp import ID
 from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimp import HandshakeCommand
-from dimsdk import Session
 
 from ..common import Facebook, Database
 
@@ -60,13 +59,6 @@ class Filter:
     def database(self) -> Database:
         return self.facebook.database
 
-    @property
-    def session(self) -> Session:
-        return self.messenger.current_session()
-
-    def __identifier(self, string: str) -> ID:
-        return self.facebook.identifier(string)
-
     def __name(self, identifier: ID) -> str:
         profile = self.facebook.profile(identifier)
         if profile is not None:
@@ -79,9 +71,9 @@ class Filter:
     #   check
     #
     def __check_blocked(self, envelope: Envelope) -> Optional[Content]:
-        sender = self.__identifier(envelope.sender)
-        receiver = self.__identifier(envelope.receiver)
-        group = self.__identifier(envelope.group)
+        sender = self.facebook.identifier(envelope.sender)
+        receiver = self.facebook.identifier(envelope.receiver)
+        group = self.facebook.identifier(envelope.group)
         # check block-list
         if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
             nickname = self.__name(identifier=receiver)
@@ -96,13 +88,21 @@ class Filter:
             return res
 
     def __check_login(self, envelope: Envelope) -> Optional[Content]:
+        # check remote user
+        user = self.messenger.remote_user
+        # TODO: check neighbour stations
+        # assert user is not None, 'check client for sending message after handshake accepted'
+        if user is None:
+            # FIXME: make sure the client sends message after handshake accepted
+            sender = self.facebook.identifier(envelope.sender)
+            session = self.messenger.current_session(identifier=sender)
+            assert session is not None, 'failed to get session for sender: %s' % sender
+            assert not session.valid, 'session error: %s' % session
+        else:
+            session = self.messenger.current_session(identifier=user.identifier)
+            assert session is not None, 'failed to get session for user: %s' % user
         # check session valid
-        session = self.session
-        if session is None:
-            res = TextContent.new(text='Session not found')
-            res.group = envelope.group
-            return res
-        if not session.valid or session.identifier != envelope.sender:
+        if not session.valid:
             return HandshakeCommand.ask(session=session.session_key)
 
     #

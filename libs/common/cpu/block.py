@@ -34,7 +34,7 @@ from dimp import ID
 from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, BlockCommand
 from dimsdk import CommandProcessor
 
 from ..database import Database
@@ -58,20 +58,18 @@ class BlockCommandProcessor(CommandProcessor):
             res['list'] = []
             return res
 
-    def __put(self, cmd: Command, sender: ID) -> Content:
+    def __put(self, cmd: BlockCommand, sender: ID) -> Content:
         # receive block command, save it
         if self.database.save_block_command(cmd=cmd, sender=sender):
             return ReceiptCommand.new(message='Block command of %s received!' % sender)
         else:
-            return TextContent.new(text='Block-list not stored %s!' % cmd)
+            return TextContent.new(text='Sorry, block-list not stored: %s!' % cmd)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
-        if type(self) != BlockCommandProcessor:
-            raise AssertionError('override me!')
-        assert isinstance(content, Command), 'command error: %s' % content
+        assert isinstance(content, BlockCommand), 'block command error: %s' % content
         if 'list' in content:
             # upload block-list, save it
             return self.__put(cmd=content, sender=sender)

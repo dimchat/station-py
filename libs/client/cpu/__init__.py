@@ -31,8 +31,7 @@
 """
 
 from .handshake import HandshakeCommandProcessor, HandshakeDelegate
-from .search import SearchCommandProcessor
-from .users import UsersCommandProcessor
+from .search import SearchCommandProcessor, UsersCommandProcessor
 
 __all__ = [
     'HandshakeCommandProcessor', 'HandshakeDelegate',
