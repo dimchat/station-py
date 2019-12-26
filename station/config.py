@@ -33,7 +33,6 @@
 from typing import Optional
 
 from dimp import ID
-from dimsdk import AddressNameService
 from dimsdk import KeyStore
 
 from dimsdk import ApplePushNotificationService
@@ -44,7 +43,7 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, AddressNameServer
 from libs.server import SessionServer, Server
 from libs.server import Dispatcher
 
@@ -90,7 +89,7 @@ Log.info("database directory: %s" % g_database.base_dir)
 
     A map for short name to ID, just like DNS
 """
-g_ans = AddressNameService()
+g_ans = AddressNameServer()
 g_ans.database = g_database
 
 """
@@ -297,6 +296,9 @@ for srv in local_servers:
 assert current_station is not None, 'current station not created: %s' % station_id
 Log.info('current station(%s): %s' % (station_name, current_station))
 
+# set local users for facebook
+g_facebook.local_users = local_servers
+g_facebook.current_user = current_station
 # set current station for key store
 g_keystore.user = current_station
 # set current station for receptionist

@@ -33,10 +33,11 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage, ReliableMessage
-from dimp import Content
-from dimp import Command, MetaCommand
+from dimp import Message, InstantMessage, ReliableMessage
+from dimp import Content, Command, MetaCommand
+from dimp import HandshakeCommand
 
+from dimsdk import ReceiptCommand
 from dimsdk import Station
 
 from ..common import CommonMessenger
@@ -71,17 +72,31 @@ class ClientMessenger(CommonMessenger):
         # TODO: save instant message
         return True
 
-    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
-        # this job is for station
-        # client doesn't have to do it
-        return None
+    def suspend_message(self, msg: Message) -> bool:
+        if isinstance(msg, ReliableMessage):
+            # TODO: save this message in a queue waiting sender's meta response
+            pass
+        else:
+            assert isinstance(msg, InstantMessage), 'message error: %s' % msg
+            # TODO: save this message in a queue waiting receiver's meta response
+            pass
+        return True
 
-    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
-        # this job is for station
-        # client doesn't have to do it
-        return None
-
-    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
-        # this job is for station
-        # client doesn't have to do it
+    def process_message(self, msg: ReliableMessage) -> Optional[Content]:
+        res = super().process_message(msg=msg)
+        if res is None:
+            # respond nothing
+            return None
+        if isinstance(res, HandshakeCommand):
+            # urgent command
+            return res
+        # if isinstance(res, ReceiptCommand):
+        #     receiver = self.barrack.identifier(msg.envelope.receiver)
+        #     if receiver.type.is_station():
+        #         # no need to respond receipt to station
+        #         return None
+        # normal response
+        receiver = self.barrack.identifier(msg.envelope.sender)
+        self.send_content(content=res, receiver=receiver)
+        # DON'T respond to station directly
         return None

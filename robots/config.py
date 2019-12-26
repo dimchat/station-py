@@ -33,7 +33,6 @@
 from typing import Optional
 
 from dimp import PrivateKey, Meta, ID, Profile, User
-from dimsdk import AddressNameService
 from dimsdk import Station, KeyStore
 from dimsdk import ChatBot, Tuling, XiaoI
 from dimsdk.ans import keywords as ans_keywords
@@ -42,7 +41,7 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, AddressNameServer
 from libs.client import Terminal, ClientMessenger
 
 #
@@ -82,7 +81,7 @@ Log.info("database directory: %s" % g_database.base_dir)
 
     A map for short name to ID, just like DNS
 """
-g_ans = AddressNameService()
+g_ans = AddressNameServer()
 g_ans.database = g_database
 
 
@@ -212,14 +211,13 @@ def load_user(identifier: str) -> User:
 
 
 def create_client(user: User) -> Terminal:
+    g_facebook.current_user = user
     client = Terminal()
     client.messenger = g_messenger
     # context
     client.messenger.context['database'] = g_database
     client.messenger.context['remote_address'] = (g_station.host, g_station.port)
     client.messenger.context['handshake_delegate'] = client
-    # current user
-    client.current_user = user
     # connect
     client.connect(station=g_station)
     client.handshake()

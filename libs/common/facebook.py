@@ -35,7 +35,7 @@ from typing import Optional
 from mkm.immortals import Immortals
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile
+from dimp import ID, Meta, Profile, User
 from dimsdk import Facebook as Barrack
 
 from .database import Database
@@ -56,6 +56,7 @@ class Facebook(Barrack):
         #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
         #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
         self.__immortals = Immortals()
+        self.__local_users = None
 
     def nickname(self, identifier: ID) -> str:
         assert identifier.type.is_user(), 'ID error: %s' % identifier
@@ -74,6 +75,32 @@ class Facebook(Barrack):
     #
     #   super()
     #
+    @property
+    def local_users(self) -> Optional[list]:
+        return self.__local_users
+
+    @local_users.setter
+    def local_users(self, value: list):
+        self.__local_users = value
+
+    @property
+    def current_user(self) -> Optional[User]:
+        users = self.local_users
+        if users is not None and len(users) > 0:
+            return users[0]
+
+    @current_user.setter
+    def current_user(self, user: User):
+        if user is None:
+            raise ValueError('current user cannot be empty')
+        array = self.local_users
+        if array is None:
+            array = []
+        elif user in array:
+            array.remove(user)
+        array.insert(0, user)
+        self.local_users = array
+
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not self.verify_meta(meta=meta, identifier=identifier):
             raise ValueError('meta error: %s, %s' % (identifier, meta))

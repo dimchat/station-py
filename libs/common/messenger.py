@@ -33,7 +33,7 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import SecureMessage, ReliableMessage
+from dimp import Message, SecureMessage, ReliableMessage
 from dimsdk import Messenger
 from dkd import InstantMessage, Content
 
@@ -52,6 +52,11 @@ class CommonMessenger(Messenger):
         pass
 
     def save_message(self, msg: InstantMessage) -> bool:
+        # TODO: save normal instant message in local storage
+        pass
+
+    def suspend_message(self, msg: Message) -> bool:
+        # TODO: if this run in client, save this message in a queue waiting for meta
         pass
 
     #

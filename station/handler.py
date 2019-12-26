@@ -83,9 +83,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.key_cache = g_keystore
             m.dispatcher = g_dispatcher
             m.delegate = self
-            # set all local servers
-            m.local_users = local_servers
-            m.current_user = current_station
             # set context
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
@@ -282,7 +279,11 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     def process_package(self, pack: bytes) -> Optional[bytes]:
         try:
-            return self.messenger.received_package(data=pack)
+            res = self.messenger.received_package(data=pack)
+            if res is None:
+                # station MUST respond something to client request
+                return b''
+            return res
         except Exception as error:
             self.error('parse message failed: %s' % error)
 

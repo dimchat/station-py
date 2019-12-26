@@ -99,9 +99,9 @@ class Console(Cmd):
         print('')
         if self.client:
             if self.receiver:
-                print('You(%s) are talking with "%s" now.' % (self.client.current_user.identifier, self.receiver))
+                print('You(%s) are talking with "%s" now.' % (g_facebook.current_user.identifier, self.receiver))
             else:
-                print('%s is login in' % self.client.current_user.identifier)
+                print('%s is login in' % g_facebook.current_user.identifier)
 
     def do_exit(self, arg):
         if self.client:
@@ -123,7 +123,7 @@ class Console(Cmd):
         if self.client is None:
             self.info('not login yet')
         else:
-            self.info('%s logout' % self.client.current_user.identifier)
+            self.info('%s logout' % g_facebook.current_user.identifier)
             self.logout()
         self.prompt = Console.prompt
 
@@ -180,9 +180,9 @@ class Console(Cmd):
             return
         profile = None
         if name is None:
-            identifier = self.client.current_user.identifier
+            identifier = g_facebook.current_user.identifier
         elif name.startswith('{') and name.endswith('}'):
-            identifier = self.client.current_user.identifier
+            identifier = g_facebook.current_user.identifier
             profile = json.loads(name)
         else:
             identifier = g_facebook.identifier(name)
@@ -190,7 +190,7 @@ class Console(Cmd):
                 self.info('I don\'t understand.')
                 return
         if profile:
-            private_key = g_facebook.private_key_for_signature(identifier=self.client.current_user.identifier)
+            private_key = g_facebook.private_key_for_signature(identifier=g_facebook.current_user.identifier)
             assert private_key is not None, 'failed to get private key for client: %s' % self.client
             # create new profile and set all properties
             tai = Profile.new(identifier=identifier)

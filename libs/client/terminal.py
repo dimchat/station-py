@@ -35,6 +35,8 @@ from dimp import ID, EVERYONE, User
 from dimp import Content, Command, HandshakeCommand
 from dimsdk import Station, Session
 
+from ..common import Facebook
+
 from .connection import Connection
 from .cpu import HandshakeDelegate
 
@@ -45,7 +47,7 @@ class Terminal(HandshakeDelegate):
 
     def __init__(self):
         super().__init__()
-        self._messenger: ClientMessenger = None
+        self.__messenger: ClientMessenger = None
         # station connection
         self.station: Station = None
         self.session: str = None
@@ -55,10 +57,10 @@ class Terminal(HandshakeDelegate):
         self.disconnect()
 
     def info(self, msg: str):
-        print('\r##### %s > %s' % (self.current_user.name, msg))
+        print('\r##### %s > %s' % (self.facebook.current_user.name, msg))
 
     def error(self, msg: str):
-        print('\r!!!!! %s > %s' % (self.current_user.name, msg))
+        print('\r!!!!! %s > %s' % (self.facebook.current_user.name, msg))
 
     def disconnect(self) -> bool:
         if self.connection:
@@ -83,20 +85,16 @@ class Terminal(HandshakeDelegate):
         return True
 
     @property
-    def current_user(self) -> User:
-        return self.messenger.current_user
-
-    @current_user.setter
-    def current_user(self, value: User):
-        self.messenger.current_user = value
-
-    @property
     def messenger(self) -> ClientMessenger:
-        return self._messenger
+        return self.__messenger
 
     @messenger.setter
     def messenger(self, value: ClientMessenger):
-        self._messenger = value
+        self.__messenger = value
+
+    @property
+    def facebook(self) -> Facebook:
+        return self.messenger.facebook
 
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """

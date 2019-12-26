@@ -31,7 +31,6 @@
 """
 
 from dimp import ID
-from dimsdk import AddressNameService
 from dimsdk import KeyStore
 from dimsdk.ans import keywords as ans_keywords
 
@@ -39,7 +38,7 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook
+from libs.common import Database, Facebook, AddressNameServer
 from libs.server import ServerMessenger
 
 
@@ -72,7 +71,7 @@ Log.info("database directory: %s" % g_database.base_dir)
 
     A map for short name to ID, just like DNS
 """
-g_ans = AddressNameService()
+g_ans = AddressNameServer()
 g_ans.database = g_database
 
 """

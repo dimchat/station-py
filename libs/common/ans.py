@@ -24,49 +24,23 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Address Name Service
+    ~~~~~~~~~~~~~~~~~~~~
 
-    Common libs for Server or Client
+    A map for short name to ID, just like DNS
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
-from .utils import Log
-
-from .cpu import *
-from .network import Server
-from .database import Storage, Database
-
-from .ans import AddressNameServer
-from .facebook import Facebook
-from .messenger import CommonMessenger
+from dimp import ID
+from dimsdk import AddressNameService
 
 
-__all__ = [
-    #
-    #   Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
+class AddressNameServer(AddressNameService):
 
-    #
-    #   Metwork
-    #
-    'Server',
+    def load(self):
+        # TODO: load all ANS records from database
+        pass
 
-    #
-    #   Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #   Common libs
-    #
-    'AddressNameServer',
-    'Facebook', 'CommonMessenger',
-]
+    def save(self, name: str, identifier: ID = None) -> bool:
+        ok = super().save(name=name, identifier=identifier)
+        # TODO: save new record into database
+        return ok

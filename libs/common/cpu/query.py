@@ -66,8 +66,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
             text = 'Group members not found: %s' % group
             return TextContent.new(text=text)
         # 3. response group members for sender
-        messenger: Messenger = self.messenger
-        user = messenger.current_user
+        user = facebook.current_user
         assert user is not None, 'current user not set'
         if facebook.is_owner(member=user.identifier, group=group):
             return GroupCommand.reset(group=group, members=members)
