@@ -64,8 +64,8 @@ class Terminal(HandshakeDelegate):
 
     def disconnect(self) -> bool:
         if self.connection:
-            if self.messenger.delegate == self.connection:
-                self.messenger.delegate = None
+            # if self.messenger.delegate == self.connection:
+            #     self.messenger.delegate = None
             self.connection.disconnect()
             self.connection = None
             return True
