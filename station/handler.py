@@ -275,6 +275,8 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             return res
         except Exception as error:
             self.error('parse message failed: %s' % error)
+            # from dimsdk import TextContent
+            # return TextContent.new(text='parse message failed: %s' % error)
             return b''
 
     #

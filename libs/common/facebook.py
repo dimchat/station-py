@@ -59,18 +59,22 @@ class Facebook(Barrack):
         self.__local_users = None
 
     def nickname(self, identifier: ID) -> str:
-        assert identifier.type.is_user(), 'ID error: %s' % identifier
-        user = self.user(identifier=identifier)
-        if user is not None:
-            return user.name
+        assert identifier.type.is_user(), 'user ID error: %s' % identifier
+        profile = self.profile(identifier=identifier)
+        if profile is not None:
+            name = profile.name
+            if name is not None and len(name) > 0:
+                return name
+        return identifier.name
 
     def group_name(self, identifier: ID) -> str:
-        assert identifier.type.is_group(), 'ID error: %s' % identifier
-        group = self.group(identifier=identifier)
-        if group is None:
-            return identifier.name
-        else:
-            return group.name
+        assert identifier.type.is_group(), 'group ID error: %s' % identifier
+        profile = self.profile(identifier=identifier)
+        if profile is not None:
+            name = profile.name
+            if name is not None and len(name) > 0:
+                return name
+        return identifier.name
 
     #
     #   super()
