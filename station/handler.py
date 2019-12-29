@@ -46,7 +46,7 @@ from libs.server import HandshakeDelegate
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
-from .config import current_station, station_name, local_servers, chat_bot
+from .config import current_station, station_name, chat_bot
 
 
 class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
@@ -177,7 +177,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     # cut out the first package from received data
                     pack = data[:pack_len]
                     data = data[pack_len:]
-                    self.handle_mars_package(pack)
+                    # process mars data package
+                    response = self.process_mars_package(pack)
+                    self.send(response)
                     # mars OK
                     continue
 
@@ -185,6 +187,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     # NOOP: heartbeat package
                     self.info('trim <heartbeats>: %s' % data)
                     data = data.lstrip(b'\n')
+                    self.send(b'\n')
                     continue
 
                 # (Protocol B) raw data with no wrap?
@@ -199,7 +202,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     # cut out the first package from received data
                     pack = data[:pos+1]
                     data = data[pos+1:]
-                    self.handle_raw_package(pack)
+                    # process raw data package
+                    response = self.process_package(pack)
+                    self.send(response + b'\n')
                     # raw data OK
                     continue
 
@@ -210,9 +215,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 # raise AssertionError('unknown protocol')
 
     #
-    #   process and response message
+    #   process package with mars format
     #
-    def handle_mars_package(self, pack: bytes):
+    def process_mars_package(self, pack: bytes):
         pack = NetMsg(pack)
         head = pack.head
         if head.cmd == 3:
@@ -226,33 +231,17 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 if line.isspace():
                     self.info('ignore empty message')
                     continue
-                response = self.process_package(line)
-                if response:
-                    body = body + response + b'\n'
-            if body:
-                data = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-                # self.info('mars response %s' % data)
-                self.send(data)
-            else:
-                # TODO: handle error message
-                self.info('nothing to response, requests: %s' % lines)
+                res = self.process_package(line)
+                body = body + res + b'\n'
+            return NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         elif head.cmd == 6:
             # TODO: handle NOOP request
             self.info('receive NOOP package, response %s' % pack)
-            self.send(pack)
+            return pack
         else:
             # TODO: handle Unknown request
             self.error('cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
-            self.send(pack)
-
-    def handle_raw_package(self, pack: bytes):
-        response = self.process_package(pack)
-        if response:
-            data = response + b'\n'
-            self.send(data)
-        else:
-            self.info('respond nothing')
-            # self.send(pack)
+            return pack
 
     #
     #   push message
@@ -286,6 +275,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             return res
         except Exception as error:
             self.error('parse message failed: %s' % error)
+            return b''
 
     #
     #   Socket IO
