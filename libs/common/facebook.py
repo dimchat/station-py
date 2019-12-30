@@ -103,10 +103,10 @@ class Facebook(Barrack):
         elif user in array:
             array.remove(user)
         array.insert(0, user)
-        self.local_users = array
+        self.__local_users = array
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not self.verify_meta(meta=meta, identifier=identifier):
+        if not self.cache_meta(meta=meta, identifier=identifier):
             raise ValueError('meta error: %s, %s' % (identifier, meta))
         return self.database.save_meta(meta=meta, identifier=identifier)
 
@@ -114,7 +114,7 @@ class Facebook(Barrack):
         return self.database.meta(identifier=identifier)
 
     def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
-        if not self.verify_profile(profile=profile, identifier=identifier):
+        if not self.cache_profile(profile=profile, identifier=identifier):
             raise ValueError('profile error: %s, %s' % (identifier, profile))
         return self.database.save_profile(profile=profile)
 
@@ -184,9 +184,10 @@ class Facebook(Barrack):
     #   UserDataSource
     #
     def private_key_for_signature(self, identifier: ID) -> Optional[PrivateKey]:
-        obj = self.__immortals.private_key_for_signature(identifier=identifier)
-        if obj is not None:
-            return obj
+        key = self.__immortals.private_key_for_signature(identifier=identifier)
+        if key is not None:
+            assert isinstance(key, PrivateKey), 'private key error: %s' % key
+            return key
         return super().private_key_for_signature(identifier=identifier)
 
     def private_keys_for_decryption(self, identifier: ID) -> Optional[list]:
