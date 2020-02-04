@@ -324,7 +324,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 self.info('ignore empty message')
                 continue
             try:
-                res = self.messenger.received_package(data=pack)
+                res = self.messenger.received_package(data=line)
                 if res is None:
                     # station MUST respond something to client request
                     res = b''
