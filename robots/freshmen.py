@@ -128,52 +128,60 @@ class FreshmenScanner(threading.Thread):
         text.group = self.__group.identifier
         return text
 
+    def __run_unsafe(self):
+        #
+        #  1. get freshmen and group members
+        #
+        freshmen = self.__freshmen()
+        if len(freshmen) == 0:
+            time.sleep(30)
+            return
+        self.info('freshmen: %s' % freshmen)
+        members = self.__members()
+        self.info('group members: %s' % members)
+        #
+        #  2. send 'invite' command to existed members
+        #
+        cmd = self.__invite_members(members=freshmen)
+        for item in members:
+            self.__send_content(content=cmd, receiver=item)
+        self.info('invite command sent: %s' % cmd)
+        #
+        #  3. update group members
+        #
+        for item in freshmen:
+            # add freshmen to members
+            if item not in members:
+                members.append(item)
+        if self.__save_members(members=members):
+            self.info('group members updated: %s' % members)
+        #
+        #  4.1. send group meta to all freshmen
+        #
+        cmd = self.__response_meta()
+        for item in freshmen:
+            self.__send_content(content=cmd, receiver=item)
+        self.info('group meta/profile sent: %s' % cmd)
+        #
+        #  4.2. send 'invite' command to all freshmen
+        #
+        cmd = self.__invite_members(members=members)
+        for item in freshmen:
+            self.__send_content(content=cmd, receiver=item)
+        self.info('invite command sent: %s' % cmd)
+        #
+        #  5. Welcome!
+        #
+        text = self.__welcome(freshmen=freshmen)
+        gid = self.__group.identifier
+        self.__send_content(content=text, receiver=gid)
+        self.info('Welcome sent to %s: %s' % (gid, text))
+
     def run(self):
         while True:
             time.sleep(30)
-            #
-            #  1. get freshmen and group members
-            #
-            freshmen = self.__freshmen()
-            if len(freshmen) == 0:
-                continue
-            self.info('freshmen: %s' % freshmen)
-            members = self.__members()
-            self.info('group members: %s' % members)
-            #
-            #  2. send 'invite' command to existed members
-            #
-            cmd = self.__invite_members(members=freshmen)
-            for item in members:
-                self.__send_content(content=cmd, receiver=item)
-            self.info('invite command sent: %s' % cmd)
-            #
-            #  3. update group members
-            #
-            for item in freshmen:
-                # add freshmen to members
-                if item not in members:
-                    members.append(item)
-            if self.__save_members(members=members):
-                self.info('group members updated: %s' % members)
-            #
-            #  4.1. send group meta to all freshmen
-            #
-            cmd = self.__response_meta()
-            for item in freshmen:
-                self.__send_content(content=cmd, receiver=item)
-            self.info('group meta/profile sent: %s' % cmd)
-            #
-            #  4.2. send 'invite' command to all freshmen
-            #
-            cmd = self.__invite_members(members=members)
-            for item in freshmen:
-                self.__send_content(content=cmd, receiver=item)
-            self.info('invite command sent: %s' % cmd)
-            #
-            #  5. Welcome!
-            #
-            text = self.__welcome(freshmen=freshmen)
-            gid = self.__group.identifier
-            self.__send_content(content=text, receiver=gid)
-            self.info('Welcome sent to %s: %s' % (gid, text))
+            self.info('try to scan freshmen ...')
+            try:
+                self.__run_unsafe()
+            except Exception as error:
+                self.error('scan freshmen error: %s' % error)
