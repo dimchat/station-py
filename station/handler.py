@@ -263,7 +263,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         elif head.cmd == 6:
             # TODO: handle NOOP request
-            self.info('receive NOOP package, response %s' % pack)
+            self.info('receive NOOP package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
             if head.body_length == 0:
                 self.info('empty package')
                 res = pack
@@ -272,8 +272,13 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         else:
             # TODO: handle Unknown request
-            self.error('cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
-            res = pack
+            self.error('receive unknown package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
+            if head.body_length == 0:
+                self.info('empty package')
+                res = pack
+            else:
+                body = self.received_package(mars.body)
+                res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         self.send(res)
         # return the remaining incomplete package
         return pack[mars_len:]
