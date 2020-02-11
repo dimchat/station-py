@@ -255,6 +255,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         if mars_len > pack_len:
             # partially data, keep it for next loop
             return pack
+        # cut sticky packages
+        remaining = pack[mars_len:]
+        pack = pack[:mars_len]
         if head.cmd == 3:
             # TODO: handle SEND_MSG request
             if head.body_length == 0:
@@ -264,24 +267,14 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         elif head.cmd == 6:
             # TODO: handle NOOP request
             self.info('receive NOOP package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
-            if head.body_length == 0:
-                self.info('empty package')
-                res = pack
-            else:
-                body = self.received_package(mars.body)
-                res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+            res = pack
         else:
             # TODO: handle Unknown request
             self.error('receive unknown package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
-            if head.body_length == 0:
-                self.info('empty package')
-                res = pack
-            else:
-                body = self.received_package(mars.body)
-                res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+            res = b''
         self.send(res)
         # return the remaining incomplete package
-        return pack[mars_len:]
+        return remaining
 
     def push_mars_data(self, body: bytes) -> bool:
         # kPushMessageCmdId = 10001
