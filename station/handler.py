@@ -264,7 +264,12 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         elif head.cmd == 6:
             # TODO: handle NOOP request
             self.info('receive NOOP package, response %s' % pack)
-            res = pack
+            if head.body_length == 0:
+                self.info('empty package')
+                res = pack
+            else:
+                body = self.received_package(mars.body)
+                res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         else:
             # TODO: handle Unknown request
             self.error('cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
