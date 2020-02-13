@@ -30,21 +30,20 @@
     Transform and send message
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 from dimp import ID, User
-from dimp import Content, TextContent
-from dimp import InstantMessage, ReliableMessage
-from dimsdk import Session
-
-from ..common import CommonMessenger
+from dimp import Content, ForwardContent, TextContent
+from dimp import Message, InstantMessage, ReliableMessage
+from dimsdk import ReceiptCommand
+from dimsdk import Session, Messenger
 
 from .session import SessionServer
 from .dispatcher import Dispatcher
 from .filter import Filter
 
 
-class ServerMessenger(CommonMessenger):
+class ServerMessenger(Messenger):
 
     def __init__(self):
         super().__init__()
@@ -110,12 +109,42 @@ class ServerMessenger(CommonMessenger):
     def remote_address(self, value):
         self.set_context(key='remote_address', value=value)
 
+    # Override
+    def process_message(self, msg: Message) -> Optional[Content]:
+        if isinstance(msg, ReliableMessage):
+            s_msg = self.verify_message(msg=msg)
+            if s_msg is None:
+                # waiting for sender's meta if not exists
+                return None
+            receiver = self.facebook.identifier(string=msg.envelope.receiver)
+            if receiver.type.is_group() and receiver.is_broadcast:
+                # if it's a grouped broadcast id, then
+                #    split and deliver to everyone
+                return self.broadcast_message(msg=msg)
+            try:
+                return self.process_message(msg=s_msg)
+            except LookupError as error:
+                if str(error).startswith('receiver error'):
+                    return self.deliver_message(msg=msg)
+                else:
+                    return TextContent.new(text='failed to process message: %s' % s_msg)
+        else:
+            return super().process_message(msg=msg)
+
     #
     #   Message
     #
     def save_message(self, msg: InstantMessage) -> bool:
         # TODO: save instant message
         return True
+
+    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
+        if isinstance(msg, ReliableMessage):
+            # TODO: save this message in a queue waiting sender's meta response
+            pass
+        elif isinstance(msg, InstantMessage):
+            # TODO: save this message in a queue waiting receiver's meta response
+            pass
 
     def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
@@ -144,4 +173,9 @@ class ServerMessenger(CommonMessenger):
         if res is not None:
             # forward is not allowed
             return res
-        return super().forward_message(msg=msg)
+        forward = ForwardContent.new(message=msg)
+        receiver = self.facebook.identifier(string=msg.envelope.receiver)
+        if self.send_content(content=forward, receiver=receiver):
+            return ReceiptCommand.new(message='Message forwarded', envelope=msg.envelope)
+        else:
+            return TextContent.new(text='Failed to forward your message')

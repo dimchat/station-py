@@ -41,7 +41,6 @@ from .database import Storage, Database
 
 from .ans import AddressNameServer
 from .facebook import Facebook
-from .messenger import CommonMessenger
 
 
 __all__ = [
@@ -54,7 +53,7 @@ __all__ = [
     'Log',
 
     #
-    #   Metwork
+    #   Network
     #
     'Server',
 
@@ -68,5 +67,5 @@ __all__ = [
     #   Common libs
     #
     'AddressNameServer',
-    'Facebook', 'CommonMessenger',
+    'Facebook',
 ]

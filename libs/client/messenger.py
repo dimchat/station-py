@@ -30,20 +30,18 @@
     Transform and send message
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 from dimp import ID
-from dimp import Message, InstantMessage, ReliableMessage
+from dimp import InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand
 from dimp import HandshakeCommand
 
-from dimsdk import ReceiptCommand
+from dimsdk import Messenger
 from dimsdk import Station
 
-from ..common import CommonMessenger
 
-
-class ClientMessenger(CommonMessenger):
+class ClientMessenger(Messenger):
 
     def __init__(self):
         super().__init__()
@@ -72,15 +70,13 @@ class ClientMessenger(CommonMessenger):
         # TODO: save instant message
         return True
 
-    def suspend_message(self, msg: Message) -> bool:
+    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
         if isinstance(msg, ReliableMessage):
             # TODO: save this message in a queue waiting sender's meta response
             pass
-        else:
-            assert isinstance(msg, InstantMessage), 'message error: %s' % msg
+        elif isinstance(msg, InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
-        return True
 
     def process_message(self, msg: ReliableMessage) -> Optional[Content]:
         res = super().process_message(msg=msg)
