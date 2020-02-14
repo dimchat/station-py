@@ -3,7 +3,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2020 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,10 +25,10 @@
 # ==============================================================================
 
 """
-    Chat bot: 'LingLing'
+    Chatroom admin robot
     ~~~~~~~~~~~~~~~~~~~~
 
-    Chat bot powered by Tuling
+    Chat room for web demo
 """
 
 import sys
