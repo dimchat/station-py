@@ -31,9 +31,10 @@
 """
 from typing import Optional
 
-from dimp import ID, EVERYONE, User
+from dimp import ID, EVERYONE
+from dimp import InstantMessage
 from dimp import Content, Command, HandshakeCommand
-from dimsdk import Station, Session
+from dimsdk import Station, Session, CompletionHandler
 
 from ..common import Facebook
 
@@ -105,8 +106,18 @@ class Terminal(HandshakeDelegate):
         return self.messenger.send_content(content=content, receiver=receiver)
 
     def handshake(self):
+        user = self.facebook.current_user
+        assert user is not None, 'current user not set yet'
+        server = self.messenger.station
         cmd = HandshakeCommand.start()
-        return self.send_command(cmd=cmd)
+        msg = InstantMessage.new(content=cmd, sender=user.identifier, receiver=server.identifier)
+        msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
+        # carry meta for first handshake
+        msg.meta = user.meta
+        data = self.messenger.serialize_message(msg=msg)
+        # send out directly
+        handler: CompletionHandler = None
+        self.messenger.delegate.send_package(data=data, handler=handler)
 
     #
     #   HandshakeDelegate

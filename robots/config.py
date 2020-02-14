@@ -41,8 +41,8 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, AddressNameServer
-from libs.client import Terminal, ClientMessenger
+from libs.common import Database, AddressNameServer
+from libs.client import Terminal, ClientMessenger, ClientFacebook
 
 #
 #  Configurations
@@ -51,7 +51,7 @@ from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_gsp import station_id, all_stations
 from etc.cfg_bots import group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
-from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id
+from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id, chatroom_id
 
 from etc.cfg_loader import load_robot_info, load_station
 
@@ -91,7 +91,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = Facebook()
+g_facebook = ClientFacebook()
 g_facebook.database = g_database
 g_facebook.ans = g_ans
 
@@ -103,6 +103,7 @@ g_facebook.ans = g_ans
 g_messenger = ClientMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
+g_facebook.messenger = g_messenger
 
 
 """
@@ -112,8 +113,8 @@ g_messenger.key_cache = g_keystore
 station_id = g_facebook.identifier(station_id)
 
 station_host = '127.0.0.1'
-# station_host = '124.156.108.150'  # dimchat-hk
 # station_host = '134.175.87.98'  # dimchat-gz
+# station_host = '124.156.108.150'  # dimchat-hk
 station_port = 9394
 
 g_station = Station(identifier=station_id, host=station_host, port=station_port)
@@ -284,8 +285,14 @@ all_stations = [load_station(identifier=item, facebook=g_facebook) for item in a
 Log.info('-------- loading group contains all users')
 load_naruto()
 
+lingling_id = g_facebook.identifier(string=lingling_id)
+xiaoxiao_id = g_facebook.identifier(string=xiaoxiao_id)
+assistant_id = g_facebook.identifier(string=assistant_id)
+chatroom_id = g_facebook.identifier(string=chatroom_id)
+
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)
 Log.info('DIM bot: %s' % assistant_id)
+Log.info('Chatroom: %s' % chatroom_id)
 
 Log.info('======== configuration OK!')

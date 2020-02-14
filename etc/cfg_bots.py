@@ -39,6 +39,12 @@ xiaoxiao_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'
 
 assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
 
+#
+#  DIM demo
+#
+
+chatroom_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
+
 
 #
 #  Shodai Hokage

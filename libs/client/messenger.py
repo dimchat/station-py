@@ -34,7 +34,7 @@ from typing import Optional, Union
 
 from dimp import ID
 from dimp import InstantMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand
+from dimp import Content, Command, MetaCommand, ProfileCommand
 from dimp import HandshakeCommand
 
 from dimsdk import Messenger
@@ -61,6 +61,10 @@ class ClientMessenger(Messenger):
 
     def query_meta(self, identifier: ID) -> bool:
         cmd = MetaCommand.new(identifier=identifier)
+        return self.send_command(cmd=cmd)
+
+    def query_profile(self, identifier: ID) -> bool:
+        cmd = ProfileCommand.new(identifier=identifier)
         return self.send_command(cmd=cmd)
 
     #

@@ -40,6 +40,7 @@ from dimp import PrivateKey
 from dimp import NetworkID, Meta
 
 from mkm.address import DefaultAddress as BTCAddress
+from mkm.types import MetaVersion
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -77,7 +78,7 @@ class AccountTestCase(unittest.TestCase):
             print('*** registering station (%s) with number match: %s' % (seed, pattern))
         elif cmd == 3:
             # generate robot
-            seed = 'assistant'
+            seed = 'chatroom-admin'
             pattern = re.compile(r'^000\d+$')
             network = NetworkID.Robot
             print('*** registering robot (%s) with number match: %s' % (seed, pattern))
@@ -108,7 +109,7 @@ class AccountTestCase(unittest.TestCase):
 
             print('**** GOT IT!')
             meta = {
-                'version': Meta.DefaultVersion,
+                'version': MetaVersion.Default,
                 'seed': seed,
                 'key': sk.public_key,
                 'fingerprint': base64_encode(ct),
