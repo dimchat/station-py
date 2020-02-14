@@ -39,6 +39,7 @@ from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import CommandProcessor
 
+from ...common import SearchCommand
 from ...common import Database
 from ..session import SessionServer
 
@@ -62,11 +63,7 @@ class SearchCommandProcessor(CommandProcessor):
         # search in database
         results = self.database.search(keywords=keywords)
         users = list(results.keys())
-        response = Command.new(command='search')
-        response['message'] = '%d user(s) found' % len(users)
-        response['users'] = users
-        response['results'] = results
-        return response
+        return SearchCommand.new(users=users, results=results)
 
 
 class UsersCommandProcessor(CommandProcessor):
@@ -80,11 +77,14 @@ class UsersCommandProcessor(CommandProcessor):
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
+        facebook = self.facebook
         users = self.session_server.random_users()
-        response = Command.new(command='users')
-        response['message'] = '%d user(s) connected' % len(users)
-        response['users'] = users
-        return response
+        results = {}
+        for item in users:
+            meta = facebook.meta(identifier=item)
+            if meta is not None:
+                results[item] = meta
+        return SearchCommand.new(users=users, results=results)
 
 
 # register

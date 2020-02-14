@@ -38,7 +38,7 @@ import weakref
 from typing import Optional
 
 from dimsdk import ID
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import InstantMessage
 from dimsdk import ContentType, Content, Command, TextContent
 from dimsdk import ForwardContent, ReceiptCommand, ProfileCommand
 from dimsdk import ContentProcessor, CommandProcessor
@@ -48,7 +48,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log
+from libs.common import Log, SearchCommand
 
 from robots.config import load_user, create_client
 from robots.config import chatroom_id
@@ -205,22 +205,16 @@ class ChatRoom:
         self.info('got message from %s' % sender)
         if isinstance(content, TextContent):
             if content.text == 'show users':
+                # search online users
                 facebook = self.facebook
                 users = self.__users.copy()
                 users.reverse()
-                text = ''
+                results = {}
                 for item in users:
-                    text += ', %s(%d)' % (facebook.nickname(item), item.number)
-                cnt = len(users)
-                if cnt < 1:
-                    text = 'no user online now'
-                elif cnt == 1:
-                    text = 'One user online: %s' % text[2:]
-                else:
-                    text = '%d users online: %s' % (cnt, text[2:])
-                res = TextContent.new(text=text)
-                res['users'] = users
-                return res
+                    meta = facebook.meta(identifier=item)
+                    if meta is not None:
+                        results[item] = meta
+                return SearchCommand.new(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
         return None
 
 
