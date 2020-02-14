@@ -176,8 +176,6 @@ class ChatRoom:
             users = self.__users.copy()
             users.reverse()
             for item in users:
-                if item == identifier:
-                    continue
                 messenger.send_content(content=content, receiver=item)
         return True
 
