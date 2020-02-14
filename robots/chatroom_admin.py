@@ -92,7 +92,7 @@ class ForwardContentProcessor(ContentProcessor):
             return None
 
         # call client to process it
-        return client.room.forward(msg=r_msg)
+        return client.room.forward(content=content, sender=sender)
 
 
 #
@@ -156,42 +156,46 @@ class ChatRoom:
                 continue
             index += 1
 
-    def update(self, identifier: ID):
+    def update(self, identifier: ID) -> bool:
         if identifier.name != 'web-demo':
             self.error('ignore ID: %s' % identifier)
-            return
+            return False
         if self.__times.get(identifier):
             self.__users.remove(identifier)
         self.__times[identifier] = time.time()
         self.__users.append(identifier)
         self.refresh()
+        return True
 
-    def forward(self, msg: ReliableMessage) -> Optional[Content]:
-        self.info('forwarding message: %s -> %s' % (msg.envelope.sender, msg.envelope.receiver))
-        sender = msg.envelope.sender
-        sender = self.facebook.identifier(string=sender)
-        self.update(identifier=sender)
+    def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
+        if not self.update(identifier=sender):
+            return None
+        self.info('forwarding message from: %s' % sender)
         # forwarding
         messenger = self.messenger
-        cmd = ForwardContent.new(message=msg)
         users = self.__users.copy()
+        users.reverse()
         for item in users:
             if item == sender:
                 continue
-            messenger.send_content(content=cmd, receiver=item)
+            messenger.send_content(content=content, receiver=item)
         return ReceiptCommand.new(message='message forwarded')
 
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
+        if not self.update(identifier=sender):
+            return None
         self.info('got receipt from %s' % sender)
-        self.update(identifier=sender)
         return None
 
     def receive(self, content: Content, sender: ID) -> Optional[Content]:
+        if not self.update(identifier=sender):
+            return None
         self.info('got message from %s' % sender)
         if isinstance(content, TextContent):
             if content.text == 'show users':
                 facebook = self.facebook
                 users = self.__users.copy()
+                users.reverse()
                 text = ''
                 for item in users:
                     text += ', %s(%d)' % (facebook.nickname(item), item.number)
