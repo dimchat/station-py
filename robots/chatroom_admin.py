@@ -162,9 +162,23 @@ class ChatRoom:
             return False
         if self.__times.get(identifier):
             self.__users.remove(identifier)
+            exists = True
+        else:
+            exists = False
         self.__times[identifier] = time.time()
         self.__users.append(identifier)
         self.refresh()
+        if not exists:
+            messenger = self.messenger
+            facebook = self.facebook
+            nickname = facebook.nickname(identifier=identifier)
+            content = TextContent.new(text='Welcome new guest: %s(%d)' % (nickname, identifier.number))
+            users = self.__users.copy()
+            users.reverse()
+            for item in users:
+                if item == identifier:
+                    continue
+                messenger.send_content(content=content, receiver=item)
         return True
 
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
