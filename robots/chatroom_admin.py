@@ -35,7 +35,10 @@ import sys
 import os
 import time
 import weakref
+from enum import IntEnum
 from typing import Optional
+
+from mkm.dos import JSONFile
 
 from dimsdk import ID
 from dimsdk import InstantMessage
@@ -50,6 +53,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.common import Log, SearchCommand
 
+from robots.config import g_database
 from robots.config import load_user, create_client
 from robots.config import chatroom_id
 
@@ -83,8 +87,6 @@ class ForwardContentProcessor(ContentProcessor):
         r_msg = content.forward
 
         # [Forward Protocol]
-        # do it again to drop the wrapper,
-        # the secret inside the content is the real message
         s_msg = self.messenger.verify_message(msg=r_msg)
         if s_msg is None:
             # TODO: save this message in a queue to wait meta response
@@ -117,6 +119,100 @@ ContentProcessor.register(content_type=ContentType.Forward, processor_class=Forw
 CommandProcessor.register(command=Command.RECEIPT, processor_class=ReceiptCommandProcessor)
 
 
+def date_string(timestamp=None):
+    if timestamp is None:
+        timestamp = time.time()
+    return time.strftime('%Y%m%d', time.localtime(timestamp))
+
+
+class StatKey(IntEnum):
+
+    LOGIN = 1    # come back
+    MESSAGE = 2  # send message
+
+
+class Statistic:
+
+    EXPIRES = 300  # 5 minutes
+
+    def __init__(self):
+        super().__init__()
+        self.__login_stat: dict = None    # ID -> [time]
+        self.__message_stat: dict = None  # ID -> int
+        self.__stat_prefix: str = None
+        self.__load_stat()
+
+    def __load_stat(self):
+        base = os.path.join(g_database.base_dir, 'stat')
+        prefix = 'stat-' + date_string()
+        # load login stat
+        path = os.path.join(base, prefix + '-login.js')
+        stat = JSONFile(path=path).read()
+        if stat is None:
+            self.__login_stat = {}
+        else:
+            self.__login_stat = stat
+        # load message stat
+        path = os.path.join(base, prefix + '-message.js')
+        stat = JSONFile(path=path).read()
+        if stat is None:
+            self.__message_stat = {}
+        else:
+            self.__message_stat = stat
+        # OK
+        self.__stat_prefix = prefix
+        self.__update_time = time.time()
+
+    def __save_stat(self):
+        now = time.time()
+        if (now - self.__update_time) < self.EXPIRES:
+            # wait for 5 minutes
+            return
+        self.__update_time = now
+
+        base = os.path.join(g_database.base_dir, 'stat')
+        prefix = self.__stat_prefix
+        # save login stat
+        path = os.path.join(base, prefix + '-login.js')
+        JSONFile(path=path).write(container=self.__login_stat)
+        # save message stat
+        path = os.path.join(base, prefix + '-message.js')
+        JSONFile(path=path).write(container=self.__message_stat)
+        # OK
+        prefix = 'stat-' + date_string()
+        if prefix != self.__stat_prefix:
+            # it's a new day!
+            self.__login_stat = {}
+            self.__message_stat = {}
+            self.__stat_prefix = prefix
+
+    def update(self, identifier: ID, stat: StatKey):
+        if stat.value == StatKey.LOGIN.value:
+            # login times
+            array = self.__login_stat.get(identifier)
+            if array is None:
+                array = []
+                self.__login_stat[identifier] = array
+            array.append(time.time())
+        elif stat.value == StatKey.MESSAGE.value:
+            # message count
+            count = self.__message_stat.get(identifier)
+            if count is None:
+                count = 0
+            self.__message_stat[identifier] = count + 1
+        else:
+            raise TypeError('unknown stat type: %d' % stat)
+        # OK
+        self.__save_stat()
+
+    def select(self) -> dict:
+        return {
+            'prefix': self.__stat_prefix,
+            'login': self.__login_stat,
+            'message': self.__message_stat,
+        }
+
+
 class ChatRoom:
 
     EXPIRES = 600  # 10 minutes
@@ -126,6 +222,7 @@ class ChatRoom:
         self.__messenger = weakref.ref(messenger)
         self.__users: list = []  # ID
         self.__times: dict = {}  # ID -> time
+        self.__statistic = Statistic()
 
     @property
     def messenger(self):  # Messenger
@@ -141,24 +238,28 @@ class ChatRoom:
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def refresh(self):
+    def __refresh(self):
+        """ Remove timeout user(s) """
         now = time.time()
-        index = 0
-        while index < len(self.__users):
-            item = self.__users[index]
+        while len(self.__users) > 0:
+            item = self.__users[0]
             last = self.__times.get(item)
             if last is None:
-                self.__users.pop(index)
+                # should not happen
+                self.error('user active time lost: %s' % item)
+                self.__users.pop(0)
                 continue
             if (now - last) > self.EXPIRES:
-                self.__users.pop(index)
+                self.__users.pop(0)
                 self.__times.pop(item)
                 continue
-            index += 1
+            # users sorted by time
+            break
 
-    def update(self, identifier: ID) -> bool:
+    def __update(self, identifier: ID) -> bool:
+        """ Update user active status """
         if identifier.name != 'web-demo':
-            self.error('ignore ID: %s' % identifier)
+            self.info('ignore ID: %s' % identifier)
             return False
         if self.__times.get(identifier):
             self.__users.remove(identifier)
@@ -167,22 +268,58 @@ class ChatRoom:
             exists = False
         self.__times[identifier] = time.time()
         self.__users.append(identifier)
-        self.refresh()
+        self.__refresh()
         if not exists:
-            messenger = self.messenger
-            facebook = self.facebook
-            nickname = facebook.nickname(identifier=identifier)
-            content = TextContent.new(text='Welcome new guest: %s(%d)' % (nickname, identifier.number))
-            users = self.__users.copy()
-            users.reverse()
-            for item in users:
-                messenger.send_content(content=content, receiver=item)
+            nickname = self.facebook.nickname(identifier=identifier)
+            self.__broadcast(text='Welcome %s (%d)!' % (nickname, identifier.number))
+            self.__statistic.update(identifier=identifier, stat=StatKey.LOGIN)
         return True
 
+    def __broadcast(self, text: str):
+        """ Broadcast text message to each online user """
+        messenger = self.messenger
+        content = TextContent.new(text=text)
+        users = self.__users.copy()
+        users.reverse()
+        for item in users:
+            messenger.send_content(content=content, receiver=item)
+
+    def __online(self) -> Content:
+        """ Get online users """
+        facebook = self.facebook
+        users = self.__users.copy()
+        users.reverse()
+        results = {}
+        for item in users:
+            meta = facebook.meta(identifier=item)
+            if meta is not None:
+                results[item] = meta
+        return SearchCommand.new(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
+
+    def __stat(self) -> Content:
+        info = self.__statistic.select()
+        prefix = info['prefix']
+        login = info['login']
+        message = info['message']
+        # user count
+        users = login.keys()
+        u_cnt = len(users)
+        # login count
+        l_cnt = 0
+        for u in users:
+            l_cnt += len(login[u])
+        # message count
+        m_cnt = 0
+        for u in message.keys():
+            m_cnt += message[u]
+        text = '%s: %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
+        return TextContent.new(text=text)
+
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
-        if not self.update(identifier=sender):
+        if not self.__update(identifier=sender):
             return None
         self.info('forwarding message from: %s' % sender)
+        self.__statistic.update(identifier=sender, stat=StatKey.MESSAGE)
         # forwarding
         messenger = self.messenger
         users = self.__users.copy()
@@ -194,27 +331,23 @@ class ChatRoom:
         return ReceiptCommand.new(message='message forwarded')
 
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
-        if not self.update(identifier=sender):
+        if not self.__update(identifier=sender):
             return None
         self.info('got receipt from %s' % sender)
         return None
 
     def receive(self, content: Content, sender: ID) -> Optional[Content]:
-        if not self.update(identifier=sender):
+        if not self.__update(identifier=sender):
             return None
         self.info('got message from %s' % sender)
         if isinstance(content, TextContent):
-            if content.text == 'show users':
+            text = content.text
+            if text == 'show users':
                 # search online users
-                facebook = self.facebook
-                users = self.__users.copy()
-                users.reverse()
-                results = {}
-                for item in users:
-                    meta = facebook.meta(identifier=item)
-                    if meta is not None:
-                        results[item] = meta
-                return SearchCommand.new(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
+                return self.__online()
+            if text == 'show stat' or text == 'show statistics':
+                # show statistics
+                return self.__stat()
         return None
 
 
