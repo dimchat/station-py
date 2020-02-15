@@ -119,6 +119,7 @@ station_port = 9394
 
 g_station = Station(identifier=station_id, host=station_host, port=station_port)
 g_facebook.cache_user(user=g_station)
+g_messenger.set_context('station', g_station)
 
 # Address Name Service
 g_ans.save('station', g_station.identifier)
@@ -174,7 +175,10 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 def load_user(identifier: str) -> User:
     identifier = g_facebook.identifier(identifier)
     # check meta
-    meta = g_facebook.meta(identifier=identifier)
+    try:
+        meta = g_facebook.meta(identifier=identifier)
+    except AssertionError:
+        meta = None
     if meta is None:
         # load from 'etc' directory
         meta = Meta(load_robot_info(identifier=identifier, filename='meta.js'))

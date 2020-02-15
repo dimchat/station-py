@@ -312,7 +312,7 @@ class ChatRoom:
         m_cnt = 0
         for u in message.keys():
             m_cnt += message[u]
-        text = '%s: %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
+        text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
         return TextContent.new(text=text)
 
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
