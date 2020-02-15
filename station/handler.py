@@ -251,7 +251,8 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             mars = NetMsg(pack)
         except ValueError:
             # FIXME: incomplete package?
-            self.send(b'')
+            res = NetMsg(cmd=6, seq=0)
+            self.send(res)
             return b''
         head = mars.head
         # check completion
@@ -276,7 +277,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         else:
             # TODO: handle Unknown request
             self.error('receive unknown package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
-            res = b''
+            res = NetMsg(cmd=6, seq=0)
         self.send(res)
         # return the remaining incomplete package
         return remaining
