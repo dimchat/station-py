@@ -302,16 +302,15 @@ class ChatRoom:
         login = info['login']
         message = info['message']
         # user count
-        users = login.keys()
-        u_cnt = len(users)
+        u_cnt = len(login)
         # login count
         l_cnt = 0
-        for u in users:
-            l_cnt += len(login[u])
+        for u, a in login.items():
+            l_cnt += len(a)
         # message count
         m_cnt = 0
-        for u in message.keys():
-            m_cnt += message[u]
+        for u, c in message.items():
+            m_cnt += c
         text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
         return TextContent.new(text=text)
 

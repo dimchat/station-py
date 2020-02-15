@@ -256,7 +256,8 @@ def load_freshmen() -> list:
             elif identifier.type.is_user():
                 freshmen.append(identifier)
             else:
-                Log.error('Not a user ID: %s' % identifier)
+                # Log.error('Not a user ID: %s' % identifier)
+                pass
     return freshmen
 
 

@@ -94,7 +94,7 @@ class FreshmenScanner(threading.Thread):
                 continue
             # profile OK
             users.append(item)
-        self.info('got freshmen: %s from %s' % (users, freshmen))
+        self.info('got freshmen: %d from %d' % (len(users), len(freshmen)))
         return users
 
     def __members(self) -> list:
