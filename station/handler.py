@@ -247,7 +247,12 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #   Protocol: Tencent mars
     #
     def process_mars_package(self, pack: bytes):
-        mars = NetMsg(pack)
+        try:
+            mars = NetMsg(pack)
+        except ValueError:
+            # FIXME: incomplete package?
+            self.send(b'')
+            return b''
         head = mars.head
         # check completion
         mars_len = head.head_length + head.body_length
