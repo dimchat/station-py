@@ -150,8 +150,6 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.sendall(data)
         except IOError as error:
             self.error('failed to send data: %s' % error)
-            if not self.__connected:
-                return error
             # reconnect
             self.reconnect()
             # try again
@@ -159,6 +157,8 @@ class Connection(threading.Thread, MessengerDelegate):
                 self.__sock.sendall(data)
             except IOError as error:
                 # failed
+                self.error('failed to send data again: %s' % error)
+                self.__connected = False
                 return error
         # send OK, record the current time
         self.__last_time = int(time.time())
@@ -169,8 +169,6 @@ class Connection(threading.Thread, MessengerDelegate):
             data = self.__sock.recv(buffer_size)
         except IOError as error:
             self.error('failed to receive data: %s' % error)
-            if not self.__connected:
-                return b''
             # reconnect
             self.reconnect()
             # try again
@@ -179,6 +177,7 @@ class Connection(threading.Thread, MessengerDelegate):
             except IOError as error:
                 # failed
                 self.error('failed to receive data again: %s' % error)
+                self.__connected = False
         if data is not None:
             # receive OK, record the current time
             self.__last_time = int(time.time())

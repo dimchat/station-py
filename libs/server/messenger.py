@@ -122,7 +122,7 @@ class ServerMessenger(Messenger):
                 #    split and deliver to everyone
                 return self.broadcast_message(msg=msg)
             try:
-                return self.process_message(msg=s_msg)
+                return super().process_message(msg=s_msg)
             except LookupError as error:
                 if str(error).startswith('receiver error'):
                     return self.deliver_message(msg=msg)
