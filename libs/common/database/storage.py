@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
-import os
 import time
+
+from mkm.dos import File, TextFile, JSONFile
 
 from dimp import ID
 from dimp import Barrack
@@ -42,52 +42,31 @@ class Storage:
 
     @classmethod
     def exists(cls, path: str) -> bool:
-        return os.path.exists(path)
+        return File(path=path).exists(path=path)
 
     @classmethod
     def read_text(cls, path: str) -> str:
-        if cls.exists(path):
-            # reading
-            with open(path, 'r') as file:
-                return file.read()
+        return TextFile(path=path).read()
 
     @classmethod
     def read_json(cls, path: str) -> dict:
-        text = cls.read_text(path)
-        if text is not None:
-            return json.loads(text)
+        return JSONFile(path=path).read()
 
     @classmethod
     def write_text(cls, text: str, path: str) -> bool:
-        directory = os.path.dirname(path)
-        # make sure the dirs exists
-        if not cls.exists(directory):
-            os.makedirs(directory)
-        # writing
-        with open(path, 'w') as file:
-            wrote = file.write(text)
-            return wrote == len(text)
+        return TextFile(path=path).write(text=text)
 
     @classmethod
     def write_json(cls, container: dict, path: str) -> bool:
-        string = json.dumps(container)
-        return cls.write_text(string, path)
+        return JSONFile(path=path).write(container=container)
 
     @classmethod
     def append_text(cls, text: str, path: str) -> bool:
-        if not cls.exists(path=path):
-            # new file
-            return cls.write_text(text=text, path=path)
-        # appending
-        with open(path, 'a') as file:
-            wrote = file.write(text)
-            return wrote == len(text)
+        return TextFile(path=path).append(text=text)
 
     @classmethod
     def remove(cls, path: str) -> bool:
-        if cls.exists(path=path):
-            os.remove(path)
-            return True
+        return File(path=path).remove()
 
     #
     #  Entity factory

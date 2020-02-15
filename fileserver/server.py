@@ -80,10 +80,10 @@ def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
     filename = '%s.%s' % (hex_encode(md5(data)), ext)
-    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
+    path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    path = os.path.join(save_dir, filename)
     with open(path, 'wb') as file:
         count = file.write(data)
     # OK
@@ -108,10 +108,10 @@ def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
     filename = '%s.%s' % (hex_encode(md5(data)), ext)
-    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
+    save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
+    path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    path = os.path.join(save_dir, filename)
     with open(path, 'wb') as file:
         count = file.write(data)
     # save it as 'avatar.ext' too
@@ -180,7 +180,7 @@ def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
     identifier = dimp.ID(identifier)
     filename = secure_filename(filename)
-    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=True)
 
 
@@ -197,7 +197,7 @@ def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
         filename = 'avatar.%s' % ext
     else:
         filename = 'avatar.png'
-    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
+    save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=False)
 
 

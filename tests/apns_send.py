@@ -33,12 +33,12 @@
         ./send.py moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ "Hello!"
 """
 
-import json
-import os
 import sys
 
 from apns2.client import APNsClient
 from apns2.payload import Payload
+
+from mkm.dos import JSONFile
 
 from dimp import ID
 
@@ -61,15 +61,12 @@ class Device:
     @property
     def path(self) -> str:
         address = self.__identifier.address
-        return base_dir + '/protected/' + address + '/device.js'
+        return base_dir + '/protected/' + str(address) + '/device.js'
 
     @property
     def tokens(self) -> list:
-        path = self.path
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            device = json.loads(data)
+        device = JSONFile(self.path).read()
+        if device is not None:
             # TODO: only get the last two devices
             return device.get('tokens')
 
