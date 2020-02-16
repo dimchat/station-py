@@ -98,6 +98,9 @@ class Connection(threading.Thread, MessengerDelegate):
             pack = data[:pos]
             pos += len(self.BOUNDARY)
             data = data[pos:]
+            pack = pack.strip()
+            if len(pack) == 0:
+                continue
             # maybe more than one message in a time
             lines = pack.splitlines()
             pack = b''
@@ -112,10 +115,7 @@ class Connection(threading.Thread, MessengerDelegate):
                         pack = pack + res + b'\n'
                 except Exception as error:
                     self.error('receive package error: %s' % error)
-            if len(pack) == 0:
-                # send NOOP package
-                self.send(data=b'\n')
-            else:
+            if len(pack) > 0:
                 self.send(data=pack)
 
     def disconnect(self):

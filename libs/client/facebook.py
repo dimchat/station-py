@@ -30,7 +30,6 @@
     Barrack for cache entities
 """
 
-import time
 import weakref
 from typing import Optional
 
@@ -43,12 +42,8 @@ from .messenger import ClientMessenger
 
 class ClientFacebook(Facebook):
 
-    EXPIRES = 300  # profile expires (5 minutes)
-
     def __init__(self):
         super().__init__()
-        self.__meta_queries = {}     # ID -> time
-        self.__profile_queries = {}  # ID -> time
         self.__messenger = None
 
     @property
@@ -68,12 +63,8 @@ class ClientFacebook(Facebook):
         if meta is not None:
             # meta exists
             return meta
-        now = time.time()
-        last = self.__meta_queries.get(identifier)
-        if last is None or (now - last) > self.EXPIRES:
-            self.__meta_queries[identifier] = last
-            # query from DIM network
-            self.messenger.query_meta(identifier=identifier)
+        # query from DIM network
+        self.messenger.query_meta(identifier=identifier)
 
     def load_profile(self, identifier: ID) -> Optional[Profile]:
         # try from database
@@ -81,9 +72,5 @@ class ClientFacebook(Facebook):
         if profile is not None:
             # profile exists
             return profile
-        now = time.time()
-        last = self.__profile_queries.get(identifier)
-        if last is None or (now - last) > self.EXPIRES:
-            self.__profile_queries[identifier] = last
-            # query from DIM network
-            self.messenger.query_profile(identifier=identifier)
+        # query from DIM network
+        self.messenger.query_profile(identifier=identifier)
