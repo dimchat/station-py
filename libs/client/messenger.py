@@ -142,7 +142,7 @@ class ClientMessenger(Messenger):
         last = self.__meta_queries.get(identifier, 0)
         if (now - last) < self.EXPIRES:
             return False
-        self.__meta_queries[identifier] = last
+        self.__meta_queries[identifier] = now
         # query from DIM network
         cmd = MetaCommand.new(identifier=identifier)
         return self.send_command(cmd=cmd)
@@ -152,7 +152,7 @@ class ClientMessenger(Messenger):
         last = self.__profile_queries.get(identifier, 0)
         if (now - last) < self.EXPIRES:
             return False
-        self.__profile_queries[identifier] = last
+        self.__profile_queries[identifier] = now
         # query from DIM network
         cmd = ProfileCommand.new(identifier=identifier)
         return self.send_command(cmd=cmd)
@@ -165,7 +165,7 @@ class ClientMessenger(Messenger):
             return False
         if len(users) == 0:
             return False
-        self.__group_queries[group] = last
+        self.__group_queries[group] = now
         # query from users
         cmd = GroupCommand.query(group=group)
         checking = False
