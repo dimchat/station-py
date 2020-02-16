@@ -37,7 +37,9 @@ from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimp import HandshakeCommand
 
-from ..common import Facebook, Database
+from ..common import Database
+
+from .facebook import ServerFacebook
 
 
 class Filter:
@@ -52,7 +54,7 @@ class Filter:
         return self.__messenger
 
     @property
-    def facebook(self) -> Facebook:
+    def facebook(self) -> ServerFacebook:
         return self.messenger.facebook
 
     @property

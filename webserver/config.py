@@ -38,8 +38,8 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, Facebook, AddressNameServer
-from libs.server import ServerMessenger
+from libs.common import Database, AddressNameServer
+from libs.server import ServerFacebook, ServerMessenger
 
 
 #
@@ -80,7 +80,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = Facebook()
+g_facebook = ServerFacebook()
 g_facebook.database = g_database
 g_facebook.ans = g_ans
 

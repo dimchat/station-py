@@ -34,16 +34,18 @@ from typing import Optional, Union
 
 from dimp import ID, User
 from dimp import Content, ForwardContent, TextContent
-from dimp import Message, InstantMessage, ReliableMessage
+from dimp import InstantMessage, ReliableMessage
 from dimsdk import ReceiptCommand
-from dimsdk import Session, Messenger
+from dimsdk import Session
+
+from libs.common import CommonMessenger
 
 from .session import SessionServer
 from .dispatcher import Dispatcher
 from .filter import Filter
 
 
-class ServerMessenger(Messenger):
+class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()

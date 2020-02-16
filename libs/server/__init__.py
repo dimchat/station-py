@@ -35,6 +35,7 @@ from .cpu import *
 
 from .session import SessionServer
 from libs.common.network.server import Server
+from .facebook import ServerFacebook
 from .messenger import ServerMessenger
 from .dispatcher import Dispatcher
 from .filter import Filter
@@ -48,6 +49,6 @@ __all__ = [
 
     'Session', 'SessionServer',
     'Server',
-    'ServerMessenger',
+    'ServerFacebook', 'ServerMessenger',
     'Dispatcher', 'Filter',
 ]

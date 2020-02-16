@@ -33,8 +33,9 @@ from .cpu import *
 
 from .connection import Connection
 from .terminal import Terminal
-from .messenger import ClientMessenger
+
 from .facebook import ClientFacebook
+from .messenger import ClientMessenger
 
 
 __all__ = [
@@ -45,6 +46,5 @@ __all__ = [
 
     'Connection',
     'Terminal',
-    'ClientMessenger',
-    'ClientFacebook',
+    'ClientFacebook', 'ClientMessenger',
 ]

@@ -44,7 +44,6 @@ from dimp import Content, TextContent
 from dimp import GroupCommand, QueryCommand
 
 from dimsdk import GroupCommandProcessor
-from dimsdk import Messenger, Facebook
 
 
 class QueryCommandProcessor(GroupCommandProcessor):
@@ -54,7 +53,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, QueryCommand), 'group command error: %s' % content
-        facebook: Facebook = self.facebook
+        facebook = self.facebook
         group: ID = facebook.identifier(content.group)
         # 1. check permission
         if not facebook.exists_member(member=sender, group=group):

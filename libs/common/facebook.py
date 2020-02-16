@@ -24,8 +24,8 @@
 # ==============================================================================
 
 """
-    Facebook
-    ~~~~~~~~
+    Common extensions for Facebook
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Barrack for cache entities
 """
@@ -36,12 +36,12 @@ from mkm.immortals import Immortals
 
 from dimp import PrivateKey
 from dimp import ID, Meta, Profile, User
-from dimsdk import Facebook as Barrack
+from dimsdk import Facebook
 
 from .database import Database
 
 
-class Facebook(Barrack):
+class CommonFacebook(Facebook):
 
     def __new__(cls, *args, **kwargs):
         """ Singleton """

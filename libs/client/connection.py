@@ -49,11 +49,11 @@ class Connection(threading.Thread, MessengerDelegate):
 
     def __init__(self):
         super().__init__()
-        self.__running = threading.Event()
         self.delegate: ConnectionDelegate = None
         # current station
         self.__station: Station = None
         self.__connected = False
+        self.__running = False
         # socket
         self.__sock = None
         self.__thread_heartbeat = None
@@ -69,17 +69,17 @@ class Connection(threading.Thread, MessengerDelegate):
         self.disconnect()
 
     def start(self):
-        if not self.__running.isSet():
-            self.__running.set()
+        if not self.__running:
+            self.__running = True
             super().start()
 
     def stop(self):
-        if self.__running.isSet():
-            self.__running.clear()
+        if self.__running:
+            self.__running = False
 
     def run(self):
         data = b''
-        while self.__running.isSet():
+        while self.__running:
             if not self.__connected:
                 time.sleep(0.5)
                 continue
@@ -121,7 +121,6 @@ class Connection(threading.Thread, MessengerDelegate):
     def disconnect(self):
         self.__connected = False
         # cancel threads
-        self.stop()
         if self.__thread_heartbeat is not None:
             self.__thread_heartbeat = None
         # disconnect the socket

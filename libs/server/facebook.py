@@ -24,55 +24,16 @@
 # ==============================================================================
 
 """
-    Common Libs
-    ~~~~~~~~~~~
+    Facebook
+    ~~~~~~~~
 
-    Common libs for Server or Client
+    Barrack for cache entities
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
-from .utils import Log
-
-from .protocol import SearchCommand
-from .cpu import *
-from .network import Server
-from .database import Storage, Database
-
-from .ans import AddressNameServer
-from .facebook import CommonFacebook
-from .messenger import CommonMessenger
+from libs.common import CommonFacebook
 
 
-__all__ = [
-    #
-    #   Utils
-    #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
-    'Log',
+class ServerFacebook(CommonFacebook):
 
-    #
-    #   Protocol
-    #
-    'SearchCommand',
-
-    #
-    #   Network
-    #
-    'Server',
-
-    #
-    #   Database module
-    #
-    'Storage',
-    'Database',
-
-    #
-    #   Common libs
-    #
-    'AddressNameServer',
-    'CommonFacebook', 'CommonMessenger',
-]
+    def __init__(self):
+        super().__init__()

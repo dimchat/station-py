@@ -36,11 +36,10 @@ from dimp import InstantMessage
 from dimp import Content, Command, HandshakeCommand
 from dimsdk import Station, Session, CompletionHandler
 
-from ..common import Facebook
-
 from .connection import Connection
 from .cpu import HandshakeDelegate
 
+from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 
 
@@ -94,7 +93,7 @@ class Terminal(HandshakeDelegate):
         self.__messenger = value
 
     @property
-    def facebook(self) -> Facebook:
+    def facebook(self) -> ClientFacebook:
         return self.messenger.facebook
 
     def send_command(self, cmd: Command) -> bool:

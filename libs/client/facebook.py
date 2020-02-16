@@ -35,19 +35,17 @@ from typing import Optional
 
 from dimp import ID, Meta, Profile
 
-from libs.common.facebook import Facebook
-
-from .messenger import ClientMessenger
+from libs.common import CommonFacebook
 
 
-class ClientFacebook(Facebook):
+class ClientFacebook(CommonFacebook):
 
     def __init__(self):
         super().__init__()
         self.__messenger = None
 
     @property
-    def messenger(self) -> ClientMessenger:
+    def messenger(self):  # ClientMessenger
         return self.__messenger()
 
     @messenger.setter

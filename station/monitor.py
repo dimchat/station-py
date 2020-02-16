@@ -38,9 +38,9 @@ from dimp import InstantMessage
 from dimsdk import ApplePushNotificationService
 from dimsdk import KeyStore
 
-from libs.common import Database, Facebook
+from libs.common import Database
 from libs.common import Log
-from libs.server import ServerMessenger
+from libs.server import ServerFacebook, ServerMessenger
 from libs.server import SessionServer
 
 
@@ -51,7 +51,7 @@ class Monitor:
         self.apns: ApplePushNotificationService = None
         self.session_server: SessionServer = None
         self.database: Database = None
-        self.facebook: Facebook = None
+        self.facebook: ServerFacebook = None
         self.keystore: KeyStore = None
         # message from the station to administrator(s)
         self.sender: ID = None
