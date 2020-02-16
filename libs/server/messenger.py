@@ -120,6 +120,9 @@ class ServerMessenger(Messenger):
             # if it's a grouped broadcast id, then
             #    split and deliver to everyone
             return self.broadcast_message(msg=msg)
+        sender = self.facebook.identifier(string=msg.envelope.sender)
+        if sender == receiver:
+            return self.deliver_message(msg=msg)
         try:
             return self.process_secure(msg=s_msg)
         except LookupError as error:

@@ -83,6 +83,9 @@ class ClientMessenger(Messenger):
             pass
 
     def process_reliable(self, msg: ReliableMessage) -> Optional[Content]:
+        if msg.envelope.sender == msg.envelope.receiver:
+            # ignore message sent to itself
+            return None
         res = super().process_reliable(msg=msg)
         if res is None:
             # respond nothing

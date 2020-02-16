@@ -143,10 +143,10 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         data = b''
         while current_station.running:
             # receive all data
-            incomplete_length = len(data)
-            data = self.receive()
-            if len(data) == incomplete_length:
-                self.info('no more data, exit (%d, %s)' % (incomplete_length, self.client_address))
+            remaining_length = len(data)
+            data = self.receive(data)
+            if len(data) == remaining_length:
+                self.info('no more data, exit %s, remaining, %d' % (self.client_address, remaining_length))
                 break
 
             # check protocol
@@ -299,12 +299,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #   Protocol: raw data (JSON string)
     #
     def process_raw_package(self, pack: bytes):
-        pack_len = len(pack)
-        pos = 0
         # skip leading empty packages
-        while pack[pos] == b'\n' or pack[pos] == b' ':
-            pos += 1
-        if pos == pack_len:
+        pack = pack.lstrip()
+        if len(pack) == 0:
             # NOOP: heartbeat package
             self.info('respond <heartbeats>: %s' % pack)
             self.send(b'\n')
@@ -312,6 +309,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         # check whether contain incomplete message
         pos = pack.rfind(b'\n')
         if pos < 0:
+            # partially package? keep it for next loop
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
@@ -358,8 +356,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   Socket IO
     #
-    def receive(self) -> bytes:
-        data = b''
+    def receive(self, data: bytes=b'') -> bytes:
         while True:
             try:
                 part = self.request.recv(1024)
