@@ -83,25 +83,40 @@ class Connection(threading.Thread, MessengerDelegate):
             if not self.__connected:
                 time.sleep(0.5)
                 continue
-            # read all data
-            try:
-                data += self.receive()
-            except IOError:
+            # receive all data
+            remaining_length = len(data)
+            data = self.receive(data=data)
+            if len(data) == remaining_length:
+                self.info('no more data, remaining=%d' % remaining_length)
+                time.sleep(0.5)
                 continue
-            response = b''
-            # split package(s)
+            # check whether contain incomplete message
             pos = data.find(self.BOUNDARY)
-            while pos != -1:
-                pack = data[:pos]
-                res = self.receive_package(data=pack)
-                if res is not None:
-                    response += res + b'\n'
-                # next package
-                pos += len(self.BOUNDARY)
-                data = data[pos:]
-                pos = data.find(self.BOUNDARY)
-            if len(response) > 0:
-                self.send(data=response)
+            if pos < 0:
+                # partially package? keep it for next loop
+                continue
+            pack = data[:pos]
+            pos += len(self.BOUNDARY)
+            data = data[pos:]
+            # maybe more than one message in a time
+            lines = pack.splitlines()
+            pack = b''
+            for line in lines:
+                line = line.strip()
+                if len(line) == 0:
+                    # skip empty packages
+                    continue
+                try:
+                    res = self.delegate.received_package(data=line)
+                    if res is not None:
+                        pack = pack + res + b'\n'
+                except Exception as error:
+                    self.error('receive package error: %s' % error)
+            if len(pack) == 0:
+                # send NOOP package
+                self.send(data=b'\n')
+            else:
+                self.send(data=pack)
 
     def disconnect(self):
         self.__connected = False
@@ -145,17 +160,37 @@ class Connection(threading.Thread, MessengerDelegate):
                 # heartbeat after 5 minutes
                 self.send(data=b'\n')
 
-    def send(self, data: bytes) -> IOError:
+    #
+    #   Socket IO
+    #
+    def __receive(self, data: bytes=b'') -> bytes:
+        while True:
+            try:
+                part = self.__sock.recv(1024)
+            except IOError as error:
+                self.error('failed to receive data %s' % error)
+                part = None
+            if part is None:
+                break
+            data += part
+            if len(part) < 1024:
+                break
+        return data
+
+    def __send(self, data: bytes) -> IOError:
         try:
             self.__sock.sendall(data)
         except IOError as error:
-            self.error('failed to send data: %s' % error)
-            # reconnect
+            self.error('failed to send data %s' % error)
+            return error
+
+    def send(self, data: bytes) -> IOError:
+        error = self.__send(data=data)
+        if error is not None:
             self.reconnect()
             # try again
-            try:
-                self.__sock.sendall(data)
-            except IOError as error:
+            error = self.__send(data=data)
+            if error is not None:
                 # failed
                 self.error('failed to send data again: %s' % error)
                 self.__connected = False
@@ -163,31 +198,21 @@ class Connection(threading.Thread, MessengerDelegate):
         # send OK, record the current time
         self.__last_time = int(time.time())
 
-    def receive(self, buffer_size=1024) -> bytes:
-        data = None
-        try:
-            data = self.__sock.recv(buffer_size)
-        except IOError as error:
-            self.error('failed to receive data: %s' % error)
-            # reconnect
+    def receive(self, data: bytes=b'') -> bytes:
+        remaining_len = len(data)
+        data = self.__receive(data=data)
+        if len(data) == remaining_len:
             self.reconnect()
             # try again
-            try:
-                data = self.__sock.recv(buffer_size)
-            except IOError as error:
+            data = self.__receive(data=data)
+            if len(data) == remaining_len:
                 # failed
-                self.error('failed to receive data again: %s' % error)
+                self.error('failed to receive data again')
                 self.__connected = False
-        if data is not None:
+        if len(data) > remaining_len:
             # receive OK, record the current time
             self.__last_time = int(time.time())
-            return data
-
-    def receive_package(self, data: bytes) -> Optional[bytes]:
-        try:
-            return self.delegate.received_package(data=data)
-        except Exception as error:
-            self.error('receive package error: %s' % error)
+        return data
 
     #
     #   MessengerDelegate

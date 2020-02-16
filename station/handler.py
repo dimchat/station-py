@@ -146,7 +146,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             remaining_length = len(data)
             data = self.receive(data)
             if len(data) == remaining_length:
-                self.info('no more data, exit %s, remaining, %d' % (self.client_address, remaining_length))
+                self.info('no more data, exit %s, remaining=%d' % (self.client_address, remaining_length))
                 break
 
             # check protocol
