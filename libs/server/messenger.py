@@ -110,26 +110,23 @@ class ServerMessenger(Messenger):
         self.set_context(key='remote_address', value=value)
 
     # Override
-    def process_message(self, msg: Message) -> Optional[Content]:
-        if isinstance(msg, ReliableMessage):
-            s_msg = self.verify_message(msg=msg)
-            if s_msg is None:
-                # waiting for sender's meta if not exists
-                return None
-            receiver = self.facebook.identifier(string=msg.envelope.receiver)
-            if receiver.type.is_group() and receiver.is_broadcast:
-                # if it's a grouped broadcast id, then
-                #    split and deliver to everyone
-                return self.broadcast_message(msg=msg)
-            try:
-                return super().process_message(msg=s_msg)
-            except LookupError as error:
-                if str(error).startswith('receiver error'):
-                    return self.deliver_message(msg=msg)
-                else:
-                    return TextContent.new(text='failed to process message: %s' % s_msg)
-        else:
-            return super().process_message(msg=msg)
+    def process_reliable(self, msg: ReliableMessage) -> Optional[Content]:
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # waiting for sender's meta if not exists
+            return None
+        receiver = self.facebook.identifier(string=msg.envelope.receiver)
+        if receiver.type.is_group() and receiver.is_broadcast:
+            # if it's a grouped broadcast id, then
+            #    split and deliver to everyone
+            return self.broadcast_message(msg=msg)
+        try:
+            return self.process_secure(msg=s_msg)
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                return self.deliver_message(msg=msg)
+            else:
+                return TextContent.new(text='failed to process message: %s' % s_msg)
 
     #
     #   Message

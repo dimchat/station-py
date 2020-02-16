@@ -82,8 +82,8 @@ class ClientMessenger(Messenger):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
 
-    def process_message(self, msg: ReliableMessage) -> Optional[Content]:
-        res = super().process_message(msg=msg)
+    def process_reliable(self, msg: ReliableMessage) -> Optional[Content]:
+        res = super().process_reliable(msg=msg)
         if res is None:
             # respond nothing
             return None

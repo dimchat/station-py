@@ -158,16 +158,11 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     break
 
                 # (Protocol B) Tencent mars?
-                try:
-                    head = NetMsgHead(data=data)
-                    if head.version == 200:
-                        # OK, it seems be a mars package!
-                        self.process_package = self.process_mars_package
-                        self.push_data = self.push_mars_data
-                        break
-                except ValueError:
-                    # self.error('not mars message pack: %s' % error)
-                    pass
+                if self.parse_mars_head(data=data) is not None:
+                    # OK, it seems be a mars package!
+                    self.process_package = self.process_mars_package
+                    self.push_data = self.push_mars_data
+                    break
 
                 # (Protocol C) raw data (JSON in line)?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
@@ -246,31 +241,43 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   Protocol: Tencent mars
     #
+    @staticmethod
+    def parse_mars_head(data: bytes) -> Optional[NetMsgHead]:
+        try:
+            head = NetMsgHead(data)
+            if head.version != 200:
+                return None
+            if head.cmd not in [head.SEND_MSG, head.NOOP]:
+                return None
+            # OK
+            return head
+        except ValueError:
+            return None
+
     def process_mars_package(self, pack: bytes):
+        # check package head
+        if self.parse_mars_head(data=pack) is None:
+            # not a mars pack, drop it
+            return b''
+        # try to get complete package
         try:
             mars = NetMsg(pack)
         except ValueError:
-            # FIXME: incomplete package?
-            res = NetMsg(cmd=6, seq=0)
-            self.send(res)
-            return b''
-        head = mars.head
-        # check completion
-        mars_len = head.head_length + head.body_length
-        pack_len = len(pack)
-        if mars_len > pack_len:
-            # partially data, keep it for next loop
+            # partially package? keep it for next loop
             return pack
+        head = mars.head
+        pack_len = head.head_length + head.body_length
         # cut sticky packages
-        remaining = pack[mars_len:]
-        pack = pack[:mars_len]
-        if head.cmd == 3:
+        remaining = pack[pack_len:]
+        pack = pack[:pack_len]
+        # check cmd
+        if head.cmd == head.SEND_MSG:
             # TODO: handle SEND_MSG request
             if head.body_length == 0:
                 raise ValueError('messages not found')
             body = self.received_package(mars.body)
             res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
-        elif head.cmd == 6:
+        elif head.cmd == head.NOOP:
             # TODO: handle NOOP request
             self.info('receive NOOP package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
             res = pack
