@@ -51,11 +51,14 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log, SearchCommand
+from libs.common import Log
+from libs.common import SearchCommand
+from libs.common import TextContentProcessor
 
 from robots.config import g_database
 from robots.config import load_user, create_client
 from robots.config import chatroom_id
+from robots.config import chat_bot
 
 
 #
@@ -100,7 +103,7 @@ class ForwardContentProcessor(ContentProcessor):
 #
 #   Text Content Processor
 #
-class TextContentProcessor(ContentProcessor):
+class ChatTextContentProcessor(TextContentProcessor):
 
     def __init__(self, messenger):
         super().__init__(messenger=messenger)
@@ -110,11 +113,14 @@ class TextContentProcessor(ContentProcessor):
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
-        return client.room.receive(content=content, sender=sender)
+        res = client.room.receive(content=content, sender=sender)
+        if res is not None:
+            return res
+        return super().process(content=content, sender=sender, msg=msg)
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
+ContentProcessor.register(content_type=ContentType.Text, processor_class=ChatTextContentProcessor)
 ContentProcessor.register(content_type=ContentType.Forward, processor_class=ForwardContentProcessor)
 CommandProcessor.register(command=Command.RECEIPT, processor_class=ReceiptCommandProcessor)
 
@@ -355,6 +361,8 @@ if __name__ == '__main__':
     user = load_user(chatroom_id)
     client = create_client(user)
     client.room = ChatRoom(client.messenger)
+    # chat bot
+    client.messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
     # profile
     cmd = ProfileCommand.response(user.identifier, user.profile, user.meta)
     client.messenger.send_command(cmd)
