@@ -92,31 +92,31 @@ class Connection(threading.Thread, MessengerDelegate):
                 continue
             # check whether contain incomplete message
             pos = data.find(self.BOUNDARY)
-            if pos < 0:
+            while pos >= 0:
+                pack = data[:pos]
+                pos += len(self.BOUNDARY)
+                data = data[pos:]
+                # maybe more than one message in a time
+                self.__received_package(pack=pack)
+                pos = data.find(self.BOUNDARY)
                 # partially package? keep it for next loop
+
+    def __received_package(self, pack: bytes):
+        lines = pack.splitlines()
+        pack = b''
+        for line in lines:
+            line = line.strip()
+            if len(line) == 0:
+                # skip empty packages
                 continue
-            pack = data[:pos]
-            pos += len(self.BOUNDARY)
-            data = data[pos:]
-            pack = pack.strip()
-            if len(pack) == 0:
-                continue
-            # maybe more than one message in a time
-            lines = pack.splitlines()
-            pack = b''
-            for line in lines:
-                line = line.strip()
-                if len(line) == 0:
-                    # skip empty packages
-                    continue
-                try:
-                    res = self.delegate.received_package(data=line)
-                    if res is not None:
-                        pack = pack + res + b'\n'
-                except Exception as error:
-                    self.error('receive package error: %s' % error)
-            if len(pack) > 0:
-                self.send(data=pack)
+            try:
+                res = self.delegate.received_package(data=line)
+                if res is not None:
+                    pack = pack + res + b'\n'
+            except Exception as error:
+                self.error('receive package error: %s' % error)
+        if len(pack) > 0:
+            self.send(data=pack)
 
     def disconnect(self):
         self.__connected = False
