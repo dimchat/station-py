@@ -257,7 +257,8 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def process_mars_package(self, pack: bytes):
         # check package head
         if self.parse_mars_head(data=pack) is None:
-            # not a mars pack, drop it
+            self.error('not a mars pack, drop it: %s' % pack)
+            self.send(NetMsg(cmd=6, seq=0))
             return b''
         # try to get complete package
         try:
