@@ -382,16 +382,16 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         if head.cmd == head.SEND_MSG:
             # TODO: handle SEND_MSG request
             if head.body_length == 0:
-                raise ValueError('messages not found')
+                raise ValueError('mars body not found: %s, remaining: %d' % (pack, len(remaining)))
             body = self.received_package(mars.body)
             res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         elif head.cmd == head.NOOP:
             # TODO: handle NOOP request
-            self.info('receive NOOP package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
+            self.info('mars NOOP, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = pack
         else:
             # TODO: handle Unknown request
-            self.error('receive unknown package, cmd=%d, seq=%d, package: %s' % (head.cmd, head.seq, pack))
+            self.error('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = NetMsg(cmd=6, seq=0)
         self.send(res)
         # return the remaining incomplete package
@@ -483,7 +483,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             self.request.sendall(data)
             return True
         except IOError as error:
-            self.error('failed to send data %s' % error)
+            self.error('failed to send data %s, remote user: %s' % (error, self.remote_user))
             return False
 
     #
