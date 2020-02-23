@@ -178,10 +178,13 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 continue
 
             # process package(s) one by one
-            #    the received data packages maybe spliced,
-            #    if the message data was wrap by other transfer protocol,
-            #    use the right split char(s) to split it
-            data = self.process_package(data)
+            #    the received data packages maybe sticky
+            n_len = len(data)
+            o_len = n_len + 1
+            while n_len < o_len:
+                o_len = n_len
+                data = self.process_package(data)
+                n_len = len(data)
 
     #
     #   Protocol: WebSocket
@@ -207,23 +210,121 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         self.process_package = self.process_ws_package
         return b''
 
+    # https://tools.ietf.org/html/rfc6455#section-5.2
+    """
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-------+-+-------------+-------------------------------+
+     |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+     |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+     |N|V|V|V|       |S|             |   (if payload len==126/127)   |
+     | |1|2|3|       |K|             |                               |
+     +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+     |     Extended payload length continued, if payload len == 127  |
+     + - - - - - - - - - - - - - - - +-------------------------------+
+     |                               |Masking-key, if MASK set to 1  |
+     +-------------------------------+-------------------------------+
+     | Masking-key (continued)       |          Payload Data         |
+     +-------------------------------- - - - - - - - - - - - - - - - +
+     :                     Payload Data continued ...                :
+     + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
+     |                     Payload Data continued ...                |
+     +---------------------------------------------------------------+
+    """
     def process_ws_package(self, pack: bytes):
-        msg_len = pack[1] & 127
-        if msg_len == 126:
-            mask = pack[4:8]
-            content = pack[8:]
-        elif msg_len == 127:
-            mask = pack[10:14]
-            content = pack[14:]
-        else:
-            mask = pack[2:6]
-            content = pack[6:]
-        data = ''
-        for i, d in enumerate(content):
-            data += chr(d ^ mask[i % 4])
-        res = self.received_package(bytes(data, 'UTF-8'))
+        pack_len = len(pack)
+        if pack_len < 2:
+            return pack
+        data = b''
+        pos = 0
+        while True:
+            if pack_len < pos + 2:
+                self.info('incomplete ws package for op code: %d' % pack_len)
+                return pack
+            # 1. check whether a continuation frame
+            ch0 = pack[pos+0]
+            # fin: indicates that this is the final fragment in a message.
+            # op: 0 - denotes a continuation frame
+            fin = ch0 >> 7
+            op = ch0 & 0x0F
+            # 2. get payload length
+            ch1 = pack[pos+1]
+            mask = ch1 >> 7
+            msg_len = ch1 & 0x7F
+            if msg_len == 126:
+                if pack_len < pos + 4:
+                    self.info('incomplete ws package for msg len: %d' % pack_len)
+                    return pack
+                b2 = pack[pos+2]
+                b3 = pack[pos+3]
+                msg_len = (b2 << 8) | b3
+                pos += 4
+            elif msg_len == 127:
+                if pack_len < pos + 10:
+                    self.info('incomplete ws package for msg len: %d' % pack_len)
+                    return pack
+                b2 = pack[pos+2]
+                b3 = pack[pos+3]
+                b4 = pack[pos+4]
+                b5 = pack[pos+5]
+                b6 = pack[pos+6]
+                b7 = pack[pos+7]
+                b8 = pack[pos+8]
+                b9 = pack[pos+9]
+                msg_len = b2 << 56 | b3 << 48 | b4 << 40 | b5 << 32 | b6 << 24 | b7 << 16 | b8 << 8 | b9
+                pos += 10
+            else:
+                pos += 2
+            # 3. get masking-key
+            if mask == 1:
+                if pack_len < pos + 4:
+                    self.info('incomplete ws package for mask: %d' % pack_len)
+                    return pack
+                mask = pack[pos:pos+4]
+                pos += 4
+            else:
+                mask = None
+            # 4. get payload
+            if pack_len < pos + msg_len:
+                self.info('incomplete ws package for payload: %d' % pack_len)
+                return pack
+            payload = pack[pos:pos+msg_len]
+            pos += msg_len
+            if mask is None:
+                content = payload
+            else:
+                content = ''
+                for i, d in enumerate(payload):
+                    content += chr(d ^ mask[i % 4])
+                content = bytes(content, 'UTF-8')
+            # 5. check op_code
+            if op == 1:
+                # TEXT
+                data += content
+            elif op == 2:
+                # BINARY
+                data += content
+            elif op == 8:
+                # TODO: CLOSE
+                pass
+            elif op == 9:
+                # TODO: PING
+                pass
+            elif op == 10:
+                # TODO: PONG
+                pass
+            else:
+                self.error('ws op error: %d => %s' % (op, pack))
+                return b''
+            # 6. check final fragment
+            if fin == 1:
+                # cut the received package(s) and return the remaining
+                pack = pack[pos:]
+                break
+        self.info('received ws package len: %d' % len(data))
+        res = self.received_package(pack=data)
         self.push_ws_data(res)
-        return b''
+        return pack
 
     def push_ws_data(self, body: bytes) -> bool:
         head = struct.pack('B', 129)
