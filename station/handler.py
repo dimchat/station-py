@@ -358,6 +358,12 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def process_mars_package(self, pack: bytes):
         # check package head
         if self.parse_mars_head(data=pack) is None:
+            if len(pack) < 20:
+                return pack
+            pos = pack.index(b'\x00\x00\x00\xc8\x00\x00\x00')
+            if pos > 4:
+                self.error('sticky mars, cut the head: %s' % (pack[:pos-4]))
+                return pack[pos-4:]
             self.error('not a mars pack, drop it: %s' % pack)
             self.send(NetMsg(cmd=6, seq=0))
             return b''
