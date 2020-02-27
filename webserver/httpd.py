@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env /usr/local/bin/python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
