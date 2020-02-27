@@ -96,27 +96,18 @@ def query_meta(identifier: str) -> str:
     # query meta with ID
     code, cmd = g_worker.query_meta(identifier)
     if code == 200:
-        response = {
-            'code': 200,
-            'message': 'OK',
-            'content': cmd,
-        }
-    elif code == 400:
-        response = {
-            'code': 400,  # Bad Request
-            'message': 'ID error',
-        }
+        message = 'OK'
+    elif code == 400:  # Bad Request
+        message = 'ID error'
     elif code == 404:
-        response = {
-            'code': 404,
-            'message': 'Meta not found',
-        }
-    else:
-        response = {
-            'code': 500,
-            'message': 'Internal Server Error',
-        }
-    return jsonify(response)
+        message = 'Meta not found'
+    else:  # 500
+        message = 'Internal Server Error'
+    return jsonify({
+        'code': code,
+        'message': message,
+        'content': cmd,
+    })
 
 
 @app.route(BASE_URI+'/profile/<string:identifier>', methods=['GET'])
@@ -124,27 +115,18 @@ def query_profile(identifier: str) -> str:
     # query profile with ID
     code, cmd = g_worker.query_profile(identifier)
     if code == 200:
-        response = {
-            'code': 200,
-            'message': 'OK',
-            'content': cmd,
-        }
-    elif code == 400:
-        response = {
-            'code': 400,  # Bad Request
-            'message': 'ID error',
-        }
+        message = 'OK'
+    elif code == 400:  # Bad Request
+        message = 'ID error'
     elif code == 404:
-        response = {
-            'code': 404,
-            'message': 'Profile not found',
-        }
-    else:
-        response = {
-            'code': 500,
-            'message': 'Internal Server Error',
-        }
-    return jsonify(response)
+        message = 'Profile not found'
+    else:  # 500
+        message = 'Internal Server Error'
+    return jsonify({
+        'code': code,
+        'message': message,
+        'content': cmd,
+    })
 
 
 @app.route(BASE_URI+'/verify', methods=['POST'])
@@ -154,39 +136,27 @@ def verify_message() -> str:
     sender = form.get('sender')
     data = form.get('data')
     signature = form.get('signature')
+    # query meta with ID
+    code, cmd = g_worker.query_meta(sender)
     # check signature and data with sender ID
     code = g_worker.verify_message(sender=sender, data=data, signature=signature)
     if code == 200:
-        response = {
-            'code': 200,
-            'message': 'OK',
-        }
-    elif code == 400:
-        response = {
-            'code': 400,  # Bad Request
-            'message': 'ID error',
-        }
-    elif code == 403:
-        response = {
-            'code': 403,  # Forbidden
-            'message': 'Signature not match',
-        }
+        message = 'OK'
+    elif code == 400:  # Bad Request
+        message = 'ID error'
+    elif code == 403:  # Forbidden
+        message = 'Signature not match'
     elif code == 404:
-        response = {
-            'code': 404,
-            'message': 'Meta not found',
-        }
-    elif code == 412:
-        response = {
-            'code': 412,  # Precondition Failed
-            'message': 'Data or signature error',
-        }
+        message = 'Meta not found'
+    elif code == 412:  # Precondition Failed
+        message = 'Data or signature error'
     else:
-        response = {
-            'code': 500,
-            'message': 'Internal Server Error',
-        }
-    return jsonify(response)
+        message = 'Internal Server Error'
+    return jsonify({
+        'code': code,
+        'message': message,
+        'content': cmd,
+    })
 
 
 if __name__ == '__main__':

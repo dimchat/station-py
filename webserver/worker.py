@@ -107,7 +107,7 @@ class Worker:
             return 400, None  # Bad Request
         # get profile
         profile = self.profile(identifier)
-        if profile is None:
+        if profile is None or profile.get('data') is None:
             return 404, None  # Not Found
         # get meta
         meta = self.meta(identifier)
