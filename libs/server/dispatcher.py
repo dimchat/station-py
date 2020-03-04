@@ -83,7 +83,7 @@ class Dispatcher:
 
     def __split_group_message(self, msg: ReliableMessage) -> Optional[Content]:
         receiver = self.facebook.identifier(msg.envelope.receiver)
-        assert receiver.type.is_group(), 'receiver not a group: %s' % receiver
+        assert receiver.is_group, 'receiver not a group: %s' % receiver
         members = self.facebook.members(identifier=receiver)
         if members is not None:
             messages = msg.split(members=members)
@@ -112,7 +112,7 @@ class Dispatcher:
         elif group.is_broadcast:
             return self.__broadcast(msg=msg)
         # check group message (not split yet)
-        if receiver.type.is_group():
+        if receiver.is_group:
             # split and deliver them
             return self.__split_group_message(msg=msg)
         # try for online user

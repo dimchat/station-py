@@ -118,7 +118,7 @@ class ServerMessenger(CommonMessenger):
             # waiting for sender's meta if not exists
             return None
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
-        if receiver.type.is_group() and receiver.is_broadcast:
+        if receiver.is_group and receiver.is_broadcast:
             # if it's a grouped broadcast id, then
             #    split and deliver to everyone
             return self.broadcast_message(msg=msg)

@@ -33,7 +33,7 @@ import time
 from typing import Optional
 from urllib.error import URLError
 
-from dimp import ID
+from dimp import NetworkID, ID
 from dimp import InstantMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
@@ -80,7 +80,7 @@ class TextContentProcessor(ContentProcessor):
 
     def __ignored(self, content: Content, sender: ID, msg: InstantMessage) -> bool:
         # check robot
-        if sender.type.is_robot() or sender.type.is_station():
+        if sender.type in [NetworkID.Robot, NetworkID.Station]:
             self.info('Dialog > ignore message from another robot: %s' % msg.content)
             return True
         # check time

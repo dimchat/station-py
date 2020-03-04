@@ -59,7 +59,7 @@ class CommonFacebook(Facebook):
         self.__local_users = None
 
     def nickname(self, identifier: ID) -> str:
-        assert identifier.type.is_user(), 'user ID error: %s' % identifier
+        assert identifier.is_user, 'user ID error: %s' % identifier
         profile = self.profile(identifier=identifier)
         if profile is not None:
             name = profile.name
@@ -68,7 +68,7 @@ class CommonFacebook(Facebook):
         return identifier.name
 
     def group_name(self, identifier: ID) -> str:
-        assert identifier.type.is_group(), 'group ID error: %s' % identifier
+        assert identifier.is_group, 'group ID error: %s' % identifier
         profile = self.profile(identifier=identifier)
         if profile is not None:
             name = profile.name
@@ -147,7 +147,7 @@ class CommonFacebook(Facebook):
         pass
 
     def load_assistants(self, identifier: ID) -> Optional[list]:
-        assert identifier.type.is_group(), 'group ID error: %s' % identifier
+        assert identifier.is_group, 'group ID error: %s' % identifier
         robot = self.ans.identifier(name='assistant')
         if robot is not None:
             return [robot]

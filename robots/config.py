@@ -253,7 +253,7 @@ def load_freshmen() -> list:
             identifier = g_facebook.identifier(item)
             if identifier is None:
                 Log.error('ID error: %s' % item)
-            elif identifier.type.is_user():
+            elif identifier.is_user:
                 freshmen.append(identifier)
             else:
                 # Log.error('Not a user ID: %s' % identifier)

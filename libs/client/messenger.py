@@ -139,7 +139,7 @@ class ClientMessenger(CommonMessenger):
             return res
         # if isinstance(res, ReceiptCommand):
         #     receiver = self.barrack.identifier(msg.envelope.receiver)
-        #     if receiver.type.is_station():
+        #     if receiver.type == NetworkID.Station:
         #         # no need to respond receipt to station
         #         return None
         # normal response

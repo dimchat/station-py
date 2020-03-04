@@ -48,10 +48,10 @@ class UserTable(Storage):
         file path: '.dim/protected/{ADDRESS}/contacts.txt'
     """
     def __contacts_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'contacts.txt')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'contacts.txt')
 
     def __cache_contacts(self, contacts: list, identifier: ID) -> bool:
-        assert identifier.type.is_user(), 'user ID error: %s' % identifier
+        assert identifier.is_user, 'user ID error: %s' % identifier
         if contacts is None:
             return False
         self.__contacts[identifier] = contacts
@@ -89,7 +89,7 @@ class UserTable(Storage):
         file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
     """
     def __contacts_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'contacts_stored.js')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'contacts_stored.js')
 
     def contacts_command(self, identifier: ID) -> Command:
         cmd = self.__contacts_commands.get(identifier)
@@ -116,7 +116,7 @@ class UserTable(Storage):
         file path: '.dim/protected/{ADDRESS}/block_stored.js'
     """
     def __block_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'block_stored.js')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'block_stored.js')
 
     def block_command(self, identifier: ID) -> Command:
         cmd = self.__block_commands.get(identifier)
@@ -143,7 +143,7 @@ class UserTable(Storage):
         file path: '.dim/protected/{ADDRESS}/mute_stored.js'
     """
     def __mute_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'mute_stored.js')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'mute_stored.js')
 
     def mute_command(self, identifier: ID) -> Command:
         cmd = self.__mute_commands.get(identifier)

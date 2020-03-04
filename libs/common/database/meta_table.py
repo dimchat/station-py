@@ -27,7 +27,7 @@ import os
 import random
 from typing import Optional
 
-from dimp import ID, Meta
+from dimp import NetworkID, ID, Meta
 
 from .storage import Storage
 
@@ -59,7 +59,7 @@ class MetaTable(Storage):
         file path: '.dim/public/{ADDRESS}/meta.js'
     """
     def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'public', identifier.address, 'meta.js')
+        return os.path.join(self.root, 'public', str(identifier.address), 'meta.js')
 
     def __cache_meta(self, meta: Meta, identifier: ID) -> bool:
         if meta.match_identifier(identifier):
@@ -118,7 +118,7 @@ class MetaTable(Storage):
         array = random.sample(array, len(array))
         for identifier in array:
             network = identifier.type
-            if not network.is_person() and not network.is_robot():
+            if network not in [NetworkID.Main, NetworkID.BTCMain, NetworkID.Robot]:
                 # ignore
                 continue
             string = identifier.lower()

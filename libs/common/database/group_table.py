@@ -44,10 +44,10 @@ class GroupTable(Storage):
         file path: '.dim/protected/{ADDRESS}/members.txt'
     """
     def __members_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'members.txt')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'members.txt')
 
     def __cache_members(self, members: list, identifier: ID) -> bool:
-        assert identifier.type.is_group(), 'group ID error: %s' % identifier
+        assert identifier.is_group, 'group ID error: %s' % identifier
         if members is None or len(members) == 0:
             return False
         self.__members[identifier] = members
