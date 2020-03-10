@@ -129,21 +129,21 @@ class ClientMessenger(CommonMessenger):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
 
-    def process_reliable(self, msg: ReliableMessage) -> Optional[Content]:
-        res = super().process_reliable(msg=msg)
-        if res is None:
+    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
+        i_msg = super().process_instant(msg=msg)
+        if i_msg is None:
             # respond nothing
             return None
-        if isinstance(res, HandshakeCommand):
+        if isinstance(i_msg.content, HandshakeCommand):
             # urgent command
-            return res
-        # if isinstance(res, ReceiptCommand):
+            return i_msg
+        # if isinstance(i_msg.content, ReceiptCommand):
         #     receiver = self.barrack.identifier(msg.envelope.receiver)
         #     if receiver.type == NetworkID.Station:
         #         # no need to respond receipt to station
         #         return None
+
         # normal response
-        receiver = self.barrack.identifier(msg.envelope.sender)
-        self.send_content(content=res, receiver=receiver)
+        self.send_message(msg=i_msg)
         # DON'T respond to station directly
         return None

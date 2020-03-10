@@ -112,23 +112,27 @@ class ServerMessenger(CommonMessenger):
         self.set_context(key='remote_address', value=value)
 
     # Override
-    def process_reliable(self, msg: ReliableMessage) -> Optional[Content]:
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # waiting for sender's meta if not exists
-            return None
+    def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group and receiver.is_broadcast:
             # if it's a grouped broadcast id, then
             #    split and deliver to everyone
-            return self.broadcast_message(msg=msg)
-        try:
-            return self.process_secure(msg=s_msg)
-        except LookupError as error:
-            if str(error).startswith('receiver error'):
-                return self.deliver_message(msg=msg)
-            else:
-                return TextContent.new(text='failed to process message: %s' % s_msg)
+            res = self.broadcast_message(msg=msg)
+        else:
+            try:
+                return super().process_reliable(msg=msg)
+            except LookupError as error:
+                if str(error).startswith('receiver error'):
+                    res = self.deliver_message(msg=msg)
+                else:
+                    res = TextContent.new(text='failed to process message: %s' % msg)
+        if res is not None:
+            user = self.facebook.current_user
+            sender = user.identifier
+            receiver = msg.envelope.sender
+            i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
+            s_msg = self.encrypt_message(msg=i_msg)
+            return self.sign_message(msg=s_msg)
 
     #
     #   Message
@@ -147,6 +151,10 @@ class ServerMessenger(CommonMessenger):
 
     def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # signature error?
+            return None
         res = self.filter.check_broadcast(msg=msg)
         if res is not None:
             # broadcast is not allowed
@@ -159,6 +167,10 @@ class ServerMessenger(CommonMessenger):
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to the receiver, or broadcast to neighbours """
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # signature error?
+            return None
         res = self.filter.check_deliver(msg=msg)
         if res is not None:
             # deliver is not allowed
@@ -168,6 +180,10 @@ class ServerMessenger(CommonMessenger):
 
     def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Re-pack and deliver (Top-Secret) message to the real receiver """
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # signature error?
+            return None
         res = self.filter.check_forward(msg=msg)
         if res is not None:
             # forward is not allowed

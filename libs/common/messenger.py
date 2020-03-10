@@ -136,7 +136,7 @@ class CommonMessenger(Messenger):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
 
-    def process_instant(self, msg: InstantMessage) -> Optional[Content]:
+    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
         sender = self.facebook.identifier(string=msg.envelope.sender)
         if self.__check_group(content=msg.content, sender=sender):
             # save this message in a queue to wait group meta response
