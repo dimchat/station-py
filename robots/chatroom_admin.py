@@ -137,6 +137,9 @@ class StatKey(IntEnum):
     MESSAGE = 2  # send message
 
 
+#
+#  User activity stat
+#
 class Statistic:
 
     EXPIRES = 300  # 5 minutes
@@ -219,6 +222,26 @@ class Statistic:
         }
 
 
+#
+#  Chat history
+#
+class History:
+
+    MAX = 100
+
+    def __init__(self):
+        super().__init__()
+        self.__pool: list = []
+
+    def push(self, content: ForwardContent):
+        while len(self.__pool) >= self.MAX:
+            self.__pool.pop(0)
+        self.__pool.append(content)
+
+    def all(self) -> list:
+        return self.__pool.copy()
+
+
 class ChatRoom:
 
     EXPIRES = 600  # 10 minutes
@@ -229,6 +252,7 @@ class ChatRoom:
         self.__users: list = []  # ID
         self.__times: dict = {}  # ID -> time
         self.__statistic = Statistic()
+        self.__history = History()
 
     @property
     def messenger(self):  # Messenger
@@ -320,10 +344,25 @@ class ChatRoom:
         text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
         return TextContent.new(text=text)
 
+    def __push_history(self, receiver: ID) -> Content:
+        messenger = self.messenger
+        histories = self.__history.all()
+        for content in histories:
+            messenger.send_content(content=content, receiver=receiver)
+        count = len(histories)
+        if count == 0:
+            text = 'No history record found.'
+        elif count == 1:
+            text = 'Got one chat history record.'
+        else:
+            text = 'Got %d chat history records' % count
+        return TextContent.new(text=text)
+
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
         self.info('forwarding message from: %s' % sender)
+        self.__history.push(content=content)
         self.__statistic.update(identifier=sender, stat=StatKey.MESSAGE)
         # forwarding
         messenger = self.messenger
@@ -353,6 +392,9 @@ class ChatRoom:
             if text == 'show stat' or text == 'show statistics':
                 # show statistics
                 return self.__stat()
+            if text == 'show history':
+                # show chat history
+                return self.__push_history(receiver=sender)
         return None
 
 
