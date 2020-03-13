@@ -90,12 +90,14 @@ class Dispatcher:
         # TODO: check 'keys'
         receiver = self.facebook.identifier(msg.envelope.receiver)
         assert receiver.is_group, 'receiver not a group: %s' % receiver
-        members = self.facebook.members(identifier=receiver)
-        if members is None:
-            # TODO: manage group members
-            keys = msg.get('keys')
-            if keys is not None:
-                members = list(keys.keys())
+        # TODO: manage group members
+        keys = msg.get('keys')
+        if keys is None:
+            # keys not found, split with group members
+            members = self.facebook.members(identifier=receiver)
+        else:
+            # use IDs in 'keys' as members list
+            members = list(keys.keys())
         if members is None:
             raise LookupError('failed to get group members: %s' % receiver)
         messages = msg.split(members=members)
