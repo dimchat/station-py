@@ -34,7 +34,7 @@ from typing import Optional
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import ContentType, Content
+from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
@@ -76,45 +76,54 @@ class Dispatcher:
         self.info('transmitting to neighbors %s, receiver: %s' % (self.neighbors, receiver))
         return False
 
-    def __broadcast(self, msg: ReliableMessage) -> Optional[Content]:
-        # TODO: split for all users
+    def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Deliver message to everyone@everywhere, including all neighbours """
+        # TODO: broadcast this message
         self.info('broadcasting message %s' % msg)
-        return self.__receipt(message='Message broadcasting', msg=msg)
+        text = 'Message broadcast to "%s" is not implemented' % msg.envelope.receiver
+        res = TextContent.new(text=text)
+        res.group = msg.envelope.group
+        return res
 
     def __split_group_message(self, msg: ReliableMessage) -> Optional[Content]:
+        """ Split group message for each member """
+        # TODO: check 'keys'
         receiver = self.facebook.identifier(msg.envelope.receiver)
         assert receiver.is_group, 'receiver not a group: %s' % receiver
         members = self.facebook.members(identifier=receiver)
-        if members is not None:
-            messages = msg.split(members=members)
-            success_list = []
-            failed_list = []
-            for item in messages:
-                if self.deliver(msg=item) is None:
-                    failed_list.append(item.envelope.receiver)
-                else:
-                    success_list.append(item.envelope.receiver)
-            response = ReceiptCommand.new(message='Message split and delivering')
-            if len(success_list) > 0:
-                response['success'] = success_list
-            if len(failed_list) > 0:
-                response['failed'] = failed_list
-            return response
+        if members is None:
+            # TODO: manage group members
+            keys = msg.get('keys')
+            if keys is not None:
+                members = list(keys.keys())
+        if members is None:
+            raise LookupError('failed to get group members: %s' % receiver)
+        messages = msg.split(members=members)
+        success_list = []
+        failed_list = []
+        for item in messages:
+            if self.deliver(msg=item) is None:
+                failed_list.append(item.envelope.receiver)
+            else:
+                success_list.append(item.envelope.receiver)
+        response = ReceiptCommand.new(message='Message split and delivering')
+        if len(success_list) > 0:
+            response['success'] = success_list
+        if len(failed_list) > 0:
+            response['failed'] = failed_list
+        return response
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        sender = self.facebook.identifier(msg.envelope.sender)
         receiver = self.facebook.identifier(msg.envelope.receiver)
-        group = self.facebook.identifier(msg.envelope.group)
-        # check broadcast message
-        if group is None:
-            if receiver.is_broadcast:
-                return self.__broadcast(msg=msg)
-        elif group.is_broadcast:
-            return self.__broadcast(msg=msg)
-        # check group message (not split yet)
         if receiver.is_group:
-            # split and deliver them
-            return self.__split_group_message(msg=msg)
+            # deliver group message (not split yet)
+            if receiver.is_broadcast:
+                # if it's a grouped broadcast id, then
+                #    broadcast (split and deliver)to everyone
+                return self.__broadcast_message(msg=msg)
+            else:
+                # split and deliver them
+                return self.__split_group_message(msg=msg)
         # try for online user
         sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:
@@ -136,6 +145,8 @@ class Dispatcher:
                 self.info('message pushed to activated session(%d) of user: %s' % (success, receiver))
                 return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file
+        sender = self.facebook.identifier(msg.envelope.sender)
+        group = self.facebook.identifier(msg.envelope.group)
         self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
         # transmit to neighbor stations

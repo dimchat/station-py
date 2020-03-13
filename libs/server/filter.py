@@ -110,16 +110,6 @@ class Filter:
     #
     #   filters
     #
-    def check_broadcast(self, msg: ReliableMessage) -> Optional[Content]:
-        res = self.__check_login(envelope=msg.envelope)
-        if res is not None:
-            # session invalid
-            return res
-        res = self.__check_blocked(envelope=msg.envelope)
-        if res is not None:
-            # blocked
-            return res
-
     def check_deliver(self, msg: ReliableMessage) -> Optional[Content]:
         res = self.__check_login(envelope=msg.envelope)
         if res is not None:

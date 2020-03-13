@@ -114,15 +114,16 @@ class ServerMessenger(CommonMessenger):
     # Override
     def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
-        if receiver.is_group and receiver.is_broadcast:
-            # if it's a grouped broadcast id, then
-            #    split and deliver to everyone
-            res = self.broadcast_message(msg=msg)
+        if receiver.is_group:
+            # deliver group message
+            res = self.deliver_message(msg=msg)
         else:
+            # try to decrypt and process message
             try:
                 return super().process_reliable(msg=msg)
             except LookupError as error:
                 if str(error).startswith('receiver error'):
+                    # not mine? deliver it
                     res = self.deliver_message(msg=msg)
                 else:
                     res = TextContent.new(text='failed to process message: %s' % msg)
@@ -148,22 +149,6 @@ class ServerMessenger(CommonMessenger):
         elif isinstance(msg, InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
-
-    def broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Deliver message to everyone@everywhere, including all neighbours """
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # signature error?
-            return None
-        res = self.filter.check_broadcast(msg=msg)
-        if res is not None:
-            # broadcast is not allowed
-            return res
-        # TODO: broadcast this message
-        text = 'Message broadcast to "%s" is not implemented' % msg.envelope.receiver
-        res = TextContent.new(text=text)
-        res.group = msg.envelope.group
-        return res
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to the receiver, or broadcast to neighbours """
