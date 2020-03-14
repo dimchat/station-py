@@ -88,16 +88,16 @@ class Dispatcher:
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         receiver = self.facebook.identifier(msg.envelope.receiver)
         if receiver.is_group:
-            # deliver group message (not split yet)
+            # group message (not split yet)
             if receiver.is_broadcast:
                 # if it's a grouped broadcast id, then
                 #    broadcast (split and deliver)to everyone
                 return self.__broadcast_message(msg=msg)
             else:
-                # split and deliver them
+                # let the assistant to process this group message
                 assistants = self.facebook.assistants(receiver)
                 if assistants is None or len(assistants) == 0:
-                    return None
+                    raise LookupError('failed to get assistant for group: %s' % receiver)
                 receiver = assistants[0]
         # try for online user
         sessions = self.session_server.all(identifier=receiver)

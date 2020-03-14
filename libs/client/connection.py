@@ -33,6 +33,7 @@
 import socket
 import threading
 import time
+import traceback
 from typing import Optional
 
 from dimp import InstantMessage
@@ -115,6 +116,7 @@ class Connection(threading.Thread, MessengerDelegate):
                     pack = pack + res + b'\n'
             except Exception as error:
                 self.error('receive package error: %s' % error)
+                traceback.print_exc()
         if len(pack) > 0:
             self.send(data=pack)
 
