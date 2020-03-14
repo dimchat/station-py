@@ -33,9 +33,7 @@
 from typing import Optional, Union
 
 from dimp import ID, User
-from dimp import Content, ForwardContent, TextContent
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import ReceiptCommand
 from dimsdk import Session
 
 from libs.common import CommonMessenger
@@ -116,17 +114,28 @@ class ServerMessenger(CommonMessenger):
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
             # deliver group message
-            res = self.deliver_message(msg=msg)
-        else:
-            # try to decrypt and process message
-            try:
-                return super().process_reliable(msg=msg)
-            except LookupError as error:
-                if str(error).startswith('receiver error'):
-                    # not mine? deliver it
-                    res = self.deliver_message(msg=msg)
-                else:
-                    res = TextContent.new(text='failed to process message: %s' % msg)
+            return self.__deliver_message(msg=msg)
+        # try to decrypt and process message
+        try:
+            return super().process_reliable(msg=msg)
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                # not mine? deliver it
+                return self.__deliver_message(msg=msg)
+            else:
+                raise error
+
+    def __deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        """ Deliver message to the receiver, or broadcast to neighbours """
+        s_msg = self.verify_message(msg=msg)
+        if s_msg is None:
+            # signature error?
+            return None
+        res = self.filter.check_deliver(msg=msg)
+        if res is None:
+            # delivering is allowed, call dispatcher to deliver this message
+            res = self.dispatcher.deliver(msg=msg)
+        # pack response
         if res is not None:
             user = self.facebook.current_user
             sender = user.identifier
@@ -149,33 +158,3 @@ class ServerMessenger(CommonMessenger):
         elif isinstance(msg, InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
-
-    def deliver_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Deliver message to the receiver, or broadcast to neighbours """
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # signature error?
-            return None
-        res = self.filter.check_deliver(msg=msg)
-        if res is not None:
-            # deliver is not allowed
-            return res
-        # call dispatcher to deliver this message
-        return self.dispatcher.deliver(msg=msg)
-
-    def forward_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Re-pack and deliver (Top-Secret) message to the real receiver """
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # signature error?
-            return None
-        res = self.filter.check_forward(msg=msg)
-        if res is not None:
-            # forward is not allowed
-            return res
-        forward = ForwardContent.new(message=msg)
-        receiver = self.facebook.identifier(string=msg.envelope.receiver)
-        if self.send_content(content=forward, receiver=receiver):
-            return ReceiptCommand.new(message='Message forwarded', envelope=msg.envelope)
-        else:
-            return TextContent.new(text='Failed to forward your message')

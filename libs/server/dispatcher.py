@@ -85,36 +85,6 @@ class Dispatcher:
         res.group = msg.envelope.group
         return res
 
-    def __split_group_message(self, msg: ReliableMessage) -> Optional[Content]:
-        """ Split group message for each member """
-        # TODO: check 'keys'
-        receiver = self.facebook.identifier(msg.envelope.receiver)
-        assert receiver.is_group, 'receiver not a group: %s' % receiver
-        # TODO: manage group members
-        keys = msg.get('keys')
-        if keys is None:
-            # keys not found, split with group members
-            members = self.facebook.members(identifier=receiver)
-        else:
-            # use IDs in 'keys' as members list
-            members = list(keys.keys())
-        if members is None:
-            raise LookupError('failed to get group members: %s' % receiver)
-        messages = msg.split(members=members)
-        success_list = []
-        failed_list = []
-        for item in messages:
-            if self.deliver(msg=item) is None:
-                failed_list.append(item.envelope.receiver)
-            else:
-                success_list.append(item.envelope.receiver)
-        response = ReceiptCommand.new(message='Message split and delivering')
-        if len(success_list) > 0:
-            response['success'] = success_list
-        if len(failed_list) > 0:
-            response['failed'] = failed_list
-        return response
-
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         receiver = self.facebook.identifier(msg.envelope.receiver)
         if receiver.is_group:
@@ -125,7 +95,10 @@ class Dispatcher:
                 return self.__broadcast_message(msg=msg)
             else:
                 # split and deliver them
-                return self.__split_group_message(msg=msg)
+                assistants = self.facebook.assistants(receiver)
+                if assistants is None or len(assistants) == 0:
+                    return None
+                receiver = assistants[0]
         # try for online user
         sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:
