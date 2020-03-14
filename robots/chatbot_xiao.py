@@ -49,18 +49,34 @@ from libs.common import Log
 
 from libs.client import ClientMessenger
 
-from robots.config import g_facebook
+from robots.config import g_facebook, g_keystore, g_station
 from robots.config import group_naruto, load_freshmen
 from robots.config import load_user, create_client
 from robots.config import chat_bot, xiaoxiao_id
 
 
+"""
+    Messenger for Chat Bot client
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+
+# chat bot
+g_messenger.context['bots'] = [chat_bot('xiaoi')]
+# current station
+g_messenger.set_context('station', g_station)
+
+g_facebook.messenger = g_messenger
+
+
 class FreshmenScanner(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, messenger: ClientMessenger):
         super().__init__()
         # delegate for send message
-        self.messenger: ClientMessenger = None
+        self.messenger = messenger
         # group
         gid = g_facebook.identifier(group_naruto)
         self.__group: Group = g_facebook.group(gid)
@@ -201,10 +217,7 @@ class FreshmenScanner(threading.Thread):
 if __name__ == '__main__':
 
     user = load_user(xiaoxiao_id)
-    client = create_client(user)
-    # chat bot
-    client.messenger.context['bots'] = [chat_bot('xiaoi')]
-    # start
-    scanner = FreshmenScanner()
-    scanner.messenger = client.messenger
+    client = create_client(user=user, messenger=g_messenger)
+    # start scanner
+    scanner = FreshmenScanner(messenger=g_messenger)
     scanner.start()

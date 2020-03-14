@@ -39,13 +39,30 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
+from libs.client import ClientMessenger
+
+from robots.config import g_facebook, g_keystore, g_station
 from robots.config import load_user, create_client
 from robots.config import chat_bot, assistant_id
+
+
+"""
+    Messenger for Group Assistant robot
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+
+# chat bot
+g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
+# current station
+g_messenger.set_context('station', g_station)
+
+g_facebook.messenger = g_messenger
 
 
 if __name__ == '__main__':
 
     user = load_user(assistant_id)
-    client = create_client(user)
-    # chat bot
-    client.messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
+    client = create_client(user=user, messenger=g_messenger)

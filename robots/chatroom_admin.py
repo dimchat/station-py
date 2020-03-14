@@ -25,8 +25,8 @@
 # ==============================================================================
 
 """
-    Chatroom admin robot
-    ~~~~~~~~~~~~~~~~~~~~
+    Chat Room Admin robot
+    ~~~~~~~~~~~~~~~~~~~~~
 
     Chat room for web demo
 """
@@ -54,11 +54,29 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.common import Log
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
+from libs.client import ClientMessenger
 
+from robots.config import g_facebook, g_keystore, g_station
 from robots.config import g_database
 from robots.config import load_user, create_client
 from robots.config import chatroom_id
 from robots.config import chat_bot
+
+
+"""
+    Messenger for Chat Room Admin robot
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+
+# chat bot
+g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
+# current station
+g_messenger.set_context('station', g_station)
+
+g_facebook.messenger = g_messenger
 
 
 #
@@ -66,7 +84,7 @@ from robots.config import chat_bot
 #
 class ReceiptCommandProcessor(CommandProcessor):
 
-    def __init__(self, messenger):
+    def __init__(self, messenger: ClientMessenger):
         super().__init__(messenger=messenger)
 
     #
@@ -105,7 +123,7 @@ class ForwardContentProcessor(ContentProcessor):
 #
 class ChatTextContentProcessor(TextContentProcessor):
 
-    def __init__(self, messenger):
+    def __init__(self, messenger: ClientMessenger):
         super().__init__(messenger=messenger)
 
     #
@@ -246,7 +264,7 @@ class ChatRoom:
 
     EXPIRES = 600  # 10 minutes
 
-    def __init__(self, messenger):
+    def __init__(self, messenger: ClientMessenger):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
         self.__users: list = []  # ID
@@ -255,7 +273,7 @@ class ChatRoom:
         self.__history = History()
 
     @property
-    def messenger(self):  # Messenger
+    def messenger(self) -> ClientMessenger:
         return self.__messenger()
 
     @property
@@ -377,7 +395,7 @@ class ChatRoom:
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
-        self.info('got receipt from %s' % sender)
+        self.info('got receipt from %s: %s' % (sender, cmd))
         return None
 
     def receive(self, content: Content, sender: ID) -> Optional[Content]:
@@ -401,10 +419,8 @@ class ChatRoom:
 if __name__ == '__main__':
 
     user = load_user(chatroom_id)
-    client = create_client(user)
+    client = create_client(user=user, messenger=g_messenger)
     client.room = ChatRoom(client.messenger)
-    # chat bot
-    client.messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
     # profile
-    cmd = ProfileCommand.response(user.identifier, user.profile, user.meta)
-    client.messenger.send_command(cmd)
+    response = ProfileCommand.response(user.identifier, user.profile, user.meta)
+    client.messenger.send_command(cmd=response)

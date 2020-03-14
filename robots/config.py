@@ -97,16 +97,6 @@ g_facebook.ans = g_ans
 
 
 """
-    Messenger for client
-    ~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = ClientMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_facebook.messenger = g_messenger
-
-
-"""
     Current Station
     ~~~~~~~~~~~~~~~
 """
@@ -119,7 +109,6 @@ station_port = 9394
 
 g_station = Station(identifier=station_id, host=station_host, port=station_port)
 g_facebook.cache_user(user=g_station)
-g_messenger.set_context('station', g_station)
 
 # Address Name Service
 g_ans.save('station', g_station.identifier)
@@ -215,10 +204,10 @@ def load_user(identifier: str) -> User:
     return g_facebook.user(identifier=identifier)
 
 
-def create_client(user: User) -> Terminal:
+def create_client(user: User, messenger: ClientMessenger) -> Terminal:
     g_facebook.current_user = user
     client = Terminal()
-    client.messenger = g_messenger
+    client.messenger = messenger
     # context
     client.messenger.context['database'] = g_database
     client.messenger.context['remote_address'] = (g_station.host, g_station.port)
