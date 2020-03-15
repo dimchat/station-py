@@ -36,8 +36,8 @@ import os
 from typing import Optional
 
 from dimp import ID
-from dimp import Content, ForwardContent
 from dimp import InstantMessage, ReliableMessage
+from dimp import Content, ForwardContent, GroupCommand
 from dimsdk import ReceiptCommand
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -190,20 +190,30 @@ class AssistantMessenger(ClientMessenger):
                 success_list.append(item.envelope.receiver)
             else:
                 failed_list.append(item.envelope.receiver)
-        response = ReceiptCommand.new(message='Message split and delivering')
+        response = ReceiptCommand.new(message='Group message delivering')
         if len(success_list) > 0:
             response['success'] = success_list
         if len(failed_list) > 0:
             response['failed'] = failed_list
+            # failed to get keys for this members, query from sender by invite members
+            sender = g_facebook.identifier(msg.envelope.sender)
+            group = g_facebook.identifier(msg.envelope.group)
+            cmd = GroupCommand.invite(group=group, members=failed_list)
+            self.send_content(content=cmd, receiver=sender)
         return response
 
     def __forward_group_message(self, msg: ReliableMessage) -> bool:
         receiver = g_facebook.identifier(msg.envelope.receiver)
-        if msg.get('key') is None:
+        key = msg.get('key')
+        if key is None:
             # get key from cache
             sender = g_facebook.identifier(msg.envelope.sender)
             group = g_facebook.identifier(msg.envelope.group)
-            msg['key'] = self.__key_cache.get_key(sender=sender, member=receiver, group=group)
+            key = self.__key_cache.get_key(sender=sender, member=receiver, group=group)
+            if key is None:
+                # cannot forward group message without key
+                return False
+            msg['key'] = key
         forward = ForwardContent.new(message=msg)
         return self.send_content(content=forward, receiver=receiver)
 
