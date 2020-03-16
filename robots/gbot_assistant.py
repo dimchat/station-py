@@ -158,14 +158,17 @@ class AssistantMessenger(ClientMessenger):
             if not g_facebook.is_owner(member=sender, group=receiver):
                 # not allow
                 return None
+        members = g_facebook.members(receiver)
         # check 'keys'
         keys = msg.get('keys')
         if keys is None:
             # keys not found, split with group members
-            members = g_facebook.members(receiver)
             if members is None:
                 raise LookupError('failed to get group members: %s' % receiver)
         else:
+            # FIXME: ID in 'keys' maybe not equal to members
+            if len(keys) != len(members):
+                g_messenger.query_group(group=receiver, users=[sender])
             # update key map
             self.__key_cache.update_keys(keys=keys, sender=sender, group=receiver)
             # use IDs in 'keys' as members list
@@ -197,7 +200,7 @@ class AssistantMessenger(ClientMessenger):
             response['failed'] = failed_list
             # failed to get keys for this members, query from sender by invite members
             sender = g_facebook.identifier(msg.envelope.sender)
-            group = g_facebook.identifier(msg.envelope.group)
+            group = g_facebook.identifier(msg.envelope.receiver)
             cmd = GroupCommand.invite(group=group, members=failed_list)
             self.send_content(content=cmd, receiver=sender)
         return response
