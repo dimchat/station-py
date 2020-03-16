@@ -33,7 +33,7 @@
 from typing import Optional, Union
 
 from dimp import ID
-from dimp import InstantMessage, ReliableMessage
+from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, InviteCommand, ResetCommand
 
 from dimsdk import Messenger
@@ -120,6 +120,29 @@ class CommonMessenger(Messenger):
 
     def query_group(self, group: ID, users: list) -> bool:
         pass
+
+    #
+    #   Reuse message key
+    #
+
+    def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
+        s_msg = super().encrypt_message(msg=msg)
+        facebook = self.facebook
+        env = msg.envelope
+        receiver = facebook.identifier(env.receiver)
+        if receiver.is_group:
+            # reuse group message keys
+            sender = facebook.identifier(env.sender)
+            key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
+            key['reused'] = True
+        # TODO: reuse personal message key?
+        return s_msg
+
+    def encrypt_key(self, key: dict, receiver: str, msg: InstantMessage) -> Optional[bytes]:
+        if key.get('reused'):
+            # no need to encrypt reused key again
+            return None
+        return super().encrypt_key(key=key, receiver=receiver, msg=msg)
 
     #
     #   Message
