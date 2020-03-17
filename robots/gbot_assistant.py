@@ -148,6 +148,19 @@ class AssistantMessenger(ClientMessenger):
         return super().process_reliable(msg=msg)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        """
+        Separate group message and forward them one by one
+
+            if members not found,
+                drop this message and query group info from sender;
+            if 'keys' found in group message,
+                update them to cache;
+                remove non-exists member from 'keys
+            split group message with members, forward them
+
+        :param msg:
+        :return: ReliableMessage as result
+        """
         s_msg = self.verify_message(msg=msg)
         if s_msg is None:
             # signature error?
@@ -159,22 +172,29 @@ class AssistantMessenger(ClientMessenger):
                 # not allow
                 return None
         members = g_facebook.members(receiver)
-        # check 'keys'
-        keys = msg.get('keys')
-        if keys is None:
-            # keys not found, split with group members
-            if members is None:
-                raise LookupError('failed to get group members: %s' % receiver)
+        if members is None or len(members) == 0:
+            # members not found for this group,
+            # query it from sender
+            res = GroupCommand.query(group=receiver)
         else:
-            # FIXME: ID in 'keys' maybe not equal to members
-            if len(keys) != len(members):
-                g_messenger.query_group(group=receiver, users=[sender])
-            # update key map
-            self.__key_cache.update_keys(keys=keys, sender=sender, group=receiver)
-            # use IDs in 'keys' as members list
-            members = list(keys.keys())
-        # split and forward group message
-        res = self.__split_group_message(msg=msg, members=members)
+            # check 'keys'
+            keys = msg.get('keys')
+            if keys is not None:
+                # remove non-exists members from 'keys'
+                expel_list = []
+                for item in keys:
+                    m = g_facebook.identifier(string=item)
+                    if m not in members:
+                        expel_list.append(m)
+                if len(expel_list) > 0:
+                    # send 'expel' command to the sender
+                    cmd = GroupCommand.expel(group=receiver, members=expel_list)
+                    g_messenger.send_content(content=cmd, receiver=sender)
+                # update key map
+                self.__key_cache.update_keys(keys=keys, sender=sender, group=receiver)
+            # split and forward group message,
+            # respond receipt with success or failed list
+            res = self.__split_group_message(msg=msg, members=members)
         # pack response
         if res is not None:
             sender = g_facebook.current_user.identifier
@@ -198,7 +218,8 @@ class AssistantMessenger(ClientMessenger):
             response['success'] = success_list
         if len(failed_list) > 0:
             response['failed'] = failed_list
-            # failed to get keys for this members, query from sender by invite members
+            # failed to get keys for this members,
+            # query from sender by invite members
             sender = g_facebook.identifier(msg.envelope.sender)
             group = g_facebook.identifier(msg.envelope.receiver)
             cmd = GroupCommand.invite(group=group, members=failed_list)

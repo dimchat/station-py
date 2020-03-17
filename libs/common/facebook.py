@@ -138,6 +138,8 @@ class CommonFacebook(Facebook):
         return self.database.contacts(user=identifier)
 
     def save_members(self, members: list, identifier: ID) -> bool:
+        if not self.cache_members(members=members, identifier=identifier):
+            return False
         return self.database.save_members(members=members, group=identifier)
 
     def load_members(self, identifier: ID) -> Optional[list]:
