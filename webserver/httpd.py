@@ -65,7 +65,7 @@ def demo() -> str:
 
 
 @app.route(BASE_URI+'/dicq.html', methods=['GET'])
-def demo() -> str:
+def dicq() -> str:
     return render_template('dicq.html')
 
 
