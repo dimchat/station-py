@@ -64,6 +64,11 @@ def demo() -> str:
     return render_template('demo.html')
 
 
+@app.route(BASE_URI+'/dicq.html', methods=['GET'])
+def demo() -> str:
+    return render_template('dicq.html')
+
+
 @app.route(BASE_URI+'/test.html', methods=['GET'])
 def test() -> str:
     return render_template('test.html')
