@@ -250,11 +250,37 @@ class History:
     def __init__(self):
         super().__init__()
         self.__pool: list = []
+        self.__load_history()
+
+    @staticmethod
+    def __path() -> str:
+        base = os.path.join(g_database.base_dir, 'public')
+        return os.path.join(base, 'chatroom-history.js')
+
+    def __load_history(self):
+        path = self.__path()
+        # load chatroom history
+        history = JSONFile(path=path).read()
+        if history is None:
+            return
+        # convert contents
+        array = []
+        for item in history:
+            content = Content(item)
+            assert content is not None, 'content error: %s' % item
+            array.append(content)
+        self.__pool = array
+
+    def __save_history(self):
+        path = self.__path()
+        # save chatroom history
+        JSONFile(path=path).write(container=self.__pool)
 
     def push(self, content: ForwardContent):
         while len(self.__pool) >= self.MAX:
             self.__pool.pop(0)
         self.__pool.append(content)
+        self.__save_history()
 
     def all(self) -> list:
         return self.__pool.copy()
