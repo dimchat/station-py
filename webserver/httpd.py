@@ -59,6 +59,11 @@ BASE_URI = '/dimp/v1'
 app = Flask(__name__)
 
 
+@app.route(BASE_URI+'/demo.html', methods=['GET'])
+def demo() -> str:
+    return render_template('dterm.html')
+
+
 @app.route(BASE_URI+'/dterm.html', methods=['GET'])
 def dterm() -> str:
     return render_template('dterm.html')
