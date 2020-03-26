@@ -10,6 +10,12 @@
 </head>
 <body>
 <script>
+    window.onerror = function (msg, url, line, column, error) {
+        var text = url + '[' + line + ']: ' + msg;
+        alert(text);
+    };
+</script>
+<script>
     var base = 'http://dimchat.github.io/apps/DTerm/';
     // var base = window.location.href.replace('index.html', '');
     var url = base + 'js/index.js';
