@@ -40,7 +40,7 @@ from typing import Optional
 
 from mkm.dos import JSONFile
 
-from dimsdk import ID
+from dimsdk import ID, EVERYONE
 from dimsdk import InstantMessage
 from dimsdk import ContentType, Content, Command, TextContent
 from dimsdk import ForwardContent, ReceiptCommand, ProfileCommand
@@ -353,6 +353,7 @@ class ChatRoom:
         """ Broadcast text message to each online user """
         messenger = self.messenger
         content = TextContent.new(text=text)
+        content.group = EVERYONE
         users = self.__users.copy()
         users.reverse()
         for item in users:
