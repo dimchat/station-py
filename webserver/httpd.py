@@ -74,6 +74,11 @@ def dicq() -> str:
     return render_template('dicq.html')
 
 
+@app.route(BASE_URI+'/connect.js', methods=['GET'])
+def connect_js() -> str:
+    return render_template('connect.js')
+
+
 @app.route(BASE_URI+'/test.html', methods=['GET'])
 def test() -> str:
     return render_template('test.html')
