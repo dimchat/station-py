@@ -293,10 +293,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             if mask is None:
                 content = payload
             else:
-                content = ''
+                content = bytearray()
                 for i, d in enumerate(payload):
-                    content += chr(d ^ mask[i % 4])
-                content = bytes(content, encoding='UTF-8')
+                    content.append(d ^ mask[i % 4])
             # 5. check op_code
             if op == 0:
                 data += content
