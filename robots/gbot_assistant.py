@@ -170,7 +170,12 @@ class AssistantMessenger(ClientMessenger):
         if not g_facebook.exists_member(member=sender, group=receiver):
             if not g_facebook.is_owner(member=sender, group=receiver):
                 # not allow, kick it out
-                return GroupCommand.expel(group=receiver, member=sender)
+                cmd = GroupCommand.expel(group=receiver, member=sender)
+                sender = g_facebook.current_user.identifier
+                receiver = msg.envelope.sender
+                i_msg = InstantMessage.new(content=cmd, sender=sender, receiver=receiver)
+                s_msg = self.encrypt_message(msg=i_msg)
+                return self.sign_message(msg=s_msg)
         members = g_facebook.members(receiver)
         if members is None or len(members) == 0:
             # members not found for this group,

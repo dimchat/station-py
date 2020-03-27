@@ -194,7 +194,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 b'Server: DIM-Station\r\n' \
                 b'Upgrade: websocket\r\n' \
                 b'Connection: Upgrade\r\n' \
-                b'WebSocket-Protocol: dimchat\r\n' \
+                b'WebSocket-Protocol: DIMP\r\n' \
                 b'Sec-WebSocket-Accept: '
     ws_suffix = b'\r\n\r\n'
 
@@ -296,7 +296,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 content = ''
                 for i, d in enumerate(payload):
                     content += chr(d ^ mask[i % 4])
-                content = bytes(content, 'UTF-8')
+                content = bytes(content, encoding='UTF-8')
             # 5. check op_code
             if op == 0:
                 data += content
