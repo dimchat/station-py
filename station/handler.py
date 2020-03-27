@@ -298,7 +298,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                     content += chr(d ^ mask[i % 4])
                 content = bytes(content, 'UTF-8')
             # 5. check op_code
-            if op == 1:
+            if op == 0:
+                data += content
+            elif op == 1:
                 # TEXT
                 data += content
             elif op == 2:
@@ -317,7 +319,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 self.error('ws op error: %d => %s' % (op, pack))
                 return b''
             # 6. check final fragment
-            if fin == 1:
+            if fin == 1 or op == 0:
                 # cut the received package(s) and return the remaining
                 pack = pack[pos:]
                 break
