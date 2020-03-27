@@ -33,6 +33,7 @@
 
 import sys
 import os
+import time
 from typing import Optional
 
 from dimp import ID
@@ -52,6 +53,11 @@ from libs.client import ClientMessenger
 from robots.config import g_facebook, g_keystore, g_station, g_database
 from robots.config import load_user, create_client
 from robots.config import chat_bot, assistant_id
+
+
+def current_time() -> str:
+    time_array = time.localtime()
+    return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
 
 
 class GroupKeyCache(Storage):
@@ -138,6 +144,17 @@ class AssistantMessenger(ClientMessenger):
         super().__init__()
         self.__key_cache = GroupKeyCache()
 
+    #
+    #  Log
+    #
+    @classmethod
+    def info(cls, msg: str):
+        print('[%s] Storage > %s' % (current_time(), msg))
+
+    @classmethod
+    def error(cls, msg: str):
+        print('[%s] ERROR - Storage > %s' % (current_time(), msg))
+
     # Override
     def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = g_facebook.identifier(string=msg.envelope.receiver)
@@ -190,6 +207,7 @@ class AssistantMessenger(ClientMessenger):
                 for item in keys:
                     m = g_facebook.identifier(string=item)
                     if m not in members:
+                        self.info('remove non-exists member: %s' % item)
                         expel_list.append(m)
                 if len(expel_list) > 0:
                     # send 'expel' command to the sender

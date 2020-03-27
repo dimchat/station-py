@@ -99,7 +99,7 @@ class MessageTable(Storage):
         if self.__message_exists(msg=msg, path=path):
             self.error('message duplicated: %s' % msg)
             return False
-        self.info('Appending message into: %s' % path)
+        # self.info('Appending message into: %s' % path)
         # message data
         data = json.dumps(msg) + '\n'
         return self.append_text(text=data, path=path)

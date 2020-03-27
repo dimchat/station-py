@@ -122,7 +122,7 @@ class UserTable(Storage):
         cmd = self.__block_commands.get(identifier)
         if cmd is None:
             path = self.__block_command_path(identifier=identifier)
-            self.info('Loading stored block command from: %s' % path)
+            # self.info('Loading stored block command from: %s' % path)
             dictionary = self.read_json(path=path)
             if dictionary is not None:
                 cmd = Command(dictionary)
@@ -149,7 +149,7 @@ class UserTable(Storage):
         cmd = self.__mute_commands.get(identifier)
         if cmd is None:
             path = self.__mute_command_path(identifier=identifier)
-            self.info('Loading stored mute command from: %s' % path)
+            # self.info('Loading stored mute command from: %s' % path)
             dictionary = self.read_json(path=path)
             if dictionary is not None:
                 cmd = Command(dictionary)
