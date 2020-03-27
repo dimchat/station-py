@@ -169,8 +169,8 @@ class AssistantMessenger(ClientMessenger):
         receiver = g_facebook.identifier(msg.envelope.receiver)
         if not g_facebook.exists_member(member=sender, group=receiver):
             if not g_facebook.is_owner(member=sender, group=receiver):
-                # not allow
-                return None
+                # not allow, kick it out
+                return GroupCommand.expel(group=receiver, member=sender)
         members = g_facebook.members(receiver)
         if members is None or len(members) == 0:
             # members not found for this group,
