@@ -30,6 +30,7 @@
     Barrack for cache entities
 """
 
+import time
 import weakref
 from typing import Optional
 
@@ -39,6 +40,9 @@ from libs.common import CommonFacebook
 
 
 class ClientFacebook(CommonFacebook):
+
+    EXPIRES = 3600  # profile expires (1 hour)
+    EXPIRES_KEY = 'expires'
 
     def __init__(self):
         super().__init__()
@@ -52,23 +56,32 @@ class ClientFacebook(CommonFacebook):
     def messenger(self, value):
         self.__messenger = weakref.ref(value)
 
-    def load_meta(self, identifier: ID) -> Optional[Meta]:
+    def meta(self, identifier: ID) -> Optional[Meta]:
         if identifier.is_broadcast:
             # broadcast ID has not meta
             return None
         # try from database
-        meta = super().load_meta(identifier=identifier)
-        if meta is not None:
+        meta = super().meta(identifier=identifier)
+        if meta is not None and 'key' in meta:
             # meta exists
             return meta
         # query from DIM network
         self.messenger.query_meta(identifier=identifier)
 
-    def load_profile(self, identifier: ID) -> Optional[Profile]:
+    def profile(self, identifier: ID) -> Optional[Profile]:
         # try from database
-        profile = super().load_profile(identifier=identifier)
-        if profile is not None:
-            # profile exists
-            return profile
+        profile = super().profile(identifier=identifier)
+        if profile is not None and 'data' in profile:
+            # check expired time
+            timestamp = time.time()
+            expires = profile.get(self.EXPIRES_KEY)
+            if expires is None:
+                # set expired time
+                profile[self.EXPIRES_KEY] = timestamp + self.EXPIRES
+                return profile
+            elif expires > timestamp:
+                # not expired yet
+                return profile
         # query from DIM network
         self.messenger.query_profile(identifier=identifier)
+        return profile

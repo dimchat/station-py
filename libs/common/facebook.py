@@ -34,7 +34,7 @@ from typing import Optional
 
 from mkm.immortals import Immortals
 
-from dimp import PrivateKey
+from dimp import PrivateKey, SignKey
 from dimp import ID, Meta, Profile, User
 from dimsdk import Facebook
 
@@ -106,53 +106,22 @@ class CommonFacebook(Facebook):
         self.__local_users = array
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not self.cache_meta(meta=meta, identifier=identifier):
-            raise ValueError('meta error: %s, %s' % (identifier, meta))
         return self.database.save_meta(meta=meta, identifier=identifier)
 
-    def load_meta(self, identifier: ID) -> Optional[Meta]:
-        return self.database.meta(identifier=identifier)
-
     def save_profile(self, profile: Profile, identifier: ID=None) -> bool:
-        if not self.cache_profile(profile=profile, identifier=identifier):
-            raise ValueError('profile error: %s, %s' % (identifier, profile))
         return self.database.save_profile(profile=profile)
-
-    def load_profile(self, identifier: ID) -> Optional[Profile]:
-        # profile = super().load_profile(identifier=identifier)
-        # if profile is not None:
-        #     # profile exists in cache
-        #     return profile
-        return self.database.profile(identifier=identifier)
 
     def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
         return self.database.save_private_key(key=key, identifier=identifier)
 
-    def load_private_key(self, identifier: ID) -> Optional[PrivateKey]:
-        return self.database.private_key(identifier=identifier)
-
     def save_contacts(self, contacts: list, identifier: ID) -> bool:
         return self.database.save_contacts(contacts=contacts, user=identifier)
 
-    def load_contacts(self, identifier: ID) -> Optional[list]:
-        return self.database.contacts(user=identifier)
-
     def save_members(self, members: list, identifier: ID) -> bool:
-        if not self.cache_members(members=members, identifier=identifier):
-            return False
         return self.database.save_members(members=members, group=identifier)
-
-    def load_members(self, identifier: ID) -> Optional[list]:
-        return self.database.members(group=identifier)
 
     def save_assistants(self, assistants: list, identifier: ID) -> bool:
         pass
-
-    def load_assistants(self, identifier: ID) -> Optional[list]:
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        robot = self.ans.identifier(name='assistant')
-        if robot is not None:
-            return [robot]
 
     #
     #   SocialNetworkDataSource
@@ -171,38 +140,37 @@ class CommonFacebook(Facebook):
     #   EntityDataSource
     #
     def meta(self, identifier: ID) -> Optional[Meta]:
-        obj = self.__immortals.meta(identifier=identifier)
-        if obj is not None:
-            return obj
-        return super().meta(identifier=identifier)
+        info = self.database.meta(identifier=identifier)
+        if info is not None:
+            return info
+        return self.__immortals.meta(identifier=identifier)
 
     def profile(self, identifier: ID) -> Optional[Profile]:
-        obj = self.__immortals.profile(identifier=identifier)
-        if obj is not None:
-            return obj
-        return super().profile(identifier=identifier)
+        info = self.database.profile(identifier=identifier)
+        if info is not None:
+            return info
+        return self.__immortals.profile(identifier=identifier)
 
     #
     #   UserDataSource
     #
-    def private_key_for_signature(self, identifier: ID) -> Optional[PrivateKey]:
-        key = self.__immortals.private_key_for_signature(identifier=identifier)
+    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+        key = self.database.private_key(identifier=identifier)
         if key is not None:
-            assert isinstance(key, PrivateKey), 'private key error: %s' % key
             return key
-        return super().private_key_for_signature(identifier=identifier)
+        return self.__immortals.private_key_for_signature(identifier=identifier)
 
     def private_keys_for_decryption(self, identifier: ID) -> Optional[list]:
-        arr = self.__immortals.private_keys_for_decryption(identifier=identifier)
-        if arr is not None:
-            return arr
-        return super().private_keys_for_decryption(identifier=identifier)
+        key = self.database.private_key(identifier=identifier)
+        if key is not None:
+            return [key]
+        return self.__immortals.private_keys_for_decryption(identifier=identifier)
 
     def contacts(self, identifier: ID) -> Optional[list]:
-        arr = self.__immortals.contacts(identifier=identifier)
+        arr = self.database.contacts(user=identifier)
         if arr is not None:
             return arr
-        return super().contacts(identifier=identifier)
+        return self.__immortals.contacts(identifier=identifier)
 
     #
     #    IGroupDataSource
@@ -220,3 +188,12 @@ class CommonFacebook(Facebook):
         if user is not None:
             return user
         return super().owner(identifier=identifier)
+
+    def members(self, identifier: ID) -> Optional[list]:
+        return self.database.members(group=identifier)
+
+    def assistants(self, identifier: ID) -> Optional[list]:
+        assert identifier.is_group, 'group ID error: %s' % identifier
+        robot = self.ans.identifier(name='assistant')
+        if robot is not None:
+            return [robot]
