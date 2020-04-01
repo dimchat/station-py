@@ -163,8 +163,10 @@ class CommonMessenger(Messenger):
         keys['digest'] = base64[pos:]
         msg['keys'] = keys
 
-    # def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-    #     return super().deserialize_message(data=data)
+    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        if data is None or len(data) == 0:
+            return None
+        return super().deserialize_message(data=data)
 
     #
     #   Reuse message key
