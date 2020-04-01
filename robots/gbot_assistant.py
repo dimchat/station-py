@@ -89,8 +89,12 @@ class GroupKeyCache(Storage):
             table = {}
             self.__cache[group] = table
         key_map = table.get(sender)
-        if key_map is None:
+        if key_map is None or key_map['digest'] is None:
             # no keys from this sender yet
+            table[sender] = keys
+            dirty = True
+        elif key_map['digest'] != keys['digest']:
+            # key changed
             table[sender] = keys
             dirty = True
         else:
