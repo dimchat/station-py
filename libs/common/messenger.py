@@ -32,6 +32,8 @@
 
 from typing import Optional, Union
 
+from mkm.crypto.utils import sha256, base64_encode
+
 from dimp import ID
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, InviteCommand, ResetCommand
@@ -122,6 +124,49 @@ class CommonMessenger(Messenger):
         pass
 
     #
+    #  Serialization
+    #
+    def serialize_message(self, msg: ReliableMessage) -> bytes:
+        self.__attach_key_digest(msg=msg)
+        return super().serialize_message(msg=msg)
+
+    def __attach_key_digest(self, msg: ReliableMessage):
+        if msg.delegate is None:
+            msg.delegate = self
+        if msg.encrypted_key is not None:
+            # 'key' exists
+            return
+        keys = msg.encrypted_keys
+        if keys is None:
+            keys = {}
+        elif 'digest' in keys:
+            # key digest already exists
+            return
+        # get key with direction
+        sender = self.barrack.identifier(msg.envelope.sender)
+        group = self.barrack.identifier(msg.envelope.group)
+        if group is None:
+            receiver = self.barrack.identifier(msg.envelope.receiver)
+            key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
+        else:
+            key = self.key_cache.cipher_key(sender=sender, receiver=group)
+        # get key data
+        data = key.data
+        if data is None or len(data) < 8:
+            return
+        # get digest
+        pos = len(data) - 4
+        digest = sha256(data[pos:])
+        base64 = base64_encode(digest)
+        # set digest
+        pos = len(base64) - 8
+        keys['digest'] = base64[pos:]
+        msg['keys'] = keys
+
+    # def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+    #     return super().deserialize_message(data=data)
+
+    #
     #   Reuse message key
     #
 
@@ -138,11 +183,11 @@ class CommonMessenger(Messenger):
         # TODO: reuse personal message key?
         return s_msg
 
-    def encrypt_key(self, key: dict, receiver: str, msg: InstantMessage) -> Optional[bytes]:
+    def serialize_key(self, key: dict, msg: InstantMessage) -> Optional[bytes]:
         if key.get('reused'):
             # no need to encrypt reused key again
             return None
-        return super().encrypt_key(key=key, receiver=receiver, msg=msg)
+        return super().serialize_key(key=key, msg=msg)
 
     #
     #   Message
