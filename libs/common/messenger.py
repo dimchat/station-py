@@ -152,10 +152,10 @@ class CommonMessenger(Messenger):
             key = self.key_cache.cipher_key(sender=sender, receiver=group)
         # get key data
         data = key.data
-        if data is None or len(data) < 8:
+        if data is None or len(data) < 6:
             return
         # get digest
-        pos = len(data) - 4
+        pos = len(data) - 6
         digest = sha256(data[pos:])
         base64 = base64_encode(digest)
         # set digest
