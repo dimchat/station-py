@@ -187,8 +187,11 @@ class CommonMessenger(Messenger):
 
     def serialize_key(self, key: dict, msg: InstantMessage) -> Optional[bytes]:
         if key.get('reused'):
-            # no need to encrypt reused key again
-            return None
+            receiver = msg.envelope.receiver
+            receiver = self.facebook.identifier(receiver)
+            if receiver.is_group:
+                # reuse key for grouped message
+                return None
         return super().serialize_key(key=key, msg=msg)
 
     #
