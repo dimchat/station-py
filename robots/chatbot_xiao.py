@@ -120,6 +120,12 @@ class FreshmenScanner(threading.Thread):
         self.info('got %d member(s) in group: %s' % (len(members), self.__group))
         return members
 
+    def __assistants(self) -> list:
+        ass = g_facebook.assistants(identifier=self.__group.identifier)
+        if ass is None:
+            return []
+        return ass
+
     def __save_members(self, members: list) -> bool:
         gid = self.__group.identifier
         # TODO: check permission (whether myself in this group)
@@ -173,6 +179,9 @@ class FreshmenScanner(threading.Thread):
         for item in members:
             self.__send_content(content=cmd, receiver=item)
         self.info('invite command sent: %s' % cmd)
+        assistants = self.__assistants()
+        for item in assistants:
+            self.__send_content(content=cmd, receiver=item)
         #
         #  3. update group members
         #
