@@ -46,7 +46,7 @@ class ProfileTable(Storage):
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
     def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'public', identifier.address, 'profile.js')
+        return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
 
     def __cache_profile(self, profile: Profile) -> bool:
         identifier = Storage.identifier(profile.identifier)
@@ -93,6 +93,7 @@ class ProfileTable(Storage):
         # 2. load from storage
         info = self.__load_profile(identifier=identifier)
         if info is None:
+            # place an empty profile for cache
             info = Profile.new(identifier=identifier)
         # 3. update memory cache
         self.__caches[identifier] = info
@@ -113,7 +114,7 @@ class DeviceTable(Storage):
         file path: '.dim/protected/{ADDRESS}/device.js'
     """
     def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', identifier.address, 'device.js')
+        return os.path.join(self.root, 'protected', str(identifier.address), 'device.js')
 
     def __cache_device(self, device: dict, identifier: ID) -> bool:
         assert identifier.valid, 'ID not valid: %s' % identifier

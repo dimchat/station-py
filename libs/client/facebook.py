@@ -62,23 +62,26 @@ class ClientFacebook(CommonFacebook):
             return None
         # try from database
         meta = super().meta(identifier=identifier)
-        if meta is not None and 'key' in meta:
-            # meta exists
-            return meta
+        if meta is not None:
+            # is empty?
+            if 'key' in meta:
+                return meta
         # query from DIM network
         self.messenger.query_meta(identifier=identifier)
 
     def profile(self, identifier: ID) -> Optional[Profile]:
         # try from database
         profile = super().profile(identifier=identifier)
-        if profile is not None and 'data' in profile:
+        if profile is not None:
             # check expired time
             timestamp = time.time()
             expires = profile.get(self.EXPIRES_KEY)
             if expires is None:
                 # set expired time
                 profile[self.EXPIRES_KEY] = timestamp + self.EXPIRES
-                return profile
+                # is empty?
+                if 'data' in profile:
+                    return profile
             elif expires > timestamp:
                 # not expired yet
                 return profile

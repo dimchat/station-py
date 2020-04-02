@@ -48,7 +48,7 @@ class MessageTable(Storage):
         file path: '.dim/public/{ADDRESS}/messages/*.msg'
     """
     def __directory(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'public', identifier.address, 'messages')
+        return os.path.join(self.root, 'public', str(identifier.address), 'messages')
 
     def __message_path(self, msg: ReliableMessage) -> str:
         # message filename

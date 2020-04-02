@@ -98,6 +98,7 @@ class MetaTable(Storage):
         # 2. load from storage
         info = self.__load_meta(identifier=identifier)
         if info is None:
+            # place an empty meta for cache
             self.__caches[identifier] = self.__empty_meta
             return None
         # 3. update memory cache

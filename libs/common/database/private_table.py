@@ -44,7 +44,7 @@ class PrivateKeyTable(Storage):
         file path: '.dim/private/{ADDRESS}/secret.js'
     """
     def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'private', identifier.address, 'secret.js')
+        return os.path.join(self.root, 'private', str(identifier.address), 'secret.js')
 
     def __cache_private_key(self, key: PrivateKey, identifier: ID) -> bool:
         assert key is not None and identifier.valid, 'private key error: %s, %s' % (identifier, key)
@@ -63,6 +63,7 @@ class PrivateKeyTable(Storage):
             # meta file already exists
             return True
         self.info('Saving private key into: %s' % path)
+        assert isinstance(key, dict), 'key error: %s' % key
         return self.write_json(container=key, path=path)
 
     def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
