@@ -145,6 +145,6 @@ class ClientMessenger(CommonMessenger):
         #         return None
 
         # normal response
-        self.send_message(msg=i_msg)
+        self.send_message(msg=i_msg, callback=None, split=False)
         # DON'T respond to station directly
         return None

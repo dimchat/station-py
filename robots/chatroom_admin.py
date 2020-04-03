@@ -352,12 +352,23 @@ class ChatRoom:
     def __broadcast(self, text: str):
         """ Broadcast text message to each online user """
         messenger = self.messenger
+        facebook = self.facebook
+        sender = facebook.current_user.identifier
+        receiver = EVERYONE
+        # create content
         content = TextContent.new(text=text)
         content.group = EVERYONE
+        # create instant message
+        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        s_msg = messenger.encrypt_message(msg=i_msg)
+        r_msg = messenger.sign_message(msg=s_msg)
+        # split for online users
         users = self.__users.copy()
         users.reverse()
-        for item in users:
-            messenger.send_content(content=content, receiver=item)
+        messages = r_msg.split(members=users)
+        # send one by one
+        for msg in messages:
+            messenger.send_message(msg=msg, callback=None, split=False)
 
     def __online(self) -> Content:
         """ Get online users """
