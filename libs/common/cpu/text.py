@@ -81,7 +81,7 @@ class TextContentProcessor(ContentProcessor):
     def __ignored(self, content: Content, sender: ID, msg: InstantMessage) -> bool:
         # check robot
         if sender.type in [NetworkID.Robot, NetworkID.Station]:
-            self.info('Dialog > ignore message from another robot: %s' % msg.content)
+            # self.info('Dialog > ignore message from another robot: %s' % msg.content)
             return True
         # check time
         now = int(time.time())
@@ -113,9 +113,9 @@ class TextContentProcessor(ContentProcessor):
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         nickname = self.facebook.nickname(identifier=sender)
-        self.info('Received text message from %s: %s' % (nickname, content))
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
+        self.info('Received text message from %s: %s' % (nickname, content))
         response = self.__query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)

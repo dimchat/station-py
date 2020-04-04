@@ -87,8 +87,8 @@ class ProfileTable(Storage):
         # 1. get from cache
         info = self.__caches.get(identifier)
         if info is not None:
-            if 'data' not in info:
-                self.info('empty profile: %s' % info)
+            # if 'data' not in info:
+            #     self.info('empty profile: %s' % info)
             return info
         # 2. load from storage
         info = self.__load_profile(identifier=identifier)
