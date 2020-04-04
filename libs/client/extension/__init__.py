@@ -23,32 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Client Module
-    ~~~~~~~~~~~~~
-
-"""
-
-from .cpu import *
-
-from .extension import GroupManager
-
-from .connection import Connection
-from .terminal import Terminal
-
-from .facebook import ClientFacebook
-from .messenger import ClientMessenger
+from .gman import GroupManager
 
 
 __all__ = [
-    #
-    #   Command Processor Units
-    #
-    'HandshakeDelegate',
-
     'GroupManager',
-
-    'Connection',
-    'Terminal',
-    'ClientFacebook', 'ClientMessenger',
 ]

@@ -36,9 +36,8 @@ import os
 import threading
 import time
 
-from dimp import ID, Group
-from dimp import Content, TextContent
-from dimp import MetaCommand, ProfileCommand, GroupCommand, InviteCommand
+from dimp import Group
+from dimp import TextContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -48,6 +47,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.common import Log
 
 from libs.client import ClientMessenger
+from libs.client import GroupManager
 
 from robots.config import g_facebook, g_keystore, g_station
 from robots.config import group_naruto, load_freshmen
@@ -87,8 +87,12 @@ class FreshmenScanner(threading.Thread):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def __send_content(self, content: Content, receiver: ID) -> bool:
-        return self.messenger.send_content(content=content, receiver=receiver)
+    def __members(self) -> list:
+        members = self.__group.members
+        if members is None:
+            return []
+        self.info('got %d member(s) in group: %s' % (len(members), self.__group))
+        return members
 
     def __freshmen(self) -> list:
         freshmen = load_freshmen()
@@ -112,38 +116,6 @@ class FreshmenScanner(threading.Thread):
             users.append(item)
         self.info('got freshmen: %d from %d' % (len(users), len(freshmen)))
         return users
-
-    def __members(self) -> list:
-        members = self.__group.members
-        if members is None:
-            return []
-        self.info('got %d member(s) in group: %s' % (len(members), self.__group))
-        return members
-
-    def __assistants(self) -> list:
-        ass = g_facebook.assistants(identifier=self.__group.identifier)
-        if ass is None:
-            return []
-        return ass
-
-    def __save_members(self, members: list) -> bool:
-        gid = self.__group.identifier
-        # TODO: check permission (whether myself in this group)
-        return g_facebook.save_members(members=members, identifier=gid)
-
-    def __response_meta(self) -> MetaCommand:
-        gid = self.__group.identifier
-        meta = self.__group.meta
-        profile = self.__group.profile
-        if profile is None:
-            cmd = MetaCommand.response(identifier=gid, meta=meta)
-        else:
-            cmd = ProfileCommand.response(identifier=gid, profile=profile, meta=meta)
-        return cmd
-
-    def __invite_members(self, members: list) -> InviteCommand:
-        gid = self.__group.identifier
-        return GroupCommand.invite(group=gid, members=members)
 
     def __welcome(self, freshmen: list) -> TextContent:
         names = [g_facebook.nickname(item) for item in freshmen]
@@ -170,47 +142,18 @@ class FreshmenScanner(threading.Thread):
             time.sleep(30)
             return
         self.info('freshmen: %s' % freshmen)
-        members = self.__members()
-        self.info('group members: %s' % members)
         #
-        #  2. send 'invite' command to existed members
+        #  2. send group command for inviting freshmen
         #
-        cmd = self.__invite_members(members=freshmen)
-        for item in members:
-            self.__send_content(content=cmd, receiver=item)
-        self.info('invite command sent: %s' % cmd)
-        assistants = self.__assistants()
-        for item in assistants:
-            self.__send_content(content=cmd, receiver=item)
+        gid = self.__group.identifier
+        gm = GroupManager(gid)
+        gm.messenger = self.messenger
+        gm.invite(freshmen)
         #
-        #  3. update group members
-        #
-        for item in freshmen:
-            # add freshmen to members
-            if item not in members:
-                members.append(item)
-        if self.__save_members(members=members):
-            self.info('group members updated: %s' % members)
-        #
-        #  4.1. send group meta to all freshmen
-        #
-        cmd = self.__response_meta()
-        for item in freshmen:
-            self.__send_content(content=cmd, receiver=item)
-        self.info('group meta/profile sent: %s' % cmd)
-        #
-        #  4.2. send 'invite' command to all freshmen
-        #
-        cmd = self.__invite_members(members=members)
-        for item in freshmen:
-            self.__send_content(content=cmd, receiver=item)
-        self.info('invite command sent: %s' % cmd)
-        #
-        #  5. Welcome!
+        #  3. send Welcome!
         #
         text = self.__welcome(freshmen=freshmen)
-        gid = self.__group.identifier
-        self.__send_content(content=text, receiver=gid)
+        gm.send(content=text)
         self.info('Welcome sent to %s: %s' % (gid, text))
 
     def run(self):
