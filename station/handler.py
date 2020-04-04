@@ -38,10 +38,11 @@ from typing import Optional
 
 from dimp import User
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import NetMsgHead, NetMsg, CompletionHandler
+from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
 
 from libs.common import Log, base64_encode
+from libs.common import NetMsgHead, NetMsg
 from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate

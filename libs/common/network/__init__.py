@@ -24,8 +24,12 @@
 # ==============================================================================
 
 from .server import Server
+from .mars import NetMsgHead, NetMsg
 
 
 __all__ = [
     'Server',
+
+    # data packing
+    'NetMsgHead', 'NetMsg',
 ]
