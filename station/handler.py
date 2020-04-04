@@ -30,9 +30,7 @@
     Handler for each connection
 """
 
-import hashlib
 import json
-import struct
 from socketserver import BaseRequestHandler
 from typing import Optional
 
@@ -41,8 +39,9 @@ from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
 
-from libs.common import Log, base64_encode
+from libs.common import Log
 from libs.common import NetMsgHead, NetMsg
+from libs.common import WebSocket
 from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
@@ -153,7 +152,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             # check protocol
             while self.process_package is None:
                 # (Protocol A) Web socket?
-                if data.find(b'Sec-WebSocket-Key') > 0:
+                if WebSocket.is_handshake(stream=data):
                     self.process_package = self.process_ws_handshake
                     self.push_data = self.push_ws_data
                     break
@@ -187,159 +186,25 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 data = self.process_package(data)
                 n_len = len(data)
 
-    #
-    #   Protocol: WebSocket
-    #
-    ws_magic = b'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-    ws_prefix = b'HTTP/1.1 101 Switching Protocol\r\n' \
-                b'Server: DIM-Station\r\n' \
-                b'Upgrade: websocket\r\n' \
-                b'Connection: Upgrade\r\n' \
-                b'WebSocket-Protocol: DIMP\r\n' \
-                b'Sec-WebSocket-Accept: '
-    ws_suffix = b'\r\n\r\n'
-
     def process_ws_handshake(self, pack: bytes):
-        pos1 = pack.find(b'Sec-WebSocket-Key:')
-        pos1 += len('Sec-WebSocket-Key:')
-        pos2 = pack.find(b'\r\n', pos1)
-        key = pack[pos1:pos2].strip()
-        sec = hashlib.sha1(key + self.ws_magic).digest()
-        sec = base64_encode(sec)
-        res = self.ws_prefix + bytes(sec, 'UTF-8') + self.ws_suffix
+        ws = WebSocket()
+        res = ws.handshake(stream=pack)
         self.send(res)
         self.process_package = self.process_ws_package
         return b''
 
-    # https://tools.ietf.org/html/rfc6455#section-5.2
-    """
-      0                   1                   2                   3
-      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-     +-+-+-+-+-------+-+-------------+-------------------------------+
-     |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
-     |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
-     |N|V|V|V|       |S|             |   (if payload len==126/127)   |
-     | |1|2|3|       |K|             |                               |
-     +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
-     |     Extended payload length continued, if payload len == 127  |
-     + - - - - - - - - - - - - - - - +-------------------------------+
-     |                               |Masking-key, if MASK set to 1  |
-     +-------------------------------+-------------------------------+
-     | Masking-key (continued)       |          Payload Data         |
-     +-------------------------------- - - - - - - - - - - - - - - - +
-     :                     Payload Data continued ...                :
-     + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
-     |                     Payload Data continued ...                |
-     +---------------------------------------------------------------+
-    """
     def process_ws_package(self, pack: bytes):
-        pack_len = len(pack)
-        if pack_len < 2:
-            return pack
-        data = b''
-        pos = 0
-        while True:
-            if pack_len < pos + 2:
-                self.info('incomplete ws package for op code: %d' % pack_len)
-                return pack
-            # 1. check whether a continuation frame
-            ch0 = pack[pos+0]
-            # fin: indicates that this is the final fragment in a message.
-            # op: 0 - denotes a continuation frame
-            fin = ch0 >> 7
-            op = ch0 & 0x0F
-            # 2. get payload length
-            ch1 = pack[pos+1]
-            mask = ch1 >> 7
-            msg_len = ch1 & 0x7F
-            if msg_len == 126:
-                if pack_len < pos + 4:
-                    self.info('incomplete ws package for msg len: %d' % pack_len)
-                    return pack
-                b2 = pack[pos+2]
-                b3 = pack[pos+3]
-                msg_len = (b2 << 8) | b3
-                pos += 4
-            elif msg_len == 127:
-                if pack_len < pos + 10:
-                    self.info('incomplete ws package for msg len: %d' % pack_len)
-                    return pack
-                b2 = pack[pos+2]
-                b3 = pack[pos+3]
-                b4 = pack[pos+4]
-                b5 = pack[pos+5]
-                b6 = pack[pos+6]
-                b7 = pack[pos+7]
-                b8 = pack[pos+8]
-                b9 = pack[pos+9]
-                msg_len = b2 << 56 | b3 << 48 | b4 << 40 | b5 << 32 | b6 << 24 | b7 << 16 | b8 << 8 | b9
-                pos += 10
-            else:
-                pos += 2
-            # 3. get masking-key
-            if mask == 1:
-                if pack_len < pos + 4:
-                    self.info('incomplete ws package for mask: %d' % pack_len)
-                    return pack
-                mask = pack[pos:pos+4]
-                pos += 4
-            else:
-                mask = None
-            # 4. get payload
-            if pack_len < pos + msg_len:
-                self.info('incomplete ws package for payload: %d' % pack_len)
-                return pack
-            payload = pack[pos:pos+msg_len]
-            pos += msg_len
-            if mask is None:
-                content = payload
-            else:
-                content = bytearray()
-                for i, d in enumerate(payload):
-                    content.append(d ^ mask[i % 4])
-            # 5. check op_code
-            if op == 0:
-                data += content
-            elif op == 1:
-                # TEXT
-                data += content
-            elif op == 2:
-                # BINARY
-                data += content
-            elif op == 8:
-                # TODO: CLOSE
-                pass
-            elif op == 9:
-                # TODO: PING
-                pass
-            elif op == 10:
-                # TODO: PONG
-                pass
-            else:
-                self.error('ws op error: %d => %s' % (op, pack))
-                return b''
-            # 6. check final fragment
-            if fin == 1 or op == 0:
-                # cut the received package(s) and return the remaining
-                pack = pack[pos:]
-                break
-        self.info('received ws package len: %d' % len(data))
-        res = self.received_package(pack=data)
-        self.push_ws_data(res)
-        return pack
+        ws = WebSocket()
+        data, remaining = ws.parse(stream=pack)
+        if data is not None:
+            res = self.received_package(pack=data)
+            self.push_ws_data(res)
+        return remaining
 
     def push_ws_data(self, body: bytes) -> bool:
-        head = struct.pack('B', 129)
-        msg_len = len(body)
-        if msg_len < 126:
-            head += struct.pack('B', msg_len)
-        elif msg_len <= (2 ** 16 - 1):
-            head += struct.pack('!BH', 126, msg_len)
-        elif msg_len <= (2 ** 64 - 1):
-            head += struct.pack('!BQ', 127, msg_len)
-        else:
-            raise ValueError('message is too long: %d' % msg_len)
-        return self.send(head + body)
+        ws = WebSocket()
+        pack = ws.pack(payload=body)
+        return self.send(data=pack)
 
     #
     #   Protocol: Tencent mars

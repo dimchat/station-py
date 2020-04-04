@@ -25,6 +25,7 @@
 
 from .server import Server
 from .mars import NetMsgHead, NetMsg
+from .ws import WebSocket
 
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
 
     # data packing
     'NetMsgHead', 'NetMsg',
+    'WebSocket',
 ]

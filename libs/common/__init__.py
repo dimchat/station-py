@@ -39,6 +39,7 @@ from .protocol import SearchCommand
 from .cpu import *
 from .network import Server
 from .network import NetMsgHead, NetMsg
+from .network import WebSocket
 from .database import Storage, Database
 
 from .ans import AddressNameServer
@@ -65,6 +66,7 @@ __all__ = [
     #
     'Server',
     'NetMsgHead', 'NetMsg',
+    'WebSocket',
 
     #
     #   Database module

@@ -28,6 +28,11 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    Tencent Mars Protocol
+    ~~~~~~~~~~~~~~~~~~~~~
+"""
+
 
 def read_int(data, pos):
     return int.from_bytes(bytes=data[pos:pos + 4], byteorder='big')
