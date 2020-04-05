@@ -36,11 +36,11 @@ from dimp import ID
 from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import Session
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
 from ...common import Database
+from ..session import Session
 
 
 class ReportCommandProcessor(CommandProcessor):

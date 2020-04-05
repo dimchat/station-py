@@ -37,7 +37,9 @@ from dimp import ID
 from dimp import InstantMessage
 from dimp import Content, TextContent
 from dimp import Command, HandshakeCommand
-from dimsdk import CommandProcessor, Session
+from dimsdk import CommandProcessor
+
+from ..session import Session
 
 
 class HandshakeDelegate(metaclass=ABCMeta):

@@ -34,7 +34,7 @@ from typing import Optional
 from dimp import ID, EVERYONE
 from dimp import InstantMessage
 from dimp import Content, Command, HandshakeCommand
-from dimsdk import Station, Session, CompletionHandler
+from dimsdk import Station, CompletionHandler
 
 from .connection import Connection
 from .cpu import HandshakeDelegate
@@ -119,12 +119,8 @@ class Terminal(HandshakeDelegate):
         self.messenger.delegate.send_package(data=data, handler=handler)
 
     #
-    #   HandshakeDelegate
+    #   HandshakeDelegate (Client)
     #
-    def handshake_accepted(self, session: Session) -> Optional[Content]:
-        self.info('handshake accepted: %s' % session)
-        return None
-
     def handshake_success(self) -> Optional[Content]:
         self.info('handshake success')
         return None

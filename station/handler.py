@@ -376,7 +376,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         pass
 
     #
-    #   HandshakeDelegate
+    #   HandshakeDelegate (Server)
     #
     def handshake_accepted(self, session: Session):
         sender = session.identifier
@@ -388,7 +388,3 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
         # add the new guest for checking offline messages
         g_receptionist.add_guest(identifier=sender)
-
-    def handshake_success(self):
-        # TODO: broadcast 'login'
-        pass

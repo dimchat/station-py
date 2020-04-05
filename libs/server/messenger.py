@@ -34,11 +34,10 @@ from typing import Optional, Union
 
 from dimp import ID, User
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Session
 
 from libs.common import CommonMessenger
 
-from .session import SessionServer
+from .session import Session, SessionServer
 from .dispatcher import Dispatcher
 from .filter import Filter
 

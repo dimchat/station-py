@@ -29,11 +29,9 @@
 
 """
 
-from dimsdk import Session
-
 from .cpu import *
 
-from .session import SessionServer
+from .session import Session, SessionServer
 from libs.common.network.server import Server
 from .facebook import ServerFacebook
 from .messenger import ServerMessenger
