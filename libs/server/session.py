@@ -35,6 +35,7 @@
     for login user
 """
 
+from typing import Optional
 import numpy
 import random
 from weakref import WeakValueDictionary
@@ -87,15 +88,9 @@ class Server:
         # memory cache
         self.__pool = {}  # {identifier: [session]}
 
-    def all(self, identifier: ID) -> list:
+    def all(self, identifier: ID) -> Optional[list]:
         """ Get all sessions of this user """
         return self.__pool.get(identifier)
-
-    def clear(self, identifier: ID) -> bool:
-        """ Remove all sessions of this user """
-        if identifier in self.__pool:
-            self.__pool.pop(identifier)
-            return True
 
     def add(self, session: Session) -> bool:
         """ Add a session with ID into memory cache """
@@ -123,27 +118,22 @@ class Server:
         identifier = session.identifier
         # 1. get all sessions with identifier
         array: list = self.all(identifier)
-        if array is not None:
-            count = len(array)
-            if count == 0:
-                # 2.1. empty array, remove it
-                self.clear(identifier)
-            elif count == 1:
-                # 2.2. check the only one session
-                if array[0].client_address == session.client_address:
-                    # exactly
-                    self.clear(identifier)
-                    return True
-            else:
-                # 2.3. check each session with client address
-                for item in array:
-                    assert isinstance(item, Session), 'session error: %s' % item
-                    if item.client_address == session.client_address:
-                        # got it
-                        array.remove(session)
-                        return True
+        if array is None:
+            return False
+        # 2. check each session with client address
+        count = 0
+        for item in array:
+            assert isinstance(item, Session), 'session error: %s' % item
+            if item.client_address == session.client_address:
+                # got it
+                array.remove(session)
+                count += 1
+        if len(array) == 0:
+            # 3. empty array, remove it
+            self.__pool.pop(identifier)
+        return count > 0
 
-    def get(self, identifier: ID, client_address) -> Session:
+    def get(self, identifier: ID, client_address) -> Optional[Session]:
         """ Search session with ID and client address """
         array: list = self.all(identifier)
         if array is not None:
