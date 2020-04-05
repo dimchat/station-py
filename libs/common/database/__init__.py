@@ -122,12 +122,15 @@ class Database:
     def save_contacts(self, contacts: list, user: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, user=user)
 
+    def cache_contacts(self, contacts: list, identifier: ID) -> bool:
+        return self.__user_table.cache_contacts(contacts=contacts, identifier=identifier)
+
     def contacts(self, user: ID) -> list:
         return self.__user_table.contacts(user=user)
 
     """
-        Contacts of User
-        ~~~~~~~~~~~~~~~~
+        Stored Contacts for User
+        ~~~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
     """
@@ -213,6 +216,9 @@ class Database:
     """
     def save_members(self, members: list, group: ID) -> bool:
         return self.__group_table.save_members(members=members, group=group)
+
+    def cache_members(self, members: list, identifier: ID) -> bool:
+        return self.__group_table.cache_members(members=members, identifier=identifier)
 
     def members(self, group: ID) -> list:
         return self.__group_table.members(group=group)

@@ -131,9 +131,6 @@ class CommonFacebook(Facebook):
             return None
         if isinstance(string, ID):
             return string
-        obj = self.__immortals.identifier(string=string)
-        if obj is not None:
-            return obj
         return super().identifier(string=string)
 
     #
@@ -167,10 +164,19 @@ class CommonFacebook(Facebook):
         return self.__immortals.private_keys_for_decryption(identifier=identifier)
 
     def contacts(self, identifier: ID) -> Optional[list]:
-        arr = self.database.contacts(user=identifier)
-        if arr is not None:
-            return arr
-        return self.__immortals.contacts(identifier=identifier)
+        array = self.database.contacts(user=identifier)
+        if array is None:
+            # create empty list for cache
+            array = []
+            self.database.cache_contacts(contacts=array, identifier=identifier)
+        elif len(array) > 0 and not isinstance(array[0], ID):
+            # convert IDs
+            tmp = []
+            for item in array:
+                tmp.append(self.identifier(string=item))
+            array = tmp
+            self.database.cache_contacts(contacts=array, identifier=identifier)
+        return array
 
     #
     #    IGroupDataSource
@@ -190,7 +196,19 @@ class CommonFacebook(Facebook):
         return super().owner(identifier=identifier)
 
     def members(self, identifier: ID) -> Optional[list]:
-        return self.database.members(group=identifier)
+        array = self.database.members(group=identifier)
+        if array is None:
+            # create empty list for cache
+            array = []
+            self.database.cache_members(members=array, identifier=identifier)
+        elif len(array) > 0 and not isinstance(array[0], ID):
+            # convert IDs
+            tmp = []
+            for item in array:
+                tmp.append(self.identifier(string=item))
+            array = tmp
+            self.database.cache_members(members=array, identifier=identifier)
+        return array
 
     def assistants(self, identifier: ID) -> Optional[list]:
         assert identifier.is_group, 'group ID error: %s' % identifier

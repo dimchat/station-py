@@ -50,7 +50,7 @@ class UserTable(Storage):
     def __contacts_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'contacts.txt')
 
-    def __cache_contacts(self, contacts: list, identifier: ID) -> bool:
+    def cache_contacts(self, contacts: list, identifier: ID) -> bool:
         assert identifier.is_user, 'user ID error: %s' % identifier
         if contacts is None:
             return False
@@ -61,7 +61,7 @@ class UserTable(Storage):
         path = self.__contacts_path(identifier=identifier)
         self.info('Loading contacts from: %s' % path)
         data = self.read_text(path=path)
-        if data is not None and len(data) > 1:
+        if data is not None:
             return data.splitlines()
 
     def __save_contacts(self, contacts: list, identifier: ID) -> bool:
@@ -74,12 +74,10 @@ class UserTable(Storage):
         array = self.__contacts.get(user)
         if array is not None:
             return array
-        array = self.__load_contacts(identifier=user)
-        if self.__cache_contacts(contacts=array, identifier=user):
-            return array
+        return self.__load_contacts(identifier=user)
 
     def save_contacts(self, contacts: list, user: ID) -> bool:
-        if self.__cache_contacts(contacts=contacts, identifier=user):
+        if self.cache_contacts(contacts=contacts, identifier=user):
             return self.__save_contacts(contacts=contacts, identifier=user)
 
     """

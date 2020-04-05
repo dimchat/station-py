@@ -46,7 +46,7 @@ class GroupTable(Storage):
     def __members_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'members.txt')
 
-    def __cache_members(self, members: list, identifier: ID) -> bool:
+    def cache_members(self, members: list, identifier: ID) -> bool:
         assert identifier.is_group, 'group ID error: %s' % identifier
         if members is None or len(members) == 0:
             return False
@@ -57,7 +57,7 @@ class GroupTable(Storage):
         path = self.__members_path(identifier=identifier)
         self.info('Loading members from: %s' % path)
         data = self.read_text(path=path)
-        if data is not None and len(data) > 1:
+        if data is not None:
             return data.splitlines()
 
     def __save_members(self, members: list, identifier: ID) -> bool:
@@ -70,12 +70,10 @@ class GroupTable(Storage):
         array = self.__members.get(group)
         if array is not None:
             return array
-        array = self.__load_members(identifier=group)
-        if self.__cache_members(members=array, identifier=group):
-            return array
+        return self.__load_members(identifier=group)
 
     def save_members(self, members: list, group: ID) -> bool:
-        if self.__cache_members(members=members, identifier=group):
+        if self.cache_members(members=members, identifier=group):
             return self.__save_members(members=members, identifier=group)
 
     def founder(self, group: ID) -> ID:
