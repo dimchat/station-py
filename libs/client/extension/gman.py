@@ -163,6 +163,42 @@ class GroupManager:
         # 2. update local storage
         return self.remove_members(expel_list)
 
+    def quit(self, me: ID) -> bool:
+        """
+        Quit from this group
+        (only group member can do this)
+
+        :param:  me: my ID
+        :return: True on success
+        """
+        facebook = self.facebook
+        owner = facebook.owner(self.group)
+        assistants = facebook.assistants(self.group)
+        members = facebook.members(self.group)
+        assert owner is not None, 'failed to get owner of group: %s' % self.group
+        assert assistants is not None, 'failed to get assistants for group: %s' % self.group
+        assert members is not None, 'failed to get members of group: %s' % self.group
+
+        # 0. check members list
+        for ass in assistants:
+            if ass == me:
+                raise AssertionError('Group assistant cannot quit: %s' % ass)
+        if owner == me:
+            raise AssertionError('Group owner cannot quit: %s' % owner)
+
+        # 1. send 'quit' command to all members
+        cmd = GroupCommand.quit(group=self.group)
+        # 1.1. send to existed members
+        self.__send_group_command(cmd=cmd, members=members)
+        # 1.2. send to assistants
+        self.__send_group_command(cmd=cmd, members=assistants)
+        # 1.3. send to owner
+        if owner not in members:
+            self.__send_group_command(cmd=cmd, members=[owner])
+
+        # 2. update local storage
+        return self.remove_member(identifier=me)
+
     #
     #  Local Storage
     #
@@ -195,3 +231,9 @@ class GroupManager:
         if count == 0:
             return False
         return facebook.save_members(members=members, identifier=self.group)
+
+    def add_member(self, identifier: ID) -> bool:
+        return self.add_members([identifier])
+
+    def remove_member(self, identifier: ID) -> bool:
+        return self.remove_members([identifier])
