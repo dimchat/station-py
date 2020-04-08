@@ -28,24 +28,23 @@ xiaoi_ignores = ['默认回复', '重复回复']
 #  DIM chat bots
 #
 
-lingling_id = 'lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa'
+lingling_id = 'lingling@2Pa2pxJq9kQ18NX5jenwTqQqnYbHk2uZTwz'
 
-xiaoxiao_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'
+xiaoxiao_id = 'xiaoxiao@2PW2eZVKgTqgEgPScgpd1bWRKPqAvQpdtp9'
 
 tokentalkteam_id = 'TokenTalkTeam@2PraD3pKpPg77N4AdaeSHRy1jwYfP16vBRH'
-
 
 #
 #  DIM system bots
 #
 
-assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
+assistant_id = 'assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS'
 
 #
 #  DIM demo
 #
 
-chatroom_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
+chatroom_id = 'chatroom-admin@2PpG1A6LuConRMyZuV8TNJGbaSQ28Ke7ogH'
 
 
 #
