@@ -49,7 +49,7 @@ from libs.client import ClientMessenger
 from libs.client import GroupManager
 
 from robots.config import g_facebook, g_keystore, g_station
-from robots.config import group_naruto, load_freshmen
+from robots.config import load_freshmen
 from robots.config import load_user, create_client
 from robots.config import chat_bot, tokentalkteam_id
 
@@ -76,9 +76,6 @@ class FreshmenScanner(threading.Thread):
         super().__init__()
         # delegate for send message
         self.messenger = messenger
-        # group
-        gid = g_facebook.identifier(group_naruto)
-        self.__group: Group = g_facebook.group(gid)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
