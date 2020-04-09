@@ -139,7 +139,7 @@ class FreshmenScanner(threading.Thread):
             msg = InstantMessage.new(content=cmd, sender=tokentalkteam_id, receiver=item)
             msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
             # carry meta for first contact
-            msg.meta = item.meta
+            msg.meta = g_facebook.meta(item)
             self.messenger.send_message(msg=msg)
 
             time.sleep(3)
