@@ -36,17 +36,16 @@ import unittest
 import sys
 import os
 
+from dimp import Base64
 from dimp import PrivateKey
-from dimp import NetworkID, Meta
+from dimp import NetworkID, MetaVersion, Meta
 
 from mkm.address import DefaultAddress as BTCAddress
-from mkm.types import MetaVersion
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.common import base64_encode
 from station.config import g_facebook
 
 
@@ -112,7 +111,7 @@ class AccountTestCase(unittest.TestCase):
                 'version': MetaVersion.Default,
                 'seed': seed,
                 'key': sk.public_key,
-                'fingerprint': base64_encode(ct),
+                'fingerprint': Base64.encode(ct),
             }
             meta = Meta(meta)
             id1 = meta.generate_identifier(network=network)

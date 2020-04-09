@@ -30,9 +30,6 @@
     Upload/download image files
 """
 
-import hashlib
-from binascii import b2a_hex
-
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
 
@@ -58,14 +55,6 @@ ALLOWED_FILE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'mp3', 'mp4'}
 IMAGE_FILE_TYPES = {'png', 'jpg', 'jpeg'}
 
 
-def md5(data: bytes) -> bytes:
-    return hashlib.md5(data).digest()
-
-
-def hex_encode(data: bytes) -> str:
-    return b2a_hex(data).decode('utf-8')
-
-
 def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
     """ save encrypted data file """
     (useless, ext) = os.path.splitext(filename)
@@ -79,7 +68,7 @@ def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (hex_encode(md5(data)), ext)
+    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
     save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
@@ -107,7 +96,7 @@ def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (hex_encode(md5(data)), ext)
+    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
     save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
     path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):

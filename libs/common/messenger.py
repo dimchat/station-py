@@ -32,8 +32,7 @@
 
 from typing import Optional, Union
 
-from mkm.crypto.utils import sha256, base64_encode
-
+from dimp import Base64, sha256
 from dimp import ID
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, InviteCommand, ResetCommand
@@ -157,7 +156,7 @@ class CommonMessenger(Messenger):
         # get digest
         pos = len(data) - 6
         digest = sha256(data[pos:])
-        base64 = base64_encode(digest)
+        base64 = Base64.encode(digest)
         # set digest
         pos = len(base64) - 8
         keys['digest'] = base64[pos:]

@@ -1,5 +1,9 @@
-#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -25,42 +29,18 @@
 # ==============================================================================
 
 """
-    DIM Station
-    ~~~~~~~~~~~
+    Natural Language Processing
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    DIM network server node
+    AI chat bots
 """
 
-from socketserver import TCPServer, ThreadingTCPServer
+from .dialog import Dialog
+from .chatbot import ChatBot
+from .tuling import Tuling
+from .xiaoi import XiaoI
 
-import sys
-import os
-
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
-
-from libs.common import Log
-
-from station.handler import RequestHandler
-from station.config import g_receptionist, current_station
-
-
-if __name__ == '__main__':
-
-    current_station.running = True
-    g_receptionist.start()
-
-    # start TCP Server
-    try:
-        TCPServer.allow_reuse_address = True
-        server = ThreadingTCPServer(server_address=(current_station.host, current_station.port),
-                                    RequestHandlerClass=RequestHandler)
-        Log.info('server (%s:%s) is listening...' % (current_station.host, current_station.port))
-        server.serve_forever()
-    except KeyboardInterrupt as ex:
-        Log.info('~~~~~~~~ %s' % ex)
-    finally:
-        current_station.running = False
-        Log.info('======== station shutdown!')
+__all__ = [
+    'Dialog', 'ChatBot',
+    'Tuling', 'XiaoI',
+]

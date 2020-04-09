@@ -33,8 +33,9 @@ from typing import Optional
 
 from dimp import ID, Meta, Profile
 from dimp import Content, MetaCommand, ProfileCommand
+from dimp import Base64
 
-from libs.common import Log, base64_decode
+from libs.common import Log
 
 from webserver.config import g_facebook
 
@@ -75,13 +76,13 @@ class Worker:
 
     def decode_data(self, data: str) -> Optional[bytes]:
         try:
-            return base64_decode(data)
+            return Base64.decode(data)
         except Error:
             self.error('data not base64: %s' % data)
 
     def decode_signature(self, signature: str) -> Optional[bytes]:
         try:
-            return base64_decode(signature)
+            return Base64.decode(signature)
         except Error:
             self.error('signature not base64: %s' % signature)
 

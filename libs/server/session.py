@@ -41,7 +41,7 @@ import random
 from weakref import WeakValueDictionary
 
 from dimp import ID
-from dimsdk.crypto import hex_encode
+from dimsdk import Hex
 
 
 class Session:
@@ -53,7 +53,7 @@ class Session:
         # (IP, port)
         self.__client_address = client_address
         # generate session key
-        self.__session_key = hex_encode(bytes(numpy.random.bytes(32)))
+        self.__session_key = Hex.encode(bytes(numpy.random.bytes(32)))
         # valid flag: when handshake accepted, this should be set to True
         self.valid = False
         # active status: when the client entered background, it should be set to False

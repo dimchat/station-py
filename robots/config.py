@@ -34,7 +34,6 @@ from typing import Optional
 
 from dimp import PrivateKey, Meta, ID, Profile, User
 from dimsdk import Station, KeyStore
-from dimsdk import ChatBot, Tuling, XiaoI
 from dimsdk.ans import keywords as ans_keywords
 
 #
@@ -42,6 +41,7 @@ from dimsdk.ans import keywords as ans_keywords
 #
 from libs.common import Log
 from libs.common import Database, AddressNameServer
+from libs.common import ChatBot, Tuling, XiaoI
 from libs.client import Terminal, ClientMessenger, ClientFacebook
 
 #

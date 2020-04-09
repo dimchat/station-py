@@ -36,7 +36,6 @@ from dimp import ID
 from dimsdk import KeyStore
 
 from dimsdk import ApplePushNotificationService
-from dimsdk import ChatBot, Tuling, XiaoI
 from dimsdk.ans import keywords as ans_keywords
 
 #
@@ -44,6 +43,7 @@ from dimsdk.ans import keywords as ans_keywords
 #
 from libs.common import Log
 from libs.common import Database, AddressNameServer
+from libs.common import ChatBot, Tuling, XiaoI
 from libs.server import ServerFacebook, SessionServer, Server
 from libs.server import Dispatcher
 

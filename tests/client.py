@@ -45,10 +45,24 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.client import Terminal
+from libs.client import Terminal, ClientMessenger
 
 from robots.config import create_client
-from robots.config import g_facebook, g_station
+from robots.config import g_keystore, g_facebook, g_station
+
+
+"""
+    Messenger for Chat Bot client
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+
+# current station
+g_messenger.set_context('station', g_station)
+
+g_facebook.messenger = g_messenger
 
 
 class Console(Cmd):
@@ -72,7 +86,7 @@ class Console(Cmd):
         # login with user ID
         self.info('connecting to %s ...' % g_station)
         user = g_facebook.user(identifier)
-        self.client = create_client(user)
+        self.client = create_client(user=user, messenger=g_messenger)
         if self.receiver is None:
             self.receiver = g_station.identifier
 

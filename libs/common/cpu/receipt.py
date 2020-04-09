@@ -57,7 +57,7 @@ class ReceiptCommandProcessor(CommandProcessor):
     #
     def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
         assert isinstance(content, ReceiptCommand), 'text content error: %s' % content
-        nickname = self.facebook.nickname(identifier=sender)
+        # nickname = self.facebook.nickname(identifier=sender)
         # self.info('Received receipt message from %s (%s)' % (nickname, sender))
         return None
 
