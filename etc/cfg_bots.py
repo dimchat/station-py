@@ -32,6 +32,8 @@ lingling_id = 'lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa'
 
 xiaoxiao_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'
 
+tokentalkteam_id = 'TokenTalkTeam@2PraD3pKpPg77N4AdaeSHRy1jwYfP16vBRH'
+
 
 #
 #  DIM system bots
