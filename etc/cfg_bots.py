@@ -32,7 +32,7 @@ lingling_id = 'lingling@2Pa2pxJq9kQ18NX5jenwTqQqnYbHk2uZTwz'
 
 xiaoxiao_id = 'xiaoxiao@2PW2eZVKgTqgEgPScgpd1bWRKPqAvQpdtp9'
 
-tokentalkteam_id = 'TokenTalkTeam@2PZbtQAdRbA86eLdq3HgBQWduRdDK14Ez6b'
+tokentalkteam_id = 'TokenTalkTeam@2Pj4rCVceqVhdNV2dB6ViRn2tBJtnyvnY3R'
 
 #
 #  DIM system bots
