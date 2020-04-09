@@ -35,7 +35,7 @@ import threading
 import time
 
 from dimp import Group
-from dimp import TextContent
+from dimp import TextContent, ProfileCommand, HandshakeCommand, InstantMessage
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -131,9 +131,19 @@ class FreshmenScanner(threading.Thread):
         return users
 
     def __welcome(self, freshmen: list):
-        msg = 'Welcome!'
+        msgText = 'Welcome!'
+        tokentalkteam_profile = g_facebook.profile(identifier=tokentalkteam_id)
         for item in freshmen:
-            content = TextContent.new(text=msg)
+            # send ProfileCommand
+            cmd = ProfileCommand.new(identifier=tokentalkteam_id, profile=tokentalkteam_profile)
+            msg = InstantMessage.new(content=cmd, sender=tokentalkteam_id, receiver=item)
+            msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
+            # carry meta for first contact
+            msg.meta = item.meta
+            self.messenger.send_message(msg=msg)
+
+            time.sleep(3)
+            content = TextContent.new(text=msgText)
             self.messenger.send_content(content=content, receiver=item)
             self.save_oldmen(item)
 
