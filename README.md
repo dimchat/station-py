@@ -15,6 +15,7 @@ Source codes:
 
 ```
 pip3 install dimsdk
+pip3 install pycryptodome
 ```
 
 2.) Run Server
@@ -29,6 +30,12 @@ python3 station/start.py
 ```
 cd station-py
 python3 tests/client.py
+```
+
+### upgrade
+```
+pip3 install --upgrade dimsdk
+
 ```
 
 ## Architecture

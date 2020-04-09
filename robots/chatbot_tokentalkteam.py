@@ -139,7 +139,7 @@ class FreshmenScanner(threading.Thread):
 
     def __run_unsafe(self):
         #
-        #  1. get freshmen and group members
+        #  1. get freshmen 
         #
         freshmen = self.__freshmen()
         if len(freshmen) == 0:
