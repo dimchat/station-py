@@ -30,10 +30,9 @@
     Common libs for Server or Client
 """
 
-from .utils import base64_encode, base64_decode
-from .utils import hex_encode, hex_decode
-from .utils import sha1
 from .utils import Log
+
+from .nlp import Dialog, ChatBot, Tuling, XiaoI
 
 from .protocol import SearchCommand
 from .cpu import *
@@ -51,15 +50,20 @@ __all__ = [
     #
     #   Utils
     #
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
     'Log',
+
+    # NLP
+    'Dialog', 'ChatBot', 'Tuling', 'XiaoI',
 
     #
     #   Protocol
     #
     'SearchCommand',
+
+    #
+    #   CPU
+    #
+    'TextContentProcessor',
 
     #
     #   Network

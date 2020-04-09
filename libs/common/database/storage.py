@@ -25,7 +25,7 @@
 
 import time
 
-from mkm.dos import File, TextFile, JSONFile
+from dimsdk.dos import File, TextFile, JSONFile
 
 from dimp import ID
 from dimp import Barrack

@@ -33,15 +33,10 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from dimsdk.crypto import base64_decode, base64_encode, hex_encode, hex_decode, sha1
-
 from .log import Log
 
 
 __all__ = [
     # Utils
-    'base64_encode', 'base64_decode',
-    'hex_encode', 'hex_decode',
-    'sha1',
     'Log',
 ]

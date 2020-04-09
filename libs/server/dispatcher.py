@@ -72,7 +72,7 @@ class Dispatcher:
 
     def __transmit(self, msg: ReliableMessage) -> bool:
         # TODO: broadcast to neighbor stations
-        receiver = msg.envelope.receiver
+        # receiver = msg.envelope.receiver
         # self.info('transmitting to neighbors %s, receiver: %s' % (self.neighbors, receiver))
         return False
 

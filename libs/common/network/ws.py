@@ -37,7 +37,7 @@
 import hashlib
 import struct
 
-from mkm.crypto.utils import base64_encode
+from dimsdk import Base64
 
 from ..utils import Log
 
@@ -68,7 +68,7 @@ class WebSocket:
         pos2 = stream.find(b'\r\n', pos1)
         key = stream[pos1:pos2].strip()
         sec = hashlib.sha1(key + self.ws_magic).digest()
-        sec = base64_encode(sec)
+        sec = Base64.encode(sec)
         return self.ws_prefix + bytes(sec, 'UTF-8') + self.ws_suffix
 
     @staticmethod

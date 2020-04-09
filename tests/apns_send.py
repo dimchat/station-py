@@ -38,9 +38,9 @@ import sys
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
-from mkm.dos import JSONFile
-
 from dimp import ID
+
+from dimsdk.dos import JSONFile
 
 
 """

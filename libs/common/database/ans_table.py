@@ -25,8 +25,7 @@
 
 import os
 
-from mkm import ANYONE, EVERYONE
-from dimp import ID
+from dimp import ID, ANYONE, EVERYONE
 
 from .storage import Storage
 

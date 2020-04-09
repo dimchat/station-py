@@ -32,11 +32,10 @@
 
 from typing import Optional
 
-from mkm.immortals import Immortals
-
 from dimp import PrivateKey, SignKey
 from dimp import ID, Meta, Profile, User
 from dimsdk import Facebook
+from dimsdk.immortals import Immortals
 
 from .database import Database
 

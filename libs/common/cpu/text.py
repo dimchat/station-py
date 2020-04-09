@@ -38,8 +38,8 @@ from dimp import InstantMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
-from dimsdk import Dialog
 
+from ..nlp import Dialog
 from ..utils import Log
 
 

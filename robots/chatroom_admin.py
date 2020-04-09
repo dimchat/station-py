@@ -38,7 +38,7 @@ import weakref
 from enum import IntEnum
 from typing import Optional
 
-from mkm.dos import JSONFile
+from dimsdk.dos import JSONFile
 
 from dimsdk import ID, EVERYONE
 from dimsdk import InstantMessage
