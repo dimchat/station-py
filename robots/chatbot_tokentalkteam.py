@@ -131,6 +131,14 @@ class FreshmenScanner(threading.Thread):
         return users
 
     def __welcome(self, freshmen: list):
+        msgText = 'Hello!'
+        # the first message is to let client retrieve meta.
+        for item in freshmen:
+            content = TextContent.new(text=msgText)
+            self.messenger.send_content(content=content, receiver=item)
+            self.save_oldmen(item)
+
+        time.sleep(3)
         msgText = 'Welcome!'
         # tokentalkteam_profile = g_facebook.profile(identifier=tokentalkteam_id)
         for item in freshmen:

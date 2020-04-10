@@ -15,7 +15,7 @@ base_dir = '/data/.dim'
 #
 ans_reserved_records = {
     'founder': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
-    'assistant': 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq',
+    'assistant': 'assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS',
 
     'moky': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
     'moki': 'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk',
