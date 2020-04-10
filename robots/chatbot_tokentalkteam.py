@@ -132,17 +132,16 @@ class FreshmenScanner(threading.Thread):
 
     def __welcome(self, freshmen: list):
         msgText = 'Welcome!'
-        tokentalkteam_profile = g_facebook.profile(identifier=tokentalkteam_id)
+        # tokentalkteam_profile = g_facebook.profile(identifier=tokentalkteam_id)
         for item in freshmen:
             # send ProfileCommand
-            cmd = ProfileCommand.new(identifier=tokentalkteam_id, profile=tokentalkteam_profile)
-            msg = InstantMessage.new(content=cmd, sender=tokentalkteam_id, receiver=item)
-            msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
+            # cmd = ProfileCommand.new(identifier=tokentalkteam_id, profile=tokentalkteam_profile)
+            # msg = InstantMessage.new(content=cmd, sender=tokentalkteam_id, receiver=item)
+            # msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
             # carry meta for first contact
-            msg.meta = g_facebook.meta(item)
-            self.messenger.send_message(msg=msg)
-
-            time.sleep(3)
+            # msg.meta = g_facebook.meta(item)
+            # self.messenger.send_message(msg=msg)
+            # time.sleep(3)
             content = TextContent.new(text=msgText)
             self.messenger.send_content(content=content, receiver=item)
             self.save_oldmen(item)
