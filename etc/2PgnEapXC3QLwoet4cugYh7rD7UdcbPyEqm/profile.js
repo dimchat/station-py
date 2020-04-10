@@ -1,0 +1,1 @@
+{"ID": "dim@2PgnEapXC3QLwoet4cugYh7rD7UdcbPyEqm", "data": "{\"name\": \"TokenTalk Team\", \"avatar\": \"https://sechat.dim.chat/avatar/2PZbtQAdRbA86eLdq3HgBQWduRdDK14Ez6b/profile.png\"}", "signature": "SevNndrT317rVxfpUItxbkDji5yeB/eKR/lEt3Jf17FkWEX9YQsmk17WZFLytm38SXmtlpE9beV5/wSSWY0o/dLbmnj7TxwQ9xS1I61u1HKFFcijdv8vb0aFwRn3qfWMYBtaqdLpA5HgPt6IJwpKIXsgwBxzeIw/ojH3iWtQasM="}
