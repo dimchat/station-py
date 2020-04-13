@@ -41,7 +41,7 @@ from typing import Optional
 from dimsdk.dos import JSONFile
 
 from dimsdk import ID, EVERYONE
-from dimsdk import InstantMessage
+from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import ContentType, Content, Command, TextContent
 from dimsdk import ForwardContent, ReceiptCommand, ProfileCommand
 from dimsdk import ContentProcessor, CommandProcessor
@@ -90,7 +90,7 @@ class ReceiptCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
         return client.room.receipt(cmd=content, sender=sender)
 
@@ -103,7 +103,7 @@ class ForwardContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
         r_msg = content.forward
 
@@ -129,7 +129,7 @@ class ChatTextContentProcessor(TextContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
         res = client.room.receive(content=content, sender=sender)
         if res is not None:

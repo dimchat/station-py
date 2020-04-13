@@ -209,10 +209,9 @@ class CommonMessenger(Messenger):
             pass
 
     # Override
-    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
-        sender = self.facebook.identifier(string=msg.envelope.sender)
-        if self.__check_group(content=msg.content, sender=sender):
+    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+        if self.__check_group(content=content, sender=sender):
             # save this message in a queue to wait group meta response
             self.suspend_message(msg=msg)
             return None
-        return super().process_instant(msg=msg)
+        return super().process_content(content=content, sender=sender, msg=msg)

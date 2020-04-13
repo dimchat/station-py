@@ -160,13 +160,13 @@ class AssistantMessenger(ClientMessenger):
         print('[%s] ERROR - Storage > %s' % (current_time(), msg))
 
     # Override
-    def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = g_facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
             # process group message
             return self.__process_group_message(msg=msg)
         # try to decrypt and process message
-        return super().process_reliable(msg=msg)
+        return super().process_message(msg=msg)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """

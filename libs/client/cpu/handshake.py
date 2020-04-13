@@ -34,7 +34,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content
 from dimp import Command, HandshakeCommand
 from dimsdk import CommandProcessor
@@ -57,7 +57,7 @@ class HandshakeCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
         assert isinstance(content, HandshakeCommand), 'command error: %s' % content
         message = content.message
         if 'DIM?' == message:

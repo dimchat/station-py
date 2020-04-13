@@ -33,7 +33,7 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content
 from dimp import Command
 from dimsdk import ReceiptCommand
@@ -45,7 +45,7 @@ class LoginCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # TODO: update login status
         return ReceiptCommand.new(message='Login received')

@@ -109,14 +109,14 @@ class ServerMessenger(CommonMessenger):
         self.set_context(key='remote_address', value=value)
 
     # Override
-    def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
             # deliver group message
             return self.__deliver_message(msg=msg)
         # try to decrypt and process message
         try:
-            return super().process_reliable(msg=msg)
+            return super().process_message(msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it

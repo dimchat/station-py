@@ -31,7 +31,7 @@
 """
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, StorageCommand
@@ -74,7 +74,7 @@ class StorageCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
         assert isinstance(content, StorageCommand), 'command error: %s' % content
         title = content.title
         if title == StorageCommand.CONTACTS:

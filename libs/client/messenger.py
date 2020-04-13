@@ -35,7 +35,7 @@ from typing import Optional, Union
 
 from dimp import ID
 from dimp import InstantMessage, ReliableMessage
-from dimp import Command, MetaCommand, ProfileCommand
+from dimp import Content, Command, MetaCommand, ProfileCommand
 from dimp import HandshakeCommand
 from dimp import GroupCommand
 
@@ -130,20 +130,26 @@ class ClientMessenger(CommonMessenger):
             pass
 
     # Override
-    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
-        i_msg = super().process_instant(msg=msg)
-        if i_msg is None:
+    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+        res = super().process_content(content=content, sender=sender, msg=msg)
+        if res is None:
             # respond nothing
             return None
-        if isinstance(i_msg.content, HandshakeCommand):
+        if isinstance(res, HandshakeCommand):
             # urgent command
-            return i_msg
+            return res
         # if isinstance(i_msg.content, ReceiptCommand):
         #     receiver = self.barrack.identifier(msg.envelope.receiver)
         #     if receiver.type == NetworkID.Station:
         #         # no need to respond receipt to station
         #         return None
 
+        # check receiver
+        receiver = self.facebook.identifier(msg.envelope.receiver)
+        user = self._select(receiver=receiver)
+        assert user is not None, 'receiver error: %s' % receiver
+        # pack message
+        i_msg = InstantMessage.new(content=res, sender=user.identifier, receiver=sender)
         # normal response
         self.send_message(msg=i_msg, callback=None, split=False)
         # DON'T respond to station directly
