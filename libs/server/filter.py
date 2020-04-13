@@ -35,7 +35,7 @@ from typing import Optional
 from dimp import ID
 from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
-from dimp import HandshakeCommand
+from dimsdk import HandshakeCommand
 
 from ..common import Database
 

@@ -36,9 +36,8 @@ from typing import Optional, Union
 from dimp import ID
 from dimp import InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand, ProfileCommand
-from dimp import HandshakeCommand
 from dimp import GroupCommand
-
+from dimsdk import HandshakeCommand
 from dimsdk import Station
 
 from libs.common import CommonMessenger

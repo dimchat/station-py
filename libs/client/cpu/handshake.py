@@ -36,7 +36,8 @@ from typing import Optional
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import Command, HandshakeCommand
+from dimp import Command
+from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
 

@@ -33,7 +33,8 @@ from typing import Optional
 
 from dimp import ID, EVERYONE
 from dimp import InstantMessage
-from dimp import Content, Command, HandshakeCommand
+from dimp import Content, Command
+from dimsdk import HandshakeCommand
 from dimsdk import Station, CompletionHandler
 
 from .connection import Connection
