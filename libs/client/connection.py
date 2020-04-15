@@ -38,7 +38,6 @@ from typing import Optional
 
 from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
-from dimsdk.delegate import ConnectionDelegate
 
 from ..common import Log
 
@@ -50,7 +49,7 @@ class Connection(threading.Thread, MessengerDelegate):
 
     def __init__(self):
         super().__init__()
-        self.delegate: ConnectionDelegate = None
+        self.messenger = None  # ClientMessenger
         # current station
         self.__station: Station = None
         self.__connected = False
@@ -111,7 +110,7 @@ class Connection(threading.Thread, MessengerDelegate):
                 # skip empty packages
                 continue
             try:
-                res = self.delegate.received_package(data=line)
+                res = self.messenger.process_package(data=line)
                 if res is not None:
                     pack = pack + res + b'\n'
             except Exception as error:

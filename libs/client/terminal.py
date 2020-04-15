@@ -77,7 +77,7 @@ class Terminal(HandshakeDelegate):
         mess = self.messenger
         mess.set_context('station', station)
         # delegate for processing received data package
-        conn.delegate = mess
+        conn.messenger = mess
         # delegate for sending out data package
         if mess.delegate is None:
             mess.delegate = conn
