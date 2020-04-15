@@ -35,19 +35,56 @@ from typing import Optional
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import Command
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, LoginCommand
 from dimsdk import CommandProcessor
+
+from ...common import Log, Database
 
 
 class LoginCommandProcessor(CommandProcessor):
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def database(self) -> Database:
+        return self.get_context('database')
+
+    @property
+    def receptionist(self):
+        return self.get_context('receptionist')
+
+    def __is_roamer(self, station: dict):
+        sid = self.facebook.identifier(station.get('ID'))
+        if sid is None:
+            raise ValueError('login station error: %s' % station)
+        # check whether the login station is current station
+        current_station = self.get_context('station')
+        if current_station is None:
+            raise LookupError('current station not found')
+        if current_station.identifier == sid:
+            # skip it
+            return False
+        # anything else?
+        return True
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
-        # TODO: update login status
+        assert isinstance(content, LoginCommand), 'command error: %s' % content
+        # update login info
+        if not self.database.save_login(cmd=content, sender=sender, msg=msg):
+            return None
+        # check roaming
+        if self.__is_roamer(station=content.station):
+            self.info('add roamer: %s -> %s' % (sender, content.station))
+            self.receptionist.add_roamer(identifier=sender)
+        # response
+        self.info('login command: %s' % content)
         return ReceiptCommand.new(message='Login received')
 
 

@@ -33,6 +33,7 @@ from dimp import PrivateKey
 from dimp import ID, Meta, Profile
 from dimp import Command
 from dimp import ReliableMessage
+from dimsdk import LoginCommand
 
 from .storage import Storage
 from .private_table import PrivateKeyTable
@@ -42,6 +43,8 @@ from .user_table import UserTable
 from .group_table import GroupTable
 from .message_table import MessageTable
 from .ans_table import AddressNameTable
+
+from .login_table import LoginTable
 
 
 __all__ = [
@@ -68,6 +71,8 @@ class Database:
         self.__message_table = MessageTable()
         # ANS
         self.__ans_table = AddressNameTable()
+        # login info
+        self.__login_table = LoginTable()
 
     @property
     def base_dir(self) -> str:
@@ -270,3 +275,18 @@ class Database:
 
     def ans_names(self, identifier: ID) -> list:
         return self.__ans_table.names(identifier=identifier)
+
+    """
+        Login Info
+        ~~~~~~~~~~
+        
+        file path: '.dim/public/{ADDRESS}/login.js'
+    """
+    def save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login(cmd=cmd, sender=sender, msg=msg)
+
+    def login_command(self, identifier: ID) -> LoginCommand:
+        return self.__login_table.login_command(identifier=identifier)
+
+    def login_message(self, identifier: ID) -> ReliableMessage:
+        return self.__login_table.login_message(identifier=identifier)

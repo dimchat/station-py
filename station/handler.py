@@ -89,6 +89,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.dispatcher = g_dispatcher
             m.delegate = self
             # set context
+            m.context['station'] = current_station
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist

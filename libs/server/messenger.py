@@ -113,7 +113,18 @@ class ServerMessenger(CommonMessenger):
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
             # deliver group message
-            return self.__deliver_message(msg=msg)
+            res = self.__deliver_message(msg=msg)
+            if receiver.is_broadcast:
+                # if this is a broadcast, deliver it, send back the response
+                # and continue to process it with the station.
+                # because this station is also a recipient too.
+                if res is not None:
+                    self.send_message(msg=res, callback=None, split=False)
+            else:
+                # or, this is is an ordinary group message,
+                # just deliver it to the group assistant
+                # and return the response to the sender.
+                return res
         # try to decrypt and process message
         try:
             return super().process_message(msg=msg)

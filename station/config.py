@@ -160,6 +160,7 @@ g_monitor.apns = g_apns
 g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
 g_receptionist.database = g_database
+g_receptionist.facebook = g_facebook
 g_receptionist.apns = g_apns
 
 
