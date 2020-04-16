@@ -84,18 +84,41 @@ class Dispatcher:
                 receipt[key] = value
         return receipt
 
+    @staticmethod
+    def __traced(msg: ReliableMessage, station: Station) -> bool:
+        sid = station.identifier
+        traces = msg.get('traces')
+        if traces is None:
+            traces = [sid]
+        else:
+            for node in traces:
+                if isinstance(node, str):
+                    if sid == node:
+                        return True
+                elif isinstance(node, dict):
+                    if sid == node.get('ID'):
+                        return True
+            traces.append(sid)
+        msg['traces'] = traces
+        return False
+
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
         self.info('broadcasting message %s' % msg)
+        if self.__traced(msg=msg, station=self.station):
+            self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
+            return None
+        array = self.__neighbors.copy()
+        array.append(self.station.identifier)
         success = 0
-        for sid in self.__neighbors:
+        for sid in array:
             sessions = self.__online_sessions(receiver=sid)
             if sessions is None:
                 self.info('remote station (%s) not connected, try later.' % sid)
                 continue
             if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
                 success += 1
-        text = 'Message broadcast to %d/%d stations' % (success, len(self.__neighbors))
+        text = 'Message broadcast to %d/%d stations' % (success, len(array))
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return res
