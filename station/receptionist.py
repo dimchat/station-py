@@ -70,9 +70,20 @@ class Receptionist(Thread):
     def add_roamer(self, identifier: ID):
         self.roamers.append(identifier)
 
-    def __push_message(self, msg: ReliableMessage, sessions: list) -> int:
-        success = 0
+    #
+    #   Guests login this station
+    #
+
+    def __push_message(self, msg: ReliableMessage, receiver: ID) -> int:
         session_server = self.session_server
+        # get all sessions of the receiver
+        self.info('checking session for new guest %s' % receiver)
+        sessions = session_server.all(identifier=receiver)
+        if sessions is None:
+            self.error('session not found for guest: %s' % receiver)
+            return 0
+        # push this message to all sessions one by one
+        success = 0
         for sess in sessions:
             if sess.valid is False or sess.active is False:
                 # self.info('session invalid %s' % sess)
@@ -88,18 +99,10 @@ class Receptionist(Thread):
         return success
 
     def __process_guests(self, guests: list):
-        session_server = self.session_server
         database = self.database
         apns = self.apns
         for identifier in guests:
-            # 1. get all sessions of the receiver
-            self.info('checking session for new guest %s' % identifier)
-            sessions = session_server.all(identifier=identifier)
-            if sessions is None or len(sessions) == 0:
-                self.info('guest not connect, remove it: %s' % identifier)
-                self.guests.remove(identifier)
-                continue
-            # 2. this guest is connected, scan new messages for it
+            # 1. this guest is connected, scan offline messages for it
             self.info('%s is connected, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
@@ -112,25 +115,30 @@ class Receptionist(Thread):
                 self.error('message batch error: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
-            # 3. send new messages to each session
             self.info('got %d message(s) for %s' % (len(messages), identifier))
+            # 2. push offline messages to this guest one by one
             count = 0
             for msg in messages:
-                # try to push message
-                success = self.__push_message(msg=msg, sessions=sessions)
+                success = self.__push_message(msg=msg, receiver=identifier)
                 if success > 0:
                     # push message success (at least one)
                     count = count + 1
                 else:
                     # push message failed, remove session here?
                     break
-            # 4. remove messages after success, or remove the guest on failed
+            # 3. remove messages after success
             total_count = len(messages)
             self.info('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
-            if count < total_count:
-                self.error('pushing message failed, remove the guest: %s' % identifier)
-                self.guests.remove(identifier)
+            if count == total_count:
+                continue
+            # remove the guest on failed
+            self.error('pushing message failed(%d/%d), remove the guest: %s' % (count, total_count, identifier))
+            self.guests.remove(identifier)
+
+    #
+    #   Roamers login another station
+    #
 
     def __login_station(self, identifier: ID) -> Optional[Station]:
         login = self.database.login_command(identifier=identifier)
@@ -154,21 +162,42 @@ class Receptionist(Thread):
         # anything else?
         return facebook.user(identifier=sid)
 
-    def __redirect_message(self, msg: ReliableMessage, station: Station) -> bool:
-        # TODO: try to redirect message
-        pass
+    def __redirect_message(self, msg: ReliableMessage, receiver: ID) -> int:
+        # get station of the roamer
+        self.info('checking station for new roamer %s' % receiver)
+        station = self.__login_station(identifier=receiver)
+        if station is None:
+            self.error('station not found for roamer: %s' % receiver)
+            return 0
+        # try to redirect message to this station
+        session_server = self.session_server
+        # get all sessions of the receiver
+        sid = station.identifier
+        self.info('checking session for station %s' % sid)
+        sessions = session_server.all(identifier=sid)
+        if sessions is None:
+            self.error('session not found for guest: %s' % sid)
+            return 0
+        # push this message to all sessions one by one
+        success = 0
+        for sess in sessions:
+            if sess.valid is False or sess.active is False:
+                # self.info('session invalid %s' % sess)
+                continue
+            request_handler = session_server.get_handler(client_address=sess.client_address)
+            if request_handler is None:
+                self.error('handler lost: %s' % sess)
+                continue
+            if request_handler.push_message(msg):
+                success = success + 1
+            else:
+                self.error('failed to push message (%s, %s)' % sess.client_address)
+        return success
 
     def __process_roamers(self, roamers: list):
         database = self.database
         for identifier in roamers:
-            # 1. get station of the roamer
-            self.info('checking station for new roamer %s' % identifier)
-            station = self.__login_station(identifier=identifier)
-            if station is None:
-                self.error('roamer error, remove it: %s' % identifier)
-                self.roamers.remove(identifier)
-                continue
-            # 2. this user is roaming, scan offline messages for it
+            # 1. this user is roaming, scan offline messages for it
             self.info('%s is roaming, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
@@ -180,26 +209,30 @@ class Receptionist(Thread):
                 self.error('message batch error: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
-            # 3. send new messages to each session
             self.info('got %d message(s) for %s' % (len(messages), identifier))
+            # 2. redirect offline messages for this roamer one by one
             count = 0
             for msg in messages:
-                # try to redirect message
-                success = self.__redirect_message(msg=msg, station=station)
-                if success:
+                success = self.__redirect_message(msg=msg, receiver=identifier)
+                if success > 0:
                     # redirect message success (at least one)
                     count = count + 1
                 else:
                     # redirect message failed, remove session here?
                     break
-            # 4. remove messages after success, or remove the guest on failed
+            # 3. remove messages after success, or remove the guest on failed
             total_count = len(messages)
-            self.info('a batch message(%d/%d) redirect: %s -> %s' % (count, total_count, identifier, station))
+            self.info('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
-            if count < total_count:
-                self.error('redirect message failed, remove the roamer: %s' % identifier)
-                self.roamers.remove(identifier)
+            if count == total_count:
+                continue
+            # remove the roamer on failed
+            self.error('redirect message failed(%d/%d), remove the roamer: %s' % (count, total_count, identifier))
+            self.roamers.remove(identifier)
 
+    #
+    #   Run Loop
+    #
     def __run_unsafe(self):
         # process guests
         try:
