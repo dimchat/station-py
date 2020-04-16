@@ -163,6 +163,7 @@ class AssistantMessenger(ClientMessenger):
     def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = g_facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
+            # FIXME: check group meta/profile
             # process group message
             return self.__process_group_message(msg=msg)
         # try to decrypt and process message

@@ -34,7 +34,7 @@ import socket
 import threading
 import time
 import traceback
-from typing import Optional
+from typing import Optional, Union
 
 from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
@@ -51,7 +51,7 @@ class Connection(threading.Thread, MessengerDelegate):
         super().__init__()
         self.messenger = None  # ClientMessenger
         # current station
-        self.__station: Station = None
+        self.__address = None
         self.__connected = False
         self.__running = False
         # socket
@@ -129,12 +129,15 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, station: Station):
+    def connect(self, server: Union[Station, tuple, str]):
         # connect to new socket (host:port)
-        self.__station = station
-        address = (station.host, station.port)
+        if isinstance(server, Station):
+            address = (server.host, server.port)
+        else:
+            address = server
+        self.__address = address
         self.__sock = socket.socket()
-        self.__sock.connect(address)
+        self.__sock.connect(self.__address)
         self.__connected = True
         # start threads
         self.__last_time = int(time.time())
@@ -149,7 +152,7 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
         # connect to same station
-        self.connect(station=self.__station)
+        self.connect(server=self.__address)
 
     def heartbeat(self):
         while self.__connected:

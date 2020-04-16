@@ -73,7 +73,7 @@ class Terminal(HandshakeDelegate):
 
     def connect(self, station: Station) -> bool:
         conn = Connection()
-        conn.connect(station=station)
+        conn.connect(server=station)
         mess = self.messenger
         mess.set_context('station', station)
         # delegate for processing received data package

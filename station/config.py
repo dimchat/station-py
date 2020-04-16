@@ -302,6 +302,8 @@ g_facebook.local_users = local_servers
 g_facebook.current_user = current_station
 # set current station for key store
 g_keystore.user = current_station
+# set current station for dispatcher
+g_dispatcher.station = current_station
 # set current station for receptionist
 g_receptionist.station = current_station
 # set current station as the report sender
@@ -312,7 +314,7 @@ neighbors = neighbor_stations(identifier=current_station.identifier)
 Log.info('-------- loading neighbor stations: %d' % len(neighbors))
 for node in neighbors:
     Log.info('add node: %s' % node)
-    g_dispatcher.neighbors.append(node)
+    g_dispatcher.add_neighbor(station=node)
 
 # load admins for receiving system reports
 Log.info('-------- loading administrators: %d' % len(administrators))

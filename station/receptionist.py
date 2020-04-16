@@ -67,8 +67,14 @@ class Receptionist(Thread):
     def add_guest(self, identifier: ID):
         self.guests.append(identifier)
 
+    def remove_guest(self, identifier: ID):
+        self.guests.remove(identifier)
+
     def add_roamer(self, identifier: ID):
         self.roamers.append(identifier)
+
+    def remove_roamer(self, identifier: ID):
+        self.roamers.remove(identifier)
 
     #
     #   Guests login this station
@@ -107,7 +113,7 @@ class Receptionist(Thread):
             batch = database.load_message_batch(identifier)
             if batch is None:
                 self.info('no message for this guest, remove it: %s' % identifier)
-                self.guests.remove(identifier)
+                self.remove_guest(identifier)
                 apns.clear_badge(identifier=identifier)
                 continue
             messages = batch.get('messages')
@@ -134,7 +140,7 @@ class Receptionist(Thread):
                 continue
             # remove the guest on failed
             self.error('pushing message failed(%d/%d), remove the guest: %s' % (count, total_count, identifier))
-            self.guests.remove(identifier)
+            self.remove_guest(identifier)
 
     #
     #   Roamers login another station
@@ -202,7 +208,7 @@ class Receptionist(Thread):
             batch = database.load_message_batch(identifier)
             if batch is None:
                 self.info('no message for this roamer, remove it: %s' % identifier)
-                self.roamers.remove(identifier)
+                self.remove_roamer(identifier)
                 continue
             messages = batch.get('messages')
             if messages is None or len(messages) == 0:
@@ -228,7 +234,7 @@ class Receptionist(Thread):
                 continue
             # remove the roamer on failed
             self.error('redirect message failed(%d/%d), remove the roamer: %s' % (count, total_count, identifier))
-            self.roamers.remove(identifier)
+            self.remove_roamer(identifier)
 
     #
     #   Run Loop

@@ -30,11 +30,12 @@
     A dispatcher to decide which way to deliver message.
 """
 
-from typing import Optional
+from typing import Optional, Union
 
-from dimp import ID
+from dimp import ID, NetworkID
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
+from dimsdk import Station
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
@@ -51,15 +52,28 @@ class Dispatcher:
         super().__init__()
         self.database: Database = None
         self.facebook: ServerFacebook = None
+        self.station: Station = None
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
-        self.neighbors: list = []
+        self.__neighbors: list = []
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def add_neighbor(self, station: Union[Station, ID]):
+        if isinstance(station, Station):
+            self.__neighbors.append(station.identifier)
+        else:
+            self.__neighbors.append(station)
+
+    def remove_neighbor(self, station: Union[Station, ID]):
+        if isinstance(station, Station):
+            self.__neighbors.remove(station.identifier)
+        else:
+            self.__neighbors.remove(station)
 
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:
@@ -70,28 +84,83 @@ class Dispatcher:
                 receipt[key] = value
         return receipt
 
-    def __transmit(self, msg: ReliableMessage) -> bool:
-        # TODO: broadcast to neighbor stations
-        # receiver = msg.envelope.receiver
-        # self.info('transmitting to neighbors %s, receiver: %s' % (self.neighbors, receiver))
-        return False
-
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
-        # TODO: broadcast this message
         self.info('broadcasting message %s' % msg)
-        text = 'Message broadcast to "%s" is not implemented' % msg.envelope.receiver
+        success = 0
+        for sid in self.__neighbors:
+            sessions = self.__online_sessions(receiver=sid)
+            if sessions is None:
+                self.info('remote station (%s) not connected, try later.' % sid)
+                continue
+            if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
+                success += 1
+        text = 'Message broadcast to %d/%d stations' % (success, len(self.__neighbors))
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return res
 
+    def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
+        self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
+        success = 0
+        session_server = self.session_server
+        for sess in sessions:
+            if sess.valid is False or sess.active is False:
+                # self.info('session invalid %s' % sess)
+                continue
+            request_handler = session_server.get_handler(client_address=sess.client_address)
+            if request_handler is None:
+                self.error('handler lost: %s' % sess)
+                continue
+            if request_handler.push_message(msg):
+                success = success + 1
+            else:
+                self.error('failed to push message via connection (%s, %s)' % sess.client_address)
+        if success > 0:
+            self.info('message for user %s pushed to %d sessions' % (receiver, success))
+            return True
+
+    def __redirect_message(self, msg: ReliableMessage, receiver: ID, station: Optional[Station]) -> bool:
+        if station is None:
+            return False
+        sid = station.identifier
+        self.info('%s is roaming, try to redirect: %s' % (receiver, sid))
+        sessions = self.__online_sessions(receiver=sid)
+        if sessions is None:
+            self.info('remote station (%s) not connected, try later.' % sid)
+            return False
+        if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
+            self.info('message for user %s redirected to %s' % (receiver, sid))
+            return True
+
+    def __roaming_station(self, receiver: ID) -> Optional[Station]:
+        login = self.database.login_command(identifier=receiver)
+        if login is None:
+            return None
+        station = login.station
+        if station is None:
+            return None
+        sid = self.facebook.identifier(station.get('ID'))
+        if sid is None or sid == self.station.identifier:
+            return None
+        # TODO: check time expires
+        assert sid.type == NetworkID.Station, 'station ID error: %s' % station
+        return self.facebook.user(identifier=sid)
+
+    def __online_sessions(self, receiver: ID) -> Optional[list]:
+        sessions = self.session_server.all(identifier=receiver)
+        if sessions is not None and len(sessions) == 0:
+            sessions = None
+        return sessions
+
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+        # check receiver
         receiver = self.facebook.identifier(msg.envelope.receiver)
         if receiver.is_group:
             # group message (not split yet)
             if receiver.is_broadcast:
-                # if it's a grouped broadcast id, then
-                #    broadcast (split and deliver)to everyone
+                # if it's a grouped broadcast message, then
+                #    broadcast (split and deliver) to everyone
                 return self.__broadcast_message(msg=msg)
             else:
                 # let the assistant to process this group message
@@ -99,33 +168,20 @@ class Dispatcher:
                 if assistants is None or len(assistants) == 0:
                     raise LookupError('failed to get assistant for group: %s' % receiver)
                 receiver = assistants[0]
-        # try for online user
-        sessions = self.session_server.all(identifier=receiver)
-        if sessions and len(sessions) > 0:
-            self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
-            success = 0
-            for sess in sessions:
-                if sess.valid is False or sess.active is False:
-                    # self.info('session invalid %s' % sess)
-                    continue
-                request_handler = self.session_server.get_handler(client_address=sess.client_address)
-                if request_handler is None:
-                    self.error('handler lost: %s' % sess)
-                    continue
-                if request_handler.push_message(msg):
-                    success = success + 1
-                else:
-                    self.error('failed to push message via connection (%s, %s)' % sess.client_address)
-            if success > 0:
-                self.info('message pushed to activated session(%d) of user: %s' % (success, receiver))
-                return self.__receipt(message='Message sent', msg=msg)
+        # check online sessions
+        sessions = self.__online_sessions(receiver=receiver)
+        if sessions is None:
+            # check roaming station
+            station = self.__roaming_station(receiver=receiver)
+            if self.__redirect_message(msg=msg, receiver=receiver, station=station):
+                return self.__receipt(message='Message redirected', msg=msg)
+        elif self.__push_message(msg=msg, receiver=receiver, sessions=sessions):
+            return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file
         sender = self.facebook.identifier(msg.envelope.sender)
         group = self.facebook.identifier(msg.envelope.group)
         self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
-        # transmit to neighbor stations
-        self.__transmit(msg=msg)
         # check mute-list
         if self.database.is_muted(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is muted: %s' % msg)
@@ -134,11 +190,11 @@ class Dispatcher:
             msg_type = msg.envelope.type
             if msg_type is None:
                 msg_type = 0
-            self.__push_msg(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+            self.__push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
         # response
         return self.__receipt(message='Message delivering', msg=msg)
 
-    def __push_msg(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
+    def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
         if msg_type == 0:
             something = 'a message'
         elif msg_type == ContentType.Text:

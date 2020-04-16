@@ -57,7 +57,8 @@ class LoginCommandProcessor(CommandProcessor):
     def receptionist(self):
         return self.get_context('receptionist')
 
-    def __is_roamer(self, station: dict):
+    def __is_roamer(self, cmd: LoginCommand):
+        station = cmd.station
         sid = self.facebook.identifier(station.get('ID'))
         if sid is None:
             raise ValueError('login station error: %s' % station)
@@ -68,7 +69,7 @@ class LoginCommandProcessor(CommandProcessor):
         if current_station.identifier == sid:
             # skip it
             return False
-        # anything else?
+        # TODO: check time expires
         return True
 
     #
@@ -80,7 +81,7 @@ class LoginCommandProcessor(CommandProcessor):
         if not self.database.save_login(cmd=content, sender=sender, msg=msg):
             return None
         # check roaming
-        if self.__is_roamer(station=content.station):
+        if self.__is_roamer(cmd=content):
             self.info('add roamer: %s -> %s' % (sender, content.station))
             self.receptionist.add_roamer(identifier=sender)
         # response
