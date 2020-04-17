@@ -44,7 +44,7 @@ from dimsdk import CommandProcessor
 class HandshakeDelegate(metaclass=ABCMeta):
 
     @abstractmethod
-    def handshake_success(self) -> Optional[Content]:
+    def handshake_success(self):
         """ Processed by Client """
         pass
 
@@ -66,7 +66,7 @@ class HandshakeCommandProcessor(CommandProcessor):
             return HandshakeCommand.restart(session=content.session)
         elif 'DIM!' == message:
             # handshake accepted by station
-            return self.delegate.handshake_success()
+            self.delegate.handshake_success()
 
 
 # register

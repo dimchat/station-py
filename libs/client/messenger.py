@@ -33,7 +33,7 @@
 import time
 from typing import Optional, Union
 
-from dimp import ID
+from dimp import ID, EVERYONE
 from dimp import InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand, ProfileCommand
 from dimp import GroupCommand
@@ -68,10 +68,13 @@ class ClientMessenger(CommonMessenger):
     def station(self) -> Station:
         return self.get_context('station')
 
+    def broadcast_content(self, content: Content) -> bool:
+        return self.send_content(content=content, receiver=EVERYONE)
+
     #
     #   Command
     #
-    def __send_command(self, cmd: Command):
+    def __send_command(self, cmd: Command) -> bool:
         station = self.station
         if station is None:
             raise ValueError('current station not set')

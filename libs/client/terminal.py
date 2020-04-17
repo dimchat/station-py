@@ -29,12 +29,11 @@
 
     Local User
 """
-from typing import Optional
 
 from dimp import ID, EVERYONE
 from dimp import InstantMessage
 from dimp import Content, Command
-from dimsdk import HandshakeCommand
+from dimsdk import HandshakeCommand, LoginCommand
 from dimsdk import Station, CompletionHandler
 
 from .connection import Connection
@@ -122,6 +121,16 @@ class Terminal(HandshakeDelegate):
     #
     #   HandshakeDelegate (Client)
     #
-    def handshake_success(self) -> Optional[Content]:
+    def handshake_success(self):
         self.info('handshake success')
-        return None
+        user = self.facebook.current_user
+        if isinstance(user, Station):
+            return None
+        # post current profile to station
+        # post contacts(encrypted) to station
+        # broadcast login command
+        login = LoginCommand.new(identifier=user.identifier)
+        assert isinstance(login, LoginCommand)
+        login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+        login.station = self.station
+        self.messenger.broadcast_content(content=login)

@@ -134,6 +134,7 @@ class OuterMessenger(ClientMessenger):
 class OctopusClient(Terminal):
 
     def handshake_success(self):
+        super().handshake_success()
         station = self.messenger.get_context('station')
         self.info('handshake success with: %s' % station)
         self.messenger.accepted = True
