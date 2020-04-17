@@ -77,8 +77,10 @@ class Dispatcher:
 
     def remove_neighbor(self, station: Union[Station, ID]):
         if isinstance(station, Station):
-            self.__neighbors.remove(station.identifier)
+            station = station.identifier
         else:
+            assert isinstance(station, ID), 'station ID error: %s' % station
+        if station in self.__neighbors:
             self.__neighbors.remove(station)
 
     @staticmethod

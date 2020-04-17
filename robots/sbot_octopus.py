@@ -270,7 +270,7 @@ class Octopus:
         #
         neighbors = self.__neighbors.copy()
         for sid in neighbors:
-            messenger = InnerMessenger()
+            messenger = OuterMessenger()
             messenger.barrack = g_facebook
             messenger.key_cache = g_keystore
             messenger.context['database'] = g_database
