@@ -30,9 +30,10 @@
     A dispatcher to decide which way to deliver message.
 """
 
+import time
 from typing import Optional, Union
 
-from dimp import ID, NetworkID
+from dimp import ID
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
@@ -97,6 +98,7 @@ class Dispatcher:
         sid = station.identifier
         traces = msg.get('traces')
         if traces is None:
+            # broadcast message starts from here
             traces = [sid]
         else:
             for node in traces:
@@ -106,6 +108,7 @@ class Dispatcher:
                 elif isinstance(node, dict):
                     if sid == node.get('ID'):
                         return True
+            # broadcast message go through here
             traces.append(sid)
         msg['traces'] = traces
         return False
@@ -165,35 +168,37 @@ class Dispatcher:
             self.info('message for user %s pushed to %d sessions' % (receiver, success))
             return True
 
-    def __redirect_message(self, msg: ReliableMessage, receiver: ID, station: Optional[Station]) -> bool:
-        if station is None:
-            return False
-        sid = station.identifier
-        self.info('%s is roaming, try to redirect: %s' % (receiver, sid))
-        sessions = self.__online_sessions(receiver=sid)
+    def __redirect_message(self, msg: ReliableMessage, receiver: ID, neighbor: ID) -> bool:
+        self.info('%s is roaming, try to redirect: %s' % (receiver, neighbor))
+        sessions = self.__online_sessions(receiver=neighbor)
         if sessions is None:
-            self.info('remote station (%s) not connected, try bridge.' % sid)
-            sessions = self.__online_sessions(receiver=self.station.identifier)
+            self.info('remote station (%s) not connected, trying bridge...' % neighbor)
+            neighbor = self.station.identifier
+            sessions = self.__online_sessions(receiver=neighbor)
             if sessions is None:
-                self.error('station bridge (%s) not connected.' % sid)
+                self.error('station bridge (%s) not connected, cannot redirect.' % neighbor)
                 return False
-        if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
-            self.info('message for user %s redirected to %s' % (receiver, sid))
+        if self.__push_message(msg=msg, receiver=neighbor, sessions=sessions):
+            self.info('message for user %s redirected to %s' % (receiver, neighbor))
             return True
 
-    def __roaming_station(self, receiver: ID) -> Optional[Station]:
+    def __roaming(self, receiver: ID) -> Optional[ID]:
         login = self.database.login_command(identifier=receiver)
         if login is None:
             return None
         station = login.station
         if station is None:
             return None
-        sid = self.facebook.identifier(station.get('ID'))
-        if sid is None or sid == self.station.identifier:
+        # check time expires
+        now = time.time()
+        if (now - login.time) > (3600 * 24 * 7):
+            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(login.time))
+            self.info('%s login expired: [%s] %s' % (receiver, t_str, login))
             return None
-        # TODO: check time expires
-        assert sid.type == NetworkID.Station, 'station ID error: %s' % station
-        return self.facebook.user(identifier=sid)
+        sid = self.facebook.identifier(station.get('ID'))
+        if sid == self.station.identifier:
+            return None
+        return sid
 
     def __online_sessions(self, receiver: ID) -> Optional[list]:
         sessions = self.session_server.all(identifier=receiver)
@@ -220,9 +225,11 @@ class Dispatcher:
         sessions = self.__online_sessions(receiver=receiver)
         if sessions is None:
             # check roaming station
-            station = self.__roaming_station(receiver=receiver)
-            if self.__redirect_message(msg=msg, receiver=receiver, station=station):
-                return self.__receipt(message='Message redirected', msg=msg)
+            neighbor = self.__roaming(receiver=receiver)
+            if neighbor is not None:
+                # redirect message to the roaming station
+                if self.__redirect_message(msg=msg, receiver=receiver, neighbor=neighbor):
+                    return self.__receipt(message='Message redirected', msg=msg)
         elif self.__push_message(msg=msg, receiver=receiver, sessions=sessions):
             return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file

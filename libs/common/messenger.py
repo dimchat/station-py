@@ -30,6 +30,7 @@
     Transform and send message
 """
 
+from abc import abstractmethod
 from typing import Optional, Union
 
 from dimp import Base64, sha256
@@ -113,12 +114,15 @@ class CommonMessenger(Messenger):
                     admins.append(owner)
             return self.query_group(group=group, users=admins)
 
+    @abstractmethod
     def query_meta(self, identifier: ID) -> bool:
         pass
 
+    @abstractmethod
     def query_profile(self, identifier: ID) -> bool:
         pass
 
+    @abstractmethod
     def query_group(self, group: ID, users: list) -> bool:
         pass
 

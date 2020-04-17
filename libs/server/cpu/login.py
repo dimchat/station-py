@@ -64,21 +64,23 @@ class LoginCommandProcessor(CommandProcessor):
         if old is not None:
             if cmd.time < old.time:
                 return None
+        station = self.get_context('station')
+        assert station is not None, 'current station not in the context'
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = cmd.station.get('ID')
-        return self.facebook.identifier(sid)
+        sid = self.facebook.identifier(cmd.station.get('ID'))
+        if sid == station.identifier:
+            return None
+        return sid
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
-        station = self.get_context('station')
-        assert station is not None, 'current station not in the context'
         # check roaming
         sid = self.__roaming(cmd=content, sender=sender)
-        if sid is not None and sid != station.identifier:
+        if sid is not None:
             self.info('%s is roamer to: %s' % (sender, sid))
             self.receptionist.add_roamer(identifier=sender)
         # update login info

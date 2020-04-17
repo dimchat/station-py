@@ -75,8 +75,10 @@ class LoginCommandProcessor(CommandProcessor):
                 return None
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = cmd.station.get('ID')
-        return self.facebook.identifier(sid)
+        sid = self.facebook.identifier(cmd.station.get('ID'))
+        if sid == g_station.identifier:
+            return None
+        return sid
 
     #
     #   main
@@ -85,9 +87,12 @@ class LoginCommandProcessor(CommandProcessor):
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         # check roaming
         sid = self.__roaming(cmd=content, sender=sender)
-        if sid is not None and sid != g_station.identifier:
+        if sid is not None:
             self.info('%s is roamer to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
+        # update login info
+        if not self.database.save_login(cmd=content, sender=sender, msg=msg):
+            return None
         # respond nothing
         return None
 
@@ -180,15 +185,15 @@ class Octopus:
         if receiver == g_station.identifier:
             self.info('msg for %s will be stopped here' % receiver)
             return None
-        sent_list = msg.get('sent_neighbors')
-        if sent_list is None:
-            sent_list = []
+        sent_neighbors = msg.get('sent_neighbors')
+        if sent_neighbors is None:
+            sent_neighbors = []
         else:
             msg.pop('sent_neighbors')
         neighbors = self.__neighbors.copy()
         success = 0
         for sid in neighbors:
-            if sid in sent_list:
+            if sid in sent_neighbors:
                 self.info('station %s in sent list, ignore this neighbor' % sid)
                 continue
             if self.__deliver_message(msg=msg, neighbor=sid):

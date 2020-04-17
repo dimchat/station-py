@@ -51,6 +51,7 @@ class ClientMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
+        # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
@@ -70,7 +71,7 @@ class ClientMessenger(CommonMessenger):
     #
     #   Command
     #
-    def send_command(self, cmd: Command):
+    def __send_command(self, cmd: Command):
         station = self.station
         if station is None:
             raise ValueError('current station not set')
@@ -84,7 +85,7 @@ class ClientMessenger(CommonMessenger):
         self.__meta_queries[identifier] = now
         # query from DIM network
         cmd = MetaCommand.new(identifier=identifier)
-        return self.send_command(cmd=cmd)
+        return self.__send_command(cmd=cmd)
 
     def query_profile(self, identifier: ID) -> bool:
         now = time.time()
@@ -94,7 +95,7 @@ class ClientMessenger(CommonMessenger):
         self.__profile_queries[identifier] = now
         # query from DIM network
         cmd = ProfileCommand.new(identifier=identifier)
-        return self.send_command(cmd=cmd)
+        return self.__send_command(cmd=cmd)
 
     # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: list) -> bool:
