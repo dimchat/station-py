@@ -52,7 +52,7 @@ from libs.common import Log, Database
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_station, g_database
-from robots.config import load_user, open_bridge
+from robots.config import load_user, open_bridge, all_stations
 
 
 class LoginCommandProcessor(CommandProcessor):
@@ -263,7 +263,7 @@ class Octopus:
             client = OctopusClient()
             open_bridge(terminal=client, messenger=messenger, station=station)
             client.octopus = octopus
-            self.__clients[g_station.identifier] = client
+            self.__clients[sid] = client
 
 
 """
@@ -283,5 +283,9 @@ if __name__ == '__main__':
     g_facebook.current_user = g_station
 
     octopus = Octopus()
-    # TODO: add neighbors
+    # add neighbors
+    for s in all_stations:
+        if s.identifier == g_station.identifier:
+            continue
+        octopus.add_neighbor(station=s)
     octopus.connect()

@@ -123,7 +123,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
             if user.identifier.type == NetworkID.Station:
-                g_dispatcher.remove_neighbor(identifier=user.identifier)
+                g_dispatcher.remove_neighbor(station=user.identifier)
             nickname = g_facebook.nickname(identifier=user.identifier)
             session = g_session_server.get(identifier=user.identifier, client_address=address)
             if session is None:
