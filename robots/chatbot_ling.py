@@ -39,10 +39,10 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.client import ClientMessenger
+from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_station
-from robots.config import load_user, create_client
+from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import load_user, open_bridge
 from robots.config import chat_bot, lingling_id
 
 
@@ -53,16 +53,18 @@ from robots.config import chat_bot, lingling_id
 g_messenger = ClientMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
-
+g_messenger.context['database'] = g_database
 # chat bot
 g_messenger.context['bots'] = [chat_bot('tuling')]
-# current station
-g_messenger.set_context('station', g_station)
 
 g_facebook.messenger = g_messenger
 
 
 if __name__ == '__main__':
 
-    user = load_user(lingling_id)
-    client = create_client(user=user, messenger=g_messenger)
+    # set current user
+    g_facebook.current_user = load_user(lingling_id)
+
+    # create client and connect to the station
+    client = Terminal()
+    open_bridge(terminal=client, messenger=g_messenger, station=g_station)

@@ -55,7 +55,7 @@ class Dispatcher:
         self.station: Station = None
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
-        self.__neighbors: list = []
+        self.__neighbors: list = []  # ID list
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -105,20 +105,30 @@ class Dispatcher:
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
         self.info('broadcasting message %s' % msg)
-        if self.__traced(msg=msg, station=self.station):
-            self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
+        current_station = self.station
+        if self.__traced(msg=msg, station=current_station):
+            self.error('ignore traced msg: %s in %s' % (current_station, msg.get('traces')))
             return None
-        array = self.__neighbors.copy()
-        array.append(self.station.identifier)
+        # push to all neighbors connected th current station
+        neighbors = self.__neighbors.copy()
         success = 0
-        for sid in array:
+        for sid in neighbors:
             sessions = self.__online_sessions(receiver=sid)
             if sessions is None:
                 self.info('remote station (%s) not connected, try later.' % sid)
                 continue
             if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
                 success += 1
-        text = 'Message broadcast to %d/%d stations' % (success, len(array))
+        # push to the bridge (octopus) of current station
+        sid = current_station.identifier
+        sessions = self.__online_sessions(receiver=sid)
+        if sessions is not None:
+            # tell the bridge ignore this neighbor stations
+            msg['sent_neighbors'] = neighbors
+            self.__push_message(msg=msg, receiver=sid, sessions=sessions)
+        # FIXME: what about the failures
+        # response
+        text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return res

@@ -204,18 +204,16 @@ def load_user(identifier: str) -> User:
     return g_facebook.user(identifier=identifier)
 
 
-def create_client(user: User, messenger: ClientMessenger) -> Terminal:
-    g_facebook.current_user = user
-    client = Terminal()
-    client.messenger = messenger
+def open_bridge(terminal: Terminal, station: Station, messenger: ClientMessenger) -> Terminal:
     # context
-    client.messenger.context['database'] = g_database
-    client.messenger.context['remote_address'] = (g_station.host, g_station.port)
-    client.messenger.context['handshake_delegate'] = client
-    # connect
-    client.connect(station=g_station)
-    client.handshake()
-    return client
+    messenger.context['station'] = station
+    messenger.context['remote_address'] = (station.host, station.port)
+    messenger.context['handshake_delegate'] = terminal
+    # client
+    terminal.messenger = messenger
+    terminal.connect(station=station)
+    terminal.handshake()
+    return terminal
 
 
 """

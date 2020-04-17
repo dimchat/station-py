@@ -108,7 +108,7 @@ class Receptionist(Thread):
         database = self.database
         apns = self.apns
         for identifier in guests:
-            # 1. this guest is connected, scan offline messages for it
+            # 1. scan offline messages
             self.info('%s is connected, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
@@ -122,7 +122,7 @@ class Receptionist(Thread):
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
             self.info('got %d message(s) for %s' % (len(messages), identifier))
-            # 2. push offline messages to this guest one by one
+            # 2. push offline messages one by one
             count = 0
             for msg in messages:
                 success = self.__push_message(msg=msg, receiver=identifier)
@@ -136,11 +136,10 @@ class Receptionist(Thread):
             total_count = len(messages)
             self.info('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
-            if count == total_count:
-                continue
-            # remove the guest on failed
-            self.error('pushing message failed(%d/%d), remove the guest: %s' % (count, total_count, identifier))
-            self.remove_guest(identifier)
+            if count < total_count:
+                # remove the guest on failed
+                self.error('pushing message failed(%d/%d) for: %s' % (count, total_count, identifier))
+                self.remove_guest(identifier)
 
     #
     #   Roamers login another station
@@ -203,7 +202,7 @@ class Receptionist(Thread):
     def __process_roamers(self, roamers: list):
         database = self.database
         for identifier in roamers:
-            # 1. this user is roaming, scan offline messages for it
+            # 1. scan offline messages
             self.info('%s is roaming, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
@@ -216,7 +215,7 @@ class Receptionist(Thread):
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
             self.info('got %d message(s) for %s' % (len(messages), identifier))
-            # 2. redirect offline messages for this roamer one by one
+            # 2. redirect offline messages one by one
             count = 0
             for msg in messages:
                 success = self.__redirect_message(msg=msg, receiver=identifier)
@@ -226,15 +225,14 @@ class Receptionist(Thread):
                 else:
                     # redirect message failed, remove session here?
                     break
-            # 3. remove messages after success, or remove the guest on failed
+            # 3. remove messages after success
             total_count = len(messages)
             self.info('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
-            if count == total_count:
-                continue
-            # remove the roamer on failed
-            self.error('redirect message failed(%d/%d), remove the roamer: %s' % (count, total_count, identifier))
-            self.remove_roamer(identifier)
+            if count < total_count:
+                # remove the roamer on failed
+                self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, identifier))
+                self.remove_roamer(identifier)
 
     #
     #   Run Loop

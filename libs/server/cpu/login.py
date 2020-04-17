@@ -37,6 +37,7 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimsdk import ReceiptCommand, LoginCommand
 from dimsdk import CommandProcessor
+from dimsdk import Station
 
 from ...common import Log, Database
 
@@ -57,33 +58,32 @@ class LoginCommandProcessor(CommandProcessor):
     def receptionist(self):
         return self.get_context('receptionist')
 
-    def __is_roamer(self, cmd: LoginCommand):
-        station = cmd.station
-        sid = self.facebook.identifier(station.get('ID'))
-        if sid is None:
-            raise ValueError('login station error: %s' % station)
-        # check whether the login station is current station
-        current_station = self.get_context('station')
-        if current_station is None:
-            raise LookupError('current station not found')
-        if current_station.identifier == sid:
-            # skip it
-            return False
-        # TODO: check time expires
-        return True
+    def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
+        # check time expires
+        old = self.database.login_command(identifier=sender)
+        if old is not None:
+            if cmd.time < old.time:
+                return None
+        # get station ID
+        assert cmd.station is not None, 'login command error: %s' % cmd
+        sid = cmd.station.get('ID')
+        return self.facebook.identifier(sid)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
+        station = self.get_context('station')
+        assert station is not None, 'current station not in the context'
+        # check roaming
+        sid = self.__roaming(cmd=content, sender=sender)
+        if sid is not None and sid != station.identifier:
+            self.info('%s is roamer to: %s' % (sender, sid))
+            self.receptionist.add_roamer(identifier=sender)
         # update login info
         if not self.database.save_login(cmd=content, sender=sender, msg=msg):
             return None
-        # check roaming
-        if self.__is_roamer(cmd=content):
-            self.info('add roamer: %s -> %s' % (sender, content.station))
-            self.receptionist.add_roamer(identifier=sender)
         # response
         self.info('login command: %s' % content)
         return ReceiptCommand.new(message='Login received')

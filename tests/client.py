@@ -47,7 +47,7 @@ sys.path.append(rootPath)
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import create_client
+from robots.config import open_bridge
 from robots.config import g_keystore, g_facebook, g_station
 
 
@@ -84,9 +84,11 @@ class Console(Cmd):
         # logout first
         self.logout()
         # login with user ID
+        g_facebook.current_user = g_facebook.user(identifier=identifier)
         self.info('connecting to %s ...' % g_station)
-        user = g_facebook.user(identifier)
-        self.client = create_client(user=user, messenger=g_messenger)
+        client = Terminal()
+        open_bridge(terminal=client, messenger=g_messenger, station=g_station)
+        self.client = client
         if self.receiver is None:
             self.receiver = g_station.identifier
 
