@@ -172,8 +172,11 @@ class Dispatcher:
         self.info('%s is roaming, try to redirect: %s' % (receiver, sid))
         sessions = self.__online_sessions(receiver=sid)
         if sessions is None:
-            self.info('remote station (%s) not connected, try later.' % sid)
-            return False
+            self.info('remote station (%s) not connected, try bridge.' % sid)
+            sessions = self.__online_sessions(receiver=self.station.identifier)
+            if sessions is None:
+                self.error('station bridge (%s) not connected.' % sid)
+                return False
         if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
             self.info('message for user %s redirected to %s' % (receiver, sid))
             return True
