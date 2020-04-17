@@ -106,7 +106,7 @@ class InnerMessenger(ClientMessenger):
     # Override
     def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted:
-            return octopus.outgo_message(msg=msg)
+            return octopus.departure(msg=msg)
         else:
             return super().process_message(msg=msg)
 
@@ -121,7 +121,7 @@ class OuterMessenger(ClientMessenger):
     # Override
     def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted:
-            return octopus.income_message(msg=msg)
+            return octopus.arrival(msg=msg)
         else:
             return super().process_message(msg=msg)
 
@@ -147,12 +147,17 @@ class Octopus:
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def add_neighbor(self, station: Union[Station, ID]):
+    def add_neighbor(self, station: Union[Station, ID]) -> bool:
         if isinstance(station, Station):
-            self.__neighbors.append(station.identifier)
+            station = station.identifier
         else:
-            assert isinstance(station, str), 'station ID error: %s' % station
-            self.__neighbors.append(station)
+            assert isinstance(station, ID), 'station ID error: %s' % station
+        if station == g_station.identifier:
+            return False
+        if station in self.__neighbors:
+            return False
+        self.__neighbors.append(station)
+        return True
 
     def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:
         client = self.__clients.get(neighbor)
@@ -161,14 +166,20 @@ class Octopus:
             return False
         return client.messenger.send_message(msg=msg)
 
-    @staticmethod
-    def __pack_message(content: Content, receiver: ID) -> Optional[ReliableMessage]:
+    def __pack_message(self, content: Content, receiver: ID) -> Optional[ReliableMessage]:
         sender = g_station.identifier
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
         s_msg = g_messenger.encrypt_message(msg=i_msg)
+        if s_msg is None:
+            self.error('failed to encrypt msg: %s' % i_msg)
+            return None
         return g_messenger.sign_message(msg=s_msg)
 
-    def outgo_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        receiver = g_facebook.identifier(msg.envelope.receiver)
+        if receiver == g_station.identifier:
+            self.info('msg for %s will be stopped here' % receiver)
+            return None
         sent_list = msg.get('sent_neighbors')
         if sent_list is None:
             sent_list = []
@@ -185,12 +196,17 @@ class Octopus:
         # FIXME: what about the failures
         # response
         sender = g_facebook.identifier(msg.envelope.sender)
+        meta = g_facebook.meta(identifier=sender)
+        if meta is None:
+            # waiting for meta
+            return None
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
+        self.info('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.envelope.receiver))
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return self.__pack_message(content=res, receiver=sender)
 
-    def income_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         sid = g_station.identifier
         traces = msg.get('traces')
         if traces is not None and sid in traces:
@@ -202,6 +218,7 @@ class Octopus:
         # response
         sender = g_facebook.identifier(msg.envelope.sender)
         text = 'Message reached station: %s' % g_station
+        self.info('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.envelope.receiver))
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return self.__pack_message(content=res, receiver=sender)
@@ -285,7 +302,5 @@ if __name__ == '__main__':
     octopus = Octopus()
     # add neighbors
     for s in all_stations:
-        if s.identifier == g_station.identifier:
-            continue
         octopus.add_neighbor(station=s)
     octopus.connect()

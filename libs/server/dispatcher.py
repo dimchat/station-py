@@ -63,11 +63,17 @@ class Dispatcher:
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def add_neighbor(self, station: Union[Station, ID]):
+    def add_neighbor(self, station: Union[Station, ID]) -> bool:
         if isinstance(station, Station):
-            self.__neighbors.append(station.identifier)
+            station = station.identifier
         else:
-            self.__neighbors.append(station)
+            assert isinstance(station, ID), 'station ID error: %s' % station
+        if station == self.station.identifier:
+            return False
+        if station in self.__neighbors:
+            return False
+        self.__neighbors.append(station)
+        return True
 
     def remove_neighbor(self, station: Union[Station, ID]):
         if isinstance(station, Station):
@@ -105,26 +111,30 @@ class Dispatcher:
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
         self.info('broadcasting message %s' % msg)
-        current_station = self.station
-        if self.__traced(msg=msg, station=current_station):
-            self.error('ignore traced msg: %s in %s' % (current_station, msg.get('traces')))
+        if self.__traced(msg=msg, station=self.station):
+            self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
             return None
         # push to all neighbors connected th current station
         neighbors = self.__neighbors.copy()
+        sent_neighbors = []
         success = 0
         for sid in neighbors:
+            if sid == self.station.identifier:
+                continue
             sessions = self.__online_sessions(receiver=sid)
             if sessions is None:
                 self.info('remote station (%s) not connected, try later.' % sid)
                 continue
             if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
+                sent_neighbors.append(sid)
                 success += 1
         # push to the bridge (octopus) of current station
-        sid = current_station.identifier
+        sid = self.station.identifier
         sessions = self.__online_sessions(receiver=sid)
         if sessions is not None:
             # tell the bridge ignore this neighbor stations
-            msg['sent_neighbors'] = neighbors
+            sent_neighbors.append(sid)
+            msg['sent_neighbors'] = sent_neighbors
             self.__push_message(msg=msg, receiver=sid, sessions=sessions)
         # FIXME: what about the failures
         # response

@@ -390,6 +390,6 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
         if user.identifier.type == NetworkID.Station:
-            g_dispatcher.add_neighbor(station=user.identifier)
+            g_dispatcher.add_neighbor(station=user)
         # add the new guest for checking offline messages
         g_receptionist.add_guest(identifier=sender)
