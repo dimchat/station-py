@@ -32,7 +32,7 @@
 
 from typing import Optional
 
-from dimp import PrivateKey, Meta, ID, Profile, User
+from dimp import Meta, ID
 from dimsdk import Station, KeyStore
 from dimsdk.ans import keywords as ans_keywords
 
@@ -161,50 +161,7 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 """
 
 
-def load_user(identifier: str) -> User:
-    identifier = g_facebook.identifier(identifier)
-    # check meta
-    try:
-        meta = g_facebook.meta(identifier=identifier)
-    except AssertionError:
-        meta = None
-    if meta is None:
-        # load from 'etc' directory
-        meta = Meta(load_robot_info(identifier=identifier, filename='meta.js'))
-        if meta is None:
-            raise LookupError('failed to get meta for robot: %s' % identifier)
-        elif not g_facebook.save_meta(meta=meta, identifier=identifier):
-            raise ValueError('meta error: %s' % meta)
-    # check private key
-    private_key = g_facebook.private_key_for_signature(identifier=identifier)
-    if private_key is None:
-        # load from 'etc' directory
-        private_key = PrivateKey(load_robot_info(identifier=identifier, filename='secret.js'))
-        if private_key is None:
-            pass
-        elif not g_facebook.save_private_key(key=private_key, identifier=identifier):
-            raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
-    if private_key is None:
-        raise AssertionError('private key not found for ID: %s' % identifier)
-    # check profile
-    profile = load_robot_info(identifier=identifier, filename='profile.js')
-    if profile is None:
-        raise LookupError('failed to get profile for robot: %s' % identifier)
-    Log.info('robot profile: %s' % profile)
-    name = profile.get('name')
-    avatar = profile.get('avatar')
-    # create profile
-    profile = Profile.new(identifier=identifier)
-    profile.set_property('name', name)
-    profile.set_property('avatar', avatar)
-    profile.sign(private_key=private_key)
-    if not g_facebook.save_profile(profile):
-        raise AssertionError('failed to save profile: %s' % profile)
-    # create local user
-    return g_facebook.user(identifier=identifier)
-
-
-def open_bridge(terminal: Terminal, station: Station, messenger: ClientMessenger) -> Terminal:
+def dims_connect(terminal: Terminal, station: Station, messenger: ClientMessenger) -> Terminal:
     # context
     messenger.context['station'] = station
     messenger.context['remote_address'] = (station.host, station.port)
@@ -229,23 +186,6 @@ def load_naruto():
     Log.info('naruto group: %s' % gid)
     meta = Meta(load_robot_info(gid, 'meta.js'))
     g_facebook.save_meta(identifier=gid, meta=meta)
-
-
-def load_freshmen() -> list:
-    freshmen = []
-    from etc.cfg_bots import load_freshmen as _loader
-    array = _loader()
-    if array is not None:
-        for item in array:
-            identifier = g_facebook.identifier(item)
-            if identifier is None:
-                Log.error('ID error: %s' % item)
-            elif identifier.is_user:
-                freshmen.append(identifier)
-            else:
-                # Log.error('Not a user ID: %s' % identifier)
-                pass
-    return freshmen
 
 
 """

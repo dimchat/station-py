@@ -52,7 +52,7 @@ from libs.common import Log, Database
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_station, g_database
-from robots.config import load_user, open_bridge, all_stations
+from robots.config import load_station, dims_connect, all_stations
 
 
 class LoginCommandProcessor(CommandProcessor):
@@ -268,8 +268,8 @@ class Octopus:
         #   Local Station
         #
         client = OctopusClient()
-        open_bridge(terminal=client, messenger=g_messenger, station=g_station)
         client.octopus = octopus
+        dims_connect(terminal=client, messenger=g_messenger, station=g_station)
         self.__clients[g_station.identifier] = client
         #
         #   Remote Stations
@@ -281,11 +281,11 @@ class Octopus:
             messenger.key_cache = g_keystore
             messenger.context['database'] = g_database
             # client for remote station
-            station = load_user(sid)
+            station = load_station(identifier=sid, facebook=g_facebook)
             assert isinstance(station, Station), 'station error: %s' % sid
             client = OctopusClient()
-            open_bridge(terminal=client, messenger=messenger, station=station)
             client.octopus = octopus
+            dims_connect(terminal=client, messenger=messenger, station=station)
             self.__clients[sid] = client
 
 

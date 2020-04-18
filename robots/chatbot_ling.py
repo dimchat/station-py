@@ -42,8 +42,10 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_database, g_station
-from robots.config import load_user, open_bridge
+from robots.config import dims_connect
 from robots.config import chat_bot, lingling_id
+
+from etc.cfg_loader import load_user
 
 
 """
@@ -63,8 +65,8 @@ g_facebook.messenger = g_messenger
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(lingling_id)
+    g_facebook.current_user = load_user(lingling_id, facebook=g_facebook)
 
     # create client and connect to the station
     client = Terminal()
-    open_bridge(terminal=client, messenger=g_messenger, station=g_station)
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)

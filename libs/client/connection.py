@@ -135,10 +135,12 @@ class Connection(threading.Thread, MessengerDelegate):
             address = (server.host, server.port)
         else:
             address = server
+        self.info('Connecting: %s ...' % server)
         self.__address = address
         self.__sock = socket.socket()
         self.__sock.connect(self.__address)
         self.__connected = True
+        self.info('DIM Station %s connected.' % server)
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:

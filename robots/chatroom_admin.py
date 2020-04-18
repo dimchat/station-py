@@ -43,7 +43,7 @@ from dimsdk.dos import JSONFile
 from dimsdk import ID, EVERYONE
 from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import ContentType, Content, Command, TextContent
-from dimsdk import ForwardContent, ReceiptCommand, ProfileCommand
+from dimsdk import ForwardContent, ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -54,12 +54,15 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.common import Log
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
+
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_database, g_station
-from robots.config import load_user, open_bridge
+from robots.config import dims_connect
 from robots.config import chatroom_id
 from robots.config import chat_bot
+
+from etc.cfg_loader import load_user
 
 
 """
@@ -454,9 +457,9 @@ class ChatRoom:
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(chatroom_id)
+    g_facebook.current_user = load_user(chatroom_id, facebook=g_facebook)
 
     # create client and connect to the station
     client = Terminal()
-    open_bridge(terminal=client, messenger=g_messenger, station=g_station)
-    client.room = ChatRoom(client.messenger)
+    client.room = ChatRoom(g_messenger)
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)
