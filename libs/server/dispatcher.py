@@ -40,10 +40,9 @@ from dimsdk import Station
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
-from ..common import Database
+from ..common import Database, CommonFacebook
 from ..common import Log
 
-from .facebook import ServerFacebook
 from .session import SessionServer
 
 
@@ -52,7 +51,7 @@ class Dispatcher:
     def __init__(self):
         super().__init__()
         self.database: Database = None
-        self.facebook: ServerFacebook = None
+        self.facebook: CommonFacebook = None
         self.station: Station = None
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None

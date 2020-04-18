@@ -44,7 +44,7 @@ from dimsdk.ans import keywords as ans_keywords
 from libs.common import Log
 from libs.common import Database, AddressNameServer
 from libs.common import ChatBot, Tuling, XiaoI
-from libs.server import ServerFacebook, SessionServer, Server
+from libs.server import ServerFacebook, ServerMessenger, SessionServer, Server
 from libs.server import Dispatcher
 
 #
@@ -162,6 +162,18 @@ g_receptionist.session_server = g_session_server
 g_receptionist.database = g_database
 g_receptionist.facebook = g_facebook
 g_receptionist.apns = g_apns
+
+
+"""
+    Messenger for Local Station
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ServerMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+g_messenger.dispatcher = g_dispatcher
+g_messenger.context['database'] = g_database
+g_facebook.messenger = g_messenger
 
 
 """

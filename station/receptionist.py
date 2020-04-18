@@ -39,9 +39,8 @@ from dimp import ID, NetworkID, ReliableMessage
 from dimsdk import Station
 from dimsdk import ApplePushNotificationService
 
-from libs.common import Database
+from libs.common import Database, CommonFacebook
 from libs.common import Log
-from libs.server import ServerFacebook
 from libs.server import Server, SessionServer
 
 
@@ -52,7 +51,7 @@ class Receptionist(Thread):
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
         self.database: Database = None
-        self.facebook: ServerFacebook = None
+        self.facebook: CommonFacebook = None
         # current station and guests
         self.station: Server = None
         self.guests = []

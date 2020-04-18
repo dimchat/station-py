@@ -37,9 +37,7 @@ from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
-from ..common import Database
-
-from .facebook import ServerFacebook
+from ..common import Database, CommonFacebook
 
 
 class Filter:
@@ -54,7 +52,7 @@ class Filter:
         return self.__messenger
 
     @property
-    def facebook(self) -> ServerFacebook:
+    def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
     @property
