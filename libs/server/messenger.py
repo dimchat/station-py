@@ -45,7 +45,7 @@ from .filter import Filter
 
 class ServerMessenger(CommonMessenger):
 
-    EXPIRES = 300  # query expires (5 minutes)
+    EXPIRES = 3600  # query expires (1 hour)
 
     def __init__(self):
         super().__init__()

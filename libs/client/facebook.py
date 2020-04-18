@@ -78,15 +78,15 @@ class ClientFacebook(CommonFacebook):
         profile = super().profile(identifier=identifier)
         if profile is not None:
             # check expired time
-            timestamp = time.time()
+            now = time.time()
             expires = profile.get(self.EXPIRES_KEY)
             if expires is None:
                 # set expired time
-                profile[self.EXPIRES_KEY] = timestamp + self.EXPIRES
+                profile[self.EXPIRES_KEY] = now + self.EXPIRES
                 # is empty?
                 if 'data' in profile:
                     return profile
-            elif expires > timestamp:
+            elif expires > now:
                 # not expired yet
                 return profile
         # query from DIM network

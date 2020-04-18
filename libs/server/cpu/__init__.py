@@ -33,12 +33,13 @@
 from .handshake import HandshakeCommandProcessor, HandshakeDelegate
 from .report import ReportCommandProcessor
 from .login import LoginCommandProcessor
+from .profile import ProfileCommandProcessor
 from .search import SearchCommandProcessor, UsersCommandProcessor
 
 __all__ = [
     'HandshakeCommandProcessor', 'HandshakeDelegate',
     'ReportCommandProcessor',
-    'LoginCommandProcessor',
+    'LoginCommandProcessor', 'ProfileCommandProcessor',
     'SearchCommandProcessor',
     'UsersCommandProcessor',
 ]

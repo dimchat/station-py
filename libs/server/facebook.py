@@ -49,7 +49,7 @@ class ServerFacebook(CommonFacebook):
         self.__messenger = None
 
     @property
-    def messenger(self):  # ClientMessenger
+    def messenger(self):  # ServerMessenger
         if self.__messenger is None:
             return None
         return self.__messenger()
@@ -78,17 +78,19 @@ class ServerFacebook(CommonFacebook):
         profile = super().profile(identifier=identifier)
         if profile is not None:
             # check expired time
-            timestamp = time.time()
+            now = time.time()
             expires = profile.get(self.EXPIRES_KEY)
             if expires is None:
                 # set expired time
-                profile[self.EXPIRES_KEY] = timestamp + self.EXPIRES
+                profile[self.EXPIRES_KEY] = now + self.EXPIRES
                 # is empty?
                 if 'data' in profile:
                     return profile
-            elif expires > timestamp:
+            elif expires > now:
                 # not expired yet
                 return profile
+            # DISCUSS: broadcast profile to every stations when user upload it
+            #          no need to query other stations time by time
         # query from DIM network
         messenger = self.messenger
         if messenger is not None:

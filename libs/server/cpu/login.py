@@ -37,7 +37,6 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimsdk import ReceiptCommand, LoginCommand
 from dimsdk import CommandProcessor
-from dimsdk import Station
 
 from ...common import Log, Database
 
@@ -81,7 +80,7 @@ class LoginCommandProcessor(CommandProcessor):
         # check roaming
         sid = self.__roaming(cmd=content, sender=sender)
         if sid is not None:
-            self.info('%s is roamer to: %s' % (sender, sid))
+            self.info('%s roamed to: %s' % (sender, sid))
             self.receptionist.add_roamer(identifier=sender)
         # update login info
         if not self.database.save_login(cmd=content, sender=sender, msg=msg):

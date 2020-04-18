@@ -47,7 +47,7 @@ from .facebook import ClientFacebook
 
 class ClientMessenger(CommonMessenger):
 
-    EXPIRES = 300  # query expires (5 minutes)
+    EXPIRES = 600  # query expires (10 minutes)
 
     def __init__(self):
         super().__init__()
