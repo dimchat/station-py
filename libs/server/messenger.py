@@ -172,7 +172,10 @@ class ServerMessenger(CommonMessenger):
     def __send_content(self, content: Content, receiver: ID) -> bool:
         station = self.get_context('station')
         if station is None:
-            sender = self.facebook.current_user.identifier
+            user = self.facebook.current_user
+            if user is None:
+                return False
+            sender = user.identifier
         else:
             sender = station.identifier
         i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
