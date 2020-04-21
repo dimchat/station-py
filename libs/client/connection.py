@@ -129,13 +129,13 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, server: Union[Station, tuple, str]):
+    def connect(self, server: Union[Station, tuple]):
         # connect to new socket (host:port)
         if isinstance(server, Station):
             address = (server.host, server.port)
         else:
             address = server
-        self.info('Connecting: %s ...' % server)
+        self.info('Connecting: (%s:%d) ...' % address)
         self.__address = address
         self.__sock = socket.socket()
         self.__sock.connect(self.__address)
