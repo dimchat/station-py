@@ -34,11 +34,10 @@ import socket
 import threading
 import time
 import traceback
-from typing import Optional
+from typing import Optional, Union
 
 from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
-from dimsdk.delegate import ConnectionDelegate
 
 from ..common import Log
 
@@ -50,9 +49,9 @@ class Connection(threading.Thread, MessengerDelegate):
 
     def __init__(self):
         super().__init__()
-        self.delegate: ConnectionDelegate = None
+        self.messenger = None  # ClientMessenger
         # current station
-        self.__station: Station = None
+        self.__address = None
         self.__connected = False
         self.__running = False
         # socket
@@ -111,7 +110,7 @@ class Connection(threading.Thread, MessengerDelegate):
                 # skip empty packages
                 continue
             try:
-                res = self.delegate.received_package(data=line)
+                res = self.messenger.process_package(data=line)
                 if res is not None:
                     pack = pack + res + b'\n'
             except Exception as error:
@@ -130,13 +129,18 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, station: Station):
+    def connect(self, server: Union[Station, tuple]):
         # connect to new socket (host:port)
-        self.__station = station
-        address = (station.host, station.port)
+        if isinstance(server, Station):
+            address = (server.host, server.port)
+        else:
+            address = server
+        self.info('Connecting: (%s:%d) ...' % address)
+        self.__address = address
         self.__sock = socket.socket()
-        self.__sock.connect(address)
+        self.__sock.connect(self.__address)
         self.__connected = True
+        self.info('DIM Station %s connected.' % server)
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
@@ -150,7 +154,7 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
         # connect to same station
-        self.connect(station=self.__station)
+        self.connect(server=self.__address)
 
     def heartbeat(self):
         while self.__connected:

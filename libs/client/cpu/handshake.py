@@ -34,16 +34,17 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content
-from dimp import Command, HandshakeCommand
+from dimp import Command
+from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
 
 class HandshakeDelegate(metaclass=ABCMeta):
 
     @abstractmethod
-    def handshake_success(self) -> Optional[Content]:
+    def handshake_success(self):
         """ Processed by Client """
         pass
 
@@ -57,7 +58,7 @@ class HandshakeCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
         assert isinstance(content, HandshakeCommand), 'command error: %s' % content
         message = content.message
         if 'DIM?' == message:
@@ -65,7 +66,7 @@ class HandshakeCommandProcessor(CommandProcessor):
             return HandshakeCommand.restart(session=content.session)
         elif 'DIM!' == message:
             # handshake accepted by station
-            return self.delegate.handshake_success()
+            self.delegate.handshake_success()
 
 
 # register

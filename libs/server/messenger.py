@@ -29,11 +29,12 @@
 
     Transform and send message
 """
-
+import time
 from typing import Optional, Union
 
-from dimp import ID, User
+from dimp import ID, EVERYWHERE, User
 from dimp import InstantMessage, ReliableMessage
+from dimp import Content, Command, MetaCommand, ProfileCommand, GroupCommand
 
 from libs.common import CommonMessenger
 
@@ -44,11 +45,17 @@ from .filter import Filter
 
 class ServerMessenger(CommonMessenger):
 
+    EXPIRES = 3600  # query expires (1 hour)
+
     def __init__(self):
         super().__init__()
         self.dispatcher: Dispatcher = None
         self.__filter: Filter = None
         self.__session: Session = None
+        # for checking duplicated queries
+        self.__meta_queries = {}     # ID -> time
+        self.__profile_queries = {}  # ID -> time
+        self.__group_queries = {}    # ID -> time
 
     @property
     def filter(self) -> Filter:
@@ -109,14 +116,25 @@ class ServerMessenger(CommonMessenger):
         self.set_context(key='remote_address', value=value)
 
     # Override
-    def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = self.facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
             # deliver group message
-            return self.__deliver_message(msg=msg)
+            res = self.__deliver_message(msg=msg)
+            if receiver.is_broadcast:
+                # if this is a broadcast, deliver it, send back the response
+                # and continue to process it with the station.
+                # because this station is also a recipient too.
+                if res is not None:
+                    self.send_message(msg=res, callback=None, split=False)
+            else:
+                # or, this is is an ordinary group message,
+                # just deliver it to the group assistant
+                # and return the response to the sender.
+                return res
         # try to decrypt and process message
         try:
-            return super().process_reliable(msg=msg)
+            return super().process_message(msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
@@ -130,7 +148,8 @@ class ServerMessenger(CommonMessenger):
         if s_msg is None:
             # signature error?
             return None
-        res = self.filter.check_deliver(msg=msg)
+        # FIXME: check deliver permission
+        res = None  # self.filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
             res = self.dispatcher.deliver(msg=msg)
@@ -142,6 +161,69 @@ class ServerMessenger(CommonMessenger):
             i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
             s_msg = self.encrypt_message(msg=i_msg)
             return self.sign_message(msg=s_msg)
+
+    #
+    #   Command
+    #
+    def __send_command(self, cmd: Command) -> bool:
+        everyone = ID.new(name='station', address=EVERYWHERE)
+        return self.__send_content(content=cmd, receiver=everyone)
+
+    def __send_content(self, content: Content, receiver: ID) -> bool:
+        station = self.get_context('station')
+        if station is None:
+            user = self.facebook.current_user
+            if user is None:
+                return False
+            sender = user.identifier
+        else:
+            sender = station.identifier
+        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        s_msg = self.encrypt_message(msg=i_msg)
+        if s_msg is None:
+            # failed to encrypt message
+            return False
+        r_msg = self.sign_message(msg=s_msg)
+        assert r_msg is not None, 'failed to sign message: %s' % s_msg
+        self.dispatcher.deliver(msg=r_msg)
+        return True
+
+    def query_meta(self, identifier: ID) -> bool:
+        now = time.time()
+        last = self.__meta_queries.get(identifier, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        self.__meta_queries[identifier] = now
+        # query from DIM network
+        cmd = MetaCommand.new(identifier=identifier)
+        return self.__send_command(cmd=cmd)
+
+    def query_profile(self, identifier: ID) -> bool:
+        now = time.time()
+        last = self.__profile_queries.get(identifier, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        self.__profile_queries[identifier] = now
+        # query from DIM network
+        cmd = ProfileCommand.new(identifier=identifier)
+        return self.__send_command(cmd=cmd)
+
+    # FIXME: separate checking for querying each user
+    def query_group(self, group: ID, users: list) -> bool:
+        now = time.time()
+        last = self.__group_queries.get(group, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        if len(users) == 0:
+            return False
+        self.__group_queries[group] = now
+        # query from users
+        cmd = GroupCommand.query(group=group)
+        checking = False
+        for item in users:
+            if self.__send_content(content=cmd, receiver=item):
+                checking = True
+        return checking
 
     #
     #   Message

@@ -33,7 +33,7 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand
@@ -71,7 +71,7 @@ class ReportCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # report title
         title = content.get('title')
@@ -91,7 +91,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # submit device token for APNs
         token = content.get('device_token')
@@ -105,7 +105,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # welcome back!
         self.receptionist.add_guest(identifier=sender)
@@ -120,7 +120,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, Command), 'command error: %s' % content
         # goodbye!
         session = self.messenger.current_session(identifier=sender)

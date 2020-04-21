@@ -39,7 +39,7 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import GroupCommand, QueryCommand
 
@@ -51,14 +51,14 @@ class QueryCommandProcessor(GroupCommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, QueryCommand), 'group command error: %s' % content
         facebook = self.facebook
         group: ID = facebook.identifier(content.group)
         # 1. check permission
         if not facebook.exists_member(member=sender, group=group):
             if not facebook.exists_assistant(member=sender, group=group):
-                raise AssertionError('only member/assistant can query: %s' % msg)
+                raise AssertionError('only member/assistant can query: %s, %s' % (group, sender))
         # 2. get group members
         members = facebook.members(identifier=group)
         if members is None or len(members) == 0:

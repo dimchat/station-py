@@ -50,6 +50,8 @@ class ClientFacebook(CommonFacebook):
 
     @property
     def messenger(self):  # ClientMessenger
+        if self.__messenger is None:
+            return None
         return self.__messenger()
 
     @messenger.setter
@@ -67,24 +69,28 @@ class ClientFacebook(CommonFacebook):
             if 'key' in meta:
                 return meta
         # query from DIM network
-        self.messenger.query_meta(identifier=identifier)
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_meta(identifier=identifier)
 
     def profile(self, identifier: ID) -> Optional[Profile]:
         # try from database
         profile = super().profile(identifier=identifier)
         if profile is not None:
             # check expired time
-            timestamp = time.time()
+            now = time.time()
             expires = profile.get(self.EXPIRES_KEY)
             if expires is None:
                 # set expired time
-                profile[self.EXPIRES_KEY] = timestamp + self.EXPIRES
+                profile[self.EXPIRES_KEY] = now + self.EXPIRES
                 # is empty?
                 if 'data' in profile:
                     return profile
-            elif expires > timestamp:
+            elif expires > now:
                 # not expired yet
                 return profile
         # query from DIM network
-        self.messenger.query_profile(identifier=identifier)
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_profile(identifier=identifier)
         return profile

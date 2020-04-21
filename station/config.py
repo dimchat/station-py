@@ -44,7 +44,7 @@ from dimsdk.ans import keywords as ans_keywords
 from libs.common import Log
 from libs.common import Database, AddressNameServer
 from libs.common import ChatBot, Tuling, XiaoI
-from libs.server import ServerFacebook, SessionServer, Server
+from libs.server import ServerFacebook, ServerMessenger, SessionServer, Server
 from libs.server import Dispatcher
 
 #
@@ -160,7 +160,20 @@ g_monitor.apns = g_apns
 g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
 g_receptionist.database = g_database
+g_receptionist.facebook = g_facebook
 g_receptionist.apns = g_apns
+
+
+"""
+    Messenger for Local Station
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ServerMessenger()
+g_messenger.barrack = g_facebook
+g_messenger.key_cache = g_keystore
+g_messenger.dispatcher = g_dispatcher
+g_messenger.context['database'] = g_database
+g_facebook.messenger = g_messenger
 
 
 """
@@ -301,6 +314,8 @@ g_facebook.local_users = local_servers
 g_facebook.current_user = current_station
 # set current station for key store
 g_keystore.user = current_station
+# set current station for dispatcher
+g_dispatcher.station = current_station
 # set current station for receptionist
 g_receptionist.station = current_station
 # set current station as the report sender
@@ -311,7 +326,7 @@ neighbors = neighbor_stations(identifier=current_station.identifier)
 Log.info('-------- loading neighbor stations: %d' % len(neighbors))
 for node in neighbors:
     Log.info('add node: %s' % node)
-    g_dispatcher.neighbors.append(node)
+    g_dispatcher.add_neighbor(station=node)
 
 # load admins for receiving system reports
 Log.info('-------- loading administrators: %d' % len(administrators))

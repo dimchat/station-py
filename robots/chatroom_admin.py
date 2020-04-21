@@ -41,9 +41,9 @@ from typing import Optional
 from dimsdk.dos import JSONFile
 
 from dimsdk import ID, EVERYONE
-from dimsdk import InstantMessage
+from dimsdk import InstantMessage, ReliableMessage
 from dimsdk import ContentType, Content, Command, TextContent
-from dimsdk import ForwardContent, ReceiptCommand, ProfileCommand
+from dimsdk import ForwardContent, ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -54,13 +54,15 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.common import Log
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
-from libs.client import ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_station
-from robots.config import g_database
-from robots.config import load_user, create_client
+from libs.client import Terminal, ClientMessenger
+
+from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import dims_connect
 from robots.config import chatroom_id
 from robots.config import chat_bot
+
+from etc.cfg_loader import load_user
 
 
 """
@@ -70,11 +72,9 @@ from robots.config import chat_bot
 g_messenger = ClientMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
-
+g_messenger.context['database'] = g_database
 # chat bot
 g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
-# current station
-g_messenger.set_context('station', g_station)
 
 g_facebook.messenger = g_messenger
 
@@ -90,7 +90,7 @@ class ReceiptCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
         return client.room.receipt(cmd=content, sender=sender)
 
@@ -103,7 +103,7 @@ class ForwardContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
         r_msg = content.forward
 
@@ -129,7 +129,7 @@ class ChatTextContentProcessor(TextContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
         res = client.room.receive(content=content, sender=sender)
         if res is not None:
@@ -456,9 +456,10 @@ class ChatRoom:
 
 if __name__ == '__main__':
 
-    user = load_user(chatroom_id)
-    client = create_client(user=user, messenger=g_messenger)
-    client.room = ChatRoom(client.messenger)
-    # profile
-    response = ProfileCommand.response(user.identifier, user.profile, user.meta)
-    client.messenger.send_command(cmd=response)
+    # set current user
+    g_facebook.current_user = load_user(chatroom_id, facebook=g_facebook)
+
+    # create client and connect to the station
+    client = Terminal()
+    client.room = ChatRoom(g_messenger)
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)

@@ -30,6 +30,7 @@
     Transform and send message
 """
 
+from abc import abstractmethod
 from typing import Optional, Union
 
 from dimp import Base64, sha256
@@ -113,12 +114,15 @@ class CommonMessenger(Messenger):
                     admins.append(owner)
             return self.query_group(group=group, users=admins)
 
+    @abstractmethod
     def query_meta(self, identifier: ID) -> bool:
         pass
 
+    @abstractmethod
     def query_profile(self, identifier: ID) -> bool:
         pass
 
+    @abstractmethod
     def query_group(self, group: ID, users: list) -> bool:
         pass
 
@@ -209,10 +213,9 @@ class CommonMessenger(Messenger):
             pass
 
     # Override
-    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
-        sender = self.facebook.identifier(string=msg.envelope.sender)
-        if self.__check_group(content=msg.content, sender=sender):
+    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+        if self.__check_group(content=content, sender=sender):
             # save this message in a queue to wait group meta response
             self.suspend_message(msg=msg)
             return None
-        return super().process_instant(msg=msg)
+        return super().process_content(content=content, sender=sender, msg=msg)

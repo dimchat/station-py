@@ -34,7 +34,7 @@ import json
 from socketserver import BaseRequestHandler
 from typing import Optional
 
-from dimp import User
+from dimp import User, NetworkID
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
@@ -89,6 +89,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             m.dispatcher = g_dispatcher
             m.delegate = self
             # set context
+            m.context['station'] = current_station
             m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
@@ -121,6 +122,8 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         if user is None:
             g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
+            if user.identifier.type == NetworkID.Station:
+                g_dispatcher.remove_neighbor(station=user)
             nickname = g_facebook.nickname(identifier=user.identifier)
             session = g_session_server.get(identifier=user.identifier, client_address=address)
             if session is None:
@@ -313,7 +316,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 self.info('ignore empty message')
                 continue
             try:
-                res = self.messenger.received_package(data=line)
+                res = self.messenger.process_package(data=line)
                 if res is None:
                     # station MUST respond something to client request
                     res = b''
@@ -386,5 +389,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         self.messenger.remote_user = user
         self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
+        if user.identifier.type == NetworkID.Station:
+            g_dispatcher.add_neighbor(station=user)
         # add the new guest for checking offline messages
         g_receptionist.add_guest(identifier=sender)

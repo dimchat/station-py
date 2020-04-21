@@ -10,9 +10,9 @@
 import os
 
 from dimp import ID, Meta, PrivateKey, Profile, User
-from dimsdk import Station, Facebook
+from dimsdk import Station
 
-from libs.common import Storage, Log, Server
+from libs.common import Storage, Log, Server, CommonFacebook
 
 etc = os.path.abspath(os.path.dirname(__file__))
 
@@ -26,10 +26,10 @@ etc = os.path.abspath(os.path.dirname(__file__))
 
 
 def load_station_info(identifier: ID, filename: str):
-    return Storage.read_json(path=os.path.join(etc, identifier.address, filename))
+    return Storage.read_json(path=os.path.join(etc, str(identifier.address), filename))
 
 
-def load_station(facebook: Facebook, identifier: str) -> Station:
+def load_station(identifier: str, facebook: CommonFacebook) -> Station:
     """ Load station info from 'etc' directory
 
         :param identifier - station ID
@@ -83,54 +83,21 @@ def load_station(facebook: Facebook, identifier: str) -> Station:
     return station
 
 
-def neighbor_stations(facebook: Facebook, identifier: str, all_stations: list) -> list:
-    """ Get neighbor stations for broadcast """
-    identifier = facebook.identifier(identifier)
-    count = len(all_stations)
-    if count <= 1:
-        # only 1 station, no neighbors
-        return []
-    # current station's position
-    pos = 0
-    for station in all_stations:
-        if station.identifier == identifier:
-            # got it
-            break
-        pos = pos + 1
-    assert pos < count, 'current station not found: %s, %s' % (identifier, all_stations)
-    array = []
-    # get left node
-    left = all_stations[pos - 1]
-    assert left.identifier != identifier, 'stations error: %s' % all_stations
-    array.append(left)
-    if count > 2:
-        # get right node
-        right = all_stations[(pos + 1) % count]
-        assert right.identifier != identifier, 'stations error: %s' % all_stations
-        assert right.identifier != left.identifier, 'stations error: %s' % all_stations
-        array.append(right)
-    return array
-
-
 #
 #  Info Loader
 #
 
 def load_robot_info(identifier: ID, filename: str) -> dict:
-    return Storage.read_json(path=os.path.join(etc, identifier.address, filename))
+    return Storage.read_json(path=os.path.join(etc, str(identifier.address), filename))
 
 
-"""
-    Client
-    ~~~~~~
-
-"""
-
-
-def load_user(facebook: Facebook, identifier: str) -> User:
+def load_user(identifier: str, facebook: CommonFacebook) -> User:
     identifier = facebook.identifier(identifier)
     # check meta
-    meta = facebook.meta(identifier=identifier)
+    try:
+        meta = facebook.meta(identifier=identifier)
+    except AssertionError:
+        meta = None
     if meta is None:
         # load from 'etc' directory
         meta = Meta(load_robot_info(identifier=identifier, filename='meta.js'))

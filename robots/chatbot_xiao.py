@@ -44,15 +44,18 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log
+from libs.common import Log, Storage
 
-from libs.client import ClientMessenger
+from libs.client import Terminal, ClientMessenger
 from libs.client import GroupManager
 
-from robots.config import g_facebook, g_keystore, g_station
-from robots.config import group_naruto, load_freshmen
-from robots.config import load_user, create_client
+from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import group_naruto
+from robots.config import dims_connect
 from robots.config import chat_bot, xiaoxiao_id
+
+from etc.cfg_loader import load_user
+from etc.cfg_bots import freshmen_file
 
 
 """
@@ -62,13 +65,29 @@ from robots.config import chat_bot, xiaoxiao_id
 g_messenger = ClientMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
-
+g_messenger.context['database'] = g_database
 # chat bot
 g_messenger.context['bots'] = [chat_bot('xiaoi')]
-# current station
-g_messenger.set_context('station', g_station)
 
 g_facebook.messenger = g_messenger
+
+
+def load_freshmen() -> list:
+    freshmen = []
+    text = Storage.read_text(path=freshmen_file)
+    if text is None:
+        return freshmen
+    array = text.splitlines()
+    for item in array:
+        identifier = g_facebook.identifier(item)
+        if identifier is None:
+            Log.error('ID error: %s' % item)
+        elif identifier.is_user:
+            freshmen.append(identifier)
+        else:
+            # Log.error('Not a user ID: %s' % identifier)
+            pass
+    return freshmen
 
 
 class FreshmenScanner(threading.Thread):
@@ -168,8 +187,13 @@ class FreshmenScanner(threading.Thread):
 
 if __name__ == '__main__':
 
-    user = load_user(xiaoxiao_id)
-    client = create_client(user=user, messenger=g_messenger)
+    # set current user
+    g_facebook.current_user = load_user(xiaoxiao_id, facebook=g_facebook)
+
+    # create client and connect to the station
+    client = Terminal()
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)
+
     # start scanner
     scanner = FreshmenScanner(messenger=g_messenger)
     scanner.start()

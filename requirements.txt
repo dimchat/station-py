@@ -3,4 +3,4 @@ base58==1.0.3
 pycryptodome==3.7.3
 apns2==0.4.1
 dimp
-dimsdk>=0.3.16
+dimsdk>=0.4.2

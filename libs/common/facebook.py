@@ -78,6 +78,7 @@ class CommonFacebook(Facebook):
     #
     #   super()
     #
+
     @property
     def local_users(self) -> Optional[list]:
         return self.__local_users
@@ -125,16 +126,18 @@ class CommonFacebook(Facebook):
     #
     #   SocialNetworkDataSource
     #
-    def identifier(self, string: str) -> Optional[ID]:
-        if string is None:
-            return None
-        if isinstance(string, ID):
-            return string
-        return super().identifier(string=string)
+
+    # def identifier(self, string: str) -> Optional[ID]:
+    #     if string is None:
+    #         return None
+    #     if isinstance(string, ID):
+    #         return string
+    #     return super().identifier(string=string)
 
     #
     #   EntityDataSource
     #
+
     def meta(self, identifier: ID) -> Optional[Meta]:
         info = self.database.meta(identifier=identifier)
         if info is not None:
@@ -150,6 +153,7 @@ class CommonFacebook(Facebook):
     #
     #   UserDataSource
     #
+
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
         key = self.database.private_key(identifier=identifier)
         if key is not None:
@@ -178,8 +182,9 @@ class CommonFacebook(Facebook):
         return array
 
     #
-    #    IGroupDataSource
+    #    GroupDataSource
     #
+
     def founder(self, identifier: ID) -> ID:
         # get from database
         user = self.database.founder(group=identifier)

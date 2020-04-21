@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -25,48 +24,32 @@
 # ==============================================================================
 
 """
-    Chat bot: 'LingLing'
-    ~~~~~~~~~~~~~~~~~~~~
-
-    Chat bot powered by Tuling
-"""
-
-import sys
-import os
-
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
-
-from libs.client import Terminal, ClientMessenger
-
-from robots.config import g_facebook, g_keystore, g_database, g_station
-from robots.config import dims_connect
-from robots.config import chat_bot, lingling_id
-
-from etc.cfg_loader import load_user
-
-
-"""
-    Messenger for Chat Bot client
+    Command Processor for 'login'
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    login protocol
 """
-g_messenger = ClientMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_messenger.context['database'] = g_database
-# chat bot
-g_messenger.context['bots'] = [chat_bot('tuling')]
 
-g_facebook.messenger = g_messenger
+from typing import Optional
+
+from dimp import ID
+from dimp import ReliableMessage
+from dimp import Content, Command
+from dimsdk import LoginCommand
+from dimsdk import CommandProcessor
 
 
-if __name__ == '__main__':
+class LoginCommandProcessor(CommandProcessor):
 
-    # set current user
-    g_facebook.current_user = load_user(lingling_id, facebook=g_facebook)
+    #
+    #   main
+    #
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(content, LoginCommand), 'command error: %s' % content
+        # self.info('login command: %s' % content)
+        # return ReceiptCommand.new(message='Login received')
+        return None
 
-    # create client and connect to the station
-    client = Terminal()
-    dims_connect(terminal=client, messenger=g_messenger, station=g_station)
+
+# register
+CommandProcessor.register(command=Command.LOGIN, processor_class=LoginCommandProcessor)

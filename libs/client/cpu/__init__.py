@@ -31,10 +31,12 @@
 """
 
 from .handshake import HandshakeCommandProcessor, HandshakeDelegate
+from .login import LoginCommandProcessor
 from .search import SearchCommandProcessor, UsersCommandProcessor
 
 __all__ = [
     'HandshakeCommandProcessor', 'HandshakeDelegate',
+    'LoginCommandProcessor',
     'SearchCommandProcessor',
     'UsersCommandProcessor',
 ]

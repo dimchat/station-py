@@ -31,7 +31,7 @@
 """
 
 from dimp import ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, MuteCommand
@@ -68,7 +68,7 @@ class MuteCommandProcessor(CommandProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Content:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
         assert isinstance(content, MuteCommand), 'command error: %s' % content
         if 'list' in content:
             # upload mute-list, save it

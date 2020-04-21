@@ -33,12 +33,11 @@
 import time
 from typing import Optional, Union
 
-from dimp import ID
+from dimp import ID, EVERYONE
 from dimp import InstantMessage, ReliableMessage
-from dimp import Command, MetaCommand, ProfileCommand
-from dimp import HandshakeCommand
+from dimp import Content, Command, MetaCommand, ProfileCommand
 from dimp import GroupCommand
-
+from dimsdk import HandshakeCommand
 from dimsdk import Station
 
 from libs.common import CommonMessenger
@@ -48,10 +47,11 @@ from .facebook import ClientFacebook
 
 class ClientMessenger(CommonMessenger):
 
-    EXPIRES = 300  # query expires (5 minutes)
+    EXPIRES = 600  # query expires (10 minutes)
 
     def __init__(self):
         super().__init__()
+        # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
@@ -68,10 +68,13 @@ class ClientMessenger(CommonMessenger):
     def station(self) -> Station:
         return self.get_context('station')
 
+    def broadcast_content(self, content: Content) -> bool:
+        return self.send_content(content=content, receiver=EVERYONE)
+
     #
     #   Command
     #
-    def send_command(self, cmd: Command):
+    def __send_command(self, cmd: Command) -> bool:
         station = self.station
         if station is None:
             raise ValueError('current station not set')
@@ -85,7 +88,7 @@ class ClientMessenger(CommonMessenger):
         self.__meta_queries[identifier] = now
         # query from DIM network
         cmd = MetaCommand.new(identifier=identifier)
-        return self.send_command(cmd=cmd)
+        return self.__send_command(cmd=cmd)
 
     def query_profile(self, identifier: ID) -> bool:
         now = time.time()
@@ -95,7 +98,7 @@ class ClientMessenger(CommonMessenger):
         self.__profile_queries[identifier] = now
         # query from DIM network
         cmd = ProfileCommand.new(identifier=identifier)
-        return self.send_command(cmd=cmd)
+        return self.__send_command(cmd=cmd)
 
     # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: list) -> bool:
@@ -130,20 +133,26 @@ class ClientMessenger(CommonMessenger):
             pass
 
     # Override
-    def process_instant(self, msg: InstantMessage) -> Optional[InstantMessage]:
-        i_msg = super().process_instant(msg=msg)
-        if i_msg is None:
+    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+        res = super().process_content(content=content, sender=sender, msg=msg)
+        if res is None:
             # respond nothing
             return None
-        if isinstance(i_msg.content, HandshakeCommand):
+        if isinstance(res, HandshakeCommand):
             # urgent command
-            return i_msg
+            return res
         # if isinstance(i_msg.content, ReceiptCommand):
         #     receiver = self.barrack.identifier(msg.envelope.receiver)
         #     if receiver.type == NetworkID.Station:
         #         # no need to respond receipt to station
         #         return None
 
+        # check receiver
+        receiver = self.facebook.identifier(msg.envelope.receiver)
+        user = self._select(receiver=receiver)
+        assert user is not None, 'receiver error: %s' % receiver
+        # pack message
+        i_msg = InstantMessage.new(content=res, sender=user.identifier, receiver=sender)
         # normal response
         self.send_message(msg=i_msg, callback=None, split=False)
         # DON'T respond to station directly

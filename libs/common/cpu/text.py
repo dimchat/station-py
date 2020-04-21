@@ -34,7 +34,7 @@ from typing import Optional
 from urllib.error import URLError
 
 from dimp import NetworkID, ID
-from dimp import InstantMessage
+from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
@@ -78,7 +78,7 @@ class TextContentProcessor(ContentProcessor):
         except URLError as error:
             self.error('%s' % error)
 
-    def __ignored(self, content: Content, sender: ID, msg: InstantMessage) -> bool:
+    def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
         # check robot
         if sender.type in [NetworkID.Robot, NetworkID.Station]:
             # self.info('Dialog > ignore message from another robot: %s' % msg.content)
@@ -110,7 +110,7 @@ class TextContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         nickname = self.facebook.nickname(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):

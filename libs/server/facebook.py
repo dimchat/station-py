@@ -30,10 +30,69 @@
     Barrack for cache entities
 """
 
+import time
+import weakref
+from typing import Optional
+
+from dimp import ID, Meta, Profile
+
 from libs.common import CommonFacebook
 
 
 class ServerFacebook(CommonFacebook):
 
+    EXPIRES = 3600  # profile expires (1 hour)
+    EXPIRES_KEY = 'expires'
+
     def __init__(self):
         super().__init__()
+        self.__messenger = None
+
+    @property
+    def messenger(self):  # ServerMessenger
+        if self.__messenger is None:
+            return None
+        return self.__messenger()
+
+    @messenger.setter
+    def messenger(self, value):
+        self.__messenger = weakref.ref(value)
+
+    def meta(self, identifier: ID) -> Optional[Meta]:
+        if identifier.is_broadcast:
+            # broadcast ID has not meta
+            return None
+        # try from database
+        meta = super().meta(identifier=identifier)
+        if meta is not None:
+            # is empty?
+            if 'key' in meta:
+                return meta
+        # query from DIM network
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_meta(identifier=identifier)
+
+    def profile(self, identifier: ID) -> Optional[Profile]:
+        # try from database
+        profile = super().profile(identifier=identifier)
+        if profile is not None:
+            # check expired time
+            now = time.time()
+            expires = profile.get(self.EXPIRES_KEY)
+            if expires is None:
+                # set expired time
+                profile[self.EXPIRES_KEY] = now + self.EXPIRES
+                # is empty?
+                if 'data' in profile:
+                    return profile
+            elif expires > now:
+                # not expired yet
+                return profile
+            # DISCUSS: broadcast profile to every stations when user upload it
+            #          no need to query other stations time by time
+        # query from DIM network
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_profile(identifier=identifier)
+        return profile

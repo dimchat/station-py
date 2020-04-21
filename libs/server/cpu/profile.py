@@ -24,8 +24,8 @@
 # ==============================================================================
 
 """
-    Image Content Processor
-    ~~~~~~~~~~~~~~~~~~~~~~~
+    Profile Command Processor
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 """
 
@@ -33,33 +33,44 @@ from typing import Optional
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import Content, ContentType
-from dimp import ImageContent
-from dimsdk import ContentProcessor
+from dimp import Content
+from dimp import ForwardContent, Command, ProfileCommand
 
-from ..utils import Log
+from dimsdk import CommandProcessor
+from dimsdk import ProfileCommandProcessor as SuperCommandProcessor
+
+from ...common import Database
 
 
-class ImageContentProcessor(ContentProcessor):
+class ProfileCommandProcessor(SuperCommandProcessor):
 
-    def __init__(self, messenger):
-        super().__init__(messenger=messenger)
+    @property
+    def database(self) -> Database:
+        return self.get_context('database')
 
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+    def __check_login(self, cmd: ProfileCommand, sender: ID) -> bool:
+        profile = cmd.profile
+        if profile is not None:
+            # this command is submitting profile, not querying
+            return False
+        # respond login message when querying profile
+        identifier = self.facebook.identifier(cmd.identifier)
+        msg = self.database.login_message(identifier=identifier)
+        if msg is None:
+            # login message not found
+            return False
+        cmd = ForwardContent.new(message=msg)
+        return self.messenger.send_content(content=cmd, receiver=sender)
 
     #
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ImageContent), 'image content error: %s' % content
-        nickname = self.facebook.nickname(identifier=sender)
-        self.info('Received image message from %s: %s' % (nickname, content))
-        return None
+        assert isinstance(content, ProfileCommand), 'command error: %s' % content
+        res = super().process(content=content, sender=sender, msg=msg)
+        self.__check_login(cmd=content, sender=sender)
+        return res
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Image, processor_class=ImageContentProcessor)
+CommandProcessor.register(command=Command.PROFILE, processor_class=ProfileCommandProcessor)

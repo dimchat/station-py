@@ -48,11 +48,13 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.common import Storage
 
-from libs.client import ClientMessenger
+from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_station, g_database
-from robots.config import load_user, create_client
+from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import dims_connect
 from robots.config import chat_bot, assistant_id
+
+from etc.cfg_loader import load_user
 
 
 def current_time() -> str:
@@ -160,13 +162,14 @@ class AssistantMessenger(ClientMessenger):
         print('[%s] ERROR - Storage > %s' % (current_time(), msg))
 
     # Override
-    def process_reliable(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = g_facebook.identifier(string=msg.envelope.receiver)
         if receiver.is_group:
+            # FIXME: check group meta/profile
             # process group message
             return self.__process_group_message(msg=msg)
         # try to decrypt and process message
-        return super().process_reliable(msg=msg)
+        return super().process_message(msg=msg)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """
@@ -279,16 +282,18 @@ class AssistantMessenger(ClientMessenger):
 g_messenger = AssistantMessenger()
 g_messenger.barrack = g_facebook
 g_messenger.key_cache = g_keystore
-
+g_messenger.context['database'] = g_database
 # chat bot
 g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
-# current station
-g_messenger.set_context('station', g_station)
 
 g_facebook.messenger = g_messenger
 
 
 if __name__ == '__main__':
 
-    user = load_user(assistant_id)
-    client = create_client(user=user, messenger=g_messenger)
+    # set current user
+    g_facebook.current_user = load_user(assistant_id, facebook=g_facebook)
+
+    # create client and connect to the station
+    client = Terminal()
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)

@@ -32,13 +32,10 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage
-from dimp import Content
-from dimp import Command
+from dimp import ReliableMessage
+from dimp import Content, Command
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
-
-from ..utils import Log
 
 
 class ReceiptCommandProcessor(CommandProcessor):
@@ -46,16 +43,10 @@ class ReceiptCommandProcessor(CommandProcessor):
     def __init__(self, messenger):
         super().__init__(messenger=messenger)
 
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
-
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: InstantMessage) -> Optional[Content]:
+    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ReceiptCommand), 'text content error: %s' % content
         # nickname = self.facebook.nickname(identifier=sender)
         # self.info('Received receipt message from %s (%s)' % (nickname, sender))
