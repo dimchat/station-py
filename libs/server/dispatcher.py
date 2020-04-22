@@ -31,6 +31,7 @@
 """
 
 import time
+from threading import Thread
 from typing import Optional, Union
 
 from dimp import ID
@@ -40,22 +41,24 @@ from dimsdk import Station
 from dimsdk import ReceiptCommand
 from dimsdk import ApplePushNotificationService
 
+from ..common import Server
 from ..common import Database, CommonFacebook
 from ..common import Log
 
 from .session import SessionServer
 
 
-class Dispatcher:
+class Dispatcher(Thread):
 
     def __init__(self):
         super().__init__()
         self.database: Database = None
         self.facebook: CommonFacebook = None
-        self.station: Station = None
+        self.station: Server = None
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
-        self.__neighbors: list = []  # ID list
+        self.__neighbors: list = []     # ID list
+        self.__waiting_list: list = []  # ReliableMessage list
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -70,6 +73,7 @@ class Dispatcher:
             assert isinstance(station, ID), 'station ID error: %s' % station
         if station == self.station.identifier:
             return False
+        # FIXME: thread safe
         if station in self.__neighbors:
             return False
         self.__neighbors.append(station)
@@ -80,8 +84,15 @@ class Dispatcher:
             station = station.identifier
         else:
             assert isinstance(station, ID), 'station ID error: %s' % station
+        # FIXME: thread safe
         if station in self.__neighbors:
             self.__neighbors.remove(station)
+
+    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+        # FIXME: thread safe
+        self.__waiting_list.append(msg)
+        # response
+        return self.__receipt(message='Message delivering', msg=msg)
 
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:
@@ -206,7 +217,34 @@ class Dispatcher:
             sessions = None
         return sessions
 
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
+        if msg_type == 0:
+            something = 'a message'
+        elif msg_type == ContentType.Text:
+            something = 'a text message'
+        elif msg_type == ContentType.File:
+            something = 'a file'
+        elif msg_type == ContentType.Image:
+            something = 'an image'
+        elif msg_type == ContentType.Audio:
+            something = 'a voice message'
+        elif msg_type == ContentType.Video:
+            something = 'a video'
+        else:
+            self.info('ignore msg type: %d' % msg_type)
+            return False
+        from_name = self.facebook.nickname(identifier=sender)
+        to_name = self.facebook.nickname(identifier=receiver)
+        text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
+        # check group
+        if group is not None:
+            # group message
+            text += ' in group [%s]' % self.facebook.group_name(identifier=group)
+        # push it
+        self.info('APNs message: %s' % text)
+        return self.apns.push(identifier=receiver, message=text)
+
+    def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver
         receiver = self.facebook.identifier(msg.envelope.receiver)
         if receiver.is_group:
@@ -246,32 +284,29 @@ class Dispatcher:
             if msg_type is None:
                 msg_type = 0
             self.__push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
-        # response
-        return self.__receipt(message='Message delivering', msg=msg)
 
-    def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
-        if msg_type == 0:
-            something = 'a message'
-        elif msg_type == ContentType.Text:
-            something = 'a text message'
-        elif msg_type == ContentType.File:
-            something = 'a file'
-        elif msg_type == ContentType.Image:
-            something = 'an image'
-        elif msg_type == ContentType.Audio:
-            something = 'a voice message'
-        elif msg_type == ContentType.Video:
-            something = 'a video'
-        else:
-            self.info('ignore msg type: %d' % msg_type)
-            return False
-        from_name = self.facebook.nickname(identifier=sender)
-        to_name = self.facebook.nickname(identifier=receiver)
-        text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
-        # check group
-        if group is not None:
-            # group message
-            text += ' in group [%s]' % self.facebook.group_name(identifier=group)
-        # push it
-        self.info('APNs message: %s' % text)
-        return self.apns.push(identifier=receiver, message=text)
+    #
+    #   Run Loop
+    #
+    def __run_unsafe(self):
+        if len(self.__waiting_list) == 0:
+            time.sleep(0.1)
+            return
+        msg = self.__waiting_list.pop(0)
+        res = self.__deliver(msg=msg)
+        if res is not None:
+            # TODO: respond the deliver result to the sender
+            pass
+
+    def run(self):
+        self.info('dispatcher starting...')
+        while self.station.running:
+            # noinspection PyBroadException
+            try:
+                self.__run_unsafe()
+            except Exception as error:
+                self.error('dispatcher error: %s' % error)
+            finally:
+                # sleep for next loop
+                time.sleep(0.1)
+        self.info('dispatcher exit!')

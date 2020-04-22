@@ -64,15 +64,19 @@ class Receptionist(Thread):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def add_guest(self, identifier: ID):
+        # FIXME: thread safe
         self.guests.append(identifier)
 
     def remove_guest(self, identifier: ID):
+        # FIXME: thread safe
         self.guests.remove(identifier)
 
     def add_roamer(self, identifier: ID):
+        # FIXME: thread safe
         self.roamers.append(identifier)
 
     def remove_roamer(self, identifier: ID):
+        # FIXME: thread safe
         self.roamers.remove(identifier)
 
     #
@@ -250,7 +254,7 @@ class Receptionist(Thread):
             self.error('value error %s' % error)
         finally:
             # sleep for next loop
-            time.sleep(0.01)
+            time.sleep(0.1)
         # process roamers
         try:
             self.__process_roamers(roamers=self.roamers.copy())
@@ -264,17 +268,17 @@ class Receptionist(Thread):
             self.error('value error %s' % error)
         finally:
             # sleep for next loop
-            time.sleep(0.01)
+            time.sleep(0.1)
 
     def run(self):
-        self.info('starting...')
+        self.info('receptionist starting...')
         while self.station.running:
             # noinspection PyBroadException
             try:
                 self.__run_unsafe()
             except Exception as error:
-                self.error('Exception: %s' % error)
+                self.error('receptionist error: %s' % error)
             finally:
                 # sleep for next loop
-                time.sleep(0.01)
-        self.info('exit!')
+                time.sleep(0.1)
+        self.info('receptionist exit!')
