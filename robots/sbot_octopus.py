@@ -212,11 +212,22 @@ class Octopus:
         res.group = msg.envelope.group
         return self.__pack_message(content=res, receiver=sender)
 
+    def __traced(self, msg: ReliableMessage, station: Station) -> bool:
+        sid = station.identifier
+        traces = msg.get('traces')
+        if traces is not None:
+            for node in traces:
+                if isinstance(node, str):
+                    return sid == node
+                elif isinstance(node, dict):
+                    return sid == node.get('ID')
+                else:
+                    self.error('traces node error: %s' % node)
+
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         sid = g_station.identifier
-        traces = msg.get('traces')
-        if traces is not None and sid in traces:
-            self.info('current station %s in traces list: %s, ignore this message' % (sid, traces))
+        if self.__traced(msg=msg, station=g_station):
+            self.info('current station %s in traces list, ignore this message: %s' % (sid, msg))
             return None
         if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to send income message: %s' % msg)

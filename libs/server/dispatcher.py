@@ -92,8 +92,7 @@ class Dispatcher:
                 receipt[key] = value
         return receipt
 
-    @staticmethod
-    def __traced(msg: ReliableMessage, station: Station) -> bool:
+    def __traced(self, msg: ReliableMessage, station: Station) -> bool:
         sid = station.identifier
         traces = msg.get('traces')
         if traces is None:
@@ -107,6 +106,8 @@ class Dispatcher:
                 elif isinstance(node, dict):
                     if sid == node.get('ID'):
                         return True
+                else:
+                    self.error('traces node error: %s' % node)
             # broadcast message go through here
             traces.append(sid)
         msg['traces'] = traces
