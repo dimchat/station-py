@@ -289,14 +289,12 @@ class Dispatcher(Thread):
     #   Run Loop
     #
     def __run_unsafe(self):
-        if len(self.__waiting_list) == 0:
-            time.sleep(0.1)
-            return
-        msg = self.__waiting_list.pop(0)
-        res = self.__deliver(msg=msg)
-        if res is not None:
-            # TODO: respond the deliver result to the sender
-            pass
+        while len(self.__waiting_list) > 0:
+            msg = self.__waiting_list.pop(0)
+            res = self.__deliver(msg=msg)
+            if res is not None:
+                # TODO: respond the deliver result to the sender
+                pass
 
     def run(self):
         self.info('dispatcher starting...')
