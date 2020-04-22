@@ -34,26 +34,24 @@ import os
 import threading
 import time
 
-from dimp import Group
-from dimp import TextContent, ProfileCommand, HandshakeCommand, InstantMessage
+from dimp import TextContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Storage
-from libs.common import Log
+from libs.common import Log, Storage
 
-from libs.client import ClientMessenger
-from libs.client import GroupManager
+from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_station
-from robots.config import load_freshmen
-from robots.config import load_user, create_client
+from robots.config import dims_connect
 from robots.config import chat_bot, tokentalkteam_id
 
+from etc.cfg_loader import load_user
 
+from robots.chatbot_xiao import load_freshmen
 """
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -172,8 +170,13 @@ class FreshmenScanner(threading.Thread):
 
 if __name__ == '__main__':
 
-    user = load_user(tokentalkteam_id)
-    client = create_client(user=user, messenger=g_messenger)
+    # set current user
+    g_facebook.current_user = load_user(tokentalkteam_id, facebook=g_facebook)
+
+    # create client and connect to the station
+    client = Terminal()
+    dims_connect(terminal=client, messenger=g_messenger, station=g_station)
+
     # start scanner
     scanner = FreshmenScanner(messenger=g_messenger)
     scanner.start()
