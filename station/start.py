@@ -44,13 +44,14 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.common import Log
 
 from station.handler import RequestHandler
-from station.config import g_receptionist, current_station
+from station.config import g_receptionist, g_dispatcher, current_station
 
 
 if __name__ == '__main__':
 
     current_station.running = True
     g_receptionist.start()
+    g_dispatcher.start()
 
     # start TCP Server
     try:

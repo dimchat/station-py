@@ -36,7 +36,7 @@ import os
 import threading
 import time
 
-from dimp import Group
+from dimp import NetworkID, Group
 from dimp import TextContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -82,7 +82,7 @@ def load_freshmen() -> list:
         identifier = g_facebook.identifier(item)
         if identifier is None:
             Log.error('ID error: %s' % item)
-        elif identifier.is_user:
+        elif identifier.type == NetworkID.Main.value:
             freshmen.append(identifier)
         else:
             # Log.error('Not a user ID: %s' % identifier)
