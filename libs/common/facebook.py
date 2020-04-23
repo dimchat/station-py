@@ -30,11 +30,12 @@
     Barrack for cache entities
 """
 
+import weakref
 from typing import Optional
 
 from dimp import PrivateKey, SignKey
 from dimp import ID, Meta, Profile, User
-from dimsdk import Facebook
+from dimsdk import AddressNameService, Facebook
 from dimsdk.immortals import Immortals
 
 from .database import Database
@@ -51,11 +52,33 @@ class CommonFacebook(Facebook):
     def __init__(self):
         super().__init__()
         self.database: Database = None
+        self.__ans: weakref.ReferenceType = None
         # built-in accounts
         #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
         #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
         self.__immortals = Immortals()
         self.__local_users = None
+
+    @property
+    def ans(self) -> Optional[AddressNameService]:
+        if self.__ans is not None:
+            return self.__ans()
+
+    @ans.setter
+    def ans(self, value: AddressNameService):
+        self.__ans = weakref.ref(value)
+
+    def ans_get(self, name: str) -> Optional[ID]:
+        ans = self.ans
+        if ans is not None:
+            return ans.identifier(name=name)
+
+    def create_identifier(self, string: str) -> ID:
+        # try from ANS record
+        identifier = self.ans_get(name=string)
+        if identifier is not None:
+            return identifier
+        return super().create_identifier(string=string)
 
     def nickname(self, identifier: ID) -> str:
         assert identifier.is_user, 'user ID error: %s' % identifier
@@ -216,6 +239,6 @@ class CommonFacebook(Facebook):
 
     def assistants(self, identifier: ID) -> Optional[list]:
         assert identifier.is_group, 'group ID error: %s' % identifier
-        robot = self.ans.identifier(name='assistant')
+        robot = self.ans_get(name='assistant')
         if robot is not None:
             return [robot]

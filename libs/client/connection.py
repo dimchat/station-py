@@ -145,7 +145,7 @@ class Connection(threading.Thread, MessengerDelegate):
         self.__address = address
         self.__sock = sock
         self.__connected = True
-        self.info('DIM Station %s connected.' % server)
+        self.info('DIM Station (%s:%d) connected.' % address)
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
