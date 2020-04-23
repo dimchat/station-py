@@ -289,6 +289,7 @@ class Dispatcher(Thread):
     #   Run Loop
     #
     def __run_unsafe(self):
+        # FIXME: thread safe
         while len(self.__waiting_list) > 0:
             msg = self.__waiting_list.pop(0)
             res = self.__deliver(msg=msg)
