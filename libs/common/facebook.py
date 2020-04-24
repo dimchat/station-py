@@ -58,6 +58,7 @@ class CommonFacebook(Facebook):
         #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
         self.__immortals = Immortals()
         self.__local_users = None
+        self.group_assistants = None  # robot ID list
 
     @property
     def ans(self) -> Optional[AddressNameService]:
@@ -239,6 +240,11 @@ class CommonFacebook(Facebook):
 
     def assistants(self, identifier: ID) -> Optional[list]:
         assert identifier.is_group, 'group ID error: %s' % identifier
+        # get group assistants
+        robots = self.group_assistants
+        if robots is not None:
+            return robots
+        # get from ANS
         robot = self.ans_get(name='assistant')
         if robot is not None:
             return [robot]
