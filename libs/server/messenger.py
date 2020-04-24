@@ -126,7 +126,7 @@ class ServerMessenger(CommonMessenger):
                 # and continue to process it with the station.
                 # because this station is also a recipient too.
                 if res is not None:
-                    self.send_message(msg=res, callback=None, split=False)
+                    self.send_message(msg=res, callback=None)
             else:
                 # or, this is is an ordinary group message,
                 # just deliver it to the group assistant
