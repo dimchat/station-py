@@ -141,7 +141,9 @@ class FreshmenScanner(threading.Thread):
             # self.messenger.send_message(msg=msg)
             # time.sleep(3)
             content = TextContent.new(text=msgText)
-            self.messenger.send_content(content=content, receiver=item)
+            meta = g_facebook.meta(item)
+            if meta.seed == 'dim':
+                self.messenger.send_content(content=content, receiver=item)
             self.save_oldmen(item)
 
     def __run_unsafe(self):
