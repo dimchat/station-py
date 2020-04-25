@@ -154,10 +154,9 @@ class Connection(threading.Thread, MessengerDelegate):
         self.start()
 
     def reconnect(self) -> Optional[socket.error]:
-        # disconnected
-        if self.__sock is not None:
-            self.__sock.close()
-            self.__sock = None
+        # disconnect
+        if self.__connected:
+            self.disconnect()
             time.sleep(2)
         # connect to same station
         return self.connect(server=self.__address)
@@ -208,7 +207,7 @@ class Connection(threading.Thread, MessengerDelegate):
             if error is not None:
                 # failed
                 self.error('failed to send data again: %s' % error)
-                self.__connected = False
+                self.disconnect()
                 return error
         # send OK, record the current time
         self.__last_time = int(time.time())
@@ -226,7 +225,7 @@ class Connection(threading.Thread, MessengerDelegate):
             if data is None:
                 # failed
                 self.error('failed to receive data again')
-                self.__connected = False
+                self.disconnect()
                 return b''
         if len(data) > len(last):
             # receive OK, record the current time
