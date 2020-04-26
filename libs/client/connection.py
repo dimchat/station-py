@@ -175,6 +175,9 @@ class Connection(threading.Thread, MessengerDelegate):
     #
     def __receive(self, data: bytes=b'') -> Optional[bytes]:
         while True:
+            if self.__sock is None:
+                self.disconnect()
+                break
             try:
                 part = self.__sock.recv(1024)
             except socket.error as error:
@@ -188,6 +191,9 @@ class Connection(threading.Thread, MessengerDelegate):
         return data
 
     def __send(self, data: bytes) -> Optional[socket.error]:
+        if self.__sock is None:
+            self.disconnect()
+            return socket.error('socket not connect')
         try:
             self.__sock.sendall(data)
         except socket.error as error:

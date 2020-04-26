@@ -165,12 +165,47 @@ class Octopus:
         self.__neighbors.append(station)
         return True
 
+    def __get_client(self, identifier: ID) -> Terminal:
+        client = self.__clients.get(identifier)
+        if client is None:
+            if identifier == g_station.identifier:
+                messenger = g_messenger
+                station = g_station
+            else:
+                messenger = OuterMessenger()
+                messenger.barrack = g_facebook
+                messenger.key_cache = g_keystore
+                messenger.context['database'] = g_database
+                # client for remote station
+                station = load_station(identifier=identifier, facebook=g_facebook)
+                assert isinstance(station, Station), 'station error: %s' % identifier
+            # create client for station with octopus and messenger
+            client = OctopusClient()
+            client.octopus = octopus
+            dims_connect(terminal=client, messenger=messenger, station=station)
+            self.__clients[identifier] = client
+        return client
+
+    def __remove_client(self, identifier: ID):
+        client = self.__clients.get(identifier)
+        if client is not None:
+            client.octopus = None
+            client.messenger = None
+            client.station = None
+            self.__clients.pop(identifier)
+
     def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:
-        client = self.__clients.get(neighbor)
+        client = self.__get_client(identifier=neighbor)
         if client is None:
             self.error('neighbor station %s not connected' % neighbor)
             return False
-        return client.messenger.send_message(msg=msg)
+        if client.messenger.send_message(msg=msg):
+            # send message OK
+            return True
+        else:
+            self.error('failed to deliver message, remove the bridge: %s' % neighbor)
+            self.__remove_client(identifier=neighbor)
+            return False
 
     def __pack_message(self, content: Content, receiver: ID) -> Optional[ReliableMessage]:
         sender = g_station.identifier
@@ -278,26 +313,13 @@ class Octopus:
         #
         #   Local Station
         #
-        client = OctopusClient()
-        client.octopus = octopus
-        dims_connect(terminal=client, messenger=g_messenger, station=g_station)
-        self.__clients[g_station.identifier] = client
+        self.__get_client(identifier=g_station.identifier)
         #
         #   Remote Stations
         #
         neighbors = self.__neighbors.copy()
         for sid in neighbors:
-            messenger = OuterMessenger()
-            messenger.barrack = g_facebook
-            messenger.key_cache = g_keystore
-            messenger.context['database'] = g_database
-            # client for remote station
-            station = load_station(identifier=sid, facebook=g_facebook)
-            assert isinstance(station, Station), 'station error: %s' % sid
-            client = OctopusClient()
-            client.octopus = octopus
-            dims_connect(terminal=client, messenger=messenger, station=station)
-            self.__clients[sid] = client
+            self.__get_client(identifier=sid)
 
 
 """
