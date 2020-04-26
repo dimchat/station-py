@@ -36,7 +36,7 @@ tokentalkteam_id = 'dim@2PgnEapXC3QLwoet4cugYh7rD7UdcbPyEqm'
 #  DIM system bots
 #
 
-assistant_id = 'assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS'
+group_assistants = ['assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS']
 
 #
 #  DIM demo
