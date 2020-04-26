@@ -49,9 +49,10 @@ from libs.client import Terminal, ClientMessenger, ClientFacebook
 #
 from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_gsp import station_id, all_stations
+from etc.cfg_bots import group_assistants
 from etc.cfg_bots import group_naruto
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
-from etc.cfg_bots import lingling_id, xiaoxiao_id, assistant_id, chatroom_id, tokentalkteam_id
+from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id, tokentalkteam_id
 
 from etc.cfg_loader import load_robot_info, load_station
 
@@ -217,16 +218,21 @@ all_stations = [load_station(identifier=item, facebook=g_facebook) for item in a
 Log.info('-------- loading group contains all users')
 load_naruto()
 
+# convert robot IDs
+Log.info('-------- robots')
+
+group_assistants = [g_facebook.identifier(string=item) for item in group_assistants]
+Log.info('Group assistants: %s' % group_assistants)
+g_facebook.group_assistants = group_assistants
+
 lingling_id = g_facebook.identifier(string=lingling_id)
 xiaoxiao_id = g_facebook.identifier(string=xiaoxiao_id)
-assistant_id = g_facebook.identifier(string=assistant_id)
 chatroom_id = g_facebook.identifier(string=chatroom_id)
 tokentalkteam_id = g_facebook.identifier(string=tokentalkteam_id)
 
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)
 Log.info('Chat bot: %s' % tokentalkteam_id)
-Log.info('DIM bot: %s' % assistant_id)
 Log.info('Chatroom: %s' % chatroom_id)
 
 Log.info('======== configuration OK!')

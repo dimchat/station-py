@@ -75,13 +75,13 @@ class GroupManager:
             self.messenger.query_group(group=self.group, users=assistants)
             return False
         # let group assistant to split and deliver this message to all members
-        return self.messenger.send_content(content=content, receiver=self.group, callback=None, split=False)
+        return self.messenger.send_content(content=content, receiver=self.group, callback=None)
 
     def __send_group_command(self, cmd: Command, members: list) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
-            if not messenger.send_content(content=cmd, receiver=identifier, callback=None, split=False):
+            if not messenger.send_content(content=cmd, receiver=identifier, callback=None):
                 ok = False
         return ok
 

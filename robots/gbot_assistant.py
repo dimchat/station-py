@@ -52,7 +52,7 @@ from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_keystore, g_database, g_station
 from robots.config import dims_connect
-from robots.config import chat_bot, assistant_id
+from robots.config import chat_bot, group_assistants
 
 from etc.cfg_loader import load_user
 
@@ -292,7 +292,7 @@ g_facebook.messenger = g_messenger
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(assistant_id, facebook=g_facebook)
+    g_facebook.current_user = load_user(group_assistants[0], facebook=g_facebook)
 
     # create client and connect to the station
     client = Terminal()

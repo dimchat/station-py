@@ -154,6 +154,6 @@ class ClientMessenger(CommonMessenger):
         # pack message
         i_msg = InstantMessage.new(content=res, sender=user.identifier, receiver=sender)
         # normal response
-        self.send_message(msg=i_msg, callback=None, split=False)
+        self.send_message(msg=i_msg, callback=None)
         # DON'T respond to station directly
         return None

@@ -122,8 +122,8 @@ class Terminal(HandshakeDelegate):
     #   HandshakeDelegate (Client)
     #
     def handshake_success(self):
-        self.info('handshake success')
         user = self.facebook.current_user
+        self.info('handshake success: %s' % user.identifier)
         if isinstance(user, Station):
             return None
         # post current profile to station

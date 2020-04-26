@@ -85,7 +85,7 @@ class Connection(threading.Thread, MessengerDelegate):
                 continue
             # receive all data
             remaining_length = len(data)
-            data = self.receive(data=data)
+            data = self.receive(last=data)
             if len(data) == remaining_length:
                 self.info('no more data, remaining=%d' % remaining_length)
                 time.sleep(0.5)
@@ -114,7 +114,7 @@ class Connection(threading.Thread, MessengerDelegate):
                 if res is not None:
                     pack = pack + res + b'\n'
             except Exception as error:
-                self.error('receive package error: %s' % error)
+                self.error('failed to process package (%s): %s' % (error, line))
                 traceback.print_exc()
         if len(pack) > 0:
             self.send(data=pack)
@@ -129,18 +129,23 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, server: Union[Station, tuple]):
+    def connect(self, server: Union[Station, tuple]) -> Optional[socket.error]:
         # connect to new socket (host:port)
         if isinstance(server, Station):
             address = (server.host, server.port)
         else:
             address = server
         self.info('Connecting: (%s:%d) ...' % address)
+        sock = socket.socket()
+        try:
+            sock.connect(address)
+        except socket.error as error:
+            self.error('failed to connect %s: %s' % (address, error))
+            return error
         self.__address = address
-        self.__sock = socket.socket()
-        self.__sock.connect(self.__address)
+        self.__sock = sock
         self.__connected = True
-        self.info('DIM Station %s connected.' % server)
+        self.info('DIM Station (%s:%d) connected.' % address)
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
@@ -148,13 +153,13 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__thread_heartbeat.start()
         self.start()
 
-    def reconnect(self):
-        # disconnected
-        if self.__sock is not None:
-            self.__sock.close()
-            self.__sock = None
+    def reconnect(self) -> Optional[socket.error]:
+        # disconnect
+        if self.__connected:
+            self.disconnect()
+            time.sleep(2)
         # connect to same station
-        self.connect(server=self.__address)
+        return self.connect(server=self.__address)
 
     def heartbeat(self):
         while self.__connected:
@@ -168,13 +173,13 @@ class Connection(threading.Thread, MessengerDelegate):
     #
     #   Socket IO
     #
-    def __receive(self, data: bytes=b'') -> bytes:
+    def __receive(self, data: bytes=b'') -> Optional[bytes]:
         while True:
             try:
                 part = self.__sock.recv(1024)
-            except IOError as error:
-                self.error('failed to receive data %s' % error)
-                part = None
+            except socket.error as error:
+                self.error('failed to receive data: %s' % error)
+                return None
             if part is None:
                 break
             data += part
@@ -182,39 +187,47 @@ class Connection(threading.Thread, MessengerDelegate):
                 break
         return data
 
-    def __send(self, data: bytes) -> IOError:
+    def __send(self, data: bytes) -> Optional[socket.error]:
         try:
             self.__sock.sendall(data)
-        except IOError as error:
-            self.error('failed to send data %s' % error)
+        except socket.error as error:
+            self.error('failed to send data: %s' % error)
             return error
 
-    def send(self, data: bytes) -> IOError:
+    def send(self, data: bytes) -> socket.error:
         error = self.__send(data=data)
         if error is not None:
-            self.reconnect()
-            # try again
+            # connection lost, try to reconnect
+            error = self.reconnect()
+            if error is not None:
+                self.error('reconnect failed, cannot send data(%d) now: %s' % (len(data), error))
+                return error
+            # reconnect success, send message
             error = self.__send(data=data)
             if error is not None:
                 # failed
                 self.error('failed to send data again: %s' % error)
-                self.__connected = False
+                self.disconnect()
                 return error
         # send OK, record the current time
         self.__last_time = int(time.time())
 
-    def receive(self, data: bytes=b'') -> bytes:
-        remaining_len = len(data)
-        data = self.__receive(data=data)
-        if len(data) == remaining_len:
-            self.reconnect()
+    def receive(self, last: bytes=b'') -> bytes:
+        data = self.__receive(data=last)
+        if data is None:
+            # connection lost, try to reconnect
+            error = self.reconnect()
+            if error is not None:
+                self.error('reconnect failed, cannot receive data now: %s' % error)
+                return b''
             # try again
-            data = self.__receive(data=data)
-            if len(data) == remaining_len:
+            data = self.__receive(data=last)
+            if data is None:
                 # failed
                 self.error('failed to receive data again')
-                self.__connected = False
-        if len(data) > remaining_len:
+                self.disconnect()
+                return b''
+        if len(data) > len(last):
             # receive OK, record the current time
             self.__last_time = int(time.time())
         return data

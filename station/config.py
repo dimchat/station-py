@@ -55,6 +55,7 @@ from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_admins import administrators
 from etc.cfg_gsp import all_stations, local_servers
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
+from etc.cfg_bots import group_assistants
 from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 from etc.cfg_loader import load_station
@@ -286,13 +287,15 @@ for key, value in ans_reserved_records.items():
 Log.info('-------- scanning accounts')
 g_database.scan_ids()
 
+# convert string to IDs
+Log.info('-------- loading group assistants: %d' % len(group_assistants))
+group_assistants = [g_facebook.identifier(string=item) for item in group_assistants]
+Log.info('Group assistants: %s' % group_assistants)
+g_facebook.group_assistants = group_assistants
+
 # convert ID to Station
 Log.info('-------- loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
-
-# convert string to ID
-Log.info('-------- loading administrators: %d' % len(administrators))
-administrators = [g_facebook.identifier(item) for item in administrators]
 
 # convert ID to Server
 Log.info('-------- creating servers: %d' % len(local_servers))
