@@ -38,6 +38,12 @@ pip3 install --upgrade dimsdk
 
 ```
 
+### reset server ids
+```
+python3 tests/generate_ids.py
+```
+The new ids is stored in etc/address*** and the log file is "generate_******.log" 
+
 ## Architecture
 
 ```
