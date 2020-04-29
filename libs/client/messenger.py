@@ -77,7 +77,8 @@ class ClientMessenger(CommonMessenger):
     def __send_command(self, cmd: Command) -> bool:
         station = self.station
         if station is None:
-            raise ValueError('current station not set')
+            # raise ValueError('current station not set')
+            return False
         return self.send_content(content=cmd, receiver=station.identifier)
 
     def query_meta(self, identifier: ID) -> bool:

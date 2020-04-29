@@ -25,25 +25,40 @@
 # ==============================================================================
 
 """
-    Web Server
-    ~~~~~~~~~~
+    Decentralized Witting Server
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    1. Query meta, profile
-    2. Verify message
 """
 
-import sys
-import os
+from flask import Response, render_template
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
+from .config import BASE_URL
+from .config import respond_xml
+from .config import g_facebook, app
+from .worker import Worker
 
-from webserver.config import WWW_HOST, WWW_PORT
-
-from webserver.dwitter import *
+g_worker = Worker(facebook=g_facebook)
 
 
-if __name__ == '__main__':
-    app.run(host=WWW_HOST, port=WWW_PORT, debug=True)
+@app.route(BASE_URL+'/', methods=['GET'])
+def index() -> Response:
+    users = g_worker.outlines()
+    xml = render_template('users.opml', users=users)
+    return respond_xml(xml)
+
+
+@app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
+def rss(address: str) -> Response:
+    user = g_worker.user_info(address=address)
+    # TODO: user is None?
+    identifier = g_facebook.identifier(user.get('ID'))
+    messages = g_worker.messages(identifier)
+    xml = render_template('msgs.rss', user=user, messages=messages)
+    return respond_xml(xml)
+
+
+@app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>.xml', methods=['GET'])
+def message(sig: str, year: int, mon: int, day: int) -> Response:
+    msg = g_worker.message(signature=sig, year=year, month=mon, day=day)
+    xml = render_template('msg.xml', msg=msg)
+    return respond_xml(xml)

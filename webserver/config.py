@@ -30,13 +30,18 @@
     Configuration for WWW
 """
 
-from dimp import ID
+import time
+from typing import Union
+from flask import Flask, Response
+
+from dimp import ID, Address
 from dimsdk import KeyStore
 from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
 #
+
 from libs.common import Log
 from libs.common import Database, AddressNameServer
 from libs.server import ServerFacebook, ServerMessenger
@@ -115,4 +120,70 @@ for key, value in ans_reserved_records.items():
         g_ans.save(key, value)
 
 
+"""
+    Server Config
+    ~~~~~~~~~~~~~
+"""
+WWW_HOST = '0.0.0.0'
+WWW_PORT = 9395
+
+DB_PATH = '/var/dim/dwitter'
+
+BASE_URL = '/dwitter'
+
+
+"""
+    Data Path
+    ~~~~~~~~~
+"""
+
+
+def users_path() -> str:
+    return '%s/users' % DB_PATH
+
+
+def usr_path(address: Union[str, Address]) -> str:
+    return '%s/%s' % (users_path(), address)
+
+
+def msg_path(signature: str, timestamp: int=0, year: int=0, month: int=0, day: int=0) -> str:
+    if timestamp is not 0:
+        localtime = time.localtime(timestamp)
+        year = localtime.tm_year
+        month = localtime.tm_mon
+        day = localtime.tm_mday
+    sig = signature[-8:]
+    return '%s/messages/%d/%d/%d/%s.msg' % (DB_PATH, year, month, day, sig)
+
+
+"""
+    Web URL
+    ~~~~~~~
+    
+"""
+
+
+def usr_url(identifier: ID) -> str:
+    return '%s/%s.rss' % (BASE_URL, identifier.address)
+
+
+def msg_url(signature: str, timestamp: int=0, year: int=0, month: int=0, day: int=0) -> str:
+    if timestamp is not 0:
+        localtime = time.localtime(timestamp)
+        year = localtime.tm_year
+        month = localtime.tm_mon
+        day = localtime.tm_mday
+    sig = signature[-8:]
+    return '%s/%d/%d/%d/%s.xml' % (BASE_URL, year, month, day, sig)
+
+
+def respond_xml(xml: str) -> Response:
+    res = Response(response=xml, status=200, mimetype='application/xml')
+    res.headers['Content-Type'] = 'application/xml; charset=utf-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
 Log.info('======== configuration OK!')
+
+app = Flask(__name__)

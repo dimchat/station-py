@@ -24,23 +24,31 @@
 # ==============================================================================
 
 """
-    Delegate
-    ~~~~~~~~
+    Delegate for Web Server
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
 """
 
-from binascii import Error
-from typing import Optional
+import json
+from typing import Optional, Union
 
-from dimp import ID, Meta, Profile
-from dimp import Content, MetaCommand, ProfileCommand
-from dimp import Base64
+from dimp import ID, Address
+from dimp import Content, TextContent
+from dimsdk import Facebook
 
 from libs.common import Log
 
-from webserver.config import g_facebook
+from webserver.config import usr_url, msg_url
+from webserver.database import UserTable, MessageTable
 
 
 class Worker:
+
+    def __init__(self, facebook: Facebook):
+        super().__init__()
+        self.facebook = facebook
+        self.user_table = UserTable()
+        self.msg_table = MessageTable()
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -50,86 +58,78 @@ class Worker:
 
     def identifier(self, identifier: str) -> Optional[ID]:
         try:
-            return g_facebook.identifier(string=identifier)
+            return self.facebook.identifier(string=identifier)
         except ValueError:
             self.error('ID error: %s' % identifier)
 
-    def meta(self, identifier: str) -> Optional[Meta]:
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return None
-        info = g_facebook.meta(identifier=identifier)
+    def user_info(self, address: Union[str, Address]) -> Optional[dict]:
+        info = self.user_table.user_info(address=address)
         if info is None:
-            self.info('meta not found: %s' % identifier)
-        else:
-            return info
-
-    def profile(self, identifier: str) -> Optional[Profile]:
-        identifier = self.identifier(identifier)
-        if identifier is None:
             return None
-        info = g_facebook.profile(identifier=identifier)
-        if info is None:
-            self.info('profile not found: %s' % identifier)
+        identifier = self.facebook.identifier(info.get('ID'))
+        user = self.facebook.user(identifier=identifier)
+        if user is None:
+            return None
+        return {
+            'ID': identifier,
+            'name': user.name,
+            'link': usr_url(identifier=identifier),
+            'desc': identifier,
+        }
+
+    def outlines(self) -> list:
+        array = []
+        users = self.user_table.users()
+        self.info('users: %s' % users)
+        for profile in users:
+            identifier = self.identifier(profile.get('ID'))
+            info = self.user_info(address=identifier.address)
+            if info is None:
+                continue
+            array.append(info)
+        return array
+
+    def message(self, signature: str, timestamp: int=0,
+                year: int=0, month: int=0, day: int=0) -> Optional[dict]:
+        if timestamp is 0:
+            msg = {
+                'signature': signature,
+                'year': year,
+                'month': month,
+                'day': day,
+            }
         else:
-            return info
+            msg = {
+                'signature': signature,
+                'time': timestamp,
+            }
+        msg = self.msg_table.load(msg=msg)
+        if msg is None:
+            return {}
+        # message content
+        content = msg.get('content')
+        if content is None:
+            data = msg['data']
+            content = Content(json.loads(data))
+            assert isinstance(content, TextContent), 'content error: %s' % day
+            msg['content'] = content
+        # message url
+        link = msg.get('link')
+        if link is None:
+            link = msg_url(signature=signature, timestamp=timestamp, year=year, month=month, day=day)
+            msg['link'] = link
+        return msg
 
-    def decode_data(self, data: str) -> Optional[bytes]:
-        try:
-            return Base64.decode(data)
-        except Error:
-            self.error('data not base64: %s' % data)
-
-    def decode_signature(self, signature: str) -> Optional[bytes]:
-        try:
-            return Base64.decode(signature)
-        except Error:
-            self.error('signature not base64: %s' % signature)
-
-    #
-    #   interfaces
-    #
-    def query_meta(self, identifier: str) -> (int, Optional[Content]):
-        # check ID
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return 400, None  # Bad Request
-        # get meta
-        meta = self.meta(identifier)
-        if meta is None:
-            return 404, None  # Not Found
-        # OK
-        return 200, MetaCommand.new(identifier=identifier, meta=meta)
-
-    def query_profile(self, identifier: str) -> (int, Optional[Content]):
-        # check ID
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return 400, None  # Bad Request
-        # get profile
-        profile = self.profile(identifier)
-        if profile is None or profile.get('data') is None:
-            return 404, None  # Not Found
-        # get meta
-        meta = self.meta(identifier)
-        # OK
-        return 200, ProfileCommand.new(identifier=identifier, meta=meta, profile=profile)
-
-    def verify_message(self, sender: str, data: str, signature: str) -> int:
-        # check ID
-        identifier = self.identifier(sender)
-        if identifier is None:
-            return 400  # Bad Request
-        # get meta
-        meta = self.meta(identifier)
-        if meta is None:
-            return 404  # Not Found
-        # check signature with data
-        data = self.decode_data(data)
-        signature = self.decode_signature(signature)
-        if data is None or signature is None:
-            return 412  # Precondition Failed
-        if meta.key.verify(data=data, signature=signature):
-            return 200  # OK
-        else:
-            return 403  # Forbidden
+    def messages(self, identifier: ID) -> list:
+        array = []
+        lines = self.user_table.messages(identifier=identifier)
+        for l in lines:
+            pair = l.split(',')
+            if len(pair) != 2:
+                self.error('message info error: %s' % l)
+                continue
+            signature = pair[0].strip()
+            timestamp = int(pair[1])
+            msg = self.message(signature=signature, timestamp=timestamp)
+            array.append(msg)
+        return array
