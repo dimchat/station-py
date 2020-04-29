@@ -1,33 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-    <xsl:template match="/">
 
+    <xsl:import href="common.xsl"/>
+    <xsl:import href="header.xsl"/>
+    <xsl:import href="footer.xsl"/>
+
+    <xsl:template match="/">
         <html lang="en">
             <head>
-                <meta charset="UTF-8" />
-                <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <meta name="description" content="DIMP Client" />
-                <meta name="author" content="Albert Moky" />
+                <xsl:copy-of select="$common"/>
                 <title><xsl:value-of select="rss/channel/title"/></title>
             </head>
             <body>
-                <h1><xsl:value-of select="rss/channel/title"/></h1>
-                <div><xsl:value-of select="rss/channel/description"/></div>
-                <ul>
-                    <xsl:for-each select="rss/channel/item">
-                        <li>
-                            <a>
-                                <xsl:attribute name="href">
-                                    <xsl:value-of select="link"/>
-                                </xsl:attribute>
-                                <xsl:value-of select="title"/>
-                            </a>
-                        </li>
-                    </xsl:for-each>
-                </ul>
+                <xsl:copy-of select="$header"/>
+                <div class="wrapper">
+
+                    <h1><xsl:value-of select="rss/channel/title"/></h1>
+                    <div class="desc">
+                        <xsl:value-of select="rss/channel/description"/>
+                    </div>
+
+                    <h2>Messages</h2>
+                    <div class="messages">
+                        <xsl:apply-templates select="//item"/>
+                    </div>
+
+                </div>
+                <xsl:copy-of select="$footer"/>
             </body>
         </html>
-
     </xsl:template>
+
+    <xsl:template match="item">
+        <div class="msg">
+            <a>
+                <xsl:attribute name="href">
+                    <xsl:value-of select="link"/>
+                </xsl:attribute>
+                <xsl:value-of select="title"/>
+            </a>
+        </div>
+    </xsl:template>
+
 </xsl:stylesheet>

@@ -2,11 +2,13 @@
 <?xml-stylesheet type="text/xsl" href="/static/users.xsl"?>
 <opml version="1.0">
     <head>
-        <title>Dwitter Users</title>
+        <title>Users</title>
     </head>
     <body>
         {% for user in users %}
-        <outline text="{{user['ID']}}" title="{{user['name']}}" type="rss" xmlUrl="{{user['link']}}" htmlUrl="{{user['link']}}" />
+        <outline text="{{user['ID']}}" title="{{user['name']}}" type="rss"
+                 xmlUrl="{{user['link']}}"
+                 htmlUrl="{{user['link']}}" />
         {% endfor %}
     </body>
 </opml>

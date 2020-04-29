@@ -1,0 +1,80 @@
+
+body {
+    background-color: #387E83;
+    margin: 0;
+}
+
+a {
+    text-decoration-line: none;
+    color: blue;
+    padding: 4px 8px;
+}
+
+a:hover {
+    text-decoration-line: underline;
+    background-color: wheat;
+    color: darkblue;
+}
+
+.header, .wrapper, .footer {
+    width: 640px;
+    margin: 0 auto;
+    padding: 4px 8px;
+}
+
+.header {
+    background-color: white;
+    height: 64px;
+    font-size: 32px;
+    text-align: center;
+}
+
+.footer {
+    height: 32px;
+    text-align: right;
+    color: white;
+}
+
+.wrapper {
+    background-color: white;
+}
+
+/**
+ *  Outlines
+ */
+
+.outlines {
+    padding: 16px;
+}
+
+.user {
+    padding: 4px 8px;
+}
+
+/**
+ *  User Home
+ */
+
+.desc {
+    padding: 4px 16px;
+}
+
+.messages {
+    padding: 16px;
+}
+
+.msg {
+    padding: 4px 8px;
+}
+
+/**
+ *  Message Detail
+ */
+
+.sender, .time, .content {
+    padding: 4px 16px;
+}
+
+.content .text {
+    padding: 4px 16px;
+}

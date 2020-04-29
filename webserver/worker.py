@@ -47,8 +47,8 @@ class Worker:
     def __init__(self, facebook: Facebook):
         super().__init__()
         self.facebook = facebook
-        self.user_table = UserTable()
-        self.msg_table = MessageTable()
+        self.user_table = UserTable(facebook=facebook)
+        self.msg_table = MessageTable(facebook=facebook)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -62,32 +62,11 @@ class Worker:
         except ValueError:
             self.error('ID error: %s' % identifier)
 
-    def user_info(self, address: Union[str, Address]) -> Optional[dict]:
-        info = self.user_table.user_info(address=address)
-        if info is None:
-            return None
-        identifier = self.facebook.identifier(info.get('ID'))
-        user = self.facebook.user(identifier=identifier)
-        if user is None:
-            return None
-        return {
-            'ID': identifier,
-            'name': user.name,
-            'link': usr_url(identifier=identifier),
-            'desc': identifier,
-        }
+    def user_info(self, identifier: Union[ID, Address]) -> Optional[dict]:
+        return self.user_table.user_info(identifier=identifier)
 
     def outlines(self) -> list:
-        array = []
-        users = self.user_table.users()
-        self.info('users: %s' % users)
-        for profile in users:
-            identifier = self.identifier(profile.get('ID'))
-            info = self.user_info(address=identifier.address)
-            if info is None:
-                continue
-            array.append(info)
-        return array
+        return self.user_table.users()
 
     def message(self, signature: str, timestamp: int=0,
                 year: int=0, month: int=0, day: int=0) -> Optional[dict]:

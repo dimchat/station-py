@@ -30,26 +30,22 @@
 """
 
 import os
-from typing import Optional
+from typing import Optional, Union
 
-from dimp import ID
+from dimp import ID, Address
 from dimp import ReliableMessage
 from dimsdk import Facebook
 
 from libs.common import Storage
 
-from webserver.config import users_path, usr_path, msg_path
+from webserver.config import usr_path, msg_path, usr_url
 
 
 class UserTable(Storage):
 
-    def __init__(self):
+    def __init__(self, facebook: Facebook):
         super().__init__()
-
-    def __load_profile(self, address: str) -> dict:
-        path = usr_path(address=address)
-        path = os.path.join(path, 'profile.js')
-        return self.read_json(path=path)
+        self.facebook = facebook
 
     def __load_messages(self, address: str) -> list:
         path = usr_path(address=address)
@@ -61,22 +57,35 @@ class UserTable(Storage):
             return text.splitlines()
 
     def __load_users(self) -> list:
-        users = []
-        root = users_path()
-        if self.exists(path=root):
-            files = os.listdir(root)
-            for item in files:
-                profile = self.__load_profile(address=item)
-                if profile is None:
-                    continue
-                users.append(profile)
+        users = [
+            'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
+            'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp',
+            'ling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa',
+        ]
         return users
 
-    def user_info(self, address: str) -> dict:
-        return self.__load_profile(address=address)
+    def user_info(self, identifier: Union[ID, Address]) -> Optional[dict]:
+        identifier = self.facebook.identifier(identifier)
+        if identifier is None:
+            return None
+        user = self.facebook.user(identifier)
+        return {
+            'ID': identifier,
+            'name': user.name,
+            'link': usr_url(identifier=identifier),
+            'desc': identifier,
+        }
 
     def users(self) -> list:
-        return self.__load_users()
+        array = []
+        id_list = self.__load_users()
+        for item in id_list:
+            identifier = self.facebook.identifier(item)
+            info = self.user_info(identifier=identifier)
+            if info is None:
+                continue
+            array.append(info)
+        return array
 
     def messages(self, identifier: ID) -> list:
         address = str(identifier.address)
@@ -85,9 +94,9 @@ class UserTable(Storage):
 
 class MessageTable(Storage):
 
-    def __init__(self):
+    def __init__(self, facebook: Facebook):
         super().__init__()
-        self.facebook: Facebook = None
+        self.facebook = facebook
 
     def __load_message(self, signature: str, timestamp: int=0,
                        year: int=0, month: int=0, day: int=0) -> Optional[ReliableMessage]:

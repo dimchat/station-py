@@ -13,7 +13,7 @@
             <author>{{msg['sender']}}</author>
             <pubDate>{{msg['time']}}</pubDate>
             <link>{{msg['link']}}</link>
-            <guid>{{msg['link']}}</guid>
+            <guid>{{msg['signature']}}</guid>
         </item>
         {% endfor %}
     </channel>

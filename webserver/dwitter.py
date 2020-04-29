@@ -32,6 +32,8 @@
 
 from flask import Response, render_template
 
+from dimp import Address
+
 from .config import BASE_URL
 from .config import respond_xml
 from .config import g_facebook, app
@@ -49,11 +51,15 @@ def index() -> Response:
 
 @app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
 def rss(address: str) -> Response:
-    user = g_worker.user_info(address=address)
-    # TODO: user is None?
-    identifier = g_facebook.identifier(user.get('ID'))
-    messages = g_worker.messages(identifier)
-    xml = render_template('msgs.rss', user=user, messages=messages)
+    address = Address(address)
+    user = g_worker.user_info(identifier=address)
+    if user is None:
+        res = {'code': 404, 'message': 'user not found: %s' % address}
+        xml = render_template('error.xml', result=res)
+    else:
+        identifier = g_facebook.identifier(user.get('ID'))
+        messages = g_worker.messages(identifier)
+        xml = render_template('msgs.rss', user=user, messages=messages)
     return respond_xml(xml)
 
 
