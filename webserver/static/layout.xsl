@@ -10,15 +10,31 @@
                 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
                 <meta name="description" content="DIMP Client"/>
                 <meta name="author" content="Albert Moky"/>
-                <link rel="stylesheet" href="/static/css/tarsier.css"/>
                 <link rel="stylesheet" href="/static/css/layout.css"/>
-                <script src="http://134.175.87.98/Client/sdk/3rd/crypto.min.js"/>
-                <script src="http://134.175.87.98/Client/sdk/3rd/jsencrypt.min.js"/>
-                <script src="http://134.175.87.98/Client/sdk/dimsdk.min.js"/>
-                <script src="http://134.175.87.98/Client/dist/client.min.js"/>
-                <script src="http://134.175.87.98/Tarsier/tarsier-ui.min.js"/>
-                <script src="/static/js/dwitter.js"/>
                 <xsl:call-template name="title"/>
+                <script>
+                    var entry = 'http://192.168.31.64:9395/static/js/dwitter.js';
+
+                    !function (w, d, t, l) {
+                        // var b = 'http://dimchat.github.io/apps/',
+                        // var b = 'http://apps.dim.chat/',
+                        var b = 'http://134.175.87.98/',
+                            j = function (u,b) {w[t].importJS(u,b)},
+                            e = 'onreadystatechange',
+                            x = d.createElement('SCRIPT'),
+                            f = function() {
+                                var _ = this.readyState;
+                                if (!_ || _ === 'loaded' || _ === 'complete') {
+                                    j(b + 'DICQ/js/index.js', function () {
+                                        dicq.loader.importJS(l);
+                                    });
+                                }
+                            };
+                        x.src = b + 'Tarsier/tarsier.min.js';
+                        (typeof x[e] == 'undefined') ? x.onload = f: x[e] = f;
+                        d.getElementsByTagName('HEAD')[0].appendChild(x);
+                    }(window, document, 'tarsier', entry);
+                </script>
             </head>
             <body>
                 <xsl:call-template name="header"/>
