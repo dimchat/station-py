@@ -8,7 +8,7 @@
     </xsl:template>
 
     <xsl:template name="title">
-        <link rel="stylesheet" href="/static/css/home.css" />
+        <link rel="stylesheet" href="/static/css/home.css"/>
         <title><xsl:value-of select="//code"/> - <xsl:value-of select="//name"/></title>
     </xsl:template>
 

@@ -1,7 +1,12 @@
 
 body {
     margin: 0;
-    background-color: #89CDED;
+    background: -moz-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
+    background: -webkit-gradient(linear, top, bottom, color-stop(0%, #57A1CE), color-stop(100%, #89CDED));
+    background: -webkit-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
+    background: -o-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
+    background: -ms-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
+    background: linear-gradient(to bottom, #57A1CE 0%, #89CDED 100%);
 }
 
 .layout_wrapper {
@@ -11,8 +16,12 @@ body {
 }
 
 .layout_header {
-    height: 64px;
-    font-size: 32px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 48px;
+    margin-bottom: 16px;
+    font-size: 22px;
     background: -moz-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
     background: -webkit-gradient(linear, top, bottom, color-stop(0%, #57A1CE), color-stop(100%, #89CDED));
     background: -webkit-linear-gradient(top, #57A1CE 0%, #89CDED 100%);
@@ -23,14 +32,28 @@ body {
 
 .layout_footer {
     height: 32px;
+    padding: 4px;
     text-align: right;
     color: white;
 }
 
-.layout_body .layout_wrapper {
-    background-color: white;
+.layout_body {
+    margin-top: 64px;
 }
 
+.layout_body .layout_wrapper {
+    background-color: white;
+    border-radius: 4px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+
+.layout_left {
+    float: left;
+}
+.layout_right {
+    float: right;
+}
 .layout_clear {
     clear: both;
 }

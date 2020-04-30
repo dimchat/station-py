@@ -8,7 +8,7 @@
         {% for user in users %}
         <outline text="{{user['ID']}}" title="{{user['name']}}" type="rss"
                  xmlUrl="{{user['link']}}"
-                 htmlUrl="{{user['link']}}" />
+                 htmlUrl="{{user['link']}}"/>
         {% endfor %}
     </body>
 </opml>
