@@ -26,17 +26,17 @@
 
     <xsl:template match="outline">
         <div class="user">
-            <a>
-                <xsl:attribute name="href">
-                    <xsl:value-of select="@xmlUrl"/>
-                </xsl:attribute>
-                <b>
+            <div class="name">
+                <a>
+                    <xsl:attribute name="href">
+                        <xsl:value-of select="@xmlUrl"/>
+                    </xsl:attribute>
                     <xsl:value-of select="@title"/>
-                </b>
-                <span>
-                    (<xsl:value-of select="@text"/>)
-                </span>
-            </a>
+                </a>
+            </div>
+            <div class="desc">
+                <span><xsl:value-of select="@text"/></span>
+            </div>
         </div>
     </xsl:template>
 

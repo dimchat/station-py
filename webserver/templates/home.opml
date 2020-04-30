@@ -6,7 +6,7 @@
     </head>
     <body>
         {% for user in users %}
-        <outline text="{{user['ID']}}" title="{{user['name']}}" type="rss"
+        <outline text="{{user['ID']}}" title="{{user['name']}} ({{user['number']}})" type="rss"
                  xmlUrl="{{user['link']}}"
                  htmlUrl="{{user['link']}}"/>
         {% endfor %}

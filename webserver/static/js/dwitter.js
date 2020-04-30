@@ -1,6 +1,25 @@
 
 dwitter = dicq;
 
+!function () {
+    'use strict';
+
+    var time_string = function (timestamp) {
+        var time = new Date(timestamp * 1000);
+        return time.toLocaleString();
+    };
+
+    var spans = document.getElementsByClassName('timestamp');
+    for (var i = 0; i < spans.length; ++i) {
+        var span = spans[i];
+        var value = span.innerText;
+        if (isNaN(value)) {
+            continue;
+        }
+        span.innerText = time_string(parseInt(value));
+    }
+}();
+
 !function (ns, tui, dimp) {
     'use strict';
 

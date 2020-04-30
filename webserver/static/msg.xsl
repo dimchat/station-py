@@ -24,15 +24,7 @@
 
         <div class="time">
             <span><b>Time</b>: </span>
-            <span id="msg_time"><xsl:value-of select="//envelope/time"/></span>
-            <script>
-                (function () {
-                    var span = document.getElementById('msg_time');
-                    var value = parseInt(span.innerText) * 1000;
-                    var time = new Date(value);
-                    span.innerText = time;
-                })();
-            </script>
+            <span class="timestamp"><xsl:value-of select="//envelope/time"/></span>
         </div>
 
         <div class="content">
@@ -46,8 +38,8 @@
     </xsl:template>
 
     <xsl:template name="comments">
-        <h3>Comments</h3>
         <div id="comments" class="comments">
+            <span style="color: lightgray; ">Loading comments ...</span>
             <!-- Loading -->
         </div>
     </xsl:template>

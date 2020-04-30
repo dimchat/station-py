@@ -27,12 +27,20 @@
 
     <xsl:template match="item">
         <div class="msg">
-            <a>
-                <xsl:attribute name="href">
-                    <xsl:value-of select="link"/>
-                </xsl:attribute>
-                <xsl:value-of select="title"/>
-            </a>
+            <div>
+                <span class="timestamp"><xsl:value-of select="pubDate"/></span>
+            </div>
+            <div>
+                <a>
+                    <xsl:attribute name="href">
+                        <xsl:value-of select="link"/>
+                    </xsl:attribute>
+                    <xsl:value-of select="title"/>
+                </a>
+            </div>
+            <div class="desc">
+                <xsl:value-of select="description"/>
+            </div>
         </div>
     </xsl:template>
 
