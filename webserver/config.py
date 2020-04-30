@@ -164,7 +164,7 @@ def msg_path(signature: str, timestamp: int=0, year: int=0, month: int=0, day: i
 
 
 def usr_url(identifier: ID) -> str:
-    return '%s/%s.rss' % (BASE_URL, identifier.address)
+    return '%s/%s' % (BASE_URL, identifier.address)
 
 
 def msg_url(signature: str, timestamp: int=0, year: int=0, month: int=0, day: int=0) -> str:
@@ -174,7 +174,7 @@ def msg_url(signature: str, timestamp: int=0, year: int=0, month: int=0, day: in
         month = localtime.tm_mon
         day = localtime.tm_mday
     sig = signature[-8:]
-    return '%s/%d/%d/%d/%s.xml' % (BASE_URL, year, month, day, sig)
+    return '%s/%d/%d/%d/%s' % (BASE_URL, year, month, day, sig)
 
 
 def respond_xml(xml: str) -> Response:

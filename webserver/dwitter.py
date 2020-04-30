@@ -43,30 +43,42 @@ g_worker = Worker(facebook=g_facebook)
 
 
 @app.route(BASE_URL+'/', methods=['GET'])
-def index() -> Response:
-    users = g_worker.outlines()
-    xml = render_template('users.opml', users=users)
+def home() -> Response:
+    try:
+        users = g_worker.outlines()
+        xml = render_template('home.opml', users=users)
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+        xml = render_template('error.xml', result=res)
     return respond_xml(xml)
 
 
 @app.route(BASE_URL+'/<string:address>', methods=['GET'])
 @app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
-def rss(address: str) -> Response:
-    address = Address(address)
-    user = g_worker.user_info(identifier=address)
-    if user is None:
-        res = {'code': 404, 'message': 'user not found: %s' % address}
+def user(address: str) -> Response:
+    try:
+        address = Address(address)
+        user = g_worker.user_info(identifier=address)
+        if user is None:
+            res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
+            xml = render_template('error.xml', result=res)
+        else:
+            identifier = g_facebook.identifier(user.get('ID'))
+            messages = g_worker.messages(identifier)
+            xml = render_template('user.rss', user=user, messages=messages)
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
-    else:
-        identifier = g_facebook.identifier(user.get('ID'))
-        messages = g_worker.messages(identifier)
-        xml = render_template('msgs.rss', user=user, messages=messages)
     return respond_xml(xml)
 
 
 @app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>', methods=['GET'])
 @app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>.xml', methods=['GET'])
 def message(sig: str, year: int, mon: int, day: int) -> Response:
-    msg = g_worker.message(signature=sig, year=year, month=mon, day=day)
-    xml = render_template('msg.xml', msg=msg)
+    try:
+        msg = g_worker.message(signature=sig, year=year, month=mon, day=day)
+        xml = render_template('msg.xml', msg=msg)
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+        xml = render_template('error.xml', result=res)
     return respond_xml(xml)

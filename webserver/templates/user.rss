@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?xml-stylesheet type="text/xsl" href="/static/msgs.xsl"?>
-<rss version="2.0">
+<?xml-stylesheet type="text/xsl" href="/static/user.xsl"?>
+<rdf version="2.0">
     <channel>
         <title>{{user['name']}}</title>
         <link>{{user['link']}}</link>
@@ -19,4 +19,4 @@
         </item>
         {% endfor %}
     </channel>
-</rss>
+</rdf>

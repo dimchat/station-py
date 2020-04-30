@@ -2,5 +2,6 @@
 <?xml-stylesheet type="text/xsl" href="/static/error.xsl"?>
 <result>
     <code>{{result['code']}}</code>
+    <name>{{result['name']}}</name>
     <message>{{result['message']}}</message>
 </result>
