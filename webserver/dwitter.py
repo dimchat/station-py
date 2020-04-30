@@ -30,7 +30,7 @@
 
 """
 
-from flask import Response, render_template
+from flask import Response, request, render_template
 
 from dimp import Address
 
@@ -65,7 +65,11 @@ def user(address: str) -> Response:
         else:
             identifier = g_facebook.identifier(user.get('ID'))
             messages = g_worker.messages(identifier)
-            xml = render_template('user.rss', user=user, messages=messages)
+            path = request.path
+            if path is not None and path.endswith('.rss'):
+                xml = render_template('user.rss', user=user, messages=messages)
+            else:
+                xml = render_template('user.xml', user=user, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)

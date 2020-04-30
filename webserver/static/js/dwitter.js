@@ -130,7 +130,6 @@ if (typeof dwitter !== 'object') {
     'use strict';
 
     var $ = tui.$;
-    var Label = tui.Label;
     var Button = tui.Button;
 
     var main = function () {
@@ -145,11 +144,14 @@ if (typeof dwitter !== 'object') {
 
     var show_user = function (user) {
         var name = user.getName();
-        var label = new Label();
-        label.setText(name);
+        var btn = new Button();
+        btn.setText(name);
+        btn.onClick = function () {
+            alert('Change user name (coming soon)');
+        };
         var tray = $('#myAccount');
         tray.removeChildren();
-        tray.appendChild(label);
+        tray.appendChild(btn);
     };
 
     var show_register = function () {

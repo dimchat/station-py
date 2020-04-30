@@ -31,7 +31,9 @@
     <xsl:template name="header">
         <div class="layout_header">
             <div class="layout_wrapper">
-                <div class="layout_left">Dwitter (alpha)</div>
+                <div class="layout_left">
+                    <div id="appName">Dwitter (alpha)</div>
+                </div>
                 <div class="layout_right">
                     <div id="myAccount"/>
                 </div>

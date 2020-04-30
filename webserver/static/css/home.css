@@ -15,8 +15,22 @@ span {
     word-break: break-all;
 }
 
+#appName {
+    margin: 8px 0;
+    font-size: 22px;
+}
+
 #myAccount {
     margin: 8px 0;
+}
+#myAccount Button {
+    font-size: 18px;
+    border: 0;
+    color: white;
+    background-color: transparent;
+}
+#myAccount Button:hover {
+    text-decoration-line: underline;
 }
 
 /**
