@@ -38,7 +38,7 @@ from dimsdk import Facebook
 
 from libs.common import Log
 
-from webserver.config import usr_url, msg_url
+from webserver.config import msg_url
 from webserver.database import UserTable, MessageTable
 
 

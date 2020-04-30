@@ -49,6 +49,7 @@ def index() -> Response:
     return respond_xml(xml)
 
 
+@app.route(BASE_URL+'/<string:address>', methods=['GET'])
 @app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
 def rss(address: str) -> Response:
     address = Address(address)
@@ -63,6 +64,7 @@ def rss(address: str) -> Response:
     return respond_xml(xml)
 
 
+@app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>', methods=['GET'])
 @app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>.xml', methods=['GET'])
 def message(sig: str, year: int, mon: int, day: int) -> Response:
     msg = g_worker.message(signature=sig, year=year, month=mon, day=day)
