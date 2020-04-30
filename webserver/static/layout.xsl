@@ -13,7 +13,7 @@
                 <link rel="stylesheet" href="/static/css/layout.css"/>
                 <xsl:call-template name="title"/>
                 <script>
-                    var entry = 'http://192.168.31.64:9395/static/js/dwitter.js';
+                    var entry = 'http://134.175.87.98/static/js/dwitter.js';
 
                     !function (w, d, t, l) {
                         // var b = 'http://dimchat.github.io/apps/',
@@ -41,6 +41,26 @@
                 <xsl:call-template name="body"/>
                 <xsl:call-template name="footer"/>
             </body>
+            <script>
+                !function () {
+                    'use strict';
+
+                    var time_string = function (timestamp) {
+                        var time = new Date(timestamp * 1000);
+                        return time.toLocaleString();
+                    };
+
+                    var spans = document.getElementsByClassName('timestamp');
+                    for (var i = 0; i != spans.length; ++i) {
+                        var span = spans[i];
+                        var value = span.innerText;
+                        if (isNaN(value)) {
+                            continue;
+                        }
+                        span.innerText = time_string(parseInt(value));
+                    }
+                }();
+            </script>
         </html>
     </xsl:template>
 
