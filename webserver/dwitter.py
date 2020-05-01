@@ -72,7 +72,9 @@ def user(address: str) -> Response:
     else:
         ext = 'xml'
     try:
-        address = Address(address)
+        address = g_facebook.identifier(address)
+        if len(address.name) == 0:
+            address = address.address
         info = g_worker.user_info(identifier=address)
         if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}

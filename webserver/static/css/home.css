@@ -43,12 +43,16 @@ span {
 
 .user {
     padding: 16px 8px;
-    border-bottom: 1px dashed #e0e0f5;
+    border-top: 1px dashed #e0e0f5;
 }
 
 .user .desc {
     color: gray;
     padding: 8px 32px;
+}
+
+#headlines {
+    padding: 16px;
 }
 
 #headline_template {
@@ -69,7 +73,7 @@ span {
 
 .msg {
     padding: 16px 8px;
-    border-bottom: 1px dashed #e0e0f5;
+    border-top: 1px dashed #e0e0f5;
 }
 
 .msg .timestamp {

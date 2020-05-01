@@ -21,6 +21,7 @@
 
     <xsl:template name="main">
         <div class="messages">
+            <div><h2>Messages</h2></div>
             <xsl:apply-templates select="//item"/>
         </div>
     </xsl:template>

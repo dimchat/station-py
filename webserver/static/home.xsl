@@ -14,6 +14,7 @@
 
     <xsl:template name="panel">
         <div class="outlines">
+            <div><h2>Users</h2></div>
             <xsl:apply-templates select="//outline"/>
         </div>
     </xsl:template>
@@ -30,9 +31,11 @@
                 <div class="desc">{{description}}</div>
             </div>
         </div>
-        <div id="headlines"/>
+        <div id="headlines">
+            <div><h2>Messages</h2></div>
+        </div>
         <script src="/static/js/home.js"/>
-        <script src="4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ.js"/>
+        <script src="anyone.js"/>
     </xsl:template>
 
     <xsl:template match="outline">
