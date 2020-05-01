@@ -62,16 +62,16 @@
                 dwitter.RegisterWindow.show();
             }
         </script>
-        <div id="post_box">
-            <div id="post_box_mask">
+        <div id="post_box" class="input_box">
+            <div id="post_box_mask" class="input_box_mask">
                 <div>
                     <button onClick="javascript:showRegister();">Create Account</button>
                 </div>
             </div>
-            <div id="post_box_form">
-                <textarea id="post_text"/>
-                <span id="input_limit">bytes left</span>
-                <button id="post_button">Submit</button>
+            <div id="post_box_form" class="input_box_form">
+                <textarea id="post_text" class="input_text"/>
+                <span id="input_limit" class="input_limit">bytes left</span>
+                <button id="post_button" class="input_submit">Submit</button>
             </div>
         </div>
     </xsl:template>

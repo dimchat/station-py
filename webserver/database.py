@@ -70,12 +70,13 @@ class UserTable(Storage):
         name = user.name
         number = number_string(user.number)
         url = usr_url(identifier=identifier)
+        desc = user.profile
         return {
             'ID': identifier,
             'name': name,
             'number': number,
             'link': url,
-            'desc': identifier,
+            'desc': desc,
         }
 
     def users(self) -> list:

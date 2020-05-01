@@ -15,7 +15,12 @@
     <xsl:template name="panel">
         <div class="sender">
             <span><b>Sender</b>: </span>
-            <span><xsl:value-of select="//envelope/sender"/></span>
+            <a>
+                <xsl:attribute name="href">
+                    ../../../<xsl:value-of select="//envelope/sender"/>
+                </xsl:attribute>
+                <xsl:value-of select="//envelope/sender"/>
+            </a>
         </div>
     </xsl:template>
 
@@ -38,9 +43,35 @@
     </xsl:template>
 
     <xsl:template name="comments">
+        <xsl:call-template name="form"/>
+
         <div id="comments" class="comments">
             <span style="color: lightgray; ">Loading comments ...</span>
             <!-- Loading -->
+        </div>
+    </xsl:template>
+
+    <xsl:template name="form">
+        <script>
+            function showRegister() {
+                if (typeof dwitter.RegisterWindow !== 'function') {
+                    alert('loading');
+                    return;
+                }
+                dwitter.RegisterWindow.show();
+            }
+        </script>
+        <div id="reply_box" class="input_box">
+            <div id="reply_box_mask" class="input_box_mask">
+                <div>
+                    <button onClick="javascript:showRegister();">Create Account</button>
+                </div>
+            </div>
+            <div id="reply_box_form" class="input_box_form">
+                <textarea id="reply_text" class="input_text"/>
+                <span id="input_limit" class="input_limit">bytes left</span>
+                <button id="reply_button" class="input_submit">Reply</button>
+            </div>
         </div>
     </xsl:template>
 

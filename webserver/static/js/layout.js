@@ -2,6 +2,19 @@
 !function () {
     'use strict';
 
+    var logo = document.getElementById('appName')
+    logo.onclick = function (ev) {
+        var url = window.location.href;
+        var pos = url.indexOf('/', url.indexOf('://') + 3);
+        url = url.substring(0, pos) + '/dwitter';
+        window.location.href = url;
+    };
+
+}();
+
+!function () {
+    'use strict';
+
     var time_string = function (timestamp) {
         var time = new Date(timestamp * 1000);
         return time.toLocaleString();
@@ -16,6 +29,7 @@
         }
         span.innerText = time_string(parseInt(value));
     }
+
 }();
 
 !function () {

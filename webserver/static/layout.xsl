@@ -68,7 +68,7 @@
     <xsl:template name="footer">
         <div class="layout_footer">
             <div class="layout_wrapper">
-                <div class="copyright">©2020 by Albert Moky</div>
+                <div class="copyright">©2020 Albert Moky</div>
             </div>
         </div>
     </xsl:template>

@@ -68,16 +68,16 @@ if (typeof dwitter === 'object') {
         var user = facebook.getCurrentUser();
         if (user) {
             show_user(user);
-            remove_post_mask();
+            remove_input_box_masks();
         } else {
             show_register();
         }
     };
 
-    var remove_post_mask = function () {
-        var mask = document.getElementById('post_box_mask');
-        if (mask) {
-            mask.style.display = 'none';
+    var remove_input_box_masks = function () {
+        var masks = document.getElementsByClassName('input_box_mask');
+        for (var i = 0; i < masks.length; ++i) {
+            masks[i].style.display = 'none';
         }
     };
 
