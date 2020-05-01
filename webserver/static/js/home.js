@@ -1,9 +1,6 @@
 
-if (typeof dwitter !== 'object') {
-    dwitter = {}
-}
-
 !function () {
+    'use strict';
 
     var headlines = document.getElementById('headlines');
 
@@ -26,8 +23,13 @@ if (typeof dwitter !== 'object') {
         return html;
     };
 
-    dwitter.user = {
-        callback: function (json) {
+    // callback for showing messages
+    dwitter.js.addObserver(
+        function (request) {
+            var path = request['path'];
+            return /^\/dwitter\/[^\/]+\.js$/.test(path);
+        },
+        function (json) {
             var channel = json['channel'];
             if (!channel) {
                 console.error('user messages error: ' + JSON.stringify(json));
@@ -43,6 +45,6 @@ if (typeof dwitter !== 'object') {
                 headlines.innerHTML += html;
             }
         }
-    };
+    );
 
 }();

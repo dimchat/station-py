@@ -1,23 +1,4 @@
 
-if (typeof dwitter === 'object') {
-    // copy properties
-    !function (dicq, dwitter) {
-        for (var k in dwitter) {
-            if (!dwitter.hasOwnProperty(k)) {
-                continue;
-            }
-            if (dicq[k]) {
-                alert('namespace conflict: ' + k);
-                continue;
-            }
-            dicq[k] = dwitter[k];
-        }
-    }(dicq, dwitter);
-    dwitter = dicq;
-} else {
-    dwitter = dicq;
-}
-
 !function (ns, tui, dimp) {
     'use strict';
 
@@ -109,6 +90,16 @@ if (typeof dwitter === 'object') {
 
     ns.Main = main;
 
-}(dwitter, tarsier.ui, DIMP);
+}(dicq, tarsier.ui, DIMP);
+
+//
+//  dwitter
+//
+if (typeof dwitter !== 'object') {
+    dwitter = {}
+}
+
+dwitter.im = dicq;
+dwitter.Main = dicq.Main;
 
 dwitter.Main();

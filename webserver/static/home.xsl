@@ -53,19 +53,10 @@
     </xsl:template>
 
     <xsl:template name="form">
-        <script>
-            function showRegister() {
-                if (typeof dwitter.RegisterWindow !== 'function') {
-                    alert('loading');
-                    return;
-                }
-                dwitter.RegisterWindow.show();
-            }
-        </script>
         <div id="post_box" class="input_box">
             <div id="post_box_mask" class="input_box_mask">
                 <div>
-                    <button onClick="javascript:showRegister();">Create Account</button>
+                    <button onClick="javascript:dwitter.showRegisterWindow();">Create Account</button>
                 </div>
             </div>
             <div id="post_box_form" class="input_box_form">

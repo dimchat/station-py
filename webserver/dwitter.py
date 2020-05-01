@@ -97,7 +97,7 @@ def user(address: str) -> Response:
             info = info['result']
         js = json.dumps(info)
         if ext == 'js':
-            js = 'dwitter.user.callback(%s);' % js
+            js = 'dwitter.js.respond(%s,{"path":"%s"});' % (js, path)
         return respond_js(js)
     else:
         return respond_xml(xml)

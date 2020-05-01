@@ -2,7 +2,7 @@
 !function () {
     'use strict';
 
-    var logo = document.getElementById('appName')
+    var logo = document.getElementById('appName');
     logo.onclick = function (ev) {
         var url = window.location.href;
         var pos = url.indexOf('/', url.indexOf('://') + 3);
