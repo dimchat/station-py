@@ -10,7 +10,6 @@ body {
 }
 
 .layout_wrapper {
-    width: 960px;
     margin: 0 auto;
     padding: 0;
 }
@@ -30,10 +29,16 @@ body {
 }
 
 .layout_footer {
-    height: 32px;
-    padding: 4px;
+    margin-top: 4px;
+}
+
+.layout_footer .layout_wrapper {
     text-align: right;
     color: white;
+}
+
+.layout_footer .copyright {
+    padding: 4px 8px;
 }
 
 .layout_body {
@@ -58,17 +63,11 @@ body {
 }
 
 .layout_main {
-    float: left;
-    width: 623px;
-    border: 0px;
-    border-right: 1px dashed #e0e0f5;
+    border: 0;
     padding: 4px 8px;
 }
 
 .layout_panel {
-    float: right;
-    width: 303px;
-    border: 0px;
-    border-left: 1px dashed #e0e0f5;
+    border: 0;
     padding: 4px 8px;
 }

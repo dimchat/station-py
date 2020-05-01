@@ -12,29 +12,6 @@
                 <meta name="author" content="Albert Moky"/>
                 <link rel="stylesheet" href="/static/css/layout.css"/>
                 <xsl:call-template name="title"/>
-                <script>
-                    var entry = 'http://134.175.87.98/static/js/dwitter.js';
-
-                    !function (w, d, t, l) {
-                        // var b = 'http://dimchat.github.io/apps/',
-                        // var b = 'http://apps.dim.chat/',
-                        var b = 'http://134.175.87.98/',
-                            j = function (u,b) {w[t].importJS(u,b)},
-                            e = 'onreadystatechange',
-                            x = d.createElement('SCRIPT'),
-                            f = function() {
-                                var _ = this.readyState;
-                                if (!_ || _ === 'loaded' || _ === 'complete') {
-                                    j(b + 'DICQ/js/index.js', function () {
-                                        dicq.loader.importJS(l);
-                                    });
-                                }
-                            };
-                        x.src = b + 'Tarsier/tarsier.min.js';
-                        (typeof x[e] == 'undefined') ? x.onload = f: x[e] = f;
-                        d.getElementsByTagName('HEAD')[0].appendChild(x);
-                    }(window, document, 'tarsier', entry);
-                </script>
             </head>
             <body>
                 <xsl:call-template name="header"/>
@@ -42,25 +19,29 @@
                 <xsl:call-template name="footer"/>
             </body>
             <script>
-                !function () {
-                    'use strict';
+                var entry = 'http://134.175.87.98:9395/static/js/dwitter.js';
 
-                    var time_string = function (timestamp) {
-                        var time = new Date(timestamp * 1000);
-                        return time.toLocaleString();
-                    };
-
-                    var spans = document.getElementsByClassName('timestamp');
-                    for (var i = 0; i != spans.length; ++i) {
-                        var span = spans[i];
-                        var value = span.innerText;
-                        if (isNaN(value)) {
-                            continue;
+                !function (w, d, t, l) {
+                    // var b = 'http://dimchat.github.io/apps/',
+                    // var b = 'http://apps.dim.chat/',
+                    var b = 'http://134.175.87.98/',
+                    j = function (u,b) {w[t].importJS(u,b)},
+                    e = 'onreadystatechange',
+                    x = d.createElement('SCRIPT'),
+                    f = function() {
+                        var _ = this.readyState;
+                        if (!_ || _ === 'loaded' || _ === 'complete') {
+                            j(b + 'DICQ/js/index.js', function () {
+                                dicq.loader.importJS(l);
+                            });
                         }
-                        span.innerText = time_string(parseInt(value));
-                    }
-                }();
+                    };
+                    x.src = b + 'Tarsier/tarsier.min.js';
+                    (typeof x[e] == 'undefined') ? x.onload = f: x[e] = f;
+                    d.getElementsByTagName('HEAD')[0].appendChild(x);
+                }(window, document, 'tarsier', entry);
             </script>
+            <script src="/static/js/layout.js"/>
         </html>
     </xsl:template>
 
@@ -81,7 +62,7 @@
     <xsl:template name="footer">
         <div class="layout_footer">
             <div class="layout_wrapper">
-                <div>©2020 by Albert Moky</div>
+                <div class="copyright">©2020 by Albert Moky</div>
             </div>
         </div>
     </xsl:template>
@@ -89,11 +70,11 @@
     <xsl:template name="body">
         <div class="layout_body">
             <div class="layout_wrapper">
-                <div class="layout_main">
-                    <xsl:call-template name="main"/>
-                </div>
                 <div class="layout_panel">
                     <xsl:call-template name="panel"/>
+                </div>
+                <div class="layout_main">
+                    <xsl:call-template name="main"/>
                 </div>
                 <div class="layout_clear"/>
              </div>
