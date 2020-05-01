@@ -131,6 +131,12 @@ DB_PATH = '/var/dim/dwitter'
 
 BASE_URL = '/dwitter'
 
+recommended_users = [
+    'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
+    'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp',
+    'ling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa',
+]
+
 
 """
     Data Path
@@ -187,6 +193,13 @@ def respond_xml(xml: str) -> Response:
 def respond_json(js: str) -> Response:
     res = Response(response=js, status=200, mimetype='application/json')
     res.headers['Content-Type'] = 'application/json; charset=UTF-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
+def respond_js(js: str) -> Response:
+    res = Response(response=js, status=200, mimetype='application/javascript')
+    res.headers['Content-Type'] = 'application/javascript; charset=UTF-8'
     res.headers['Access-Control-Allow-Origin'] = '*'
     return res
 

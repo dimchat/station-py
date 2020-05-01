@@ -19,7 +19,9 @@
                 <xsl:call-template name="footer"/>
             </body>
             <script>
-                var entry = 'http://134.175.87.98:9395/static/js/dwitter.js';
+                var url = window.location.href;
+                var pos = url.indexOf('/', url.indexOf('://') + 3);
+                url = url.substring(0, pos) + '/static/js/dwitter.js';
 
                 !function (w, d, t, l) {
                     // var b = 'http://dimchat.github.io/apps/',
@@ -39,7 +41,7 @@
                     x.src = b + 'Tarsier/tarsier.min.js';
                     (typeof x[e] == 'undefined') ? x.onload = f: x[e] = f;
                     d.getElementsByTagName('HEAD')[0].appendChild(x);
-                }(window, document, 'tarsier', entry);
+                }(window, document, 'tarsier', url);
             </script>
             <script src="/static/js/layout.js"/>
         </html>

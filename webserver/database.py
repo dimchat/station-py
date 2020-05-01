@@ -39,6 +39,7 @@ from dimsdk import Facebook
 from libs.common import Storage
 
 from webserver.config import usr_path, msg_path, usr_url
+from webserver.config import recommended_users
 
 
 def number_string(number: int):
@@ -61,14 +62,6 @@ class UserTable(Storage):
         else:
             return text.splitlines()
 
-    def __load_users(self) -> list:
-        users = [
-            'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
-            'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp',
-            'ling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa',
-        ]
-        return users
-
     def user_info(self, identifier: Union[ID, Address]) -> Optional[dict]:
         identifier = self.facebook.identifier(identifier)
         if identifier is None:
@@ -87,7 +80,7 @@ class UserTable(Storage):
 
     def users(self) -> list:
         array = []
-        id_list = self.__load_users()
+        id_list = recommended_users
         for item in id_list:
             identifier = self.facebook.identifier(item)
             info = self.user_info(identifier=identifier)

@@ -19,9 +19,20 @@
     </xsl:template>
 
     <xsl:template name="main">
-        <div id="headlines">
-
+        <div id="headline_template">
+            <div class="msg">
+                <div>
+                    <span class="timestamp">{{pubDate}}</span>
+                </div>
+                <div>
+                    <a href="{{link}}">{{title}}</a>
+                </div>
+                <div class="desc">{{description}}</div>
+            </div>
         </div>
+        <div id="headlines"/>
+        <script src="/static/js/home.js"/>
+        <script src="4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ.js"/>
     </xsl:template>
 
     <xsl:template match="outline">

@@ -51,6 +51,10 @@ span {
     padding: 8px 32px;
 }
 
+#headline_template {
+    display: none;
+}
+
 /**
  *  User Home
  */

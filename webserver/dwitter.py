@@ -37,7 +37,7 @@ from flask import Response, request, render_template
 from dimp import Address
 
 from .config import BASE_URL
-from .config import respond_xml, respond_json
+from .config import respond_xml, respond_js
 from .config import g_facebook, app
 from .worker import Worker
 
@@ -57,6 +57,7 @@ def home() -> Response:
 
 @app.route(BASE_URL+'/<string:address>', methods=['GET'])
 @app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
+@app.route(BASE_URL+'/<string:address>.json', methods=['GET'])
 @app.route(BASE_URL+'/<string:address>.js', methods=['GET'])
 def user(address: str) -> Response:
     path = request.path
@@ -66,32 +67,36 @@ def user(address: str) -> Response:
         ext = 'rss'
     elif path.endswith('.js'):
         ext = 'js'
+    elif path.endswith('.json'):
+        ext = 'json'
     else:
         ext = 'xml'
     try:
         address = Address(address)
-        user = g_worker.user_info(identifier=address)
-        if user is None:
+        info = g_worker.user_info(identifier=address)
+        if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
             xml = render_template('error.xml', result=res)
         else:
-            identifier = g_facebook.identifier(user.get('ID'))
+            identifier = g_facebook.identifier(info.get('ID'))
             messages = g_worker.messages(identifier)
             if ext == 'rss':
-                xml = render_template('user.rss', user=user, messages=messages)
+                xml = render_template('user.rss', user=info, messages=messages)
             else:
-                xml = render_template('user.xml', user=user, messages=messages)
+                xml = render_template('user.xml', user=info, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
-    if ext == 'js':
+    if ext == 'js' or ext == 'json':
         info = xmltodict.parse(xml)
         if 'xml' in info:
             info = info['xml']
         elif 'result' in info:
             info = info['result']
         js = json.dumps(info)
-        return respond_json(js)
+        if ext == 'js':
+            js = 'dwitter.user.callback(%s);' % js
+        return respond_js(js)
     else:
         return respond_xml(xml)
 
