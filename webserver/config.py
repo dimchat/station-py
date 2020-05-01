@@ -179,7 +179,14 @@ def msg_url(signature: str, timestamp: int=0, year: int=0, month: int=0, day: in
 
 def respond_xml(xml: str) -> Response:
     res = Response(response=xml, status=200, mimetype='application/xml')
-    res.headers['Content-Type'] = 'application/xml; charset=utf-8'
+    res.headers['Content-Type'] = 'application/xml; charset=UTF-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
+def respond_json(js: str) -> Response:
+    res = Response(response=js, status=200, mimetype='application/json')
+    res.headers['Content-Type'] = 'application/json; charset=UTF-8'
     res.headers['Access-Control-Allow-Origin'] = '*'
     return res
 

@@ -49,7 +49,11 @@
         <div class="layout_header">
             <div class="layout_wrapper">
                 <div class="layout_left">
-                    <div id="appName">Dwitter (alpha)</div>
+                    <div id="appName">
+                        <span style="color:red;">op</span>inion
+                        -
+                        noini<span style="color:red;">qo</span>
+                    </div>
                 </div>
                 <div class="layout_right">
                     <div id="myAccount"/>

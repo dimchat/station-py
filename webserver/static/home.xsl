@@ -13,14 +13,14 @@
     </xsl:template>
 
     <xsl:template name="panel">
-        <div>
-            <span>Outlines</span>
+        <div class="outlines">
+            <xsl:apply-templates select="//outline"/>
         </div>
     </xsl:template>
 
     <xsl:template name="main">
-        <div class="outlines">
-            <xsl:apply-templates select="//outline"/>
+        <div id="headlines">
+
         </div>
     </xsl:template>
 
@@ -33,9 +33,6 @@
                     </xsl:attribute>
                     <xsl:value-of select="@title"/>
                 </a>
-            </div>
-            <div class="desc">
-                <span><xsl:value-of select="@text"/></span>
             </div>
         </div>
     </xsl:template>

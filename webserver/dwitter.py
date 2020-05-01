@@ -29,13 +29,15 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 """
+import json
 
+import xmltodict
 from flask import Response, request, render_template
 
 from dimp import Address
 
 from .config import BASE_URL
-from .config import respond_xml
+from .config import respond_xml, respond_json
 from .config import g_facebook, app
 from .worker import Worker
 
@@ -55,7 +57,17 @@ def home() -> Response:
 
 @app.route(BASE_URL+'/<string:address>', methods=['GET'])
 @app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
+@app.route(BASE_URL+'/<string:address>.js', methods=['GET'])
 def user(address: str) -> Response:
+    path = request.path
+    if path is None:
+        ext = 'xml'
+    elif path.endswith('.rss'):
+        ext = 'rss'
+    elif path.endswith('.js'):
+        ext = 'js'
+    else:
+        ext = 'xml'
     try:
         address = Address(address)
         user = g_worker.user_info(identifier=address)
@@ -65,15 +77,23 @@ def user(address: str) -> Response:
         else:
             identifier = g_facebook.identifier(user.get('ID'))
             messages = g_worker.messages(identifier)
-            path = request.path
-            if path is not None and path.endswith('.rss'):
+            if ext == 'rss':
                 xml = render_template('user.rss', user=user, messages=messages)
             else:
                 xml = render_template('user.xml', user=user, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
-    return respond_xml(xml)
+    if ext == 'js':
+        info = xmltodict.parse(xml)
+        if 'xml' in info:
+            info = info['xml']
+        elif 'result' in info:
+            info = info['result']
+        js = json.dumps(info)
+        return respond_json(js)
+    else:
+        return respond_xml(xml)
 
 
 @app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>', methods=['GET'])

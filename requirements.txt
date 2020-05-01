@@ -1,7 +1,8 @@
-numpy==1.15.4
-base58==1.0.3
-pycryptodome==3.7.3
-apns2==0.4.1
-Flask==1.0.2
+numpy
+base58
+pycryptodome
+apns2
+Flask
+xmltodict
 dimp
 dimsdk>=0.4.3
