@@ -9,6 +9,40 @@ body {
     background: linear-gradient(to bottom, #57A1CE 0%, #99DDFF 100%);
 }
 
+a {
+    text-decoration-line: none;
+    color: blue;
+    padding: 4px 8px;
+}
+a:hover {
+    text-decoration-line: underline;
+    background-color: #e0e0f5;
+    color: darkblue;
+}
+
+span {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+#appName {
+    margin: 8px;
+    font-size: 22px;
+}
+
+#myAccount {
+    margin: 8px;
+}
+#myAccount Button {
+    font-size: 18px;
+    border: 0;
+    color: white;
+    background-color: transparent;
+}
+#myAccount Button:hover {
+    text-decoration-line: underline;
+}
+
 .layout_wrapper {
     margin: 0 auto;
     padding: 0;

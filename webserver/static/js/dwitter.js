@@ -68,8 +68,16 @@ if (typeof dwitter === 'object') {
         var user = facebook.getCurrentUser();
         if (user) {
             show_user(user);
+            remove_post_mask();
         } else {
             show_register();
+        }
+    };
+
+    var remove_post_mask = function () {
+        var mask = document.getElementById('post_box_mask');
+        if (mask) {
+            mask.style.display = 'none';
         }
     };
 
@@ -96,7 +104,7 @@ if (typeof dwitter === 'object') {
 
     var open_register = function () {
         // register new account
-        new RegisterWindow.show();
+        RegisterWindow.show();
     };
 
     ns.Main = main;

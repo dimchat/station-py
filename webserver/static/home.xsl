@@ -20,6 +20,7 @@
     </xsl:template>
 
     <xsl:template name="main">
+        <xsl:call-template name="form"/>
         <div id="headline_template">
             <div class="msg">
                 <div>
@@ -47,6 +48,30 @@
                     </xsl:attribute>
                     <xsl:value-of select="@title"/>
                 </a>
+            </div>
+        </div>
+    </xsl:template>
+
+    <xsl:template name="form">
+        <script>
+            function showRegister() {
+                if (typeof dwitter.RegisterWindow !== 'function') {
+                    alert('loading');
+                    return;
+                }
+                dwitter.RegisterWindow.show();
+            }
+        </script>
+        <div id="post_box">
+            <div id="post_box_mask">
+                <div>
+                    <button onClick="javascript:showRegister();">Create Account</button>
+                </div>
+            </div>
+            <div id="post_box_form">
+                <textarea id="post_text"/>
+                <span id="input_limit">bytes left</span>
+                <button id="post_button">Submit</button>
             </div>
         </div>
     </xsl:template>
