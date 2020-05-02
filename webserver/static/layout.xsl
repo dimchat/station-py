@@ -11,10 +11,10 @@
                 <meta name="description" content="DIMP Client"/>
                 <meta name="author" content="Albert Moky"/>
                 <link rel="stylesheet" href="/static/css/layout.css"/>
-                <xsl:call-template name="title"/>
                 <script src="/static/js/common.js"/>
                 <script src="/static/js/meta.js"/>
                 <script src="/static/js/msg.js"/>
+                <xsl:call-template name="title"/>
             </head>
             <body>
                 <xsl:call-template name="header"/>

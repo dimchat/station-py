@@ -47,6 +47,10 @@
     padding: 4px 8px;
 }
 
+.input_box_form .input_limit {
+    color: lightcoral;
+}
+
 /**
  *  Outlines
  */

@@ -9,6 +9,7 @@
 
     <xsl:template name="title">
         <link rel="stylesheet" href="/static/css/home.css"/>
+        <script src="/static/js/submit.js"/>
         <title><xsl:value-of select="//channel/title"/></title>
     </xsl:template>
 
@@ -60,7 +61,7 @@
             </div>
             <div id="reply_box_form" class="input_box_form">
                 <textarea id="reply_text" class="input_text"/>
-                <span id="input_limit" class="input_limit">bytes left</span>
+                <span id="input_limit" class="input_limit"/>
                 <button id="reply_button" class="input_submit">Reply</button>
             </div>
         </div>
