@@ -23,6 +23,18 @@
         <div class="messages">
             <div><h2>Messages</h2></div>
             <xsl:apply-templates select="//item"/>
+            <div id="messages"/>
+            <div id="message_template">
+                <div class="msg">
+                    <div>
+                        <span class="timestamp">${time}</span>
+                    </div>
+                    <div>
+                        <a href="${{link}}">${title}</a>
+                    </div>
+                    <div class="desc">${data}</div>
+                </div>
+            </div>
         </div>
     </xsl:template>
 

@@ -21,21 +21,21 @@
 
     <xsl:template name="main">
         <xsl:call-template name="form"/>
-        <div id="headline_template">
-            <div class="msg">
-                <div>
-                    <span class="timestamp">{{pubDate}}</span>
-                </div>
-                <div>
-                    <a href="{{link}}">{{title}}</a>
-                </div>
-                <div class="desc">{{description}}</div>
-            </div>
-        </div>
         <div id="headlines">
             <div><h2>Messages</h2></div>
+            <div id="messages"/>
+            <div id="message_template">
+                <div class="msg">
+                    <div>
+                        <span class="timestamp">${time}</span>
+                    </div>
+                    <div>
+                        <a href="${{link}}">${title}</a>
+                    </div>
+                    <div class="desc">${data}</div>
+                </div>
+            </div>
         </div>
-        <script src="/static/js/home.js"/>
         <script src="anyone.js"/>
     </xsl:template>
 

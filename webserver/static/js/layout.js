@@ -1,38 +1,5 @@
 
-!function () {
-    'use strict';
-
-    var logo = document.getElementById('appName');
-    logo.onclick = function (ev) {
-        var url = window.location.href;
-        var pos = url.indexOf('/', url.indexOf('://') + 3);
-        url = url.substring(0, pos) + '/dwitter';
-        window.location.href = url;
-    };
-
-}();
-
-!function () {
-    'use strict';
-
-    var time_string = function (timestamp) {
-        var time = new Date(timestamp * 1000);
-        return time.toLocaleString();
-    };
-
-    var spans = document.getElementsByClassName('timestamp');
-    for (var i = 0; i < spans.length; ++i) {
-        var span = spans[i];
-        var value = span.innerText;
-        if (isNaN(value)) {
-            continue;
-        }
-        span.innerText = time_string(parseInt(value));
-    }
-
-}();
-
-!function () {
+!function (ns) {
     'use strict';
 
     var MAX_WIDTH = 768;  // 512, 256
@@ -110,7 +77,74 @@
         set_width(main, main_width - 17);
     };
 
-    window.onresize = layout;
     layout();
 
-}();
+    ns.addOnLoad(layout);
+
+    window.onresize = layout;
+
+}(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    var refresh = function () {
+        var spans = document.getElementsByClassName('timestamp');
+        for (var i = 0; i < spans.length; ++i) {
+            var span = spans[i];
+            var value = span.innerText;
+            if (isNaN(value)) {
+                continue;
+            }
+            span.innerText = time_string(parseInt(value));
+        }
+    };
+
+    var time_string = function (timestamp) {
+        var time = new Date(timestamp * 1000);
+        return time.toLocaleString();
+    };
+
+    refresh();
+
+    ns.addOnLoad(refresh);
+
+    dwitter.refreshTimestamp = refresh;
+
+}(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    //
+    //  Logo
+    //
+    var logo = function () {
+        var logo = document.getElementById('appName');
+        if (!logo) {
+            return;
+        }
+        logo.onclick = function () {
+            var url = window.location.href;
+            var pos = url.indexOf('/', url.indexOf('://') + 3);
+            url = url.substring(0, pos) + '/dwitter';
+            window.location.href = url;
+        };
+    };
+
+    logo();
+
+    ns.addOnLoad(logo);
+
+    //
+    //  Register Window
+    //
+    ns.showRegisterWindow = function () {
+        if (!ns.im) {
+            alert('loading DIM ...');
+            return;
+        }
+        ns.im.RegisterWindow.show();
+    };
+
+}(dwitter);

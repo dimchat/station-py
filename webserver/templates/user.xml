@@ -8,14 +8,21 @@
         <language>zh-CN</language>
         <generator>Dwitter 1.0 (DIMP 1.0)</generator>
         <webMaster>moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ</webMaster>
-        {% for msg in messages %}
+        {% for item in messages %}
         <item>
-            <title>{{msg['content']['text']}}</title>
-            <description>{{msg['data']}}</description>
-            <author>{{msg['sender']}}</author>
-            <pubDate>{{msg['time']}}</pubDate>
-            <link>{{msg['link']}}</link>
-            <guid>{{msg['signature']}}</guid>
+            <title>{{item['content']['text']}}</title>
+            <description>{{item['data']}}</description>
+            <author>{{item['sender']}}</author>
+            <pubDate>{{item['time']}}</pubDate>
+            <link>{{item['link']}}</link>
+            <guid>{{item['signature']}}</guid>
+            <msg>
+                <sender>{{item['sender']}}</sender>
+                <receiver>{{item['receiver']}}</receiver>
+                <time>{{item['time']}}</time>
+                <data>{{item['data']}}</data>
+                <signature>{{item['signature']}}</signature>
+            </msg>
         </item>
         {% endfor %}
     </channel>

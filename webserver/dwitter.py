@@ -113,3 +113,25 @@ def message(sig: str, year: int, mon: int, day: int) -> Response:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
     return respond_xml(xml)
+
+
+"""
+    Meta
+"""
+
+
+@app.route(BASE_URL+'/<string:address>/meta.js', methods=['GET'])
+def meta(address: str) -> Response:
+    path = request.path
+    try:
+        address = g_facebook.identifier(address)
+        m = g_facebook.meta(identifier=address)
+        if m is None:
+            res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
+        else:
+            res = m
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+    js = json.dumps(res)
+    js = 'dwitter.js.respond(%s,{"path":"%s"});' % (js, path)
+    return respond_js(js)

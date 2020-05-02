@@ -103,3 +103,4 @@ dwitter.im = dicq;
 dwitter.Main = dicq.Main;
 
 dwitter.Main();
+dwitter.onload();
