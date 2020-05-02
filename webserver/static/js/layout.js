@@ -109,7 +109,7 @@
 
     ns.addOnLoad(refresh);
 
-    dwitter.refreshTimestamp = refresh;
+    ns.refreshTimestamp = refresh;
 
 }(dwitter);
 
