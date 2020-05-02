@@ -30,9 +30,9 @@
 """
 
 import os
-from typing import Optional, Union
+from typing import Optional
 
-from dimp import ID, Address
+from dimp import ID
 from dimp import ReliableMessage
 from dimsdk import Facebook
 
@@ -62,7 +62,7 @@ class UserTable(Storage):
         else:
             return text.splitlines()
 
-    def user_info(self, identifier: Union[ID, Address]) -> Optional[dict]:
+    def user_info(self, identifier: ID) -> Optional[dict]:
         identifier = self.facebook.identifier(identifier)
         if identifier is None:
             return None

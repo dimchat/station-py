@@ -77,6 +77,9 @@
     //
 
     var show = function (messages, container, template) {
+        if (!messages || messages.length === 0) {
+            return;
+        }
         if (!container) {
             container = document.getElementById('messages');
         }

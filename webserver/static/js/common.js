@@ -132,17 +132,14 @@ if (typeof dwitter !== 'object') {
 
     var add = function (fn) {
         if (s_list) {
-            console.log('add onload');
             s_list.push(fn);
         } else {
-            console.error('run onload');
             // already loaded, run it immediately
             fn();
         }
     };
 
     var onload = function () {
-        console.log('onload functions: ', s_list, arguments);
         for (var i = 0; i < s_list.length; ++i) {
             s_list[i].apply(arguments);
         }

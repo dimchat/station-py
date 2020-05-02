@@ -30,9 +30,9 @@
 """
 
 import json
-from typing import Optional, Union
+from typing import Optional
 
-from dimp import ID, Address
+from dimp import ID
 from dimp import Content, TextContent
 from dimsdk import Facebook
 
@@ -62,7 +62,7 @@ class Worker:
         except ValueError:
             self.error('ID error: %s' % identifier)
 
-    def user_info(self, identifier: Union[ID, Address]) -> Optional[dict]:
+    def user_info(self, identifier: ID) -> Optional[dict]:
         return self.user_table.user_info(identifier=identifier)
 
     def outlines(self) -> list:

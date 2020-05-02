@@ -22,8 +22,28 @@
     };
 
     var base = window.location.href;
-    var pos = base.indexOf('/', base.indexOf('://') + 3);
-    base = base.substring(0, pos) + '/dwitter/';
+    var pos = base.indexOf('://');
+    pos = base.indexOf('/', pos + 3);
+    base = base.substring(0, pos);
+
+    var user_url = function (address) {
+        if (typeof DIMP === 'object') {
+            if (address instanceof DIMP.ID) {
+                address = address.address;
+            }
+        } else {
+            var pos = address.indexOf('@');
+            if (pos >= 0) {
+                address = address.substring(pos + 1);
+            }
+        }
+        return base + '/dwitter/' + address;
+    };
+
+    // path: '/dwitter/{ID}/meta.js'
+    var meta_url = function (identifier) {
+        return base + '/dwitter/' + identifier + '/meta.js';
+    };
 
     var query_meta = function (identifier) {
         var now = (new Date()).getTime() / 1000;
@@ -32,9 +52,7 @@
             return;
         }
         s_query_history[identifier] = now + 300;
-        // meta URL: '/dwitter/{ID}/meta.js'
-        var url = base + identifier + '/meta.js';
-        ns.js.request(url);
+        ns.js.request(meta_url(identifier));
     };
 
     // callback for receive meta
@@ -65,6 +83,31 @@
         }
     );
 
+    /**
+     *  Get Meta for User ID
+     *
+     * @param {ID} identifier - user ID
+     * @return {String} meta URL
+     */
     ns.getMeta = get_meta;
+
+    /**
+     *  Get User's home URL
+     *
+     * @param {ID} identifier - user ID
+     * @return {String} user home URL
+     */
+    ns.getUserURL = user_url;
+
+    ns.openURL = function (url) {
+        if (url.indexOf('://') < 0) {
+            if (url.charAt(0) === '/') {
+                url = base + url;
+            } else {
+                console.error('open URL: ', url);
+            }
+        }
+        window.document.location.href = url;
+    };
 
 }(dwitter);

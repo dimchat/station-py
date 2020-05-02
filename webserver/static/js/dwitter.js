@@ -67,7 +67,8 @@
         var btn = new Button();
         btn.setText(name);
         btn.onClick = function () {
-            AccountWindow.show();
+            var url = dwitter.getUserURL(user.identifier);
+            dwitter.openURL(url);
         };
         var tray = $('#myAccount');
         tray.removeChildren();
@@ -91,13 +92,6 @@
     ns.Main = main;
 
 }(dicq, tarsier.ui, DIMP);
-
-//
-//  dwitter
-//
-if (typeof dwitter !== 'object') {
-    dwitter = {}
-}
 
 dwitter.im = dicq;
 dwitter.Main = dicq.Main;
