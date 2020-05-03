@@ -11,43 +11,28 @@ if (typeof dwitter !== 'object') {
     //
     //      <div><a href="${{link}}">${text}</a></div>
     //
-    var template = function (string, data, prefixes) {
-        var html = string;
-        for (var key in data) {
-            if (!data.hasOwnProperty(key)) {
-                continue;
-            }
-            var tag1 = prefixes[0] + '{' + key + '}';
-            var tag2 = prefixes[1] + '%7B' + key + '%7D';
-            var value = data[key];
-            if (typeof value === 'string' || typeof value === 'number') {
-                // string, number
-                html = html.replace(tag1, value);
-                html = html.replace(tag2, value);
-            } else if (value instanceof Date) {
-                // date
-                html = html.replace(tag1, value.toString);
-                html = html.replace(tag2, value.toString);
-            } else if (value instanceof Array) {
-                // list
-                for (var i = 0; i < value.length; ++i) {
-                    tag1 += '{' + i + '}';
-                    tag2 += '%7B' + i + '%7D';
-                    html = template(html, value[i], [tag1, tag2]);
-                }
-            } else {
-                // dictionary
-                for (var k in value) {
-                    if (!value.hasOwnProperty(k)) {
-                        continue;
-                    }
-                    tag1 += '{' + k + '}';
-                    tag2 += '%7B' + k + '%7D';
-                    html = template(html, value[k], [tag1, tag2]);
-                }
+
+    var replace = function (string, tag, data) {
+        if (typeof data === 'string' || typeof data === 'number') {
+            // string, number
+            string = string.replace(new RegExp(tag, 'g'), data);
+        } else if (data instanceof Date) {
+            // date
+            string = string.replace(new RegExp(tag, 'g'), data.toLocaleString());
+        // } else if (data instanceof Array) {
+        //     // array
+        //     for (var i = 0; i < data.length; ++i) {
+        //         string = replace(string, tag + '(\\[|%5B)'+i+'(\\]|%5D)', data[i]);
+        //     }
+        } else {
+            // dictionary
+            var names = Object.getOwnPropertyNames(data);
+            for (var j = 0; j < names.length; ++j) {
+                var k = names[j];
+                string = replace(string, tag + '({|%7B)'+k+'(}|%7D)', data[k]);
             }
         }
-        return html;
+        return string;
     };
 
     /**
@@ -57,7 +42,7 @@ if (typeof dwitter !== 'object') {
      * @param {map} data - dictionary for key value pairs
      */
     ns.template = function (string, data) {
-        return template(string, data, ['$', '%24']);
+        return replace(string, '(\\$|%24)', data);
     };
 
 }(dwitter);

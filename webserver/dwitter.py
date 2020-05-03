@@ -76,7 +76,6 @@ def user(address: str) -> Response:
             print('address: %s' % address)
             address = Address(address=address)
         identifier = g_facebook.identifier(address)
-        print('ID: %s' % identifier)
         info = g_worker.user_info(identifier=identifier)
         if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
@@ -118,7 +117,7 @@ def message(sig: str, year: int, mon: int, day: int) -> Response:
 
 
 """
-    Meta
+    Meta / Profile
 """
 
 
@@ -127,11 +126,28 @@ def meta(address: str) -> Response:
     path = request.path
     try:
         address = g_facebook.identifier(address)
-        m = g_facebook.meta(identifier=address)
-        if m is None:
-            res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
+        info = g_facebook.meta(identifier=address)
+        if info is None:
+            res = {'code': 404, 'name': 'Not Found', 'message': 'meta not found: %s' % address}
         else:
-            res = m
+            res = info
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+    js = json.dumps(res)
+    js = 'dwitter.js.respond(%s,{"path":"%s"});' % (js, path)
+    return respond_js(js)
+
+
+@app.route(BASE_URL+'/<string:address>/profile.js', methods=['GET'])
+def profile(address: str) -> Response:
+    path = request.path
+    try:
+        address = g_facebook.identifier(address)
+        info = g_facebook.profile(identifier=address)
+        if info is None:
+            res = {'code': 404, 'name': 'Not Found', 'message': 'profile not found: %s' % address}
+        else:
+            res = info
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
     js = json.dumps(res)
