@@ -44,7 +44,7 @@ from .worker import Worker
 g_worker = Worker(facebook=g_facebook)
 
 
-@app.route(BASE_URL+'/', methods=['GET'])
+@app.route(BASE_URL, methods=['GET'])
 def home() -> Response:
     try:
         users = g_worker.outlines()
@@ -55,10 +55,10 @@ def home() -> Response:
     return respond_xml(xml)
 
 
-@app.route(BASE_URL+'/<string:address>', methods=['GET'])
-@app.route(BASE_URL+'/<string:address>.rss', methods=['GET'])
-@app.route(BASE_URL+'/<string:address>.json', methods=['GET'])
-@app.route(BASE_URL+'/<string:address>.js', methods=['GET'])
+@app.route(BASE_URL+'channel/<string:address>', methods=['GET'])
+@app.route(BASE_URL+'channel/<string:address>.rss', methods=['GET'])
+@app.route(BASE_URL+'channel/<string:address>.json', methods=['GET'])
+@app.route(BASE_URL+'channel/<string:address>.js', methods=['GET'])
 def user(address: str) -> Response:
     path = request.path
     if path is None:
@@ -104,52 +104,13 @@ def user(address: str) -> Response:
         return respond_xml(xml)
 
 
-@app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>', methods=['GET'])
-@app.route(BASE_URL+'/<int:year>/<int:mon>/<int:day>/<string:sig>.xml', methods=['GET'])
-def message(sig: str, year: int, mon: int, day: int) -> Response:
+@app.route(BASE_URL+'message/<string:sig>', methods=['GET'])
+@app.route(BASE_URL+'message/<string:sig>.xml', methods=['GET'])
+def message(sig: str) -> Response:
     try:
-        msg = g_worker.message(signature=sig, year=year, month=mon, day=day)
+        msg = g_worker.message(signature=sig)
         xml = render_template('msg.xml', msg=msg)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
     return respond_xml(xml)
-
-
-"""
-    Meta / Profile
-"""
-
-
-@app.route(BASE_URL+'/<string:address>/meta.js', methods=['GET'])
-def meta(address: str) -> Response:
-    path = request.path
-    try:
-        address = g_facebook.identifier(address)
-        info = g_facebook.meta(identifier=address)
-        if info is None:
-            res = {'code': 404, 'name': 'Not Found', 'message': 'meta not found: %s' % address}
-        else:
-            res = info
-    except Exception as error:
-        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
-    js = json.dumps(res)
-    js = 'dwitter.js.respond(%s,{"path":"%s"});' % (js, path)
-    return respond_js(js)
-
-
-@app.route(BASE_URL+'/<string:address>/profile.js', methods=['GET'])
-def profile(address: str) -> Response:
-    path = request.path
-    try:
-        address = g_facebook.identifier(address)
-        info = g_facebook.profile(identifier=address)
-        if info is None:
-            res = {'code': 404, 'name': 'Not Found', 'message': 'profile not found: %s' % address}
-        else:
-            res = info
-    except Exception as error:
-        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
-    js = json.dumps(res)
-    js = 'dwitter.js.respond(%s,{"path":"%s"});' % (js, path)
-    return respond_js(js)

@@ -1,6 +1,6 @@
 
 if (typeof dwitter !== 'object') {
-    dwitter = {}
+    dwitter = {};
 }
 
 !function (ns) {
@@ -51,65 +51,6 @@ if (typeof dwitter !== 'object') {
     'use strict';
 
     //
-    //  JS request and response handler
-    //
-
-    var observers = [];
-
-    ns.js = {
-        request: function (url, callback) {
-            if (!ns.im) {
-                alert('DIM loading');
-                return;
-            }
-            ns.im.loader.importJS(url, callback);
-        },
-        /**
-         *  Callback for JS request
-         *
-         * @param {Object} json - respond data from server
-         * @param {Request} request - request object with 'path'
-         */
-        respond: function (json, request) {
-            var ob;
-            for (var i = 0; i < observers.length; ++i) {
-                ob = observers[i];
-                if (ob.evaluate(request)) {
-                    ob.callback(json, request);
-                }
-            }
-        },
-        addObserver: function (evaluate, callback) {
-            for (var i = observers.length - 1; i >= 0; --i) {
-                var item = observers[i];
-                if (item['evaluate'] === evaluate &&
-                    item['callback'] === callback) {
-                    alert('duplicate observer');
-                    return;
-                }
-            }
-            observers.push({
-                'evaluate': evaluate,
-                'callback': callback
-            });
-        },
-        removeObserver: function (evaluate, callback) {
-            for (var i = observers.length; i >= 0; --i) {
-                var item = observers[i];
-                if (item['evaluate'] === evaluate &&
-                    item['callback'] === callback) {
-                    observers.splice(i, 1);
-                }
-            }
-        }
-    };
-
-}(dwitter);
-
-!function (ns) {
-    'use strict';
-
-    //
     //  OnLoad
     //
 
@@ -134,5 +75,51 @@ if (typeof dwitter !== 'object') {
     ns.addOnLoad = add;
 
     ns.onload = onload;
+
+}(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    var base = window.location.href;
+    var pos = base.indexOf('://');
+    pos = base.indexOf('/', pos + 3);
+    base = base.substring(0, pos);
+
+    // path: '/channel/{Address}.js'
+    var user_url = function (address) {
+        if (typeof DIMP !== 'object') {
+            var pos = address.indexOf('@');
+            if (pos >= 0) {
+                address = address.substring(pos + 1);
+            }
+        } else if (address instanceof DIMP.ID) {
+            address = address.address;
+        }
+        return base + '/channel/' + address;
+    };
+
+    var open = function (url) {
+        if (url.indexOf('://') < 0) {
+            if (url.charAt(0) === '/') {
+                url = base + url;
+            } else {
+                console.error('open URL: ', url);
+            }
+        }
+        window.document.location.href = url;
+    };
+
+    ns.baseURL = base + '/';
+
+    /**
+     *  Get User's home URL
+     *
+     * @param {ID} identifier - user ID
+     * @return {String} user home URL
+     */
+    ns.getUserURL = user_url;
+
+    ns.openURL = open;
 
 }(dwitter);

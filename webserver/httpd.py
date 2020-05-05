@@ -42,6 +42,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 
 from webserver.config import WWW_HOST, WWW_PORT
 
+from webserver.dim import *
 from webserver.dwitter import *
 
 

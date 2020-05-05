@@ -39,11 +39,8 @@
         </div>
         <script>
             !function (ns) {
-                var base = window.location.href;
-                var pos = base.indexOf('/', base.indexOf('://') + 3);
-                base = base.substring(0, pos) + '/dwitter/';
                 ns.addOnLoad(function () {
-                    ns.js.request(base + 'anyone@anywhere.js');
+                    ns.js.request(ns.baseURL + 'channel/anyone@anywhere.js');
                 });
             }(dwitter);
         </script>

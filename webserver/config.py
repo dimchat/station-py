@@ -129,7 +129,7 @@ WWW_PORT = 9395
 
 DB_PATH = '/var/dim/dwitter'
 
-BASE_URL = '/dwitter'
+BASE_URL = '/'
 
 recommended_users = [
     'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
@@ -152,14 +152,22 @@ def usr_path(address: Union[str, Address]) -> str:
     return '%s/%s' % (users_path(), address)
 
 
-def msg_path(signature: str, timestamp: int=0, year: int=0, month: int=0, day: int=0) -> str:
-    if timestamp is not 0:
-        localtime = time.localtime(timestamp)
-        year = localtime.tm_year
-        month = localtime.tm_mon
-        day = localtime.tm_mday
-    sig = signature[-8:]
-    return '%s/messages/%d/%d/%d/%s.msg' % (DB_PATH, year, month, day, sig)
+def msg_path(signature: str) -> str:
+    filename = msg_filename(signature=signature)
+    return '%s/messages/%s.msg' % (DB_PATH, filename)
+
+
+def msg_filename(signature: str) -> str:
+    start = 0
+    length = len(signature)
+    while length > 16:
+        start += 4
+        length -= 4
+    if start > 0:
+        filename = signature[start:]
+    else:
+        filename = signature
+    return filename.replace('+', '-').replace('/', '_').replace('=', '')
 
 
 """
@@ -170,17 +178,12 @@ def msg_path(signature: str, timestamp: int=0, year: int=0, month: int=0, day: i
 
 
 def usr_url(identifier: ID) -> str:
-    return '%s/%s' % (BASE_URL, identifier.address)
+    return '%schannel/%s' % (BASE_URL, identifier.address)
 
 
-def msg_url(signature: str, timestamp: int=0, year: int=0, month: int=0, day: int=0) -> str:
-    if timestamp is not 0:
-        localtime = time.localtime(timestamp)
-        year = localtime.tm_year
-        month = localtime.tm_mon
-        day = localtime.tm_mday
-    sig = signature[-8:]
-    return '%s/%d/%d/%d/%s' % (BASE_URL, year, month, day, sig)
+def msg_url(signature: str) -> str:
+    filename = msg_filename(signature=signature)
+    return '%smessage/%s' % (BASE_URL, filename)
 
 
 def respond_xml(xml: str) -> Response:

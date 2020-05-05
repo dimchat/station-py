@@ -45,7 +45,7 @@
     ns.js.addObserver(
         function (request) {
             var path = request['path'];
-            return /^\/dwitter\/[^\/]+\.js$/.test(path);
+            return /^\/channel\/[^\/]+\.js$/.test(path);
         },
         function (json) {
             var channel = json['channel'];
@@ -54,13 +54,18 @@
                 return;
             }
             var items = channel['item'];
-            if (!items) {
+            if (!items || items.length === 0) {
+                console.log('message empty');
                 return;
             }
             for (var i = 0; i < items.length; ++i) {
                 var msg = items[i]['msg'];
                 suspend(msg);
             }
+            console.log('received messages: ', items.length);
+            var nc = DIMP.stargate.NotificationCenter.getInstance();
+            nc.postNotification('MessageReceived', this,
+                {'channel': channel});
         }
     );
 
@@ -117,14 +122,31 @@
         return ns.template(template, msg);
     };
 
+    var msg_filename = function (signature) {
+        var start = 0;
+        var length = signature.length;
+        while (length > 16) {
+            start += 4;
+            length -= 4;
+        }
+        var filename;
+        if (start > 0) {
+            filename = signature.substring(start);
+        } else {
+            filename = signature;
+        }
+        return filename
+            .replace('+', '-')
+            .replace('/', '_')
+            .replace('=', '');
+    };
+
     var msg_url = function (msg) {
-        var time = new Date(msg['time'] * 1000);
-        var year = time.getFullYear();
-        var month = time.getMonth() + 1;
-        var day = time.getDate();
         var signature = msg['signature'];
-        signature = signature.substring(signature.length - 8);
-        return '/dwitter/' + year + '/' + month + '/' + day + '/' + signature
+        if (!signature) {
+            return null;
+        }
+        return '/message/' + msg_filename(signature);
     };
 
     var verify = function (msg) {
@@ -172,9 +194,9 @@
     ns.js.addObserver(
         function (request) {
             var path = request['path'];
-            return /^\/dwitter\/[^\/]+\.js$/.test(path);
+            return /^\/channel\/[^\/]+\.js$/.test(path);
         },
-        function (json) {
+        function () {
             var messages = ns.suspendingMessages();
             ns.showMessages(messages);
         }
@@ -184,12 +206,12 @@
     ns.js.addObserver(
         function (request) {
             var path = request['path'];
-            return /^\/dwitter\/[^\/]+\/meta\.js$/.test(path);
+            return /^\/meta\/[^.]+\.js$/.test(path);
         },
         function (json, request) {
             var path = request['path'];
-            var pos = path.indexOf('/meta.js');
-            var identifier = path.substring('/dwitter/'.length, pos);
+            var pos = path.indexOf('.js');
+            var identifier = path.substring('/meta/'.length, pos);
             if (!identifier) {
                 console.error('id error: ', request);
                 return;

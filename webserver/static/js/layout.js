@@ -125,10 +125,7 @@
             return;
         }
         logo.onclick = function () {
-            var url = window.location.href;
-            var pos = url.indexOf('/', url.indexOf('://') + 3);
-            url = url.substring(0, pos) + '/dwitter';
-            window.location.href = url;
+            ns.openURL('/');
         };
     };
 

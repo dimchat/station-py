@@ -68,21 +68,8 @@ class Worker:
     def outlines(self) -> list:
         return self.user_table.users()
 
-    def message(self, signature: str, timestamp: int=0,
-                year: int=0, month: int=0, day: int=0) -> Optional[dict]:
-        if timestamp is 0:
-            msg = {
-                'signature': signature,
-                'year': year,
-                'month': month,
-                'day': day,
-            }
-        else:
-            msg = {
-                'signature': signature,
-                'time': timestamp,
-            }
-        msg = self.msg_table.load(msg=msg)
+    def message(self, signature: str) -> Optional[dict]:
+        msg = self.msg_table.load(signature=signature)
         if msg is None:
             return {}
         # message content
@@ -90,12 +77,12 @@ class Worker:
         if content is None:
             data = msg['data']
             content = Content(json.loads(data))
-            assert isinstance(content, TextContent), 'content error: %s' % day
+            assert isinstance(content, TextContent), 'content error: %s' % data
             msg['content'] = content
         # message url
         link = msg.get('link')
         if link is None:
-            link = msg_url(signature=signature, timestamp=timestamp, year=year, month=month, day=day)
+            link = msg_url(signature=signature)
             msg['link'] = link
         return msg
 
@@ -104,11 +91,7 @@ class Worker:
         lines = self.user_table.messages(identifier=identifier)
         for l in lines:
             pair = l.split(',')
-            if len(pair) != 2:
-                self.error('message info error: %s' % l)
-                continue
             signature = pair[0].strip()
-            timestamp = int(pair[1])
-            msg = self.message(signature=signature, timestamp=timestamp)
+            msg = self.message(signature=signature)
             array.append(msg)
         return array

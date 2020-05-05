@@ -3,13 +3,70 @@
     'use strict';
 
     //
+    //  JS request and response handler
+    //
+
+    var s_observers = [];
+
+    ns.js = {
+        request: function (url) {
+            ns.im.loader.importJS(url);
+        },
+        /**
+         *  Callback for JS request
+         *
+         * @param {Object} json - respond data from server
+         * @param {Request} request - request object with 'path'
+         */
+        respond: function (json, request) {
+            var ob;
+            for (var i = 0; i < s_observers.length; ++i) {
+                ob = s_observers[i];
+                if (ob.evaluate(request)) {
+                    ob.callback(json, request);
+                }
+            }
+        },
+        addObserver: function (evaluate, callback) {
+            // check duplicated
+            for (var i = s_observers.length - 1; i >= 0; --i) {
+                var item = s_observers[i];
+                if (item['evaluate'] === evaluate &&
+                    item['callback'] === callback) {
+                    console.error('duplicate observer');
+                    return;
+                }
+            }
+            // add observer
+            s_observers.push({
+                'evaluate': evaluate,
+                'callback': callback
+            });
+        },
+        removeObserver: function (evaluate, callback) {
+            for (var i = s_observers.length; i >= 0; --i) {
+                var item = s_observers[i];
+                if (item['evaluate'] === evaluate &&
+                    item['callback'] === callback) {
+                    s_observers.splice(i, 1);
+                }
+            }
+        }
+    };
+
+}(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    //
     //  Meta
     //
 
     var s_query_history = {};
 
     var get_meta = function (identifier) {
-        if (!ns.im) {
+        if (typeof DIMP !== 'object') {
             alert('DIM loading');
             return;
         }
@@ -21,28 +78,17 @@
         return meta;
     };
 
-    var base = window.location.href;
-    var pos = base.indexOf('://');
-    pos = base.indexOf('/', pos + 3);
-    base = base.substring(0, pos);
-
-    var user_url = function (address) {
-        if (typeof DIMP === 'object') {
-            if (address instanceof DIMP.ID) {
-                address = address.address;
-            }
-        } else {
+    // path: '/meta/{Address}.js'
+    var meta_url = function (address) {
+        if (typeof DIMP !== 'object') {
             var pos = address.indexOf('@');
             if (pos >= 0) {
                 address = address.substring(pos + 1);
             }
+        } else if (address instanceof DIMP.ID) {
+            address = address.address;
         }
-        return base + '/dwitter/' + address;
-    };
-
-    // path: '/dwitter/{ID}/meta.js'
-    var meta_url = function (identifier) {
-        return base + '/dwitter/' + identifier + '/meta.js';
+        return ns.baseURL + 'meta/' + address + '.js';
     };
 
     var query_meta = function (identifier) {
@@ -59,13 +105,13 @@
     ns.js.addObserver(
         function (request) {
             var path = request['path'];
-            return /^\/dwitter\/[^\/]+\/meta\.js$/.test(path);
+            return /^\/meta\/[^.]+\.js$/.test(path);
         },
         function (json, request) {
             var facebook = DIMP.Facebook.getInstance();
             var path = request['path'];
-            var pos = path.indexOf('/meta.js');
-            var identifier = path.substring('/dwitter/'.length, pos);
+            var pos = path.indexOf('.js');
+            var identifier = path.substring('/meta/'.length, pos);
             identifier = facebook.getIdentifier(identifier);
             if (!identifier) {
                 console.error('id error: ', request);
@@ -77,7 +123,12 @@
                 return;
             }
             var ok = facebook.saveMeta(meta, identifier);
-            if (!ok) {
+            if (ok) {
+                console.log('received meta: ', meta, identifier);
+                var nc = DIMP.stargate.NotificationCenter.getInstance();
+                nc.postNotification('MetaReceived', this,
+                    {'ID': identifier, 'meta': meta});
+            } else {
                 console.error('failed to save meta: ', meta, identifier);
             }
         }
@@ -90,24 +141,5 @@
      * @return {String} meta URL
      */
     ns.getMeta = get_meta;
-
-    /**
-     *  Get User's home URL
-     *
-     * @param {ID} identifier - user ID
-     * @return {String} user home URL
-     */
-    ns.getUserURL = user_url;
-
-    ns.openURL = function (url) {
-        if (url.indexOf('://') < 0) {
-            if (url.charAt(0) === '/') {
-                url = base + url;
-            } else {
-                console.error('open URL: ', url);
-            }
-        }
-        window.document.location.href = url;
-    };
 
 }(dwitter);

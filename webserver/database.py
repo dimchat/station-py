@@ -101,30 +101,19 @@ class MessageTable(Storage):
         super().__init__()
         self.facebook = facebook
 
-    def __load_message(self, signature: str, timestamp: int=0,
-                       year: int=0, month: int=0, day: int=0) -> Optional[ReliableMessage]:
-        path = msg_path(signature=signature, timestamp=timestamp, year=year, month=month, day=day)
+    def __load_message(self, signature: str) -> Optional[ReliableMessage]:
+        path = msg_path(signature=signature)
         msg = self.read_json(path=path)
         if msg is not None:
             return ReliableMessage(msg)
 
-    def load(self, msg: dict) -> Optional[ReliableMessage]:
-        signature = msg['signature']
-        timestamp = msg.get('time')
-        if timestamp is None:
-            year = msg.get('year')
-            month = msg.get('month')
-            day = msg.get('day')
-            if year is None or month is None or day is None:
-                raise ValueError('message info error: %s' % msg)
-            return self.__load_message(signature=signature, year=year, month=month, day=day)
-        else:
-            return self.__load_message(signature=signature, timestamp=timestamp)
+    def load(self, signature: str) -> Optional[ReliableMessage]:
+        return self.__load_message(signature=signature)
 
     def save(self, msg: ReliableMessage) -> bool:
         signature = msg['signature']
         timestamp = msg.envelope.time
-        path = msg_path(signature=signature, timestamp=timestamp)
+        path = msg_path(signature=signature)
         if not self.write_json(container=msg, path=path):
             return False
         # append msg info to user's messages list
