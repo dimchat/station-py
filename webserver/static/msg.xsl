@@ -18,7 +18,7 @@
             <span><b>Sender</b>: </span>
             <a>
                 <xsl:attribute name="href">
-                    ../../../<xsl:value-of select="//envelope/sender"/>
+                    ../channel/<xsl:value-of select="//envelope/sender"/>
                 </xsl:attribute>
                 <xsl:value-of select="//envelope/sender"/>
             </a>

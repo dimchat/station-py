@@ -41,7 +41,6 @@
 
     var Facebook = dimp.Facebook;
 
-    var AccountWindow = ns.AccountWindow;
     var RegisterWindow = ns.RegisterWindow;
 
     var main = function () {

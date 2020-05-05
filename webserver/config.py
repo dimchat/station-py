@@ -30,7 +30,6 @@
     Configuration for WWW
 """
 
-import time
 from typing import Union
 from flask import Flask, Response
 
@@ -127,7 +126,8 @@ for key, value in ans_reserved_records.items():
 WWW_HOST = '0.0.0.0'
 WWW_PORT = 9395
 
-DB_PATH = '/var/dim/dwitter'
+# DB_PATH = '/var/dim/dwitter'  # test
+DB_PATH = '/data/dwitter'
 
 BASE_URL = '/'
 
