@@ -71,7 +71,8 @@ class Worker:
     def message(self, signature: str) -> Optional[dict]:
         msg = self.msg_table.load(signature=signature)
         if msg is None:
-            return {}
+            Log.error('failed to load message: %s' % signature)
+            return None
         # message content
         content = msg.get('content')
         if content is None:
@@ -92,6 +93,9 @@ class Worker:
         for l in lines:
             pair = l.split(',')
             signature = pair[0].strip()
+            if len(signature) == 0:
+                continue
             msg = self.message(signature=signature)
-            array.append(msg)
+            if msg is not None:
+                array.append(msg)
         return array
