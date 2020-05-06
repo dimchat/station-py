@@ -92,11 +92,6 @@
 
 }(dicq, tarsier.ui, DIMP);
 
-if (typeof dim !== 'object') {
-    dim = {}; // dicq;
-}
-dim.js = dwitter.js;
-
 dwitter.im = dicq;
 dwitter.Main = dicq.Main;
 

@@ -1,4 +1,6 @@
 
+dwitter.js = dim.js;
+
 !function (ns) {
     'use strict';
 
@@ -190,23 +192,26 @@
 
 }(dwitter);
 
-!function (ns) {
+!function (ns, im) {
     'use strict';
 
-    var show_sender_link = function (div, identifier) {
+    var show_sender_link = function (div, identifier, name) {
         var link = div.previousSibling;
         if (link instanceof HTMLLinkElement) {
             return;
         }
-        var title;
-        if (identifier.name) {
-            title = identifier.name + ' (' + identifier.getNumber() + ')';
-        } else {
-            title = identifier.address + ' (' + identifier.getNumber() + ')';
+        if (!name) {
+            if (identifier.name) {
+                name = identifier.name;
+            } else {
+                name = identifier.address;
+            }
         }
+        var facebook = DIMP.Facebook.getInstance();
+        var number = facebook.getNumberString(identifier);
         link = document.createElement('A');
         link.href = ns.getUserURL(identifier.address);
-        link.innerText = title;
+        link.innerText = name + ' (' + number + ')';
         div.parentNode.insertBefore(link, div);
         div.style.display = 'none';
     };
@@ -253,17 +258,17 @@
 
         var facebook = DIMP.Facebook.getInstance();
         identifier = facebook.getIdentifier(identifier);
-        if (identifier) {
-            show_sender_link(divSender[0], identifier);
-        } else {
+        if (!identifier) {
             console.error('sender error: ', divSender);
             return;
         }
-        var meta = ns.getMeta(identifier);
+        var meta = im.getMeta(identifier);
+        var profile = im.getProfile(identifier);
         if (!meta) {
             // waiting for meta
             return;
         }
+        show_sender_link(divSender[0], identifier, profile.getName());
         var data = DIMP.format.UTF8.encode(json);
         var signature = DIMP.format.Base64.decode(base64);
         if (meta.key.verify(data, signature)) {
@@ -306,4 +311,4 @@
         verify_all
     );
 
-}(dwitter);
+}(dwitter, dim);

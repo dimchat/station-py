@@ -12,7 +12,7 @@
                 <meta name="author" content="Albert Moky"/>
                 <link rel="stylesheet" href="/static/css/layout.css"/>
                 <script src="/static/js/common.js"/>
-                <script src="/static/js/meta.js"/>
+                <script src="/static/js/dim.js"/>
                 <script src="/static/js/msg.js"/>
                 <xsl:call-template name="title"/>
             </head>
