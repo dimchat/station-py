@@ -10,7 +10,7 @@
     <xsl:template name="title">
         <link rel="stylesheet" href="/static/css/home.css"/>
         <script src="/static/js/submit.js"/>
-        <title><xsl:value-of select="//channel/title"/></title>
+        <title><xsl:value-of select="//content/text"/> - Dwitter</title>
     </xsl:template>
 
     <xsl:template name="panel">

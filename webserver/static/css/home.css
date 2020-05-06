@@ -91,18 +91,13 @@
     padding: 16px;
 }
 
-.msg {
+.messages .message {
     padding: 16px 8px;
     border-top: 1px dashed #e0e0f5;
 }
 
-.msg .timestamp {
+.messages .timestamp {
     float: right;
-}
-
-.msg .desc {
-    color: gray;
-    padding: 8px 32px;
 }
 
 /**
@@ -126,24 +121,24 @@
 }
 
 .message .field {
-    margin-bottom: 16px;
+    margin: 16px;
 }
 
-.message .sender, .message .timestamp {
+.message .sender {
     color: blue;
 }
 
 .message .content {
-    padding: 4px 16px;
+    padding: 8px 16px;
 }
 
 .message .data {
-    padding: 4px 16px;
+    padding: 8px 16px;
     color: gray;
 }
 
 .message .signature {
-    padding: 4px 16px;
+    padding: 8px 16px;
     color: lightgray;
 }
 

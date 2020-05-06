@@ -2,6 +2,7 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
     <xsl:import href="layout.xsl"/>
+    <xsl:import href="templates.xsl"/>
 
     <xsl:template match="/">
         <xsl:call-template name="layout"/>
@@ -10,7 +11,7 @@
     <xsl:template name="title">
         <link rel="stylesheet" href="/static/css/home.css"/>
         <script src="/static/js/submit.js"/>
-        <title><xsl:value-of select="//head/title"/></title>
+        <title><xsl:value-of select="//head/title"/> - Dwitter</title>
     </xsl:template>
 
     <xsl:template name="panel">
@@ -24,18 +25,8 @@
         <xsl:call-template name="form"/>
         <div id="headlines">
             <div><h2>Messages</h2></div>
-            <div id="messages"/>
-            <div id="message_template">
-                <div class="msg">
-                    <div>
-                        <span class="timestamp">${time}</span>
-                    </div>
-                    <div>
-                        <a href="${{link}}">${title}</a>
-                    </div>
-                    <div class="desc">${data}</div>
-                </div>
-            </div>
+            <div id="messages" class="messages"/>
+            <xsl:call-template name="message_template"/>
         </div>
         <script>
             !function (ns) {

@@ -103,10 +103,6 @@
     };
 
     var create = function (template, msg) {
-        msg = verify(msg);
-        if (!msg) {
-            return null;
-        }
         var title = msg['title'];
         if (!title) {
             var content = DIMP.format.JSON.decode(msg['data']);
@@ -147,35 +143,6 @@
             return null;
         }
         return '/message/' + msg_filename(signature);
-    };
-
-    var verify = function (msg) {
-        if (typeof DIMP !== 'object') {
-            console.log('DIM not loaded yet, add message to waiting list');
-            ns.suspendMessage(msg);
-            return null;
-        }
-        var facebook = DIMP.Facebook.getInstance();
-        var sender = facebook.getIdentifier(msg['sender']);
-        if (!sender) {
-            console.error('message error: ', msg);
-            return null;
-        }
-        var meta = ns.getMeta(sender);
-        if (!meta) {
-            console.log('meta not found, waiting meta: ' + sender);
-            ns.suspendMessage(msg);
-            return null;
-        }
-        var rMsg = DIMP.ReliableMessage.getInstance(msg);
-        rMsg.delegate = DIMP.Messenger.getInstance();
-        var data = rMsg.getData();
-        var signature = rMsg.getSignature();
-        if (!meta.key.verify(data, signature)) {
-            console.error('message error: ', msg, meta);
-            return null;
-        }
-        return msg;
     };
 
     ns.showMessages = show;
@@ -226,6 +193,39 @@
 !function (ns) {
     'use strict';
 
+    var show_sender_link = function (div, identifier) {
+        var link = div.previousSibling;
+        if (link instanceof HTMLLinkElement) {
+            return;
+        }
+        var title;
+        if (identifier.name) {
+            title = identifier.name + ' (' + identifier.getNumber() + ')';
+        } else {
+            title = identifier.address + ' (' + identifier.getNumber() + ')';
+        }
+        link = document.createElement('A');
+        link.href = ns.getUserURL(identifier.address);
+        link.innerText = title;
+        div.parentNode.insertBefore(link, div);
+        div.style.display = 'none';
+    };
+
+    var show_content = function (div, json) {
+        var content = null;
+        if (json) {
+            var dict = DIMP.format.JSON.decode(json);
+            content = DIMP.Content.getInstance(dict);
+        }
+        if (content) {
+            var builder = DIMP.cpu.MessageBuilder;
+            div.innerText = builder.getContentText(content);
+        } else {
+            div.innerText = 'Signature error!';
+            div.style.color = 'red';
+        }
+    };
+
     var verify = function (div) {
         if (typeof DIMP !== 'object') {
             console.error('DIM not load yet');
@@ -246,10 +246,16 @@
         var identifier = divSender[0].innerText;
         var json = divData[0].innerText;
         var base64 = divSignature[0].innerText;
+        if (identifier.charAt(0) === '$') {
+            // template
+            return;
+        }
 
         var facebook = DIMP.Facebook.getInstance();
         identifier = facebook.getIdentifier(identifier);
-        if (!identifier) {
+        if (identifier) {
+            show_sender_link(divSender[0], identifier);
+        } else {
             console.error('sender error: ', divSender);
             return;
         }
@@ -262,21 +268,15 @@
         var signature = DIMP.format.Base64.decode(base64);
         if (meta.key.verify(data, signature)) {
             // show content
-            var dict = DIMP.format.JSON.decode(json);
-            var content = DIMP.Content.getInstance(dict);
-            var builder = DIMP.cpu.MessageBuilder;
-            divContent[0].innerText = builder.getContentText(content);
-            // remove data & signature fields
-            tarsier.ui.$(divData[0].parentNode).remove();
-            tarsier.ui.$(divSignature[0].parentNode).remove();
+            show_content(divContent[0], json);
         } else {
-            // show error
+            // error
             console.error('message signature not match: ', json, base64);
-            divContent[0].innerText = 'Signature error!';
-            divContent[0].style.color = 'red';
-            divData[0].style.color = 'red';
-            divSignature[0].style.color = 'red';
+            show_content(divContent[0], null);
         }
+        // remove data & signature fields
+        tarsier.ui.$(divData[0].parentNode).remove();
+        tarsier.ui.$(divSignature[0].parentNode).remove();
     };
 
     var verify_all = function () {
@@ -287,5 +287,23 @@
     };
 
     ns.addOnLoad(verify_all);
+
+    // call it after received messages in channel
+    ns.js.addObserver(
+        function (request) {
+            var path = request['path'];
+            return /^\/channel\/[^\/]+\.js$/.test(path);
+        },
+        verify_all
+    );
+
+    // call it after received meta
+    ns.js.addObserver(
+        function (request) {
+            var path = request['path'];
+            return /^\/meta\/[^.]+\.js$/.test(path);
+        },
+        verify_all
+    );
 
 }(dwitter);
