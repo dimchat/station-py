@@ -116,6 +116,38 @@
 !function (ns) {
     'use strict';
 
+    var refresh = function () {
+        if (typeof DIMP !== 'object') {
+            alert('loading DIM ...');
+            return;
+        }
+        var facebook = DIMP.Facebook.getInstance();
+        var images = document.getElementsByClassName('avatar');
+        var img, identifier, profile, url;
+        for (var i = 0; i < images.length; ++i) {
+            img = images[i];
+            identifier = img.getAttribute('did');
+            if (identifier) {
+                profile = facebook.getProfile(identifier);
+                if (profile) {
+                    url = profile.getProperty('avatar');
+                    if (url) {
+                        img.src = url;
+                    }
+                }
+            }
+        }
+    };
+
+    ns.addOnLoad(refresh);
+
+    ns.refreshAvatar = refresh;
+
+}(dwitter);
+
+!function (ns) {
+    'use strict';
+
     //
     //  Logo
     //

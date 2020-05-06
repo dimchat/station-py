@@ -109,6 +109,9 @@
     width: 128px;
     height: 128px;
     margin: 16px auto;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
 }
 
 .user .link {

@@ -15,7 +15,11 @@
 
     <xsl:template name="panel">
         <div class="user">
-            <img id="avatar" class="avatar" src="http://apps.dim.chat/DICQ/images/icon-512.png"/>
+            <img id="avatar" class="avatar" src="http://apps.dim.chat/DICQ/images/icon-512.png">
+                <xsl:attribute name="did">
+                    <xsl:value-of select="//envelope/sender"/>
+                </xsl:attribute>
+            </img>
             <div class="link">
                 <a>
                     <xsl:attribute name="href">
