@@ -14,39 +14,58 @@
     </xsl:template>
 
     <xsl:template name="panel">
-        <div class="sender">
-            <span><b>Sender</b>: </span>
-            <a>
-                <xsl:attribute name="href">
-                    ../channel/<xsl:value-of select="//envelope/sender"/>
-                </xsl:attribute>
-                <xsl:value-of select="//envelope/sender"/>
-            </a>
+        <div class="user">
+            <img id="avatar" class="avatar" src="http://apps.dim.chat/DICQ/images/icon-512.png"/>
+            <div class="link">
+                <a>
+                    <xsl:attribute name="href">
+                        ../channel/<xsl:value-of select="//envelope/sender"/>
+                    </xsl:attribute>
+                    <span id="nickname" class="nickname"><xsl:value-of select="//sender"/></span>
+                </a>
+            </div>
         </div>
     </xsl:template>
 
     <xsl:template name="main">
-        <h1><xsl:value-of select="//content/title"/></h1>
+        <div class="message">
+            <div class="field">
+                <span><b>Sender</b>: </span>
+                <span class="sender"><xsl:value-of select="//sender"/></span>
+            </div>
 
-        <div class="time">
-            <span><b>Time</b>: </span>
-            <span class="timestamp"><xsl:value-of select="//envelope/time"/></span>
-        </div>
+            <div class="field">
+                <span><b>Time</b>: </span>
+                <span class="timestamp"><xsl:value-of select="//envelope/time"/></span>
+            </div>
 
-        <div class="content">
-            <div><b>Content</b>: </div>
-            <div class="text">
-                <xsl:value-of select="//content/text"/>
+            <div class="field">
+                <div><b>Content</b>: </div>
+                <div class="content">
+                    <div class="text"/>
+                </div>
+            </div>
+
+            <div class="field">
+                <div><b>Data</b>: </div>
+                <div class="data"><xsl:value-of select="//data"/></div>
+            </div>
+
+            <div class="field">
+                <div><b>Signature</b>: </div>
+                <div class="signature"><xsl:value-of select="//signature"/></div>
             </div>
         </div>
 
-        <xsl:call-template name="comments"/>
+        <div class="comments">
+            <xsl:call-template name="comments"/>
+        </div>
     </xsl:template>
 
     <xsl:template name="comments">
         <xsl:call-template name="form"/>
 
-        <div id="comments" class="comments">
+        <div id="comments">
             <span style="color: lightgray; ">Loading comments ...</span>
             <!-- Loading -->
         </div>

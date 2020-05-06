@@ -16,13 +16,6 @@
             <pubDate>{{item['time']}}</pubDate>
             <link>{{item['link']}}</link>
             <guid>{{item['signature']}}</guid>
-            <msg>
-                <sender>{{item['sender']}}</sender>
-                <receiver>{{item['receiver']}}</receiver>
-                <time>{{item['time']}}</time>
-                <data>{{item['data']}}</data>
-                <signature>{{item['signature']}}</signature>
-            </msg>
         </item>
         {% endfor %}
     </channel>

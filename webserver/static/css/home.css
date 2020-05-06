@@ -109,12 +109,42 @@
  *  Message Detail
  */
 
-.sender, .time, .content {
+.user .avatar {
+    display: block;
+    width: 128px;
+    height: 128px;
+    margin: 16px auto;
+}
+
+.user .link {
+    margin: 16px auto;
+    text-align: center;
+}
+
+.message {
+    padding: 16px;
+}
+
+.message .field {
+    margin-bottom: 16px;
+}
+
+.message .sender, .message .timestamp {
+    color: blue;
+}
+
+.message .content {
     padding: 4px 16px;
 }
 
-.content .text {
+.message .data {
     padding: 4px 16px;
+    color: gray;
+}
+
+.message .signature {
+    padding: 4px 16px;
+    color: lightgray;
 }
 
 .comments {

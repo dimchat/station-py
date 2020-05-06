@@ -222,3 +222,70 @@
     );
 
 }(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    var verify = function (div) {
+        if (typeof DIMP !== 'object') {
+            console.error('DIM not load yet');
+            return;
+        }
+        // get message fields
+        var divSender = div.getElementsByClassName('sender');
+        var divData = div.getElementsByClassName('data');
+        var divSignature = div.getElementsByClassName('signature');
+        var divContent = div.getElementsByClassName('content');
+        if (divSender.length !== 1 ||
+            divData.length !== 1 ||
+            divSignature.length !== 1 ||
+            divContent.length !== 1) {
+            return;
+        }
+        // get field values
+        var identifier = divSender[0].innerText;
+        var json = divData[0].innerText;
+        var base64 = divSignature[0].innerText;
+
+        var facebook = DIMP.Facebook.getInstance();
+        identifier = facebook.getIdentifier(identifier);
+        if (!identifier) {
+            console.error('sender error: ', divSender);
+            return;
+        }
+        var meta = ns.getMeta(identifier);
+        if (!meta) {
+            // waiting for meta
+            return;
+        }
+        var data = DIMP.format.UTF8.encode(json);
+        var signature = DIMP.format.Base64.decode(base64);
+        if (meta.key.verify(data, signature)) {
+            // show content
+            var dict = DIMP.format.JSON.decode(json);
+            var content = DIMP.Content.getInstance(dict);
+            var builder = DIMP.cpu.MessageBuilder;
+            divContent[0].innerText = builder.getContentText(content);
+            // remove data & signature fields
+            tarsier.ui.$(divData[0].parentNode).remove();
+            tarsier.ui.$(divSignature[0].parentNode).remove();
+        } else {
+            // show error
+            console.error('message signature not match: ', json, base64);
+            divContent[0].innerText = 'Signature error!';
+            divContent[0].style.color = 'red';
+            divData[0].style.color = 'red';
+            divSignature[0].style.color = 'red';
+        }
+    };
+
+    var verify_all = function () {
+        var messages = document.getElementsByClassName('message');
+        for (var i = 0; i < messages.length; ++i) {
+            verify(messages[i]);
+        }
+    };
+
+    ns.addOnLoad(verify_all);
+
+}(dwitter);

@@ -122,6 +122,9 @@
                 console.error('meta error: ', json);
                 return;
             }
+            if (!identifier.name) {
+                identifier = meta.generateIdentifier(identifier.getType());
+            }
             var ok = facebook.saveMeta(meta, identifier);
             if (ok) {
                 console.log('received meta: ', meta, identifier);
