@@ -65,9 +65,9 @@
         var name = user.getName();
         var btn = new Button();
         btn.setText(name);
+        btn.URL = dwitter.baseURL + 'user/' + user.identifier.address;
         btn.onClick = function () {
-            var url = dwitter.getUserURL(user.identifier);
-            dwitter.openURL(url);
+            dwitter.openURL(this.URL);
         };
         var tray = $('#myAccount');
         tray.removeChildren();

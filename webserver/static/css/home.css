@@ -78,6 +78,21 @@
 }
 
 /**
+ *  User Profile
+ */
+
+#profile_form INPUT {
+    display: none;
+}
+
+.profile_button {
+    display: block;
+    width: 120px;
+    height: 32px;
+    margin: 4px auto;
+}
+
+/**
  *  User Home
  */
 

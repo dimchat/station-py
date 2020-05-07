@@ -34,7 +34,7 @@ import json
 import xmltodict
 from flask import Response, request, render_template
 
-from dimp import Address
+from dimp import Address, Meta, Profile
 
 from .config import BASE_URL
 from .config import respond_xml, respond_js
@@ -49,6 +49,57 @@ def home() -> Response:
     try:
         users = g_worker.outlines()
         xml = render_template('home.opml', users=users)
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+        xml = render_template('error.xml', result=res)
+    return respond_xml(xml)
+
+
+@app.route(BASE_URL+'profile', methods=['POST'])
+def upload_profile() -> Response:
+    try:
+        form = request.form.to_dict()
+        identifier = form['ID']
+        meta = form['meta']
+        profile = form['profile']
+        identifier = g_facebook.identifier(string=identifier)
+        # save meta
+        if meta is None:
+            meta = g_facebook.meta(identifier=identifier)
+            if meta is None:
+                raise LookupError('meta not found: %s' % identifier)
+        else:
+            meta = Meta(json.loads(meta))
+            if not g_facebook.save_meta(meta=meta, identifier=identifier):
+                raise ValueError('meta not acceptable: %s' % identifier)
+        # save profile
+        if profile is None:
+            raise ValueError('profile empty: %s' % identifier)
+        else:
+            profile = Profile(json.loads(profile))
+            if not g_facebook.save_profile(profile=profile, identifier=identifier):
+                raise ValueError('profile not acceptable: %s' % identifier)
+        # OK
+        return user(identifier)
+    except Exception as error:
+        res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
+        xml = render_template('error.xml', result=res)
+    return respond_xml(xml)
+
+
+@app.route(BASE_URL+'user/<string:address>', methods=['GET'])
+def user(address: str) -> Response:
+    try:
+        if address.find('@') < 0:
+            address = Address(address=address)
+        identifier = g_facebook.identifier(address)
+        info = g_worker.user_info(identifier=identifier)
+        if info is None:
+            messages = []
+        else:
+            identifier = g_facebook.identifier(info.get('ID'))
+            messages = g_worker.messages(identifier)
+        xml = render_template('user.xml', user=info, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
@@ -73,7 +124,6 @@ def channel(address: str) -> Response:
         ext = 'xml'
     try:
         if address.find('@') < 0:
-            print('address: %s' % address)
             address = Address(address=address)
         identifier = g_facebook.identifier(address)
         info = g_worker.user_info(identifier=identifier)
