@@ -180,3 +180,77 @@
     ns.refreshNicknames = refresh;
 
 }(dwitter);
+
+!function (ns) {
+    'use strict';
+
+    //
+    //  Refresh User Profile
+    //
+
+    var show = function (dataSpan) {
+        var json = dataSpan.innerText;
+        if (!json || json.charAt(0) !== '{' || json.charAt(json.length-1) !== '}') {
+            // not JsON data
+            return;
+        }
+        var dict = DIMP.format.JSON.decode(json);
+        var profile = DIMP.Profile.getInstance(dict);
+        if (!profile) {
+            console.error('profile error: ', json);
+            return;
+        }
+        var facebook = DIMP.Facebook.getInstance();
+        var identifier = facebook.getIdentifier(profile.getIdentifier());
+        if (!identifier) {
+            console.error('profile ID error: ', profile);
+            return;
+        }
+        var div = document.createElement('DIV');
+        div.className = 'user';
+        // avatar URL
+        var img = document.createElement('IMG');
+        img.className = 'avatar';
+        var url = profile.getProperty('avatar');
+        if (url) {
+            img.src = url;
+        } else {
+            img.src = 'http://apps.dim.chat/DICQ/images/icon-120.png';
+        }
+        div.appendChild(img);
+        // user link
+        var link = document.createElement('span');
+        // link.href = ns.getUserURL(identifier.address);
+        var name = profile.getName();
+        if (!name) {
+            if (identifier.name) {
+                name = identifier.name;
+            } else {
+                name = identifier;
+            }
+        }
+        var number = facebook.getNumberString(identifier);
+        link.innerText = name + ' (' + number + ')';
+        div.appendChild(link);
+        // show
+        var parentNode = dataSpan.parentNode;
+        parentNode.insertBefore(div, dataSpan);
+        parentNode.removeChild(dataSpan);
+    };
+
+    var refresh = function () {
+        if (typeof DIMP !== 'object') {
+            alert('loading DIM ...');
+            return;
+        }
+        var spans = document.getElementsByClassName('profile');
+        for (var i = spans.length - 1; i >= 0; --i) {
+            show(spans[i]);
+        }
+    };
+
+    ns.addOnLoad(refresh);
+
+    // ns.refreshUserProfile = refresh;
+
+}(dwitter);

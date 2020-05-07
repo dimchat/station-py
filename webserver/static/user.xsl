@@ -16,7 +16,7 @@
     <xsl:template name="panel">
         <h1><xsl:value-of select="//title"/></h1>
         <div class="desc">
-            <span><xsl:value-of select="//description"/></span>
+            <span class="profile"><xsl:value-of select="//description"/></span>
         </div>
     </xsl:template>
 

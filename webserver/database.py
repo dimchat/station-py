@@ -29,6 +29,7 @@
 
 """
 
+import json
 import os
 from typing import Optional
 
@@ -70,7 +71,7 @@ class UserTable(Storage):
         name = user.name
         number = number_string(user.number)
         url = usr_url(identifier=identifier)
-        desc = user.profile
+        desc = json.dumps(user.profile)
         return {
             'ID': identifier,
             'name': name,
