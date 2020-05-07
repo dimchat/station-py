@@ -59,7 +59,7 @@ def home() -> Response:
 @app.route(BASE_URL+'channel/<string:address>.rss', methods=['GET'])
 @app.route(BASE_URL+'channel/<string:address>.json', methods=['GET'])
 @app.route(BASE_URL+'channel/<string:address>.js', methods=['GET'])
-def user(address: str) -> Response:
+def channel(address: str) -> Response:
     path = request.path
     if path is None:
         ext = 'xml'
@@ -84,9 +84,9 @@ def user(address: str) -> Response:
             identifier = g_facebook.identifier(info.get('ID'))
             messages = g_worker.messages(identifier)
             if ext == 'rss':
-                xml = render_template('user.rss', user=info, messages=messages)
+                xml = render_template('channel.rss', user=info, messages=messages)
             else:
-                xml = render_template('user.xml', user=info, messages=messages)
+                xml = render_template('channel.xml', user=info, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)
@@ -109,7 +109,7 @@ def user(address: str) -> Response:
 def message(sig: str) -> Response:
     try:
         msg = g_worker.message(signature=sig)
-        xml = render_template('msg.xml', msg=msg)
+        xml = render_template('message.xml', msg=msg)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
         xml = render_template('error.xml', result=res)

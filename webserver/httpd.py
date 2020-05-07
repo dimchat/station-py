@@ -35,6 +35,8 @@
 import sys
 import os
 
+from flask import send_from_directory
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
@@ -44,6 +46,13 @@ from webserver.config import WWW_HOST, WWW_PORT
 
 from webserver.dim import *
 from webserver.dwitter import *
+
+
+@app.route(BASE_URL+'favicon.ico', methods=['GET'])
+def favicon() -> Response:
+    path = app.static_folder
+    path = os.path.join(path, 'images')
+    return send_from_directory(path, 'favicon.ico', as_attachment=True)
 
 
 if __name__ == '__main__':
