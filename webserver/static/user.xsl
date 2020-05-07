@@ -10,13 +10,13 @@
 
     <xsl:template name="title">
         <link rel="stylesheet" href="/static/css/home.css"/>
-        <title><xsl:value-of select="//channel/title"/> - Dwitter</title>
+        <title><xsl:value-of select="//title"/> - Dwitter</title>
     </xsl:template>
 
     <xsl:template name="panel">
-        <h1><xsl:value-of select="//channel/title"/></h1>
+        <h1><xsl:value-of select="//title"/></h1>
         <div class="desc">
-            <span><xsl:value-of select="//channel/description"/></span>
+            <span><xsl:value-of select="//description"/></span>
         </div>
     </xsl:template>
 

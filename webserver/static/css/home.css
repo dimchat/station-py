@@ -97,12 +97,26 @@
 }
 
 .messages .timestamp {
-    float: right;
+    float: left;
+    color: #7997A9;
+    font-size: small;
+}
+
+.messages .link {
+    color: #054A80;
+    margin: 0 4px;
+    padding: 0 4px;
+    font-size: small;
+    font-weight: bold;
 }
 
 /**
  *  Message Detail
  */
+
+.user {
+    text-align: center;
+}
 
 .user .avatar {
     display: block;
@@ -112,11 +126,6 @@
     border-radius: 8px;
     -moz-border-radius: 8px;
     -webkit-border-radius: 8px;
-}
-
-.user .link {
-    margin: 16px auto;
-    text-align: center;
 }
 
 .message {

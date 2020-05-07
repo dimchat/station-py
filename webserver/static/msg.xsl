@@ -2,6 +2,7 @@
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
     <xsl:import href="layout.xsl"/>
+    <xsl:import href="templates.xsl"/>
 
     <xsl:template match="/">
         <xsl:call-template name="layout"/>
@@ -15,19 +16,12 @@
 
     <xsl:template name="panel">
         <div class="user">
-            <img id="avatar" class="avatar" src="http://apps.dim.chat/DICQ/images/icon-512.png">
+            <img class="avatar" src="http://apps.dim.chat/DICQ/images/icon-120.png">
                 <xsl:attribute name="did">
-                    <xsl:value-of select="//envelope/sender"/>
+                    <xsl:value-of select="//sender"/>
                 </xsl:attribute>
             </img>
-            <div class="link">
-                <a>
-                    <xsl:attribute name="href">
-                        ../channel/<xsl:value-of select="//envelope/sender"/>
-                    </xsl:attribute>
-                    <span id="nickname" class="nickname"><xsl:value-of select="//sender"/></span>
-                </a>
-            </div>
+            <div><xsl:apply-templates select="//sender"/></div>
         </div>
     </xsl:template>
 
@@ -35,18 +29,20 @@
         <div class="message">
             <div class="field">
                 <span><b>Sender</b>: </span>
-                <span class="sender"><xsl:value-of select="//sender"/></span>
+                <span class="sender"><xsl:apply-templates select="//sender"/></span>
             </div>
 
             <div class="field">
                 <span><b>Time</b>: </span>
-                <span class="timestamp"><xsl:value-of select="//envelope/time"/></span>
+                <span class="timestamp"><xsl:value-of select="//time"/></span>
             </div>
 
             <div class="field">
                 <div><b>Content</b>: </div>
                 <div class="content">
-                    <div class="text"/>
+                    <div class="text">
+                        <xsl:value-of select="//content/text"/>
+                    </div>
                 </div>
             </div>
 

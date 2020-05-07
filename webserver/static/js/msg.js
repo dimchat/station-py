@@ -195,27 +195,6 @@ dwitter.js = dim.js;
 !function (ns, im) {
     'use strict';
 
-    var show_sender_link = function (div, identifier, name) {
-        var link = div.previousSibling;
-        if (link instanceof HTMLLinkElement) {
-            return;
-        }
-        if (!name) {
-            if (identifier.name) {
-                name = identifier.name;
-            } else {
-                name = identifier.address;
-            }
-        }
-        var facebook = DIMP.Facebook.getInstance();
-        var number = facebook.getNumberString(identifier);
-        link = document.createElement('A');
-        link.href = ns.getUserURL(identifier.address);
-        link.innerText = name + ' (' + number + ')';
-        div.parentNode.insertBefore(link, div);
-        div.style.display = 'none';
-    };
-
     var show_content = function (div, json) {
         var content = null;
         if (json) {
@@ -245,6 +224,7 @@ dwitter.js = dim.js;
             divData.length !== 1 ||
             divSignature.length !== 1 ||
             divContent.length !== 1) {
+            // error
             return;
         }
         // get field values
@@ -263,12 +243,10 @@ dwitter.js = dim.js;
             return;
         }
         var meta = im.getMeta(identifier);
-        var profile = im.getProfile(identifier);
         if (!meta) {
             // waiting for meta
             return;
         }
-        show_sender_link(divSender[0], identifier, profile.getName());
         var data = DIMP.format.UTF8.encode(json);
         var signature = DIMP.format.Base64.decode(base64);
         if (meta.key.verify(data, signature)) {

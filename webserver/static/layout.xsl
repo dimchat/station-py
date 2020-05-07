@@ -47,6 +47,7 @@
                 }(window, document, 'tarsier', url);
             </script>
             <script src="/static/js/layout.js"/>
+            <script src="/static/js/refresh.js"/>
         </html>
     </xsl:template>
 
