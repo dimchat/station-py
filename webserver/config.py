@@ -131,12 +131,6 @@ DB_PATH = '/data/dwitter'
 
 BASE_URL = '/'
 
-recommended_users = [
-    'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
-    'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp',
-    'ling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa',
-]
-
 
 """
     Data Path

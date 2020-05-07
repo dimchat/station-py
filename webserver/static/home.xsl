@@ -22,7 +22,6 @@
     </xsl:template>
 
     <xsl:template name="main">
-        <xsl:call-template name="form"/>
         <div id="headlines">
             <div><h2>Messages</h2></div>
             <div id="messages" class="messages"/>
@@ -46,21 +45,6 @@
                     </xsl:attribute>
                     <xsl:value-of select="@title"/>
                 </a>
-            </div>
-        </div>
-    </xsl:template>
-
-    <xsl:template name="form">
-        <div id="post_box" class="input_box">
-            <div id="post_box_mask" class="input_box_mask">
-                <div>
-                    <button onClick="javascript:dwitter.showRegisterWindow();">Create Account</button>
-                </div>
-            </div>
-            <div id="post_box_form" class="input_box_form">
-                <textarea id="post_text" class="input_text"/>
-                <span id="input_limit" class="input_limit"/>
-                <button id="post_button" class="input_submit">Submit</button>
             </div>
         </div>
     </xsl:template>

@@ -87,9 +87,9 @@ class Worker:
             msg['link'] = link
         return msg
 
-    def messages(self, identifier: ID) -> list:
+    def messages(self, identifier: ID, start: int, count: int) -> list:
         array = []
-        lines = self.user_table.messages(identifier=identifier)
+        lines = self.user_table.messages(identifier=identifier, start=start, count=count)
         for l in lines:
             pair = l.split(',')
             signature = pair[0].strip()

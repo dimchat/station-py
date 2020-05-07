@@ -23,6 +23,7 @@
     </xsl:template>
 
     <xsl:template name="main">
+        <xsl:call-template name="post_box"/>
         <div class="messages">
             <div><h2>Messages</h2></div>
             <div id="messages">

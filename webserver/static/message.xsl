@@ -63,26 +63,11 @@
     </xsl:template>
 
     <xsl:template name="comments">
-        <xsl:call-template name="form"/>
+        <xsl:call-template name="reply_box"/>
 
         <div id="comments">
             <span style="color: lightgray; ">Loading comments ...</span>
             <!-- Loading -->
-        </div>
-    </xsl:template>
-
-    <xsl:template name="form">
-        <div id="reply_box" class="input_box">
-            <div id="reply_box_mask" class="input_box_mask">
-                <div>
-                    <button onClick="javascript:dwitter.showRegisterWindow();">Create Account</button>
-                </div>
-            </div>
-            <div id="reply_box_form" class="input_box_form">
-                <textarea id="reply_text" class="input_text"/>
-                <span id="input_limit" class="input_limit"/>
-                <button id="reply_button" class="input_submit">Reply</button>
-            </div>
         </div>
     </xsl:template>
 

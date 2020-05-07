@@ -33,14 +33,13 @@ import json
 import os
 from typing import Optional
 
-from dimp import ID
+from dimp import ID, ANYONE
 from dimp import ReliableMessage
 from dimsdk import Facebook
 
 from libs.common import Storage
 
 from webserver.config import usr_path, msg_path, usr_url
-from webserver.config import recommended_users
 
 
 def number_string(number: int):
@@ -54,19 +53,33 @@ class UserTable(Storage):
         super().__init__()
         self.facebook = facebook
 
-    def __load_messages(self, address: str) -> list:
+    def __recommended_users(self, address: str) -> list:
         path = usr_path(address=address)
-        path = os.path.join(path, 'messages.txt')
+        path = os.path.join(path, 'users.txt')
         text = self.read_text(path=path)
         if text is None:
             return []
         else:
             return text.splitlines()
 
+    def users(self) -> list:
+        array = []
+        anyone = ANYONE
+        id_list = self.__recommended_users(address=anyone.address)
+        for item in id_list:
+            identifier = item.strip()
+            if len(identifier) == 0:
+                # skip empty lines
+                continue
+            identifier = self.facebook.identifier(identifier)
+            info = self.user_info(identifier=identifier)
+            if info is None:
+                # user info not found
+                continue
+            array.append(info)
+        return array
+
     def user_info(self, identifier: ID) -> Optional[dict]:
-        identifier = self.facebook.identifier(identifier)
-        if identifier is None:
-            return None
         user = self.facebook.user(identifier)
         name = user.name
         number = number_string(user.number)
@@ -80,20 +93,28 @@ class UserTable(Storage):
             'desc': desc,
         }
 
-    def users(self) -> list:
-        array = []
-        id_list = recommended_users
-        for item in id_list:
-            identifier = self.facebook.identifier(item)
-            info = self.user_info(identifier=identifier)
-            if info is None:
-                continue
-            array.append(info)
-        return array
+    def __load_messages(self, address: str) -> list:
+        path = usr_path(address=address)
+        path = os.path.join(path, 'messages.txt')
+        text = self.read_text(path=path)
+        if text is None:
+            return []
+        else:
+            return text.splitlines()
 
-    def messages(self, identifier: ID) -> list:
+    def messages(self, identifier: ID, start: int, count: int) -> list:
+        array = []
         address = str(identifier.address)
-        return self.__load_messages(address=address)
+        lines = self.__load_messages(address=address)
+        start = len(lines) - start - 1
+        stop = max(start - count, -1)
+        for index in range(start, stop, -1):
+            msg = lines[index].strip()
+            if len(msg) == 0:
+                # skip empty lines
+                continue
+            array.append(msg)
+        return array
 
 
 class MessageTable(Storage):

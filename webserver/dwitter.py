@@ -98,7 +98,7 @@ def user(address: str) -> Response:
             messages = []
         else:
             identifier = g_facebook.identifier(info.get('ID'))
-            messages = g_worker.messages(identifier)
+            messages = g_worker.messages(identifier=identifier, start=0, count=20)
         xml = render_template('user.xml', user=info, messages=messages)
     except Exception as error:
         res = {'code': 500, 'name': 'Internal Server Error', 'message': '%s' % error}
@@ -131,8 +131,18 @@ def channel(address: str) -> Response:
             res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
             xml = render_template('error.xml', result=res)
         else:
+            start = request.args.get('start')
+            count = request.args.get('count')
+            if start is None:
+                start = 0
+            else:
+                start = int(start)
+            if count is None:
+                count = 20
+            else:
+                count = int(count)
             identifier = g_facebook.identifier(info.get('ID'))
-            messages = g_worker.messages(identifier)
+            messages = g_worker.messages(identifier=identifier, start=start, count=count)
             if ext == 'rss':
                 xml = render_template('channel.rss', user=info, messages=messages)
             else:
