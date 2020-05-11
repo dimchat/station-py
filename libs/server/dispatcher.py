@@ -160,7 +160,7 @@ class Dispatcher(Thread):
         return res
 
     def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
-        self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope))
+        self.info('%s is online(%d), try to push message: %s' % (receiver, len(sessions), msg.envelope.dictionary))
         success = 0
         session_server = self.session_server
         for sess in sessions:

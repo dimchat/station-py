@@ -1,0 +1,176 @@
+
+/**
+ *  Input form
+ */
+
+.input_box {
+    position: relative;
+    width: 90%;
+    height: 160px;
+    margin: 24px auto;
+}
+
+.input_box_mask {
+    position: absolute;
+    width: 100%;
+    height: 160px;
+    background-color: rgba(224, 224, 246, 0.75);
+    text-align: center;
+    border-radius: 4px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+
+.input_box_mask button {
+    width: 120px;
+    height: 32px;
+    margin: 64px auto;
+}
+
+.input_box_form {
+    text-align: right;
+}
+
+.input_box_form .input_text {
+    resize: none;
+    width: 100%;
+    height: 128px;
+    border: 1px solid #e0e0f5;
+    border-radius: 4px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+
+.input_box_form .input_limit, .input_box_form .input_submit {
+    bottom: 0;
+    margin: 4px 2px 2px 4px;
+    padding: 4px 8px;
+}
+
+.input_box_form .input_limit {
+    color: lightcoral;
+}
+
+/**
+ *  Outlines
+ */
+
+.outlines {
+    padding: 16px;
+}
+
+.user {
+    padding: 16px 8px;
+    border-top: 1px dashed #e0e0f5;
+}
+
+.user .desc {
+    color: gray;
+    padding: 8px 32px;
+}
+
+#headlines {
+    padding: 16px;
+}
+
+#message_template {
+    display: none;
+}
+
+/**
+ *  User Profile
+ */
+
+#profile_form INPUT {
+    display: none;
+}
+
+.profile_button {
+    display: block;
+    width: 120px;
+    height: 32px;
+    margin: 4px auto;
+}
+
+/**
+ *  User Home
+ */
+
+.desc {
+    margin-bottom: 16px;
+    padding: 4px 16px;
+    color: gray;
+}
+
+.messages {
+    padding: 16px;
+}
+
+.messages .message {
+    padding: 16px 8px;
+    border-top: 1px dashed #e0e0f5;
+}
+
+.messages .timestamp {
+    float: left;
+    color: #7997A9;
+    font-size: small;
+}
+
+.messages .link {
+    color: #054A80;
+    margin: 0 4px;
+    padding: 0 4px;
+    font-size: small;
+    font-weight: bold;
+}
+
+/**
+ *  Message Detail
+ */
+
+.user {
+    text-align: center;
+}
+
+.user .avatar {
+    display: block;
+    width: 128px;
+    height: 128px;
+    margin: 16px auto;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+}
+
+.message {
+    padding: 16px;
+}
+
+.message .field {
+    margin: 16px;
+}
+
+.message .sender {
+    color: blue;
+}
+
+.message .content {
+    padding: 8px 16px;
+}
+
+.message .data {
+    padding: 8px 16px;
+    color: gray;
+}
+
+.message .signature {
+    padding: 8px 16px;
+    color: lightgray;
+}
+
+.comments {
+    margin-top: 16px;
+    border-top: 1px dashed #e0e0f5;
+    padding: 16px 32px;
+}

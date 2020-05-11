@@ -336,12 +336,9 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     def receive(self, data: bytes=b'') -> bytes:
         while True:
-            try:
-                part = self.request.recv(1024)
-            except IOError as error:
-                self.error('failed to receive data %s' % error)
-                part = None
+            part = self.request.recv(1024)
             if part is None:
+                self.error('failed to receive data: %s %s' % (self.remote_user, self.client_address))
                 break
             data += part
             if len(part) < 1024:
@@ -349,12 +346,20 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         return data
 
     def send(self, data: bytes) -> bool:
-        try:
-            self.request.sendall(data)
-            return True
-        except IOError as error:
-            self.error('failed to send data %s, remote user: %s' % (error, self.remote_user))
-            return False
+        length = len(data)
+        count = 0
+        while count < length:
+            count = self.request.send(data)
+            if count == 0:
+                self.error('failed to send data: %s %s' % (self.remote_user, self.client_address))
+                self.error('remaining data (%d): %s' % (len(data), data))
+                return False
+            if count == len(data):
+                # all data sent
+                return True
+            data = data[count:]
+            length = len(data)
+            count = 0
 
     #
     #   MessengerDelegate

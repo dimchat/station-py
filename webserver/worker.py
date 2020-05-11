@@ -24,23 +24,31 @@
 # ==============================================================================
 
 """
-    Delegate
-    ~~~~~~~~
+    Delegate for Web Server
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
 """
 
-from binascii import Error
+import json
 from typing import Optional
 
-from dimp import ID, Meta, Profile
-from dimp import Content, MetaCommand, ProfileCommand
-from dimp import Base64
+from dimp import ID
+from dimp import Content, TextContent
+from dimsdk import Facebook
 
 from libs.common import Log
 
-from webserver.config import g_facebook
+from webserver.config import msg_url
+from webserver.database import UserTable, MessageTable
 
 
 class Worker:
+
+    def __init__(self, facebook: Facebook):
+        super().__init__()
+        self.facebook = facebook
+        self.user_table = UserTable(facebook=facebook)
+        self.msg_table = MessageTable(facebook=facebook)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -50,86 +58,44 @@ class Worker:
 
     def identifier(self, identifier: str) -> Optional[ID]:
         try:
-            return g_facebook.identifier(string=identifier)
+            return self.facebook.identifier(string=identifier)
         except ValueError:
             self.error('ID error: %s' % identifier)
 
-    def meta(self, identifier: str) -> Optional[Meta]:
-        identifier = self.identifier(identifier)
-        if identifier is None:
+    def user_info(self, identifier: ID) -> Optional[dict]:
+        return self.user_table.user_info(identifier=identifier)
+
+    def outlines(self) -> list:
+        return self.user_table.users()
+
+    def message(self, signature: str) -> Optional[dict]:
+        msg = self.msg_table.load(signature=signature)
+        if msg is None:
+            Log.error('failed to load message: %s' % signature)
             return None
-        info = g_facebook.meta(identifier=identifier)
-        if info is None:
-            self.info('meta not found: %s' % identifier)
-        else:
-            return info
+        # message content
+        content = msg.get('content')
+        if content is None:
+            data = msg['data']
+            content = Content(json.loads(data))
+            assert isinstance(content, TextContent), 'content error: %s' % data
+            msg['content'] = content
+        # message url
+        link = msg.get('link')
+        if link is None:
+            link = msg_url(signature=signature)
+            msg['link'] = link
+        return msg
 
-    def profile(self, identifier: str) -> Optional[Profile]:
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return None
-        info = g_facebook.profile(identifier=identifier)
-        if info is None:
-            self.info('profile not found: %s' % identifier)
-        else:
-            return info
-
-    def decode_data(self, data: str) -> Optional[bytes]:
-        try:
-            return Base64.decode(data)
-        except Error:
-            self.error('data not base64: %s' % data)
-
-    def decode_signature(self, signature: str) -> Optional[bytes]:
-        try:
-            return Base64.decode(signature)
-        except Error:
-            self.error('signature not base64: %s' % signature)
-
-    #
-    #   interfaces
-    #
-    def query_meta(self, identifier: str) -> (int, Optional[Content]):
-        # check ID
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return 400, None  # Bad Request
-        # get meta
-        meta = self.meta(identifier)
-        if meta is None:
-            return 404, None  # Not Found
-        # OK
-        return 200, MetaCommand.new(identifier=identifier, meta=meta)
-
-    def query_profile(self, identifier: str) -> (int, Optional[Content]):
-        # check ID
-        identifier = self.identifier(identifier)
-        if identifier is None:
-            return 400, None  # Bad Request
-        # get profile
-        profile = self.profile(identifier)
-        if profile is None or profile.get('data') is None:
-            return 404, None  # Not Found
-        # get meta
-        meta = self.meta(identifier)
-        # OK
-        return 200, ProfileCommand.new(identifier=identifier, meta=meta, profile=profile)
-
-    def verify_message(self, sender: str, data: str, signature: str) -> int:
-        # check ID
-        identifier = self.identifier(sender)
-        if identifier is None:
-            return 400  # Bad Request
-        # get meta
-        meta = self.meta(identifier)
-        if meta is None:
-            return 404  # Not Found
-        # check signature with data
-        data = self.decode_data(data)
-        signature = self.decode_signature(signature)
-        if data is None or signature is None:
-            return 412  # Precondition Failed
-        if meta.key.verify(data=data, signature=signature):
-            return 200  # OK
-        else:
-            return 403  # Forbidden
+    def messages(self, identifier: ID, start: int, count: int) -> list:
+        array = []
+        lines = self.user_table.messages(identifier=identifier, start=start, count=count)
+        for l in lines:
+            pair = l.split(',')
+            signature = pair[0].strip()
+            if len(signature) == 0:
+                continue
+            msg = self.message(signature=signature)
+            if msg is not None:
+                array.append(msg)
+        return array

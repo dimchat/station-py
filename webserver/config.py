@@ -30,13 +30,17 @@
     Configuration for WWW
 """
 
-from dimp import ID
+from typing import Union
+from flask import Flask, Response
+
+from dimp import ID, Address
 from dimsdk import KeyStore
 from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
 #
+
 from libs.common import Log
 from libs.common import Database, AddressNameServer
 from libs.server import ServerFacebook, ServerMessenger
@@ -115,4 +119,88 @@ for key, value in ans_reserved_records.items():
         g_ans.save(key, value)
 
 
+"""
+    Server Config
+    ~~~~~~~~~~~~~
+"""
+WWW_HOST = '0.0.0.0'
+WWW_PORT = 9395
+
+# DB_PATH = '/var/dim/dwitter'  # test
+DB_PATH = '/data/dwitter'
+
+BASE_URL = '/'
+
+
+"""
+    Data Path
+    ~~~~~~~~~
+"""
+
+
+def users_path() -> str:
+    return '%s/users' % DB_PATH
+
+
+def usr_path(address: Union[str, Address]) -> str:
+    return '%s/%s' % (users_path(), address)
+
+
+def msg_path(signature: str) -> str:
+    filename = msg_filename(signature=signature)
+    return '%s/messages/%s.msg' % (DB_PATH, filename)
+
+
+def msg_filename(signature: str) -> str:
+    start = 0
+    length = len(signature)
+    while length > 16:
+        start += 4
+        length -= 4
+    if start > 0:
+        filename = signature[start:]
+    else:
+        filename = signature
+    return filename.replace('+', '-').replace('/', '_').replace('=', '')
+
+
+"""
+    Web URL
+    ~~~~~~~
+    
+"""
+
+
+def usr_url(identifier: ID) -> str:
+    return '%schannel/%s' % (BASE_URL, identifier.address)
+
+
+def msg_url(signature: str) -> str:
+    filename = msg_filename(signature=signature)
+    return '%smessage/%s' % (BASE_URL, filename)
+
+
+def respond_xml(xml: str) -> Response:
+    res = Response(response=xml, status=200, mimetype='application/xml')
+    res.headers['Content-Type'] = 'application/xml; charset=UTF-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
+def respond_json(js: str) -> Response:
+    res = Response(response=js, status=200, mimetype='application/json')
+    res.headers['Content-Type'] = 'application/json; charset=UTF-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
+def respond_js(js: str) -> Response:
+    res = Response(response=js, status=200, mimetype='application/javascript')
+    res.headers['Content-Type'] = 'application/javascript; charset=UTF-8'
+    res.headers['Access-Control-Allow-Origin'] = '*'
+    return res
+
+
 Log.info('======== configuration OK!')
+
+app = Flask(__name__)

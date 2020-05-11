@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/static/channel.xsl"?>
+<rss version="2.0">
+    <channel>
+        <title>{{user['name']}}</title>
+        <link>{{user['link']}}</link>
+        <description>{{user['desc']}}</description>
+        <language>zh-CN</language>
+        <generator>Dwitter 1.0 (DIMP 1.0)</generator>
+        <webMaster>moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ</webMaster>
+        {% for item in messages %}
+        <item>
+            <title>{{item['content']['text']}}</title>
+            <description>{{item['data']}}</description>
+            <author>{{item['sender']}}</author>
+            <pubDate>{{item['time']}}</pubDate>
+            <link>{{item['link']}}</link>
+            <guid>{{item['signature']}}</guid>
+            <msg>
+                <sender>{{item['sender']}}</sender>
+                <receiver>{{item['receiver']}}</receiver>
+                <time>{{item['time']}}</time>
+                <data>{{item['data']}}</data>
+                <signature>{{item['signature']}}</signature>
+            </msg>
+        </item>
+        {% endfor %}
+    </channel>
+</rss>

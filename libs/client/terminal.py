@@ -130,7 +130,6 @@ class Terminal(HandshakeDelegate):
         # post contacts(encrypted) to station
         # broadcast login command
         login = LoginCommand.new(identifier=user.identifier)
-        assert isinstance(login, LoginCommand)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
         login.station = self.station
         self.messenger.broadcast_content(content=login)
