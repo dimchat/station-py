@@ -354,7 +354,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         length = len(data)
         count = 0
         while count < length and not self.is_closed:
-            self.request.settimeout(5)  # socket timeout for sending data
+            self.request.settimeout(20)  # socket timeout for sending data
             count = self.request.send(data)
             self.request.settimeout(self.timeout)
             if count == 0:
