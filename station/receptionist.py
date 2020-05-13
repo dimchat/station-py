@@ -30,6 +30,7 @@
     A message scanner for new guests who have just come in.
 """
 
+import os
 import time
 from json import JSONDecodeError
 from threading import Thread
@@ -39,9 +40,28 @@ from dimp import ID, NetworkID, ReliableMessage
 from dimsdk import Station
 from dimsdk import ApplePushNotificationService
 
-from libs.common import Database, CommonFacebook
+from libs.common import Storage, Database, CommonFacebook
 from libs.common import Log
 from libs.server import Server, SessionServer
+
+
+def save_freshman(identifier: ID) -> bool:
+    """ Save freshman ID in a text file for the robot
+
+        file path: '.dim/freshmen.txt'
+    """
+    path = os.path.join(Storage.root, 'freshmen.txt')
+    # check
+    text = Storage.read_text(path=path)
+    lines = text.splitlines()
+    for item in lines:
+        if item == identifier:
+            # already exists
+            return False
+    # append
+    line = identifier + '\n'
+    Storage.info('saving freshman: %s' % identifier)
+    return Storage.append_text(text=line, path=path)
 
 
 class Receptionist(Thread):
@@ -66,6 +86,8 @@ class Receptionist(Thread):
     def add_guest(self, identifier: ID):
         # FIXME: thread safe
         self.guests.append(identifier)
+        # check freshman
+        save_freshman(identifier=identifier)
 
     def remove_guest(self, identifier: ID):
         # FIXME: thread safe
