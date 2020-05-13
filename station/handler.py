@@ -31,7 +31,7 @@
 """
 
 import json
-from socketserver import BaseRequestHandler
+from socketserver import StreamRequestHandler
 from typing import Optional
 
 from dimp import User, NetworkID
@@ -51,15 +51,16 @@ from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, chat_bot
 
 
-class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
+class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate):
 
     def __init__(self, request, client_address, server):
-        super().__init__(request=request, client_address=client_address, server=server)
         # messenger
         self.__messenger: ServerMessenger = None
         # handlers with Protocol
-        self.process_package = None
-        self.push_data = None
+        self.__process_package = None
+        self.__push_data = None
+        # init
+        super().__init__(request=request, client_address=client_address, server=server)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -108,9 +109,8 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #
     def setup(self):
-        self.__messenger: ServerMessenger = None
-        self.process_package = None
-        self.push_data = None
+        super().setup()
+        self.timeout = self.request.gettimeout()
         address = self.client_address
         self.info('set up with %s [%s]' % (address, station_name))
         g_session_server.set_handler(client_address=address, request_handler=self)
@@ -136,6 +136,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
         g_session_server.clear_handler(client_address=address)
         self.__messenger = None
         self.info('finish with %s %s' % (address, user))
+        super().finish()
 
     """
         DIM Request Handler
@@ -153,31 +154,31 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
                 break
 
             # check protocol
-            while self.process_package is None:
+            while self.__process_package is None:
                 # (Protocol A) Web socket?
                 if WebSocket.is_handshake(stream=data):
-                    self.process_package = self.process_ws_handshake
-                    self.push_data = self.push_ws_data
+                    self.__process_package = self.process_ws_handshake
+                    self.__push_data = self.push_ws_data
                     break
 
                 # (Protocol B) Tencent mars?
                 if self.parse_mars_head(data=data) is not None:
                     # OK, it seems be a mars package!
-                    self.process_package = self.process_mars_package
-                    self.push_data = self.push_mars_data
+                    self.__process_package = self.process_mars_package
+                    self.__push_data = self.push_mars_data
                     break
 
                 # (Protocol C) raw data (JSON in line)?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
-                    self.process_package = self.process_raw_package
-                    self.push_data = self.push_raw_data
+                    self.__process_package = self.process_raw_package
+                    self.__push_data = self.push_raw_data
                     break
 
                 # unknown protocol
                 data = b''
                 # raise AssertionError('unknown protocol')
                 break
-            if self.process_package is None:
+            if self.__process_package is None:
                 continue
 
             # process package(s) one by one
@@ -186,14 +187,14 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
             o_len = n_len + 1
             while n_len < o_len:
                 o_len = n_len
-                data = self.process_package(data)
+                data = self.__process_package(data)
                 n_len = len(data)
 
     def process_ws_handshake(self, pack: bytes):
         ws = WebSocket()
         res = ws.handshake(stream=pack)
         self.send(res)
-        self.process_package = self.process_ws_package
+        self.__process_package = self.process_ws_package
         return b''
 
     def process_ws_package(self, pack: bytes):
@@ -302,7 +303,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def push_message(self, msg: ReliableMessage) -> bool:
         data = json.dumps(msg)
         body = data.encode('utf-8')
-        return self.push_data(body=body)
+        return self.__push_data(body=body)
 
     #
     #   receive message(s)
@@ -334,8 +335,12 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #
     #   Socket IO
     #
+    @property
+    def is_closed(self) -> bool:
+        return getattr(self.request, '_closed', False)
+
     def receive(self, data: bytes=b'') -> bytes:
-        while True:
+        while not self.is_closed:
             part = self.request.recv(1024)
             if part is None:
                 self.error('failed to receive data: %s %s' % (self.remote_user, self.client_address))
@@ -348,8 +353,10 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     def send(self, data: bytes) -> bool:
         length = len(data)
         count = 0
-        while count < length:
+        while count < length and not self.is_closed:
+            self.request.settimeout(5)  # socket timeout for sending data
             count = self.request.send(data)
+            self.request.settimeout(self.timeout)
             if count == 0:
                 self.error('failed to send data: %s %s' % (self.remote_user, self.client_address))
                 self.error('remaining data (%d): %s' % (len(data), data))
@@ -365,7 +372,7 @@ class RequestHandler(BaseRequestHandler, MessengerDelegate, HandshakeDelegate):
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
-        if self.push_data(body=data):
+        if self.__push_data(body=data):
             if handler is not None:
                 handler.success()
             return True
