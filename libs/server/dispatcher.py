@@ -31,6 +31,7 @@
 """
 
 import time
+import threading
 from threading import Thread
 from typing import Optional, Union
 
@@ -61,7 +62,7 @@ class Dispatcher(Thread):
         self.__waiting_list: list = []  # ReliableMessage list
 
     def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s > %s >\t%s' % (threading.current_thread().getName(), self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -273,6 +274,7 @@ class Dispatcher(Thread):
         # store in local cache file
         sender = self.facebook.identifier(msg.envelope.sender)
         group = self.facebook.identifier(msg.envelope.group)
+
         self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
         # check mute-list

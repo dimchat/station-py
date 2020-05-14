@@ -34,6 +34,7 @@ import json
 from socketserver import StreamRequestHandler
 from typing import Optional
 
+import threading
 from dimp import User, NetworkID
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
@@ -63,10 +64,22 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         super().__init__(request=request, client_address=client_address, server=server)
 
     def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+        current_user_name = "Anonymous"
+        current_user = self.remote_user
+        if current_user is not None:
+            current_user_name = self.remote_user.name
+
+        Log.info('%s >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), current_user_name,
+                                           self.__class__.__name__, msg))
 
     def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+        current_user_name = "Anonymous"
+        current_user = self.remote_user
+        if current_user is not None:
+            current_user_name = self.remote_user.name
+
+        Log.error('%s >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), current_user_name,
+                                           self.__class__.__name__, msg))
 
     @property
     def chat_bots(self) -> list:
@@ -193,6 +206,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def process_ws_handshake(self, pack: bytes):
         ws = WebSocket()
         res = ws.handshake(stream=pack)
+        self.info("Process WS Handshake")
         self.send(res)
         self.__process_package = self.process_ws_package
         return b''
@@ -208,6 +222,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def push_ws_data(self, body: bytes) -> bool:
         ws = WebSocket()
         pack = ws.pack(payload=body)
+        self.info("Process WS Data")
         return self.send(data=pack)
 
     #
@@ -264,6 +279,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             # TODO: handle Unknown request
             self.error('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = NetMsg(cmd=6, seq=0)
+
+        self.info("Process Mars Package")
         self.send(res)
         # return the remaining incomplete package
         return remaining
@@ -272,6 +289,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
+        self.info("Push mars data")
         return self.send(data)
 
     #
@@ -292,12 +310,14 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
+        self.info("Process Raw Package")
         self.send(res)
         # return the remaining incomplete package
         return pack[pos+1:]
 
     def push_raw_data(self, body: bytes) -> bool:
         data = body + b'\n'
+        self.info("Push Raw Data")
         return self.send(data=data)
 
     def push_message(self, msg: ReliableMessage) -> bool:
@@ -353,6 +373,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def send(self, data: bytes) -> bool:
         length = len(data)
         count = 0
+        self.info('Begin to send data %d length' % length)
         while count < length and not self.is_closed:
             self.request.settimeout(20)  # socket timeout for sending data
             count = self.request.send(data)
@@ -363,6 +384,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 return False
             if count == len(data):
                 # all data sent
+                self.info('Send data success')
                 return True
             data = data[count:]
             length = len(data)
