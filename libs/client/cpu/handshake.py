@@ -52,7 +52,7 @@ class HandshakeCommandProcessor(CommandProcessor):
 
     @property
     def delegate(self) -> HandshakeDelegate:
-        return self.messenger.delegate
+        return self.get_context('handshake_delegate')
 
     #
     #   main
