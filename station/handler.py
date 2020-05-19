@@ -129,8 +129,11 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         g_monitor.report(message='Client connected %s [%s]' % (address, station_name))
 
     def finish(self):
+
         address = self.client_address
         user = self.remote_user
+        self.info('Start to finish with %s %s' % (address, user))
+
         if user is None:
             g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
@@ -205,7 +208,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def process_ws_handshake(self, pack: bytes):
         ws = WebSocket()
         res = ws.handshake(stream=pack)
-        self.info("Process WS Handshake")
+        # self.info("Process WS Handshake")
         self.send(res)
         self.__process_package = self.process_ws_package
         return b''
@@ -288,7 +291,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
         data = NetMsg(cmd=10001, seq=0, body=body)
-        self.info("Push mars data")
+        # self.info("Push mars data")
         return self.send(data)
 
     #
@@ -309,14 +312,14 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
-        self.info("Process Raw Package")
+        # self.info("Process Raw Package")
         self.send(res)
         # return the remaining incomplete package
         return pack[pos+1:]
 
     def push_raw_data(self, body: bytes) -> bool:
         data = body + b'\n'
-        self.info("Push Raw Data")
+        # self.info("Push Raw Data")
         return self.send(data=data)
 
     def push_message(self, msg: ReliableMessage) -> bool:
@@ -372,7 +375,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def send(self, data: bytes) -> bool:
         length = len(data)
         count = 0
-        self.info('Begin to send data %d length' % length)
+        # self.info('Begin to send data %d length' % length)
         while count < length and not self.is_closed:
             self.request.settimeout(20)  # socket timeout for sending data
             count = self.request.send(data)
@@ -383,7 +386,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 return False
             if count == len(data):
                 # all data sent
-                self.info('Send data success')
+                # self.info('Send data success')
                 return True
             data = data[count:]
             length = len(data)
