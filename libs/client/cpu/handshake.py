@@ -31,7 +31,6 @@
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional
 
 from dimp import ID
 from dimp import ReliableMessage

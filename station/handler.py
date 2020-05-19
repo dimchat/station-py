@@ -108,7 +108,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
             m.context['bots'] = self.chat_bots
-            m.context['handshake_delegate'] = self
             m.context['remote_address'] = self.client_address
             self.__messenger = m
         return self.__messenger
