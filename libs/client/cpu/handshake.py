@@ -31,7 +31,6 @@
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -53,7 +52,7 @@ class HandshakeCommandProcessor(CommandProcessor):
 
     @property
     def delegate(self) -> HandshakeDelegate:
-        return self.get_context('handshake_delegate')
+        return self.messenger.delegate
 
     #
     #   main

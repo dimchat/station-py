@@ -55,7 +55,7 @@ class HandshakeCommandProcessor(CommandProcessor):
 
     @property
     def delegate(self) -> HandshakeDelegate:
-        return self.get_context('handshake_delegate')
+        return self.messenger.delegate
 
     def __offer(self, sender: ID, session_key: str=None) -> Content:
         # set/update session in session server with new session key

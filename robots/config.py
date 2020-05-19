@@ -166,7 +166,7 @@ def dims_connect(terminal: Terminal, station: Station, messenger: ClientMessenge
     # context
     messenger.context['station'] = station
     messenger.context['remote_address'] = (station.host, station.port)
-    messenger.context['handshake_delegate'] = terminal
+    messenger.delegate = terminal
     # client
     terminal.messenger = messenger
     terminal.connect(station=station)
