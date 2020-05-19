@@ -282,7 +282,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             self.error('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = NetMsg(cmd=6, seq=0)
 
-        self.info("Process Mars Package")
+        # self.info("Process Mars Package")
         self.send(res)
         # return the remaining incomplete package
         return remaining
