@@ -150,8 +150,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # remove request handler fro session handler
         g_session_server.clear_handler(client_address=address)
         self.__messenger = None
-        self.info('finish with %s %s' % (address, user))
         super().finish()
+        self.info('finish with %s %s' % (address, user))
 
     """
         DIM Request Handler
@@ -218,6 +218,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         data, remaining = ws.parse(stream=pack)
         if data is not None:
             res = self.received_package(pack=data)
+            self.info("Process WS Package")
             self.push_ws_data(res)
         return remaining
 
@@ -312,7 +313,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
-        # self.info("Process Raw Package")
+        self.info("Received Package in Process Raw Package")
         self.send(res)
         # return the remaining incomplete package
         return pack[pos+1:]
