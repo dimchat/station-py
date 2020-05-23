@@ -33,6 +33,7 @@ from typing import Optional, Union
 
 import udp
 import dmtp
+import dimp
 
 from libs.common import Log
 
@@ -53,25 +54,33 @@ class Server(dmtp.Server):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def set_location(self, value: dmtp.LocationValue) -> bool:
-        if value.ip is None or value.port == 0:
-            self.error('location error: %s' % value)
-            return False
-        if value.address is None or value.signature is None:
+    def __analyze_location(self, location: dmtp.LocationValue) -> int:
+        if location.ip is None or location.port == 0:
+            self.error('location error: %s' % location)
+            return -1
+        if location.address is None or location.signature is None:
             self.error('location not signed')
-            return False
+            return -2
         # user ID
-        uid = g_facebook.identifier(string=value.id)
+        uid = g_facebook.identifier(string=location.id)
         if uid is None:
-            self.error('user ID error: %s' % value.id)
-            return False
+            self.error('user ID error: %s' % location.id)
+            return -3
         user = g_facebook.user(identifier=uid)
         # verify mapped address with signature
-        timestamp = dmtp.TimestampValue(value=value.timestamp)
-        data = value.address + timestamp.data
-        if not user.verify(data=data, signature=value.signature):
-            self.error('location signature not match: %s' % value)
+        timestamp = dmtp.TimestampValue(value=location.timestamp)
+        data = location.address + timestamp.data
+        if user.verify(data=data, signature=location.signature):
+            return uid.number
+        self.error('location signature not match: %s' % location)
+        return 0
+
+    def set_location(self, value: dmtp.LocationValue) -> bool:
+        number = self.__analyze_location(location=value)
+        if number <= 0:
+            self.info('location not acceptable: %s' % value)
             return False
+        self.__locations['%d' % number] = value
         self.__locations[value.id] = value
         self.__locations[(value.ip, value.port)] = value
         self.info('location updated: %s' % value)
@@ -91,9 +100,26 @@ class Server(dmtp.Server):
             traceback.print_exc()
             return False
 
+    @staticmethod
+    def __fetch_meta(msg: dimp.ReliableMessage) -> bool:
+        sender = g_facebook.identifier(msg.envelope.sender)
+        meta = dimp.Meta(meta=msg.meta)
+        if meta is not None:
+            return g_facebook.save_meta(meta=meta, identifier=sender)
+
     def process_message(self, msg: dmtp.Message, source: tuple) -> bool:
-        self.info('received msg: %s' % msg)
-        return True
+        # noinspection PyBroadException
+        try:
+            self.info('received msg: %s' % msg)
+            dictionary = msg.to_dict()
+            r_msg = dimp.ReliableMessage(msg=dictionary)
+            self.info('reliable message: %s' % r_msg)
+            if r_msg is not None:
+                self.__fetch_meta(msg=r_msg)
+            return True
+        except Exception:
+            traceback.print_exc()
+            return False
 
     #
     #   PeerDelegate
