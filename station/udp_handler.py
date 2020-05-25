@@ -55,10 +55,10 @@ class Server(dmtp.Server):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def __analyze_location(self, location: dmtp.LocationValue) -> int:
-        if location.ip is None or location.port == 0:
+        if location is None or location.mapped_address is None:
             self.error('location error: %s' % location)
             return -1
-        if location.address is None or location.signature is None:
+        if location.signature is None:
             self.error('location not signed')
             return -2
         # user ID
@@ -67,9 +67,12 @@ class Server(dmtp.Server):
             self.error('user ID error: %s' % location.id)
             return -3
         user = g_facebook.user(identifier=uid)
-        # verify mapped address with signature
+        # verify addresses and timestamp with signature
         timestamp = dmtp.TimestampValue(value=location.timestamp)
-        data = location.address + timestamp.data
+        data = location.mapped_address.data + timestamp.data
+        if location.source_address is not None:
+            # "source_address" + "mapped_address" + "time"
+            data = location.source_address.data + data
         if user.verify(data=data, signature=location.signature):
             return uid.number
         self.error('location signature not match: %s' % location)
@@ -80,9 +83,10 @@ class Server(dmtp.Server):
         if number <= 0:
             self.info('location not acceptable: %s' % value)
             return False
+        address = value.mapped_address
         self.__locations['%d' % number] = value
         self.__locations[value.id] = value
-        self.__locations[(value.ip, value.port)] = value
+        self.__locations[(address.ip, address.port)] = value
         self.info('location updated: %s' % value)
         return True
 
@@ -116,6 +120,7 @@ class Server(dmtp.Server):
             self.info('reliable message: %s' % r_msg)
             if r_msg is not None:
                 self.__fetch_meta(msg=r_msg)
+                # TODO: process message
             return True
         except Exception:
             traceback.print_exc()
