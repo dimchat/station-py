@@ -63,6 +63,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # init
         super().__init__(request=request, client_address=client_address, server=server)
 
+    def __del__(self):
+        self.info('request handler deleted: %s' % str(self.client_address))
+
     def info(self, msg: str):
         current_user_name = "Anonymous"
         current_user = self.remote_user
