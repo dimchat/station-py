@@ -69,8 +69,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         if current_user is not None:
             current_user_name = self.remote_user.name
 
-        Log.info('%s >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), current_user_name,
-                                           self.__class__.__name__, msg))
+        Log.info('%s >\t%d >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), self.server.fileno(),
+                                                 current_user_name, self.__class__.__name__, msg))
 
     def error(self, msg: str):
         current_user_name = "Anonymous"
@@ -78,8 +78,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         if current_user is not None:
             current_user_name = self.remote_user.name
 
-        Log.error('%s >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), current_user_name,
-                                           self.__class__.__name__, msg))
+        Log.error('%s >\t%d >\t%s >\t%s >\t%s' % (threading.current_thread().getName(), self.server.fileno(),
+                                                 current_user_name, self.__class__.__name__, msg))
 
     @property
     def chat_bots(self) -> list:
