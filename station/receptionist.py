@@ -53,7 +53,10 @@ def save_freshman(identifier: ID) -> bool:
     path = os.path.join(Storage.root, 'freshmen.txt')
     # check
     text = Storage.read_text(path=path)
-    lines = text.splitlines()
+    if text is None:
+        lines = []
+    else:
+        lines = text.splitlines()
     for item in lines:
         if item == identifier:
             # already exists
