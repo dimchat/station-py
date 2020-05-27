@@ -31,8 +31,11 @@
 """
 
 import json
+import os
 from socketserver import StreamRequestHandler
 from typing import Optional
+
+from etc.cfg_db import base_dir
 
 import threading
 from dimp import User, NetworkID
@@ -156,12 +159,29 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         super().finish()
         self.info('finish with %s %s' % (address, user))
 
+        # write test file
+        path = self.get_temp_file_path(address)
+        if os.path.exists(path):
+            os.remove(path)
+
+    def get_temp_file_path(self, client_address) -> str:
+
+        filename = "socket/%s.%s" % self.client_address
+        path = os.path.join(base_dir, filename)
+        return path
+
     """
         DIM Request Handler
     """
 
     def handle(self):
         self.info('client connected (%s, %s)' % self.client_address)
+
+        # write test file
+        path = self.get_temp_file_path(self.client_address)
+        with open(path, 'w') as file:
+            file.write("connected")
+
         data = b''
         while current_station.running:
             # receive all data
@@ -221,14 +241,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         data, remaining = ws.parse(stream=pack)
         if data is not None:
             res = self.received_package(pack=data)
-            self.info("Process WS Package")
             self.push_ws_data(res)
         return remaining
 
     def push_ws_data(self, body: bytes) -> bool:
         ws = WebSocket()
         pack = ws.pack(payload=body)
-        self.info("Process WS Data")
         return self.send(data=pack)
 
     #
@@ -316,7 +334,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
-        self.info("Received Package in Process Raw Package")
         self.send(res)
         # return the remaining incomplete package
         return pack[pos+1:]
@@ -428,6 +445,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         user = g_facebook.user(identifier=sender)
         self.messenger.remote_user = user
         self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
+
+        # write test file
+        path = self.get_temp_file_path(self.client_address)
+        with open(path, 'w') as file:
+            file.write("handshake accepted")
+
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
         if user.identifier.type == NetworkID.Station:
             g_dispatcher.add_neighbor(station=user)
