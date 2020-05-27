@@ -449,7 +449,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # write test file
         path = self.get_temp_file_path(self.client_address)
         with open(path, 'w') as file:
-            file.write("handshake accepted")
+            file.write("handshake accepted, %s" % sender)
 
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
         if user.identifier.type == NetworkID.Station:
