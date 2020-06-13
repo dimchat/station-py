@@ -62,6 +62,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         # init
         super().__init__(request=request, client_address=client_address, server=server)
 
+    def __del__(self):
+        Log.info('request handler deleted: %s' % str(self.client_address))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 

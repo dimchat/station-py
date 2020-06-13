@@ -29,7 +29,7 @@
 
 """
 import traceback
-from typing import Optional, Union
+from typing import Union
 
 import udp
 import dmtp
@@ -46,7 +46,6 @@ class Server(dmtp.Server):
         super().__init__()
         hub.add_listener(self.peer)
         self.__hub = hub
-        self.__locations = {}
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -54,47 +53,54 @@ class Server(dmtp.Server):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    def say_hi(self, destination: tuple) -> bool:
+        cmd = dmtp.HelloCommand.new(identifier='station@anywhere')
+        print('sending cmd: %s' % cmd)
+        self.send_command(cmd=cmd, destination=destination)
+        return True
+
     def __analyze_location(self, location: dmtp.LocationValue) -> int:
-        if location is None or location.mapped_address is None:
-            self.error('location error: %s' % location)
+        if location is None:
+            self.error('location should not empty')
             return -1
+        if location.identifier is None:
+            self.error('user ID should not empty')
+            return -2
+        else:
+            uid = g_facebook.identifier(string=location.identifier)
+            if uid is None:
+                self.error('user ID error: %s' % location.identifier)
+                return -2
+            user = g_facebook.user(identifier=uid)
+            if user is None:
+                self.error('failed to get user with ID: %s' % uid)
+                return -2
+        if location.mapped_address is None:
+            self.error('mapped address should not empty')
+            return -3
         if location.signature is None:
             self.error('location not signed')
-            return -2
-        # user ID
-        uid = g_facebook.identifier(string=location.id)
-        if uid is None:
-            self.error('user ID error: %s' % location.id)
-            return -3
-        user = g_facebook.user(identifier=uid)
-        # verify addresses and timestamp with signature
-        timestamp = dmtp.TimestampValue(value=location.timestamp)
-        data = location.mapped_address.data + timestamp.data
+            return -4
+        # data = "source_address" + "mapped_address" + "relayed_address" + "time"
+        data = location.mapped_address.data
         if location.source_address is not None:
-            # "source_address" + "mapped_address" + "time"
             data = location.source_address.data + data
-        if user.verify(data=data, signature=location.signature):
+        if location.relayed_address is not None:
+            data = data + location.relayed_address.data
+        timestamp = dmtp.TimestampValue(value=location.timestamp)
+        data += timestamp.data
+        signature = location.signature
+        # verify data and signature with public key
+        if user.verify(data=data, signature=signature):
             return uid.number
         self.error('location signature not match: %s' % location)
         return 0
 
-    def set_location(self, value: dmtp.LocationValue) -> bool:
-        number = self.__analyze_location(location=value)
-        if number <= 0:
-            self.info('location not acceptable: %s' % value)
+    def set_location(self, location: dmtp.LocationValue) -> bool:
+        if self.__analyze_location(location=location) <= 0:
+            self.info('location not acceptable: %s' % location)
             return False
-        address = value.mapped_address
-        self.__locations['%d' % number] = value
-        self.__locations[value.id] = value
-        self.__locations[(address.ip, address.port)] = value
-        self.info('location updated: %s' % value)
-        return True
-
-    def get_location(self, uid: str = None, source: tuple = None) -> Optional[dmtp.LocationValue]:
-        if uid is None:
-            return self.__locations.get(source)
-        else:
-            return self.__locations.get(uid)
+        return super().set_location(location=location)
 
     def process_command(self, cmd: dmtp.Command, source: tuple) -> bool:
         # noinspection PyBroadException
