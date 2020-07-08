@@ -46,6 +46,8 @@ from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
 
+from udp_station.message import MTPUtils
+
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, chat_bot
@@ -157,21 +159,31 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
 
             # check protocol
             while self.__process_package is None:
-                # (Protocol A) Web socket?
+
+                # (Protocol A) D-MTP?
+                if data.startswith(b'DIM') and self.parse_dmtp_head(data=data) is not None:
+                    # it seems be a D-MTP package!
+                    self.__process_package = self.process_dmtp_package
+                    self.__push_data = self.push_dmtp_data
+                    pass
+
+                # (Protocol B) Web socket?
                 if WebSocket.is_handshake(stream=data):
+                    # it seems be a Web socket package!
                     self.__process_package = self.process_ws_handshake
                     self.__push_data = self.push_ws_data
                     break
 
-                # (Protocol B) Tencent mars?
+                # (Protocol C) Tencent mars?
                 if self.parse_mars_head(data=data) is not None:
-                    # OK, it seems be a mars package!
+                    # it seems be a mars package!
                     self.__process_package = self.process_mars_package
                     self.__push_data = self.push_mars_data
                     break
 
-                # (Protocol C) raw data (JSON in line)?
+                # (Protocol D) raw data (JSON in line)?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
+                    # treat it as raw data in JSON format
                     self.__process_package = self.process_raw_package
                     self.__push_data = self.push_raw_data
                     break
@@ -192,6 +204,57 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 data = self.__process_package(data)
                 n_len = len(data)
 
+    #
+    #   Protocol: D-MTP
+    #
+    @staticmethod
+    def parse_dmtp_head(data: bytes):
+        return MTPUtils.parse_head(data=data)
+
+    def process_dmtp_package(self, data: bytes) -> bytes:
+        if len(data) < 8:
+            # incomplete package
+            return data
+        pack = MTPUtils.parse_package(data=data)
+        if pack is None:
+            # check for sticky packages
+            pos = data.find(b'DIM', 1)
+            if pos > 0:
+                self.error('sticky D-MTP packages, cut the head: %s' % (data[:pos]))
+                return data[pos:]
+            self.error('not a D-MTP pack, drop it: %s' % data)
+            pack = MTPUtils.create_message_package(body=b'AGAIN')
+            self.send(data=pack.get_bytes())
+            return b''
+        # check remaining data
+        if pack.length < len(data):
+            remaining = data[pack.length:]
+        else:
+            remaining = b''
+        # check package body
+        body = pack.body
+        if body.length == 0 or body.length == 4:
+            # received 'PING'
+            res = b'PONG'
+            pack = MTPUtils.create_message_package(body=res, data_type=pack.head.data_type, sn=pack.head.trans_id)
+            self.send(data=pack.get_bytes())
+        else:
+            # TODO: optimize the message data conversion algorithm
+            res = self.received_package(pack=MTPUtils.dmtp_data_to_dimp_bytes(data=body))
+            data = MTPUtils.dimp_bytes_to_dmtp_data(data=res)
+            pack = MTPUtils.create_message_package(body=data, data_type=pack.head.data_type, sn=pack.head.trans_id)
+            self.send(data=pack.get_bytes())
+        return remaining
+
+    def push_dmtp_data(self, body: bytes) -> bool:
+        # TODO: optimize the message data conversion algorithm
+        data = MTPUtils.dimp_bytes_to_dmtp_data(data=body)
+        pack = MTPUtils.create_message_package(body=data)
+        return self.send(data=pack.get_bytes())
+
+    #
+    #   Protocol: WebSocket
+    #
     def process_ws_handshake(self, pack: bytes):
         ws = WebSocket()
         res = ws.handshake(stream=pack)
@@ -199,7 +262,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         self.__process_package = self.process_ws_package
         return b''
 
-    def process_ws_package(self, pack: bytes):
+    def process_ws_package(self, pack: bytes) -> bytes:
         ws = WebSocket()
         data, remaining = ws.parse(stream=pack)
         if data is not None:
@@ -228,7 +291,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         except ValueError:
             return None
 
-    def process_mars_package(self, pack: bytes):
+    def process_mars_package(self, pack: bytes) -> bytes:
         # check package head
         if self.parse_mars_head(data=pack) is None:
             if len(pack) < 20:
@@ -279,7 +342,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #
     #   Protocol: raw data (JSON string)
     #
-    def process_raw_package(self, pack: bytes):
+    def process_raw_package(self, pack: bytes) -> bytes:
         # skip leading empty packages
         pack = pack.lstrip()
         if len(pack) == 0:
