@@ -42,11 +42,10 @@ sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.common import Log
+from libs.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
 from station.config import g_receptionist, g_dispatcher, current_station
-
-from udp_station.server import Server as UDPServer
 
 
 if __name__ == '__main__':

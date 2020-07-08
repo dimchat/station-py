@@ -40,8 +40,18 @@ from dimp import Content, InviteCommand, ResetCommand
 
 from dimsdk import Messenger
 
+from ..mtp.utils import Utils as MTUUtils
+
 
 class CommonMessenger(Messenger):
+
+    MTP_JSON = 'JSON'
+    MTP_DMTP = 'DMTP'
+
+    def __init__(self):
+        super().__init__()
+        # Message Transfer Protocol
+        self.mtp_format = self.MTP_JSON
 
     def __is_empty(self, group: ID) -> bool:
         """
@@ -131,7 +141,22 @@ class CommonMessenger(Messenger):
     #
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         self.__attach_key_digest(msg=msg)
-        return super().serialize_message(msg=msg)
+        if self.mtp_format == self.MTP_DMTP:
+            # D-MTP
+            return MTUUtils.serialize_message(msg=msg)
+        else:
+            # JsON
+            return super().serialize_message(msg=msg)
+
+    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+        if data is None or len(data) == 0:
+            return None
+        if self.mtp_format == self.MTP_DMTP:
+            # D-MTP
+            return MTUUtils.deserialize_message(data=data)
+        else:
+            # JsON
+            return super().deserialize_message(data=data)
 
     def __attach_key_digest(self, msg: ReliableMessage):
         if msg.delegate is None:
@@ -165,11 +190,6 @@ class CommonMessenger(Messenger):
         pos = len(base64) - 8
         keys['digest'] = base64[pos:]
         msg['keys'] = keys
-
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) == 0:
-            return None
-        return super().deserialize_message(data=data)
 
     #
     #   Reuse message key

@@ -46,7 +46,7 @@ from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
 
-from udp_station.message import MTPUtils
+from libs.mtp.utils import Utils as MTPUtils
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
@@ -165,7 +165,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                     # it seems be a D-MTP package!
                     self.__process_package = self.process_dmtp_package
                     self.__push_data = self.push_dmtp_data
-                    pass
+                    self.messenger.mtp_format = self.messenger.MTP_DMTP
+                    break
 
                 # (Protocol B) Web socket?
                 if WebSocket.is_handshake(stream=data):
@@ -232,24 +233,21 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         else:
             remaining = b''
         # check package body
+        head = pack.head
         body = pack.body
-        if body.length == 0 or body.length == 4:
-            # received 'PING'
-            res = b'PONG'
-            pack = MTPUtils.create_message_package(body=res, data_type=pack.head.data_type, sn=pack.head.trans_id)
-            self.send(data=pack.get_bytes())
+        if body.length == 0:
+            res = b'NOOP'
         else:
-            # TODO: optimize the message data conversion algorithm
-            res = self.received_package(pack=MTPUtils.dmtp_data_to_dimp_bytes(data=body))
-            data = MTPUtils.dimp_bytes_to_dmtp_data(data=res)
-            pack = MTPUtils.create_message_package(body=data, data_type=pack.head.data_type, sn=pack.head.trans_id)
-            self.send(data=pack.get_bytes())
+            if body.length == 4 and body.get_bytes() == b'PING':
+                res = b'PONG'
+            else:
+                res = self.received_package(pack=body.get_bytes())
+        pack = MTPUtils.create_message_package(body=res, data_type=head.data_type, sn=head.trans_id)
+        self.send(data=pack.get_bytes())
         return remaining
 
     def push_dmtp_data(self, body: bytes) -> bool:
-        # TODO: optimize the message data conversion algorithm
-        data = MTPUtils.dimp_bytes_to_dmtp_data(data=body)
-        pack = MTPUtils.create_message_package(body=data)
+        pack = MTPUtils.create_message_package(body=body)
         return self.send(data=pack.get_bytes())
 
     #
