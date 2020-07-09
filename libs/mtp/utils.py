@@ -37,38 +37,43 @@ class Utils:
     @classmethod
     def serialize_message(cls, msg: ReliableMessage) -> bytes:
         info = dict(msg)
-        # convert content data
+        #
+        #  body
+        #
         content = info.get('data')
         if content is not None:
             assert isinstance(content, str), 'reliable message content error: %s' % content
             info['data'] = base64_decode(string=content)
-        # signature
         signature = info.get('signature')
         if signature is not None:
             assert isinstance(signature, str), 'reliable message signature error: %s' % signature
             info['signature'] = base64_decode(string=signature)
-        # key/keys
+        # symmetric key/keys
         key = info.get('key')
         if key is None:
             keys = info.get('keys')
             if keys is not None:
                 assert isinstance(keys, dict), 'reliable message keys error: %s' % keys
-                info['keys'] = b'KEYS:' + cls.__build_keys(keys=keys)
+                # DMTP store both 'keys' and 'key' in 'key'
+                info['key'] = b'KEYS:' + cls.__build_keys(keys=keys)
         else:
             assert isinstance(key, str), 'reliable message key error: %s' % key
             info['key'] = base64_decode(string=key)
-        # meta
+        #
+        #  attachments
+        #
         meta = info.get('meta')
         if meta is not None:
             # dict to JSON
             assert isinstance(meta, dict), 'meta error: %s' % meta
             info['meta'] = json.dumps(meta).encode('utf-8')
-        # profile
         profile = info.get('profile')
         if profile is not None:
             # dict to JSON
             assert isinstance(profile, dict), 'profile error: %s' % profile
             info['profile'] = json.dumps(profile).encode('utf-8')
+
+        # create as message
         msg = Message.new(info=info)
         return msg.get_bytes()
 
@@ -85,16 +90,23 @@ class Utils:
             'data': base64_encode(data=msg.content.get_bytes()),
             'signature': base64_encode(data=msg.signature.get_bytes()),
         }
+        msg_type = msg.type
+        if msg_type > 0:
+            info['type'] = msg_type
+        group = msg.group
+        if group is not None:
+            info['group'] = group
         # symmetric key/keys
         key = msg.key
         if key is not None and key.length > 5:
             starts = key.slice(end=5).get_bytes()
             if starts == b'KEYS:':
-                keys = cls.__parse_keys(data=key.slice(start=5))
-                info['keys'] = json.dumps(keys)
+                info['keys'] = cls.__parse_keys(data=key.slice(start=5))
             else:
                 info['key'] = base64_encode(data=key.get_bytes())
-        # attachments
+        #
+        #  attachments
+        #
         meta = msg.meta
         if meta is not None and meta.length > 0:
             # JSON to dict
@@ -105,12 +117,7 @@ class Utils:
             # JSON to dict
             profile = profile.get_bytes().decode('utf-8')
             info['profile'] = json.loads(profile)
-        group = msg.group
-        if group is not None:
-            info['group'] = group
-        msg_type = msg.type
-        if msg_type > 0:
-            info['type'] = msg_type
+
         # create reliable message
         return ReliableMessage(msg=info)
 

@@ -56,6 +56,22 @@ class FieldValueEncoder(json.JSONEncoder):
             return super().default(value)
 
 
+class Session:
+
+    def __init__(self, location: LocationValue, address: tuple):
+        super().__init__()
+        self.__location = location
+        self.__address = address
+
+    @property
+    def location(self) -> LocationValue:
+        return self.__location
+
+    @property
+    def address(self) -> tuple:
+        return self.__address
+
+
 class ContactManager(LocationDelegate):
 
     def __init__(self, peer: Peer):

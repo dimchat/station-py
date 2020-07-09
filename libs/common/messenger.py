@@ -45,8 +45,8 @@ from ..mtp.utils import Utils as MTUUtils
 
 class CommonMessenger(Messenger):
 
-    MTP_JSON = 'JSON'
-    MTP_DMTP = 'DMTP'
+    MTP_JSON = 0x01
+    MTP_DMTP = 0x02
 
     def __init__(self):
         super().__init__()
@@ -149,7 +149,7 @@ class CommonMessenger(Messenger):
             return MTUUtils.serialize_message(msg=msg)
 
     def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) == 0:
+        if data is None or len(data) < 2:
             return None
         if data.startswith(b'{') and data.endswith(b'}'):
             # JsON

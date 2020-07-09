@@ -238,7 +238,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 res = b'PONG'
             else:
                 res = self.received_package(pack=body.get_bytes())
-        pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.trans_id)
+        pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
         self.send(data=pack.get_bytes())
         return remaining
 
