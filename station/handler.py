@@ -161,7 +161,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             while self.__process_package is None:
 
                 # (Protocol A) D-MTP?
-                if data.startswith(b'DIM') and self.parse_dmtp_head(data=data) is not None:
+                if MTPUtils.parse_head(data=data) is not None:
                     # it seems be a D-MTP package!
                     self.__process_package = self.process_dmtp_package
                     self.__push_data = self.push_dmtp_data
@@ -208,10 +208,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #
     #   Protocol: D-MTP
     #
-    @staticmethod
-    def parse_dmtp_head(data: bytes):
-        return MTPUtils.parse_head(data=data)
-
     def process_dmtp_package(self, data: bytes) -> bytes:
         if len(data) < 8:
             # incomplete package
@@ -224,7 +220,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 self.error('sticky D-MTP packages, cut the head: %s' % (data[:pos]))
                 return data[pos:]
             self.error('not a D-MTP pack, drop it: %s' % data)
-            pack = MTPUtils.create_message_package(body=b'AGAIN')
+            pack = MTPUtils.create_package(body=b'AGAIN')
             self.send(data=pack.get_bytes())
             return b''
         # check remaining data
@@ -242,12 +238,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 res = b'PONG'
             else:
                 res = self.received_package(pack=body.get_bytes())
-        pack = MTPUtils.create_message_package(body=res, data_type=head.data_type, sn=head.trans_id)
+        pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.trans_id)
         self.send(data=pack.get_bytes())
         return remaining
 
     def push_dmtp_data(self, body: bytes) -> bool:
-        pack = MTPUtils.create_message_package(body=body)
+        pack = MTPUtils.create_package(body=body)
         return self.send(data=pack.get_bytes())
 
     #

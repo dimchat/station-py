@@ -25,6 +25,16 @@ class Utils:
         return Package.parse(data=Data(data=data))
 
     @classmethod
+    def create_package(cls, body, data_type: DataType=None, sn: TransactionID=None) -> Package:
+        if data_type is None:
+            data_type = MessageDataType
+        if sn is None:
+            sn = TransactionID.ZERO
+        if not isinstance(body, Data):
+            body = Data(data=body)
+        return Package.new(data_type=data_type, sn=sn, body_length=body.length, body=body)
+
+    @classmethod
     def serialize_message(cls, msg: ReliableMessage) -> bytes:
         info = dict(msg)
         # convert content data
@@ -137,13 +147,3 @@ class Utils:
                 data.append(key_len)
                 data.append(BinaryValue(data=base64_decode(string=base64)))
         return data.get_bytes()
-
-    @classmethod
-    def create_message_package(cls, body, data_type: DataType=None, sn: TransactionID=None) -> Package:
-        if data_type is None:
-            data_type = MessageDataType
-        if sn is None:
-            sn = TransactionID.ZERO
-        if not isinstance(body, Data):
-            body = Data(data=body)
-        return Package.new(data_type=data_type, sn=sn, body_length=body.length, body=body)

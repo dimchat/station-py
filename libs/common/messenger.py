@@ -141,22 +141,22 @@ class CommonMessenger(Messenger):
     #
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         self.__attach_key_digest(msg=msg)
-        if self.mtp_format == self.MTP_DMTP:
-            # D-MTP
-            return MTUUtils.serialize_message(msg=msg)
-        else:
+        if self.mtp_format == self.MTP_JSON:
             # JsON
             return super().serialize_message(msg=msg)
+        else:
+            # D-MTP
+            return MTUUtils.serialize_message(msg=msg)
 
     def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) == 0:
             return None
-        if self.mtp_format == self.MTP_DMTP:
-            # D-MTP
-            return MTUUtils.deserialize_message(data=data)
-        else:
+        if data.startswith(b'{') and data.endswith(b'}'):
             # JsON
             return super().deserialize_message(data=data)
+        else:
+            # D-MTP
+            return MTUUtils.deserialize_message(data=data)
 
     def __attach_key_digest(self, msg: ReliableMessage):
         if msg.delegate is None:
