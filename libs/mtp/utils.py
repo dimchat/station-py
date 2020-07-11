@@ -43,7 +43,7 @@ class Utils:
         content = info.get('data')
         if content is not None:
             assert isinstance(content, str), 'reliable message content error: %s' % content
-            if content.startswith('{') and content.endswith('}'):
+            if content.startswith('{'):
                 # JsON
                 info['data'] = content.encode('utf-8')
             else:
@@ -106,7 +106,13 @@ class Utils:
         #
         content = msg.content
         if content is not None:
-            info['data'] = base64_encode(data=content.get_bytes())
+            content = content.get_bytes()
+            if content.startswith(b'{'):
+                # JsON
+                info['data'] = content.decode('utf-8')
+            else:
+                # Base64
+                info['data'] = base64_encode(data=content)
         signature = msg.signature
         if signature is not None:
             info['signature'] = base64_encode(data=signature.get_bytes())
