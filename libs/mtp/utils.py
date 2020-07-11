@@ -8,7 +8,7 @@ from udp.tlv import Data, MutableData, VarIntData
 from udp.mtp import Header, Package
 from udp.mtp import TransactionID, DataType, Message as MessageDataType
 
-from dmtp import Message
+from dmtp import Message, FieldName
 from dmtp import StringValue, BinaryValue
 
 from dimp import ReliableMessage
@@ -79,16 +79,16 @@ class Utils:
 
     @classmethod
     def deserialize_message(cls, data: bytes) -> Optional[ReliableMessage]:
-        # noinspection PyArgumentList
-        msg = Message.parse(data=data)
+        msg = Message.parse(data=Data(data=data))
         if msg is None:
             raise ValueError('failed to deserialize data: %s' % data)
+        #
+        #  envelope
+        #
         info = {
             'sender': msg.sender,
             'receiver': msg.receiver,
             'time': msg.time,
-            'data': base64_encode(data=msg.content.get_bytes()),
-            'signature': base64_encode(data=msg.signature.get_bytes()),
         }
         msg_type = msg.type
         if msg_type > 0:
@@ -96,6 +96,15 @@ class Utils:
         group = msg.group
         if group is not None:
             info['group'] = group
+        #
+        #  body
+        #
+        content = msg.content
+        if content is not None:
+            info['data'] = base64_encode(data=content.get_bytes())
+        signature = msg.signature
+        if signature is not None:
+            info['signature'] = base64_encode(data=signature.get_bytes())
         # symmetric key/keys
         key = msg.key
         if key is not None and key.length > 5:
