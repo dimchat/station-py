@@ -350,12 +350,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             # partially package? keep it for next loop
             return pack
         # maybe more than one message in a time
-        lines = pack[:pos].splitlines()
-        data = []
-        for line in lines:
-            res = self.received_package(line)
-            data += res + b'\n'
-        self.send(data)
+        res = self.received_package(pack[:pos])
+        self.send(res + b'\n')
         # return the remaining incomplete package
         return pack[pos+1:]
 
@@ -372,16 +368,23 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #   receive message(s)
     #
     def received_package(self, pack: bytes) -> Optional[bytes]:
-        try:
-            res = self.messenger.process_package(data=pack)
-            if res is not None:
-                return res
-        except Exception as error:
-            self.error('parse message failed: %s' % error)
-            # from dimsdk import TextContent
-            # return TextContent.new(text='parse message failed: %s' % error)
+        if pack.startswith(b'{'):
+            # JsON in lines
+            packages = pack.splitlines()
+        else:
+            packages = [pack]
+        data = b''
+        for pack in packages:
+            try:
+                res = self.messenger.process_package(data=pack)
+                if res is not None:
+                    data = res + b'\n'
+            except Exception as error:
+                self.error('parse message failed: %s' % error)
+                # from dimsdk import TextContent
+                # return TextContent.new(text='parse message failed: %s' % error)
         # station MUST respond something to client request
-        return b''
+        return data.rstrip(b'\n')
 
     #
     #   Socket IO
