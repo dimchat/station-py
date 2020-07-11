@@ -350,8 +350,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             # partially package? keep it for next loop
             return pack
         # maybe more than one message in a time
-        res = self.received_package(pack[:pos])
-        self.send(res + b'\n')
+        lines = pack[:pos].splitlines()
+        data = []
+        for line in lines:
+            res = self.received_package(line)
+            data += res + b'\n'
+        self.send(data)
         # return the remaining incomplete package
         return pack[pos+1:]
 
