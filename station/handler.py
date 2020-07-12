@@ -200,7 +200,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             #    the received data packages maybe sticky
             n_len = len(data)
             o_len = n_len + 1
-            while n_len <= o_len:
+            while n_len < o_len:
                 o_len = n_len
                 data = self.__process_package(data)
                 n_len = len(data)
