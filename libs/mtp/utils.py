@@ -166,11 +166,11 @@ class Utils:
     def __build_keys(cls, keys: dict) -> bytes:
         data = MutableData(capacity=512)
         for (identifier, base64) in keys.items():
-            id_len = VarIntData(value=len(identifier))
-            key_len = VarIntData(value=len(base64))
-            if id_len.value > 0 and key_len.value > 0:
-                data.append(id_len)
-                data.append(StringValue(string=identifier))
-                data.append(key_len)
-                data.append(BinaryValue(data=base64_decode(string=base64)))
+            id_value = StringValue(string=identifier)
+            if id_value.length > 0 and base64 is not None and len(base64) > 0:
+                key_value = BinaryValue(data=base64_decode(string=base64))
+                data.append(VarIntData(value=id_value.length))
+                data.append(id_value)
+                data.append(VarIntData(value=key_value.length))
+                data.append(key_value)
         return data.get_bytes()
