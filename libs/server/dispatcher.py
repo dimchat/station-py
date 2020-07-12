@@ -30,6 +30,7 @@
     A dispatcher to decide which way to deliver message.
 """
 
+import threading
 import time
 from threading import Thread
 from typing import Optional, Union
@@ -59,6 +60,7 @@ class Dispatcher(Thread):
         self.apns: ApplePushNotificationService = None
         self.__neighbors: list = []     # ID list
         self.__waiting_list: list = []  # ReliableMessage list
+        self.__waiting_list_lock = threading.Lock()
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -88,9 +90,17 @@ class Dispatcher(Thread):
         if station in self.__neighbors:
             self.__neighbors.remove(station)
 
+    def __add_msg(self, msg: ReliableMessage):
+        with self.__waiting_list_lock:
+            self.__waiting_list.append(msg)
+
+    def __pop_msg(self) -> Optional[ReliableMessage]:
+        with self.__waiting_list_lock:
+            if len(self.__waiting_list) > 0:
+                return self.__waiting_list.pop(0)
+
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        # FIXME: thread safe
-        self.__waiting_list.append(msg)
+        self.__add_msg(msg=msg)
         # response
         return self.__receipt(message='Message delivering', msg=msg)
 
@@ -289,9 +299,10 @@ class Dispatcher(Thread):
     #   Run Loop
     #
     def __run_unsafe(self):
-        # FIXME: thread safe
-        while len(self.__waiting_list) > 0:
-            msg = self.__waiting_list.pop(0)
+        while True:
+            msg = self.__pop_msg()
+            if msg is None:
+                break
             res = self.__deliver(msg=msg)
             if res is not None:
                 # TODO: respond the deliver result to the sender

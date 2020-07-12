@@ -151,7 +151,7 @@ class CommonMessenger(Messenger):
     def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
             return None
-        if data.startswith(b'{') and data.endswith(b'}'):
+        if data.startswith(b'{'):
             # JsON
             return super().deserialize_message(data=data)
         else:
