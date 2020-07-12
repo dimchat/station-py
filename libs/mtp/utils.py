@@ -8,7 +8,7 @@ from udp.tlv import Data, MutableData, VarIntData
 from udp.mtp import Header, Package
 from udp.mtp import TransactionID, DataType, Message as MessageDataType
 
-from dmtp import Message, FieldName
+from dmtp import Message
 from dmtp import StringValue, BinaryValue
 
 from dimp import ReliableMessage
@@ -85,7 +85,7 @@ class Utils:
     @classmethod
     def deserialize_message(cls, data: bytes) -> Optional[ReliableMessage]:
         msg = Message.parse(data=Data(data=data))
-        if msg is None:
+        if msg is None or msg.sender is None or msg.receiver is None:
             raise ValueError('failed to deserialize data: %s' % data)
         #
         #  envelope

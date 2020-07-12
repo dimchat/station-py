@@ -200,7 +200,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             #    the received data packages maybe sticky
             n_len = len(data)
             o_len = n_len + 1
-            while n_len < o_len:
+            while n_len <= o_len:
                 o_len = n_len
                 data = self.__process_package(data)
                 n_len = len(data)
@@ -209,35 +209,45 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #   Protocol: D-MTP
     #
     def process_dmtp_package(self, data: bytes) -> bytes:
-        if len(data) < 8:
-            # incomplete package
-            return data
-        pack = MTPUtils.parse_package(data=data)
-        if pack is None:
-            # check for sticky packages
-            pos = data.find(b'DIM', 1)
+        # 1. check received data
+        data_len = len(data)
+        head = MTPUtils.parse_head(data=data)
+        if head is None:
+            # not a D-MTP package?
+            if data_len < 20:
+                # wait for more data
+                return data
+            pos = data.find(b'DIM', start=1)
             if pos > 0:
-                self.error('sticky D-MTP packages, cut the head: %s' % (data[:pos]))
+                # found next head(starts with 'DIM'), skip data before it
                 return data[pos:]
-            self.error('not a D-MTP pack, drop it: %s' % data)
-            pack = MTPUtils.create_package(body=b'AGAIN')
-            self.send(data=pack.get_bytes())
-            return b''
+            else:
+                # skip the whole data
+                return b''
+        # 2. receive data with 'head.length + body.length'
+        head_len = head.length
+        body_len = head.body_length
+        if body_len < 0:
+            # should not happen
+            body_len = data_len - head_len
+        pack_len = head_len + body_len
+        if pack_len > data_len:
+            # wait for more data
+            return data
         # check remaining data
-        if pack.length < len(data):
-            remaining = data[pack.length:]
+        if pack_len < data_len:
+            remaining = data[pack_len:]
+            data = data[:pack_len]
         else:
             remaining = b''
-        # check package body
-        head = pack.head
-        body = pack.body
-        if body.length == 0:
+        # 3. package body
+        body = data[head_len:]
+        if body_len == 0:
             res = b'NOOP'
+        elif body_len == 4 and body == b'PING':
+            res = b'PONG'
         else:
-            if body.length == 4 and body.get_bytes() == b'PING':
-                res = b'PONG'
-            else:
-                res = self.received_package(pack=body.get_bytes())
+            res = self.received_package(pack=body)
         pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
         self.send(data=pack.get_bytes())
         return remaining
