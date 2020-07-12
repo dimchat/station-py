@@ -300,7 +300,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         if self.parse_mars_head(data=pack) is None:
             if len(pack) < 20:
                 return pack
-            pos = pack.index(b'\x00\x00\x00\xc8\x00\x00\x00')
+            pos = pack.find(b'\x00\x00\x00\xc8\x00\x00\x00', start=4)
             if pos > 4:
                 self.error('sticky mars, cut the head: %s' % (pack[:pos-4]))
                 return pack[pos-4:]
