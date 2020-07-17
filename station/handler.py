@@ -394,7 +394,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         # station MUST respond something to client request
-        return data.rstrip(b'\n')
+        if len(data) > 0:
+            data = data[:-1]  # remove last '\n'
+        return data
 
     #
     #   Socket IO
