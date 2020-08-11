@@ -42,6 +42,7 @@ sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.common import Log
+from libs.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
 from station.config import g_receptionist, g_dispatcher, current_station
@@ -52,6 +53,11 @@ if __name__ == '__main__':
     current_station.running = True
     g_receptionist.start()
     g_dispatcher.start()
+
+    # start UDP Server
+    Log.info('>>> UDP server (%s:%d) starting ...' % (current_station.host, current_station.port))
+    g_udp_server = UDPServer(host=current_station.host, port=current_station.port)
+    g_udp_server.start()
 
     # start TCP Server
     try:

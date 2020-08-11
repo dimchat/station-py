@@ -50,6 +50,8 @@ from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
 
+from libs.mtp.utils import Utils as MTPUtils
+
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, chat_bot
@@ -193,21 +195,32 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
 
             # check protocol
             while self.__process_package is None:
-                # (Protocol A) Web socket?
+
+                # (Protocol A) D-MTP?
+                if MTPUtils.parse_head(data=data) is not None:
+                    # it seems be a D-MTP package!
+                    self.__process_package = self.process_dmtp_package
+                    self.__push_data = self.push_dmtp_data
+                    self.messenger.mtp_format = self.messenger.MTP_DMTP
+                    break
+
+                # (Protocol B) Web socket?
                 if WebSocket.is_handshake(stream=data):
+                    # it seems be a Web socket package!
                     self.__process_package = self.process_ws_handshake
                     self.__push_data = self.push_ws_data
                     break
 
-                # (Protocol B) Tencent mars?
+                # (Protocol C) Tencent mars?
                 if self.parse_mars_head(data=data) is not None:
-                    # OK, it seems be a mars package!
+                    # it seems be a mars package!
                     self.__process_package = self.process_mars_package
                     self.__push_data = self.push_mars_data
                     break
 
-                # (Protocol C) raw data (JSON in line)?
+                # (Protocol D) raw data (JSON in line)?
                 if data.startswith(b'{"') and data.find(b'\0') < 0:
+                    # treat it as raw data in JSON format
                     self.__process_package = self.process_raw_package
                     self.__push_data = self.push_raw_data
                     break
@@ -228,6 +241,60 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                 data = self.__process_package(data)
                 n_len = len(data)
 
+    #
+    #   Protocol: D-MTP
+    #
+    def process_dmtp_package(self, data: bytes) -> bytes:
+        # 1. check received data
+        data_len = len(data)
+        head = MTPUtils.parse_head(data=data)
+        if head is None:
+            # not a D-MTP package?
+            if data_len < 20:
+                # wait for more data
+                return data
+            pos = data.find(b'DIM', start=1)
+            if pos > 0:
+                # found next head(starts with 'DIM'), skip data before it
+                return data[pos:]
+            else:
+                # skip the whole data
+                return b''
+        # 2. receive data with 'head.length + body.length'
+        head_len = head.length
+        body_len = head.body_length
+        if body_len < 0:
+            # should not happen
+            body_len = data_len - head_len
+        pack_len = head_len + body_len
+        if pack_len > data_len:
+            # wait for more data
+            return data
+        # check remaining data
+        if pack_len < data_len:
+            remaining = data[pack_len:]
+            data = data[:pack_len]
+        else:
+            remaining = b''
+        # 3. package body
+        body = data[head_len:]
+        if body_len == 0:
+            res = b'NOOP'
+        elif body_len == 4 and body == b'PING':
+            res = b'PONG'
+        else:
+            res = self.received_package(pack=body)
+        pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
+        self.send(data=pack.get_bytes())
+        return remaining
+
+    def push_dmtp_data(self, body: bytes) -> bool:
+        pack = MTPUtils.create_package(body=body)
+        return self.send(data=pack.get_bytes())
+
+    #
+    #   Protocol: WebSocket
+    #
     def process_ws_handshake(self, pack: bytes):
         ws = WebSocket()
         res = ws.handshake(stream=pack)
@@ -236,7 +303,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         self.__process_package = self.process_ws_package
         return b''
 
-    def process_ws_package(self, pack: bytes):
+    def process_ws_package(self, pack: bytes) -> bytes:
         ws = WebSocket()
         data, remaining = ws.parse(stream=pack)
         if data is not None:
@@ -265,12 +332,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         except ValueError:
             return None
 
-    def process_mars_package(self, pack: bytes):
+    def process_mars_package(self, pack: bytes) -> bytes:
         # check package head
         if self.parse_mars_head(data=pack) is None:
             if len(pack) < 20:
                 return pack
-            pos = pack.index(b'\x00\x00\x00\xc8\x00\x00\x00')
+            pos = pack.find(b'\x00\x00\x00\xc8\x00\x00\x00', start=4)
             if pos > 4:
                 self.error('sticky mars, cut the head: %s' % (pack[:pos-4]))
                 return pack[pos-4:]
@@ -319,7 +386,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #
     #   Protocol: raw data (JSON string)
     #
-    def process_raw_package(self, pack: bytes):
+    def process_raw_package(self, pack: bytes) -> bytes:
         # skip leading empty packages
         pack = pack.lstrip()
         if len(pack) == 0:
@@ -334,7 +401,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
             return pack
         # maybe more than one message in a time
         res = self.received_package(pack[:pos])
-        self.send(res)
+        self.send(res + b'\n')
         # return the remaining incomplete package
         return pack[pos+1:]
 
@@ -352,28 +419,25 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #   receive message(s)
     #
     def received_package(self, pack: bytes) -> Optional[bytes]:
-        lines = pack.splitlines()
-        body = b''
-        for line in lines:
-            line = line.strip()
-            if len(line) == 0:
-                self.info('ignore empty message')
-                continue
+        if pack.startswith(b'{'):
+            # JsON in lines
+            packages = pack.splitlines()
+        else:
+            packages = [pack]
+        data = b''
+        for pack in packages:
             try:
-                res = self.messenger.process_package(data=line)
-                if res is None:
-                    # station MUST respond something to client request
-                    res = b''
-                else:
-                    res = res + b'\n'
+                res = self.messenger.process_package(data=pack)
+                if res is not None:
+                    data = res + b'\n'
             except Exception as error:
                 self.error('parse message failed: %s' % error)
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
-                res = b''
-            body = body + res
-        # all responses in one package
-        return body
+        # station MUST respond something to client request
+        if len(data) > 0:
+            data = data[:-1]  # remove last '\n'
+        return data
 
     #
     #   Socket IO

@@ -181,7 +181,7 @@ class SessionServer(Server):
 
     def __init__(self):
         super().__init__()
-        self.__handlers: dict = WeakValueDictionary()
+        self.__handlers = WeakValueDictionary()
 
     def set_handler(self, client_address, request_handler):
         self.__handlers[client_address] = request_handler
