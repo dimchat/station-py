@@ -30,7 +30,6 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import threading
 import time
 import threading
 from threading import Thread
@@ -41,13 +40,13 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 from dimsdk import ReceiptCommand
-from dimsdk import ApplePushNotificationService
 
 from ..common import Server
 from ..common import Database, CommonFacebook
 from ..common import Log
 
 from .session import SessionServer
+from libs.common.push_message_service import PushMessageService
 
 
 class Dispatcher(Thread):
@@ -58,7 +57,8 @@ class Dispatcher(Thread):
         self.facebook: CommonFacebook = None
         self.station: Server = None
         self.session_server: SessionServer = None
-        self.apns: ApplePushNotificationService = None
+        # self.apns: ApplePushNotificationService = None
+        self.push_service: PushMessageService = PushMessageService()
         self.__neighbors: list = []     # ID list
         self.__waiting_list: list = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
@@ -169,6 +169,7 @@ class Dispatcher(Thread):
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return res
+        # return None
 
     def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
         self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.envelope.sender))
@@ -253,7 +254,8 @@ class Dispatcher(Thread):
             text += ' in group [%s]' % self.facebook.group_name(identifier=group)
         # push it
         self.info('APNs message: %s' % text)
-        return self.apns.push(identifier=receiver, message=text)
+        # return self.apns.push(identifier=receiver, message=text)
+        return self.push_service.push(sender, receiver, text)
 
     def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver
