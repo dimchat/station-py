@@ -30,8 +30,8 @@ class PushMessageService:
             exception_str = traceback.format_exc()
             print("Push exception happen {}".format(exception_str))
 
-
-if __name__ == "__main__":
-
-    pusher = PushMessageService()
-    pusher.push("pony@4TnzoxrZSPVwFg7hmK7W12Wh1iu3hGz5G5", "dim@4MVvC3bTTYqozq4XvXVMt5VSWLyLK1XSVg", "Hello")
+#
+# if __name__ == "__main__":
+#
+#     pusher = PushMessageService()
+#     pusher.push("pony@4TnzoxrZSPVwFg7hmK7W12Wh1iu3hGz5G5", "dim@4MVvC3bTTYqozq4XvXVMt5VSWLyLK1XSVg", "Hello")
