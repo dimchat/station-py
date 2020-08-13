@@ -65,5 +65,5 @@ class Pusher:
 if __name__ == "__main__":
 
     pusher = Pusher()
-    # pusher.start()
-    pusher.push("dim@4Q8YfNC84nYJ9EUAUjdark2usjHfTu4gUd", "Hello DIMTalk")
+    pusher.start()
+
