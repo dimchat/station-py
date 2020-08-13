@@ -30,8 +30,8 @@
     A dispatcher to decide which way to deliver message.
 """
 
-import threading
 import time
+import threading
 from threading import Thread
 from typing import Optional, Union
 
@@ -40,13 +40,13 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 from dimsdk import ReceiptCommand
-from dimsdk import ApplePushNotificationService
 
 from ..common import Server
 from ..common import Database, CommonFacebook
 from ..common import Log
 
 from .session import SessionServer
+from libs.common.push_message_service import PushMessageService
 
 
 class Dispatcher(Thread):
@@ -57,13 +57,14 @@ class Dispatcher(Thread):
         self.facebook: CommonFacebook = None
         self.station: Server = None
         self.session_server: SessionServer = None
-        self.apns: ApplePushNotificationService = None
+        # self.apns: ApplePushNotificationService = None
+        self.push_service: PushMessageService = PushMessageService()
         self.__neighbors: list = []     # ID list
         self.__waiting_list: list = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
 
     def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+        Log.info('%s > %s >\t%s' % (threading.current_thread().getName(), self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -168,6 +169,7 @@ class Dispatcher(Thread):
         res = TextContent.new(text=text)
         res.group = msg.envelope.group
         return res
+        # return None
 
     def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
         self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.envelope.sender))
@@ -252,7 +254,8 @@ class Dispatcher(Thread):
             text += ' in group [%s]' % self.facebook.group_name(identifier=group)
         # push it
         self.info('APNs message: %s' % text)
-        return self.apns.push(identifier=receiver, message=text)
+        # return self.apns.push(identifier=receiver, message=text)
+        return self.push_service.push(sender, receiver, text)
 
     def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver
@@ -283,6 +286,7 @@ class Dispatcher(Thread):
         # store in local cache file
         sender = self.facebook.identifier(msg.envelope.sender)
         group = self.facebook.identifier(msg.envelope.group)
+
         self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
         # check mute-list

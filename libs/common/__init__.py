@@ -44,6 +44,7 @@ from .database import Storage, Database
 from .ans import AddressNameServer
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
+from .push_message_service import PushMessageService
 
 
 __all__ = [
@@ -82,5 +83,5 @@ __all__ = [
     #   Common libs
     #
     'AddressNameServer',
-    'CommonFacebook', 'CommonMessenger',
+    'CommonFacebook', 'CommonMessenger', 'PushMessageService'
 ]
