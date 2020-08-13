@@ -8,8 +8,10 @@ class Pusher:
 
     connection: BlockingConnection
     queue_key = "dim_push_message"
+
     app_key = "db6d7573a1643e36cf2451c6"
     master_secret = "d6ddc704ce0cde1d7462b4f4"
+    apns_production = False
 
     def __init__(self):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
@@ -41,7 +43,7 @@ class Pusher:
         # if you set the logging level to "DEBUG",it will show the debug logging.
         _jpush.set_logging("DEBUG")
 
-        option = {"apns_production": False}
+        option = {"apns_production": self.apns_production}
 
         push.audience = jpush.audience(jpush.alias(alias))
         push.notification = jpush.notification(alert=message)
