@@ -1,7 +1,7 @@
 import traceback
 import pika
 import json
-from mkm import ID
+from dimp import ID
 
 
 class PushMessageService:
