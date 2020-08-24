@@ -1,13 +1,14 @@
 import traceback
 import pika
 import json
+from dimp import ID
 
 
 class PushMessageService:
 
     queue_key = "dim_push_message"
 
-    def push(self, sender: str, receiver: str, message: str):
+    def push(self, sender: ID, receiver: ID, message: str):
         try:
 
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
@@ -15,8 +16,8 @@ class PushMessageService:
             channel.queue_declare(queue=self.queue_key)
 
             json_dict = {
-                "from": sender,
-                "to": receiver,
+                "from": sender.address,
+                "to": receiver.address,
                 "message": "{0}".format(message),
                 "platform": "ios"
             }
