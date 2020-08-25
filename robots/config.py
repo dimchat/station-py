@@ -56,6 +56,8 @@ from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id, tokentalkteam_id
 
 from etc.cfg_loader import load_robot_info, load_station
 
+g_released = True
+
 """
     Key Store
     ~~~~~~~~~

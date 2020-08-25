@@ -51,7 +51,7 @@ from libs.common import Log, Database
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_station, g_database
+from robots.config import g_facebook, g_keystore, g_station, g_database, g_released
 from robots.config import load_station, dims_connect, all_stations
 
 
@@ -235,6 +235,9 @@ class Octopus:
             if self.__deliver_message(msg=msg, neighbor=sid):
                 success += 1
         # FIXME: what about the failures
+        if g_released:
+            # FIXME: how to let the client knows where the message reached
+            return None
         # response
         sender = g_facebook.identifier(msg.envelope.sender)
         meta = g_facebook.meta(identifier=sender)
@@ -266,6 +269,9 @@ class Octopus:
             return None
         if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to send income message: %s' % msg)
+            return None
+        if g_released:
+            # FIXME: how to let the client knows where the message reached
             return None
         # response
         sender = g_facebook.identifier(msg.envelope.sender)
