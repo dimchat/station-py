@@ -167,12 +167,12 @@ class Dispatcher(Thread):
         # response
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
         res = TextContent.new(text=text)
-        res.group = msg.envelope.group
+        res.group = msg.group
         return res
         # return None
 
     def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
-        self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.envelope.sender))
+        self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.sender))
         success = 0
         session_server = self.session_server
         for sess in sessions:
@@ -259,7 +259,7 @@ class Dispatcher(Thread):
 
     def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver
-        receiver = self.facebook.identifier(msg.envelope.receiver)
+        receiver = msg.receiver
         if receiver.is_group:
             # group message (not split yet)
             if receiver.is_broadcast:
@@ -284,8 +284,8 @@ class Dispatcher(Thread):
         elif self.__push_message(msg=msg, receiver=receiver, sessions=sessions):
             return self.__receipt(message='Message sent', msg=msg)
         # store in local cache file
-        sender = self.facebook.identifier(msg.envelope.sender)
-        group = self.facebook.identifier(msg.envelope.group)
+        sender = msg.sender
+        group = msg.group
 
         self.info('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
@@ -294,7 +294,7 @@ class Dispatcher(Thread):
             self.info('this sender/group is muted: %s' % msg)
         else:
             # push notification
-            msg_type = msg.envelope.type
+            msg_type = msg.type
             if msg_type is None:
                 msg_type = 0
             self.__push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)

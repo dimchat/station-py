@@ -34,7 +34,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 
 from dimp import Base64, sha256
-from dimp import ID
+from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, InviteCommand, ResetCommand
 
@@ -76,13 +76,13 @@ class CommonMessenger(Messenger):
         :param sender:  message sender
         :return: True on updating
         """
-        facebook = self.facebook
-        group = facebook.identifier(content.group)
+        group = content.group
         if group is None or group.is_broadcast:
             # 1. personal message
             # 2. broadcast message
             return False
         # check meta for new group ID
+        facebook = self.facebook
         meta = facebook.meta(identifier=group)
         if meta is None:
             # NOTICE: if meta for group not found,
@@ -159,6 +159,7 @@ class CommonMessenger(Messenger):
             return MTUUtils.deserialize_message(data=data)
 
     def __attach_key_digest(self, msg: ReliableMessage):
+        # check message delegate
         if msg.delegate is None:
             msg.delegate = self
         if msg.encrypted_key is not None:
@@ -171,10 +172,10 @@ class CommonMessenger(Messenger):
             # key digest already exists
             return
         # get key with direction
-        sender = self.barrack.identifier(msg.envelope.sender)
-        group = self.barrack.identifier(msg.envelope.group)
+        sender = msg.sender
+        group = msg.group
         if group is None:
-            receiver = self.barrack.identifier(msg.envelope.receiver)
+            receiver = msg.receiver
             key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
         else:
             key = self.key_cache.cipher_key(sender=sender, receiver=group)
@@ -197,22 +198,17 @@ class CommonMessenger(Messenger):
 
     def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
         s_msg = super().encrypt_message(msg=msg)
-        facebook = self.facebook
-        env = msg.envelope
-        receiver = facebook.identifier(env.receiver)
+        receiver = msg.receiver
         if receiver.is_group:
             # reuse group message keys
-            sender = facebook.identifier(env.sender)
-            key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
+            key = self.key_cache.cipher_key(sender=msg.sender, receiver=receiver)
             key['reused'] = True
         # TODO: reuse personal message key?
         return s_msg
 
-    def serialize_key(self, key: dict, msg: InstantMessage) -> Optional[bytes]:
+    def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
         if key.get('reused'):
-            receiver = msg.envelope.receiver
-            receiver = self.facebook.identifier(receiver)
-            if receiver.is_group:
+            if msg.receiver.is_group:
                 # reuse key for grouped message
                 return None
         return super().serialize_key(key=key, msg=msg)

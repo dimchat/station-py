@@ -163,7 +163,10 @@ class AssistantMessenger(ClientMessenger):
 
     # Override
     def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        receiver = g_facebook.identifier(string=msg.envelope.receiver)
+        # check message delegate
+        if msg.delegate is None:
+            msg.delegate = self
+        receiver = msg.receiver
         if receiver.is_group:
             # FIXME: check group meta/profile
             # process group message
@@ -189,14 +192,14 @@ class AssistantMessenger(ClientMessenger):
         if s_msg is None:
             # signature error?
             return None
-        sender = g_facebook.identifier(msg.envelope.sender)
-        receiver = g_facebook.identifier(msg.envelope.receiver)
+        sender = msg.sender
+        receiver = msg.receiver
         if not g_facebook.exists_member(member=sender, group=receiver):
             if not g_facebook.is_owner(member=sender, group=receiver):
                 # not allow, kick it out
                 cmd = GroupCommand.expel(group=receiver, member=sender)
                 sender = g_facebook.current_user.identifier
-                receiver = msg.envelope.sender
+                receiver = msg.sender
                 i_msg = InstantMessage.new(content=cmd, sender=sender, receiver=receiver)
                 s_msg = self.encrypt_message(msg=i_msg)
                 return self.sign_message(msg=s_msg)
@@ -231,7 +234,7 @@ class AssistantMessenger(ClientMessenger):
         # pack response
         if res is not None:
             sender = g_facebook.current_user.identifier
-            receiver = msg.envelope.sender
+            receiver = msg.sender
             i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
             s_msg = self.encrypt_message(msg=i_msg)
             return self.sign_message(msg=s_msg)
@@ -242,10 +245,12 @@ class AssistantMessenger(ClientMessenger):
         success_list = []
         failed_list = []
         for item in messages:
+            if item.delegate is None:
+                item.delegate = msg.delegate
             if self.__forward_group_message(msg=item):
-                success_list.append(item.envelope.receiver)
+                success_list.append(item.receiver)
             else:
-                failed_list.append(item.envelope.receiver)
+                failed_list.append(item.receiver)
         response = ReceiptCommand.new(message='Group message delivering')
         if len(success_list) > 0:
             response['success'] = success_list
@@ -253,19 +258,19 @@ class AssistantMessenger(ClientMessenger):
             response['failed'] = failed_list
             # failed to get keys for this members,
             # query from sender by invite members
-            sender = g_facebook.identifier(msg.envelope.sender)
-            group = g_facebook.identifier(msg.envelope.receiver)
+            sender = msg.sender
+            group = msg.receiver
             cmd = GroupCommand.invite(group=group, members=failed_list)
             self.send_content(content=cmd, receiver=sender)
         return response
 
     def __forward_group_message(self, msg: ReliableMessage) -> bool:
-        receiver = g_facebook.identifier(msg.envelope.receiver)
+        receiver = msg.receiver
         key = msg.get('key')
         if key is None:
             # get key from cache
-            sender = g_facebook.identifier(msg.envelope.sender)
-            group = g_facebook.identifier(msg.envelope.group)
+            sender = msg.sender
+            group = msg.group
             key = self.__key_cache.get_key(sender=sender, member=receiver, group=group)
             if key is None:
                 # cannot forward group message without key

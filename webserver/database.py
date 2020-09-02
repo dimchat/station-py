@@ -134,12 +134,12 @@ class MessageTable(Storage):
 
     def save(self, msg: ReliableMessage) -> bool:
         signature = msg['signature']
-        timestamp = msg.envelope.time
+        timestamp = msg.time
         path = msg_path(signature=signature)
         if not self.write_json(container=msg, path=path):
             return False
         # append msg info to user's messages list
-        sender = self.facebook.identifier(msg.envelope.sender)
+        sender = msg.sender
         path = usr_path(address=sender.address)
         path = os.path.join(path, 'messages.txt')
         text = '%s,%d\n' % (signature, timestamp)

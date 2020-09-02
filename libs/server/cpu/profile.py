@@ -54,7 +54,7 @@ class ProfileCommandProcessor(SuperCommandProcessor):
             # this command is submitting profile, not querying
             return False
         # respond login message when querying profile
-        identifier = self.facebook.identifier(cmd.identifier)
+        identifier = cmd.identifier
         msg = self.database.login_message(identifier=identifier)
         if msg is None:
             # login message not found

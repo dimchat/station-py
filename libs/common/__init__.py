@@ -46,6 +46,8 @@ from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .push_message_service import PushMessageService
 
+from .keystore import KeyStore
+
 
 __all__ = [
     #
@@ -83,5 +85,7 @@ __all__ = [
     #   Common libs
     #
     'AddressNameServer',
-    'CommonFacebook', 'CommonMessenger', 'PushMessageService'
+    'CommonFacebook', 'CommonMessenger', 'PushMessageService',
+
+    'KeyStore',
 ]

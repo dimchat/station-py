@@ -34,8 +34,8 @@ import time
 from typing import Optional, Union
 from weakref import WeakValueDictionary
 
-from udp.tlv.utils import base64_encode
-from udp.tlv import IntegerData
+from dmtp.mtp.tlv.utils import base64_encode
+from dmtp.mtp.tlv import IntegerData
 from dmtp import LocationValue, StringValue, BinaryValue
 from dmtp import LocationDelegate
 from dmtp import Peer

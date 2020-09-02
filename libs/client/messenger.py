@@ -143,13 +143,13 @@ class ClientMessenger(CommonMessenger):
             # urgent command
             return res
         # if isinstance(i_msg.content, ReceiptCommand):
-        #     receiver = self.barrack.identifier(msg.envelope.receiver)
+        #     receiver = msg.receiver
         #     if receiver.type == NetworkID.Station:
         #         # no need to respond receipt to station
         #         return None
 
         # check receiver
-        receiver = self.facebook.identifier(msg.envelope.receiver)
+        receiver = msg.receiver
         user = self._select(receiver=receiver)
         assert user is not None, 'receiver error: %s' % receiver
         # pack message

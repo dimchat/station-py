@@ -38,7 +38,7 @@ from typing import Optional
 
 from dimp import ID, NetworkID, ReliableMessage
 from dimsdk import Station
-from dimsdk import ApplePushNotificationService
+from dimsdk.apns import ApplePushNotificationService
 
 from libs.common import Storage, Database, CommonFacebook
 from libs.common import Log

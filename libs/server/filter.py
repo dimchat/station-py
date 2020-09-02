@@ -71,9 +71,9 @@ class Filter:
     #   check
     #
     def __check_blocked(self, envelope: Envelope) -> Optional[Content]:
-        sender = self.facebook.identifier(envelope.sender)
-        receiver = self.facebook.identifier(envelope.receiver)
-        group = self.facebook.identifier(envelope.group)
+        sender = envelope.sender
+        receiver = envelope.receiver
+        group = envelope.group
         # check block-list
         if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
             nickname = self.__name(identifier=receiver)
@@ -94,7 +94,7 @@ class Filter:
         # assert user is not None, 'check client for sending message after handshake accepted'
         if user is None:
             # FIXME: make sure the client sends message after handshake accepted
-            sender = self.facebook.identifier(envelope.sender)
+            sender = envelope.sender
             session = self.messenger.current_session(identifier=sender)
             assert session is not None, 'failed to get session for sender: %s' % sender
             assert not session.valid, 'session error: %s' % session

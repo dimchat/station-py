@@ -3,10 +3,10 @@
 import json
 from typing import Optional
 
-from udp.tlv.utils import base64_encode, base64_decode
-from udp.tlv import Data, MutableData, VarIntData
-from udp.mtp import Header, Package
-from udp.mtp import TransactionID, DataType, Message as MessageDataType
+from dmtp.mtp.tlv.utils import base64_encode, base64_decode
+from dmtp.mtp.tlv import Data, MutableData, VarIntData
+from dmtp.mtp import Header, Package
+from dmtp.mtp import TransactionID, DataType, Message as MessageDataType
 
 from dmtp import Message
 from dmtp import StringValue, BinaryValue

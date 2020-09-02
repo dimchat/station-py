@@ -57,7 +57,7 @@ class LoginTable(Storage):
                 if cmd.time <= old.time:
                     return False
         assert sender == cmd.identifier, 'login ID not valid: %s' % cmd
-        assert sender == msg.envelope.sender, 'login ID not valid: %s' % msg
+        assert sender == msg.sender, 'login ID not valid: %s' % msg
         self.__caches[sender] = {'cmd': cmd, 'msg': msg}
         return True
 

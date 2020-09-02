@@ -52,12 +52,11 @@ class MessageTable(Storage):
 
     def __message_path(self, msg: ReliableMessage) -> str:
         # message filename
-        timestamp = msg.envelope.time
+        timestamp = msg.time
         filename = time.strftime("%Y%m%d", time.localtime(timestamp))
         filename = filename + '.msg'
         # message directory
-        receiver = self.identifier(msg.envelope.receiver)
-        directory = self.__directory(receiver)
+        directory = self.__directory(msg.receiver)
         # message file path
         return os.path.join(directory, filename)
 

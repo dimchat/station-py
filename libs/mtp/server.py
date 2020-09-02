@@ -3,7 +3,7 @@
 import json
 import traceback
 
-from udp.mtp import Departure
+from dmtp.mtp import Departure
 
 from dmtp import Command, HelloCommand
 from dmtp import Message

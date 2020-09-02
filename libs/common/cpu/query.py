@@ -54,7 +54,7 @@ class QueryCommandProcessor(GroupCommandProcessor):
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, QueryCommand), 'group command error: %s' % content
         facebook = self.facebook
-        group: ID = facebook.identifier(content.group)
+        group: ID = content.group
         # 1. check permission
         if not facebook.exists_member(member=sender, group=group):
             if not facebook.exists_assistant(member=sender, group=group):

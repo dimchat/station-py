@@ -35,11 +35,11 @@ import time
 from dimp import ID
 from dimp import TextContent
 from dimp import InstantMessage
-from dimsdk import ApplePushNotificationService
-from dimsdk import KeyStore
+from dimsdk.apns import ApplePushNotificationService
 
-from libs.common import Database, CommonFacebook
 from libs.common import Log
+from libs.common import Database, CommonFacebook
+from libs.common import KeyStore
 from libs.server import ServerMessenger
 from libs.server import SessionServer
 
@@ -84,11 +84,9 @@ class Monitor:
         if self.sender is None:
             self.error('sender not set yet')
             return False
-        sender = self.facebook.identifier(self.sender)
-        receiver = self.facebook.identifier(receiver)
         timestamp = int(time.time())
         content = TextContent.new(text=text)
-        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
+        i_msg = InstantMessage.new(content=content, sender=self.sender, receiver=receiver, time=timestamp)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
         r_msg = self.messenger.sign_message(msg=s_msg)
         # try for online user

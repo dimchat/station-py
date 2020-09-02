@@ -117,7 +117,10 @@ class ServerMessenger(CommonMessenger):
 
     # Override
     def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        receiver = self.facebook.identifier(string=msg.envelope.receiver)
+        # check message delegate
+        if msg.delegate is None:
+            msg.delegate = self
+        receiver = msg.receiver
         if receiver.is_group:
             # deliver group message
             res = self.__deliver_message(msg=msg)
@@ -157,7 +160,7 @@ class ServerMessenger(CommonMessenger):
         if res is not None:
             user = self.facebook.current_user
             sender = user.identifier
-            receiver = msg.envelope.sender
+            receiver = msg.sender
             i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
             s_msg = self.encrypt_message(msg=i_msg)
             return self.sign_message(msg=s_msg)
@@ -185,6 +188,7 @@ class ServerMessenger(CommonMessenger):
             return False
         r_msg = self.sign_message(msg=s_msg)
         assert r_msg is not None, 'failed to sign message: %s' % s_msg
+        r_msg.delegate = self
         self.dispatcher.deliver(msg=r_msg)
         return True
 

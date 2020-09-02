@@ -32,7 +32,7 @@ import threading
 import time
 from typing import Optional
 
-from udp.tlv import Data
+from dmtp.mtp.tlv import Data
 from dmtp import Field
 from dmtp import LocationValue, TimestampValue, BinaryValue
 from dmtp import SourceAddressValue, MappedAddressValue, RelayedAddressValue

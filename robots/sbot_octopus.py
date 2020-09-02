@@ -217,7 +217,10 @@ class Octopus:
         return g_messenger.sign_message(msg=s_msg)
 
     def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        receiver = g_facebook.identifier(msg.envelope.receiver)
+        # check message delegate
+        if msg.delegate is None:
+            msg.delegate = self
+        receiver = msg.receiver
         if receiver == g_station.identifier:
             self.info('msg for %s will be stopped here' % receiver)
             return None
@@ -239,15 +242,15 @@ class Octopus:
             # FIXME: how to let the client knows where the message reached
             return None
         # response
-        sender = g_facebook.identifier(msg.envelope.sender)
+        sender = msg.sender
         meta = g_facebook.meta(identifier=sender)
         if meta is None:
             # waiting for meta
             return None
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
-        self.info('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.envelope.receiver))
+        self.info('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
         res = TextContent.new(text=text)
-        res.group = msg.envelope.group
+        res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 
     def __traced(self, msg: ReliableMessage, station: Station) -> bool:
@@ -263,6 +266,9 @@ class Octopus:
                     self.error('traces node error: %s' % node)
 
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        # check message delegate
+        if msg.delegate is None:
+            msg.delegate = self
         sid = g_station.identifier
         if self.__traced(msg=msg, station=g_station):
             self.info('current station %s in traces list, ignore this message: %s' % (sid, msg))
@@ -274,11 +280,11 @@ class Octopus:
             # FIXME: how to let the client knows where the message reached
             return None
         # response
-        sender = g_facebook.identifier(msg.envelope.sender)
+        sender = msg.sender
         text = 'Message reached station: %s' % g_station
-        self.info('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.envelope.receiver))
+        self.info('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
         res = TextContent.new(text=text)
-        res.group = msg.envelope.group
+        res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 
     def roaming(self, roamer: ID, station: ID) -> int:

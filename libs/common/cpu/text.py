@@ -85,7 +85,7 @@ class TextContentProcessor(ContentProcessor):
             return True
         # check time
         now = int(time.time())
-        dt = now - msg.envelope.time
+        dt = now - msg.time
         if dt > 600:
             self.info('Old message, ignore it: %s' % msg)
             return True
@@ -97,7 +97,7 @@ class TextContentProcessor(ContentProcessor):
         if text is None:
             raise ValueError('text content error: %s' % content)
         # checking '@nickname'
-        receiver = self.facebook.identifier(msg.envelope.receiver)
+        receiver = msg.receiver
         at = '@%s' % self.facebook.nickname(identifier=receiver)
         self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
         if text.find(at) < 0:
@@ -121,7 +121,7 @@ class TextContentProcessor(ContentProcessor):
             assert isinstance(response, TextContent)
             question = content.text
             answer = response.text
-            group = self.facebook.identifier(content.group)
+            group = content.group
             if group is None:
                 # personal message
                 self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
