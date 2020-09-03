@@ -34,7 +34,6 @@ from typing import Union
 from flask import Flask, Response
 
 from dimp import ID, Address
-from dimsdk import KeyStore
 from dimsdk.ans import keywords as ans_keywords
 
 #
@@ -42,7 +41,7 @@ from dimsdk.ans import keywords as ans_keywords
 #
 
 from libs.common import Log
-from libs.common import Database, AddressNameServer
+from libs.common import Database, AddressNameServer, KeyStore
 from libs.server import ServerFacebook, ServerMessenger
 
 
