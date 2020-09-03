@@ -105,7 +105,7 @@ class ForwardContentProcessor(ContentProcessor):
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
-        r_msg = content.forward
+        r_msg = content.message
 
         # [Forward Protocol]
         s_msg = self.messenger.verify_message(msg=r_msg)
