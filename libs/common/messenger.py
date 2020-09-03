@@ -30,6 +30,7 @@
     Transform and send message
 """
 
+import traceback
 from abc import abstractmethod
 from typing import Optional, Union
 
@@ -42,6 +43,8 @@ from dimsdk import Messenger
 
 from ..mtp.utils import Utils as MTUUtils
 
+from .utils import Log
+
 
 class CommonMessenger(Messenger):
 
@@ -52,6 +55,12 @@ class CommonMessenger(Messenger):
         super().__init__()
         # Message Transfer Protocol
         self.mtp_format = self.MTP_JSON
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def __is_empty(self, group: ID) -> bool:
         """
@@ -234,4 +243,13 @@ class CommonMessenger(Messenger):
             # save this message in a queue to wait group meta response
             self.suspend_message(msg=msg)
             return None
-        return super().process_content(content=content, sender=sender, msg=msg)
+        try:
+            return super().process_content(content=content, sender=sender, msg=msg)
+        except LookupError as e:
+            error = '%s' % e
+            if error.find('failed to get meta') >= 0:
+                # TODO: suspend message to wait meta
+                # self.suspend_message(msg=msg)
+                self.info(error)
+            else:
+                traceback.print_exc()

@@ -5,7 +5,7 @@ apns2
 Flask
 xmltodict
 dimp
-dimsdk>=0.4.4
+dimsdk>=0.4.5
 udp
 dmtp>=0.3.0
 pika

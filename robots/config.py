@@ -33,14 +33,14 @@
 from typing import Optional
 
 from dimp import Meta, ID
-from dimsdk import Station, KeyStore
+from dimsdk import Station
 from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
 #
 from libs.common import Log
-from libs.common import Database, AddressNameServer
+from libs.common import Database, AddressNameServer, KeyStore
 from libs.common import ChatBot, Tuling, XiaoI
 from libs.client import Terminal, ClientMessenger, ClientFacebook
 
@@ -105,8 +105,8 @@ g_facebook.ans = g_ans
 """
 station_id = g_facebook.identifier(station_id)
 
-station_host = '127.0.0.1'
-# station_host = '134.175.87.98'  # dimchat-gz
+# station_host = '127.0.0.1'
+station_host = '134.175.87.98'  # dimchat-gz
 # station_host = '124.156.108.150'  # dimchat-hk
 station_port = 9394
 
