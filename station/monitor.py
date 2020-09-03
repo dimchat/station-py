@@ -89,6 +89,8 @@ class Monitor:
         i_msg = InstantMessage.new(content=content, sender=self.sender, receiver=receiver, time=timestamp)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
         r_msg = self.messenger.sign_message(msg=s_msg)
+        if r_msg.delegate is None:
+            r_msg.delegate = self.messenger
         # try for online user
         sessions = self.session_server.all(identifier=receiver)
         if sessions and len(sessions) > 0:
