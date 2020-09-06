@@ -34,6 +34,7 @@ import traceback
 from abc import abstractmethod
 from typing import Optional, Union
 
+import dkd
 from dimp import Base64, sha256
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
@@ -230,10 +231,10 @@ class CommonMessenger(Messenger):
         return True
 
     def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
-        if isinstance(msg, ReliableMessage):
+        if isinstance(msg, dkd.ReliableMessage):
             # TODO: save this message in a queue waiting sender's meta response
             pass
-        elif isinstance(msg, InstantMessage):
+        elif isinstance(msg, dkd.InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
 

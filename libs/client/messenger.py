@@ -33,6 +33,7 @@
 import time
 from typing import Optional, Union
 
+import dkd
 from dimp import ID, EVERYONE
 from dimp import InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand, ProfileCommand
@@ -126,10 +127,10 @@ class ClientMessenger(CommonMessenger):
         return True
 
     def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
-        if isinstance(msg, ReliableMessage):
+        if isinstance(msg, dkd.ReliableMessage):
             # TODO: save this message in a queue waiting sender's meta response
             pass
-        elif isinstance(msg, InstantMessage):
+        elif isinstance(msg, dkd.InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
 

@@ -4,8 +4,9 @@ pycryptodome
 apns2
 Flask
 xmltodict
+dkd
 dimp
-dimsdk>=0.4.5
+dimsdk>=0.4.6
 udp
 dmtp>=0.3.0
 pika
