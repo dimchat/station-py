@@ -6,7 +6,7 @@ Flask
 xmltodict
 dkd
 dimp
-dimsdk>=0.4.6
+dimsdk>=0.4.7
 udp
 dmtp>=0.3.0
 pika

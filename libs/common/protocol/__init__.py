@@ -24,8 +24,10 @@
 # ==============================================================================
 
 from .search import SearchCommand
+from .report import ReportCommand
 
 
 __all__ = [
     'SearchCommand',
+    'ReportCommand',
 ]

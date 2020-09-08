@@ -34,7 +34,7 @@ from .utils import Log
 
 from .nlp import Dialog, ChatBot, Tuling, XiaoI
 
-from .protocol import SearchCommand
+from .protocol import SearchCommand, ReportCommand
 from .cpu import *
 from .network import Server
 from .network import NetMsgHead, NetMsg
@@ -61,7 +61,7 @@ __all__ = [
     #
     #   Protocol
     #
-    'SearchCommand',
+    'SearchCommand', 'ReportCommand',
 
     #
     #   CPU

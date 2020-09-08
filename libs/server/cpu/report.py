@@ -39,6 +39,7 @@ from dimp import Command
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
+from ...common import ReportCommand
 from ...common import Database
 from ..session import Session
 
@@ -53,7 +54,7 @@ class ReportCommandProcessor(CommandProcessor):
     def receptionist(self):
         return self.get_context('receptionist')
 
-    def __process_old_report(self, cmd: Command, sender: ID) -> Optional[Content]:
+    def __process_old_report(self, cmd: ReportCommand, sender: ID) -> Optional[Content]:
         # compatible with v1.0
         state = cmd.get('state')
         if state is not None:
@@ -72,10 +73,10 @@ class ReportCommandProcessor(CommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+        assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # report title
-        title = content.get('title')
-        if 'report' == title:
+        title = content.title
+        if title == ReportCommand.REPORT:
             return self.__process_old_report(cmd=content, sender=sender)
         # get CPU by report title
         cpu = self.cpu(command=title)
@@ -106,12 +107,13 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+        assert isinstance(content, ReportCommand), 'online report command error: %s' % content
         # welcome back!
         self.receptionist.add_guest(identifier=sender)
         session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
             session.active = True
+        # TODO: notification for pushing offline message(s) from 'last_time'
         return ReceiptCommand.new(message='Client online received')
 
 
@@ -121,7 +123,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     #   main
     #
     def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+        assert isinstance(content, ReportCommand), 'offline report command error: %s' % content
         # goodbye!
         session = self.messenger.current_session(identifier=sender)
         if isinstance(session, Session):
