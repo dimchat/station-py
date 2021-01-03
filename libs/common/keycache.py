@@ -122,7 +122,7 @@ class KeyCache(CipherKeyDelegate):
             if old is not None:
                 # check whether same key exists
                 equals = True
-                assert isinstance(key, dict), 'key info error: %s' % key
+                # assert isinstance(key, dict), 'key info error: %s' % key
                 for k in key:
                     v1 = key.get(k)
                     v2 = old.get(k)

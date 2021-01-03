@@ -103,7 +103,7 @@ g_facebook.ans = g_ans
     Current Station
     ~~~~~~~~~~~~~~~
 """
-station_id = g_facebook.identifier(station_id)
+station_id = ID.parse(identifier=station_id)
 
 # station_host = '127.0.0.1'
 station_host = '134.175.87.98'  # dimchat-gz
@@ -115,8 +115,8 @@ g_facebook.cache_user(user=g_station)
 
 # Address Name Service
 g_ans.save('station', g_station.identifier)
-g_ans.save('moki', g_facebook.identifier('moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
-g_ans.save('hulk', g_facebook.identifier('hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
+g_ans.save('moki', ID.parse(identifier='moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
+g_ans.save('hulk', ID.parse(identifier='hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
 
 
 """
@@ -185,9 +185,9 @@ def dims_connect(terminal: Terminal, station: Station, messenger: ClientMessenge
 
 
 def load_naruto():
-    gid = g_facebook.identifier(group_naruto)
+    gid = ID.parse(identifier=group_naruto)
     Log.info('naruto group: %s' % gid)
-    meta = Meta(load_robot_info(gid, 'meta.js'))
+    meta = Meta.parse(meta=load_robot_info(gid, 'meta.js'))
     g_facebook.save_meta(identifier=gid, meta=meta)
 
 
@@ -199,18 +199,18 @@ def load_naruto():
 # load ANS reserved records
 Log.info('-------- loading ANS reserved records')
 for key, value in ans_reserved_records.items():
-    value = ID(value)
-    assert value.valid, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, value))
+    _id = ID.parse(identifier=value)
+    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
+    Log.info('Name: %s -> ID: %s' % (key, _id))
     if key in ans_keywords:
         # remove reserved name temporary
         index = ans_keywords.index(key)
         ans_keywords.remove(key)
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
         ans_keywords.insert(index, key)
     else:
         # not reserved name, save it directly
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
 
 # convert ID to Station
 Log.info('-------- loading stations: %d' % len(all_stations))
@@ -223,14 +223,14 @@ load_naruto()
 # convert robot IDs
 Log.info('-------- robots')
 
-group_assistants = [g_facebook.identifier(string=item) for item in group_assistants]
+group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 g_facebook.group_assistants = group_assistants
 
-lingling_id = g_facebook.identifier(string=lingling_id)
-xiaoxiao_id = g_facebook.identifier(string=xiaoxiao_id)
-chatroom_id = g_facebook.identifier(string=chatroom_id)
-tokentalkteam_id = g_facebook.identifier(string=tokentalkteam_id)
+lingling_id = ID.parse(identifier=lingling_id)
+xiaoxiao_id = ID.parse(identifier=xiaoxiao_id)
+chatroom_id = ID.parse(identifier=chatroom_id)
+tokentalkteam_id = ID.parse(identifier=tokentalkteam_id)
 
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)

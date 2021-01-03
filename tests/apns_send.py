@@ -56,7 +56,7 @@ class Device:
     """ Get device tokens """
 
     def __init__(self, identifier: str):
-        self.__identifier = ID(identifier)
+        self.__identifier = ID.parse(identifier=identifier)
 
     @property
     def path(self) -> str:
@@ -79,7 +79,7 @@ class SMS:
         self.__payload = Payload(alert=text)
 
     def send(self, identifier: str) -> int:
-        identifier = ID(identifier)
+        identifier = ID.parse(identifier=identifier)
         device = Device(identifier)
         tokens = device.tokens
         if tokens is None:

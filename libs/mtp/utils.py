@@ -139,7 +139,7 @@ class Utils:
             info['profile'] = json.loads(profile)
 
         # create reliable message
-        return ReliableMessage(msg=info)
+        return ReliableMessage.parse(msg=info)
 
     @classmethod
     def __parse_keys(cls, data: Data) -> dict:

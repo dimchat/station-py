@@ -34,9 +34,9 @@
 import json
 from cmd import Cmd
 
-from dimp import ID, Profile
+from dimp import ID, Document
 from dimp import TextContent
-from dimp import Command, ProfileCommand
+from dimp import Command, DocumentCommand
 
 import sys
 import os
@@ -161,15 +161,15 @@ class Console(Cmd):
             self.info('login first')
             return
         if len(msg) > 0:
-            content = TextContent.new(text=msg)
-            self.client.messenger.send_content(content=content, receiver=self.receiver)
+            content = TextContent(text=msg)
+            self.client.messenger.send_content(sender=None, receiver=self.receiver, content=content)
 
     def do_broadcast(self, msg: str):
         if self.client is None:
             self.info('login first')
             return
         if len(msg) > 0:
-            content = TextContent.new(text=msg)
+            content = TextContent(text=msg)
             self.client.broadcast_content(content=content, receiver=self.receiver)
 
     def do_show(self, name: str):
@@ -177,7 +177,7 @@ class Console(Cmd):
             self.info('login first')
             return
         if 'users' == name:
-            cmd: Command = Command.new(command='users')
+            cmd: Command = Command(command='users')
             self.client.send_command(cmd=cmd)
         else:
             self.info('I don\'t understand.')
@@ -186,7 +186,7 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
-        cmd: Command = Command.new(command='search')
+        cmd: Command = Command(command='search')
         cmd['keywords'] = keywords
         self.client.send_command(cmd=cmd)
 
@@ -209,13 +209,13 @@ class Console(Cmd):
             private_key = g_facebook.private_key_for_signature(identifier=g_facebook.current_user.identifier)
             assert private_key is not None, 'failed to get private key for client: %s' % self.client
             # create new profile and set all properties
-            tai = Profile.new(identifier=identifier)
+            tai = Document.create(doc_type=Document.VISA, identifier=identifier)
             for key in profile:
                 tai.set_property(key, profile.get(key))
             tai.sign(private_key=private_key)
-            cmd = ProfileCommand.response(identifier=identifier, profile=tai)
+            cmd = DocumentCommand.response(identifier=identifier, document=tai)
         else:
-            cmd = ProfileCommand.query(identifier=identifier)
+            cmd = DocumentCommand.query(identifier=identifier)
         self.client.send_command(cmd=cmd)
 
 

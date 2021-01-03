@@ -9,7 +9,7 @@
 
 import os
 
-from dimp import ID, Meta, PrivateKey, Profile, User
+from dimp import ID, Meta, PrivateKey, Document, User
 from dimsdk import Station
 
 from libs.common import Storage, Log, Server, CommonFacebook
@@ -36,12 +36,12 @@ def load_station(identifier: str, facebook: CommonFacebook) -> Station:
         :param facebook - social network data source
         :return station with info from 'dims/etc/{address}/*'
     """
-    identifier = facebook.identifier(identifier)
+    identifier = ID.parse(identifier=identifier)
     # check meta
     meta = facebook.meta(identifier=identifier)
     if meta is None:
         # load from 'etc' directory
-        meta = Meta(load_station_info(identifier=identifier, filename='meta.js'))
+        meta = Meta.parse(meta=load_station_info(identifier=identifier, filename='meta.js'))
         if meta is None:
             raise LookupError('failed to get meta for station: %s' % identifier)
         elif not facebook.save_meta(meta=meta, identifier=identifier):
@@ -50,7 +50,7 @@ def load_station(identifier: str, facebook: CommonFacebook) -> Station:
     private_key = facebook.private_key_for_signature(identifier=identifier)
     if private_key is None:
         # load from 'etc' directory
-        private_key = PrivateKey(load_station_info(identifier=identifier, filename='secret.js'))
+        private_key = PrivateKey.parse(key=load_station_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
             pass
         elif not facebook.save_private_key(key=private_key, identifier=identifier):
@@ -69,12 +69,12 @@ def load_station(identifier: str, facebook: CommonFacebook) -> Station:
         station = Station(identifier=identifier, host=host, port=port)
     else:
         # create profile
-        profile = Profile.new(identifier=identifier)
+        profile = Document.create(doc_type=Document.PROFILE, identifier=identifier)
         profile.set_property('name', name)
         profile.set_property('host', host)
         profile.set_property('port', port)
         profile.sign(private_key=private_key)
-        if not facebook.save_profile(profile=profile):
+        if not facebook.save_document(document=profile):
             raise AssertionError('failed to save profile: %s' % profile)
         # local station
         station = Server(identifier=identifier, host=host, port=port)
@@ -92,7 +92,7 @@ def load_robot_info(identifier: ID, filename: str) -> dict:
 
 
 def load_user(identifier: str, facebook: CommonFacebook) -> User:
-    identifier = facebook.identifier(identifier)
+    identifier = ID.parse(identifier=identifier)
     # check meta
     try:
         meta = facebook.meta(identifier=identifier)
@@ -100,7 +100,7 @@ def load_user(identifier: str, facebook: CommonFacebook) -> User:
         meta = None
     if meta is None:
         # load from 'etc' directory
-        meta = Meta(load_robot_info(identifier=identifier, filename='meta.js'))
+        meta = Meta.parse(meta=load_robot_info(identifier=identifier, filename='meta.js'))
         if meta is None:
             raise LookupError('failed to get meta for robot: %s' % identifier)
         elif not facebook.save_meta(meta=meta, identifier=identifier):
@@ -109,7 +109,7 @@ def load_user(identifier: str, facebook: CommonFacebook) -> User:
     private_key = facebook.private_key_for_signature(identifier=identifier)
     if private_key is None:
         # load from 'etc' directory
-        private_key = PrivateKey(load_robot_info(identifier=identifier, filename='secret.js'))
+        private_key = PrivateKey.parse(key=load_robot_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
             pass
         elif not facebook.save_private_key(key=private_key, identifier=identifier):
@@ -124,11 +124,11 @@ def load_user(identifier: str, facebook: CommonFacebook) -> User:
     name = profile.get('name')
     avatar = profile.get('avatar')
     # create profile
-    profile = Profile.new(identifier=identifier)
+    profile = Document.create(doc_type=Document.VISA, identifier=identifier)
     profile.set_property('name', name)
     profile.set_property('avatar', avatar)
     profile.sign(private_key=private_key)
-    if not facebook.save_profile(profile):
+    if not facebook.save_document(document=profile):
         raise AssertionError('failed to save profile: %s' % profile)
     # create local user
     return facebook.user(identifier=identifier)

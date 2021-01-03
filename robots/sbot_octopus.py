@@ -36,8 +36,8 @@ import os
 from typing import Optional, Union
 
 from dimp import ID
-from dimp import InstantMessage, ReliableMessage
-from dimp import Content, TextContent
+from dimp import Envelope, InstantMessage, ReliableMessage
+from dimp import Content, TextContent, Command
 from dimsdk import Station
 from dimsdk import LoginCommand
 from dimsdk import CommandProcessor
@@ -63,6 +63,9 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
     @property
     def database(self) -> Database:
         return self.get_context('database')
@@ -80,25 +83,23 @@ class LoginCommandProcessor(CommandProcessor):
             return None
         return sid
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, LoginCommand), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
+        sender = msg.sender
         # check roaming
-        sid = self.__roaming(cmd=content, sender=sender)
+        sid = self.__roaming(cmd=cmd, sender=sender)
         if sid is not None:
             self.info('%s is roamer to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
         # update login info
-        if not self.database.save_login(cmd=content, sender=sender, msg=msg):
+        if not self.database.save_login(cmd=cmd, sender=sender, msg=msg):
             return None
         # respond nothing
         return None
 
 
 # register
-CommandProcessor.register(command='login', processor_class=LoginCommandProcessor)
+CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())
 
 
 class InnerMessenger(ClientMessenger):
@@ -209,7 +210,8 @@ class Octopus:
 
     def __pack_message(self, content: Content, receiver: ID) -> Optional[ReliableMessage]:
         sender = g_station.identifier
-        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=content)
         s_msg = g_messenger.encrypt_message(msg=i_msg)
         if s_msg is None:
             self.error('failed to encrypt msg: %s' % i_msg)
@@ -249,7 +251,7 @@ class Octopus:
             return None
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
         self.info('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
-        res = TextContent.new(text=text)
+        res = TextContent(text=text)
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 
@@ -283,7 +285,7 @@ class Octopus:
         sender = msg.sender
         text = 'Message reached station: %s' % g_station
         self.info('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
-        res = TextContent.new(text=text)
+        res = TextContent(text=text)
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 

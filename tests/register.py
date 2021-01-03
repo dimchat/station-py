@@ -30,7 +30,7 @@
 
     Generate Account information for DIM User/Station
 """
-import re
+
 import unittest
 
 import sys
@@ -38,20 +38,15 @@ import os
 
 from dimp import Base64
 from dimp import PrivateKey
-from dimp import NetworkID, MetaVersion, Meta
+from dimp import NetworkType, MetaType, Meta
 
-from mkm.address import DefaultAddress as BTCAddress
+from dimsdk import BTCAddress
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from station.config import g_facebook
-
-
-def number_string(number: int):
-    string = '%010d' % number
-    return string[:3] + '-' + string[3:-4] + '-' + string[-4:]
 
 
 class AccountTestCase(unittest.TestCase):
@@ -66,27 +61,23 @@ class AccountTestCase(unittest.TestCase):
         if cmd == 1:
             # generate SP
             seed = 'gsp'
-            pattern = re.compile(r'^400\d+$')
-            network = NetworkID.Provider
-            print('*** registering SP (%s) with number match: %s' % (seed, pattern))
+            network = NetworkType.PROVIDER
+            print('*** registering SP (%s)' % seed)
         elif cmd == 2:
             # generate Station
             seed = 'gsp-s002'
-            pattern = re.compile(r'^110\d+$')
-            network = NetworkID.Station
-            print('*** registering station (%s) with number match: %s' % (seed, pattern))
+            network = NetworkType.STATION
+            print('*** registering station (%s)' % seed)
         elif cmd == 3:
             # generate robot
             seed = 'chatroom-admin'
-            pattern = re.compile(r'^000\d+$')
-            network = NetworkID.Robot
-            print('*** registering robot (%s) with number match: %s' % (seed, pattern))
+            network = NetworkType.ROBOT
+            print('*** registering robot (%s)' % seed)
         else:
             # generate User
             seed = 'moky'
-            pattern = re.compile(r'^\d+9527$')
-            network = NetworkID.Main
-            print('*** registering account (%s) with number match: %s' % (seed, pattern))
+            network = NetworkType.MAIN
+            print('*** registering account (%s)' % seed)
 
         # seed
         data = seed.encode('utf-8')
@@ -94,28 +85,22 @@ class AccountTestCase(unittest.TestCase):
         for index in range(0, 10000):
 
             # generate private key
-            sk = PrivateKey({'algorithm': 'RSA'})
+            sk = PrivateKey.parse(key={'algorithm': 'RSA'})
             ct = sk.sign(data)
             # generate address
-            address = BTCAddress.new(data=ct, network=network)
-            number = address.number
+            address = BTCAddress.generate(fingerprint=ct, network=network)
 
-            if index % 10 == 0:
-                print('[% 5d] %s : %s@%s' % (index, number_string(number), seed, address))
+            print('[% 5d] %s@%s' % (index, seed, address))
 
-            if not pattern.match('%010d' % number):
-                continue
-
-            print('**** GOT IT!')
             meta = {
-                'version': MetaVersion.Default,
+                'version': MetaType.DEFAULT,
                 'seed': seed,
-                'key': sk.public_key,
+                'key': sk.public_key.dictionary,
                 'fingerprint': Base64.encode(ct),
             }
-            meta = Meta(meta)
+            meta = Meta.parse(meta=meta)
             id1 = meta.generate_identifier(network=network)
-            print('[% 5d] %s : %s' % (index, number_string(number), id1))
+            print('[% 5d] %s' % (index, id1))
 
             choice = ''
             while choice not in ['y', 'n']:
@@ -123,7 +108,7 @@ class AccountTestCase(unittest.TestCase):
 
             if choice == 'y':
                 print('---- Mission Accomplished! ----')
-                print('**** ID:', id1, 'number:', number_string(id1.number))
+                print('**** ID:', id1)
                 print('**** meta:\n', meta)
                 print('**** private key:\n', sk)
 

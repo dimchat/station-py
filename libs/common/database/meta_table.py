@@ -112,10 +112,9 @@ class MetaTable(Storage):
                 # ignore
                 continue
             string = identifier.lower()
-            number = '%010d' % identifier.number
             match = True
             for kw in keywords:
-                if string.find(kw.lower()) < 0 and number.find(kw) < 0:
+                if string.find(kw.lower()) < 0:
                     # not match
                     match = False
                     break

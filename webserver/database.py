@@ -42,11 +42,6 @@ from libs.common import Storage
 from webserver.config import usr_path, msg_path, usr_url
 
 
-def number_string(number: int):
-    string = '%010d' % number
-    return string[:3] + '-' + string[3:-4] + '-' + string[-4:]
-
-
 class UserTable(Storage):
 
     def __init__(self, facebook: Facebook):
@@ -82,13 +77,11 @@ class UserTable(Storage):
     def user_info(self, identifier: ID) -> Optional[dict]:
         user = self.facebook.user(identifier)
         name = user.name
-        number = number_string(user.number)
         url = usr_url(identifier=identifier)
         desc = json.dumps(user.profile)
         return {
             'ID': identifier,
             'name': name,
-            'number': number,
             'link': url,
             'desc': desc,
         }

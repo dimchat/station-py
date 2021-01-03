@@ -66,6 +66,6 @@ class IDFactory(ID.Factory):
         return _id
 
 
-s_ans = AddressNameService()
+s_ans = AddressNameServer()
 s_id_factory = ID.factory()
 ID.register(factory=IDFactory())

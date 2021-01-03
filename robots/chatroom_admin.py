@@ -41,7 +41,7 @@ from typing import Optional
 from dimsdk.dos import JSONFile
 
 from dimsdk import ID, EVERYONE
-from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import Envelope, InstantMessage, ReliableMessage
 from dimsdk import ContentType, Content, Command, TextContent
 from dimsdk import ForwardContent, ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
@@ -84,15 +84,9 @@ g_facebook.messenger = g_messenger
 #
 class ReceiptCommandProcessor(CommandProcessor):
 
-    def __init__(self, messenger: ClientMessenger):
-        super().__init__(messenger=messenger)
-
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
-        return client.room.receipt(cmd=content, sender=sender)
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
+        return client.room.receipt(cmd=cmd, sender=msg.sender)
 
 
 #
@@ -103,7 +97,7 @@ class ForwardContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
         r_msg = content.message
 
@@ -115,7 +109,7 @@ class ForwardContentProcessor(ContentProcessor):
             return None
 
         # call client to process it
-        return client.room.forward(content=content, sender=sender)
+        return client.room.forward(content=content, sender=msg.sender)
 
 
 #
@@ -123,24 +117,21 @@ class ForwardContentProcessor(ContentProcessor):
 #
 class ChatTextContentProcessor(TextContentProcessor):
 
-    def __init__(self, messenger: ClientMessenger):
-        super().__init__(messenger=messenger)
-
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
-        res = client.room.receive(content=content, sender=sender)
+        res = client.room.receive(content=content, sender=msg.sender)
         if res is not None:
             return res
-        return super().process(content=content, sender=sender, msg=msg)
+        return super().process(content=content, msg=msg)
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Text, processor_class=ChatTextContentProcessor)
-ContentProcessor.register(content_type=ContentType.Forward, processor_class=ForwardContentProcessor)
-CommandProcessor.register(command=Command.RECEIPT, processor_class=ReceiptCommandProcessor)
+ContentProcessor.register(content_type=ContentType.Text, cpu=ChatTextContentProcessor())
+ContentProcessor.register(content_type=ContentType.Forward, cpu=ForwardContentProcessor())
+CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
 
 
 def date_string(timestamp=None):
@@ -266,7 +257,7 @@ class History:
         # convert contents
         array = []
         for item in history:
-            content = Content(item)
+            content = Content.parse(content=item)
             assert content is not None, 'content error: %s' % item
             array.append(content)
         self.__pool = array
@@ -345,7 +336,7 @@ class ChatRoom:
         self.__refresh()
         if not exists:
             nickname = self.facebook.nickname(identifier=identifier)
-            self.__broadcast(text='Welcome %s (%d)!' % (nickname, identifier.number))
+            self.__broadcast(text='Welcome %s (%s)!' % (nickname, identifier))
             self.__statistic.update(identifier=identifier, stat=StatKey.LOGIN)
         return True
 
@@ -356,10 +347,11 @@ class ChatRoom:
         sender = facebook.current_user.identifier
         receiver = EVERYONE
         # create content
-        content = TextContent.new(text=text)
+        content = TextContent(text=text)
         content.group = EVERYONE
         # create instant message
-        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=content)
         s_msg = messenger.encrypt_message(msg=i_msg)
         r_msg = messenger.sign_message(msg=s_msg)
         # split for online users
@@ -380,7 +372,7 @@ class ChatRoom:
             meta = facebook.meta(identifier=item)
             if meta is not None:
                 results[item] = meta
-        return SearchCommand.new(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
+        return SearchCommand(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
 
     def __stat(self) -> Content:
         info = self.__statistic.select()
@@ -398,13 +390,13 @@ class ChatRoom:
         for u, c in message.items():
             m_cnt += c
         text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
-        return TextContent.new(text=text)
+        return TextContent(text=text)
 
     def __push_history(self, receiver: ID) -> Content:
         messenger = self.messenger
         histories = self.__history.all()
         for content in histories:
-            messenger.send_content(content=content, receiver=receiver)
+            messenger.send_content(sender=None, receiver=receiver, content=content)
         count = len(histories)
         if count == 0:
             text = 'No history record found.'
@@ -412,7 +404,7 @@ class ChatRoom:
             text = 'Got one chat history record.'
         else:
             text = 'Got %d chat history records' % count
-        return TextContent.new(text=text)
+        return TextContent(text=text)
 
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
@@ -427,8 +419,8 @@ class ChatRoom:
         for item in users:
             if item == sender:
                 continue
-            messenger.send_content(content=content, receiver=item)
-        return ReceiptCommand.new(message='message forwarded')
+            messenger.send_content(sender=None, receiver=item, content=content)
+        return ReceiptCommand(message='message forwarded')
 
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):

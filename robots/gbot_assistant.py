@@ -37,7 +37,7 @@ import time
 from typing import Optional
 
 from dimp import ID
-from dimp import InstantMessage, ReliableMessage
+from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, ForwardContent, GroupCommand
 from dimsdk import ReceiptCommand
 
@@ -200,7 +200,8 @@ class AssistantMessenger(ClientMessenger):
                 cmd = GroupCommand.expel(group=receiver, member=sender)
                 sender = g_facebook.current_user.identifier
                 receiver = msg.sender
-                i_msg = InstantMessage.new(content=cmd, sender=sender, receiver=receiver)
+                env = Envelope.create(sender=sender, receiver=receiver)
+                i_msg = InstantMessage.create(head=env, body=cmd)
                 s_msg = self.encrypt_message(msg=i_msg)
                 return self.sign_message(msg=s_msg)
         members = g_facebook.members(receiver)
@@ -225,7 +226,7 @@ class AssistantMessenger(ClientMessenger):
                 if len(expel_list) > 0:
                     # send 'expel' command to the sender
                     cmd = GroupCommand.expel(group=receiver, members=expel_list)
-                    g_messenger.send_content(content=cmd, receiver=sender)
+                    g_messenger.send_content(sender=None, receiver=sender, content=cmd)
                 # update key map
                 self.__key_cache.update_keys(keys=keys, sender=sender, group=receiver)
             # split and forward group message,
@@ -235,7 +236,8 @@ class AssistantMessenger(ClientMessenger):
         if res is not None:
             sender = g_facebook.current_user.identifier
             receiver = msg.sender
-            i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
+            env = Envelope.create(sender=sender, receiver=receiver)
+            i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.encrypt_message(msg=i_msg)
             return self.sign_message(msg=s_msg)
 
@@ -251,7 +253,7 @@ class AssistantMessenger(ClientMessenger):
                 success_list.append(item.receiver)
             else:
                 failed_list.append(item.receiver)
-        response = ReceiptCommand.new(message='Group message delivering')
+        response = ReceiptCommand(message='Group message delivering')
         if len(success_list) > 0:
             response['success'] = success_list
         if len(failed_list) > 0:
@@ -261,7 +263,7 @@ class AssistantMessenger(ClientMessenger):
             sender = msg.sender
             group = msg.receiver
             cmd = GroupCommand.invite(group=group, members=failed_list)
-            self.send_content(content=cmd, receiver=sender)
+            self.send_content(sender=None, receiver=sender, content=cmd)
         return response
 
     def __forward_group_message(self, msg: ReliableMessage) -> bool:
@@ -276,8 +278,8 @@ class AssistantMessenger(ClientMessenger):
                 # cannot forward group message without key
                 return False
             msg['key'] = key
-        forward = ForwardContent.new(message=msg)
-        return self.send_content(content=forward, receiver=receiver)
+        forward = ForwardContent(message=msg)
+        return self.send_content(sender=None, receiver=receiver, content=forward)
 
 
 """

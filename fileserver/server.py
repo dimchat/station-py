@@ -134,7 +134,7 @@ def test() -> str:
 def upload(identifier: str) -> str:
     """ upload encrypted data file or avatar """
     # TODO: check identifier
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
 
     # check file
     file = request.files.get('file')
@@ -167,7 +167,7 @@ def upload(identifier: str) -> str:
 @app.route('/download/<string:identifier>/<path:filename>', methods=['GET'])
 def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
     filename = secure_filename(filename)
     save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=True)
@@ -178,7 +178,7 @@ def download(identifier: str, filename: str) -> str:
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
 def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
     """ response avatar file as attachment """
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
     if filename is not None:
         filename = secure_filename(filename)
     elif ext is not None:
