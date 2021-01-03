@@ -47,7 +47,7 @@ class PrivateKeyTable(Storage):
         return os.path.join(self.root, 'private', str(identifier.address), 'secret.js')
 
     def __cache_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        assert key is not None and identifier.valid, 'private key error: %s, %s' % (identifier, key)
+        assert key is not None, 'private key error: %s, %s' % (identifier, key)
         self.__caches[identifier] = key
         return True
 
@@ -55,7 +55,7 @@ class PrivateKeyTable(Storage):
         path = self.__path(identifier=identifier)
         self.info('Loading private key from: %s' % path)
         dictionary = self.read_json(path=path)
-        return PrivateKey(dictionary)
+        return PrivateKey.parse(key=dictionary)
 
     def __save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)

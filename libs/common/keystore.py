@@ -46,6 +46,12 @@ from .keycache import KeyCache
 
 class KeyStore(KeyCache):
 
+    def __new__(cls, *args, **kwargs):
+        """ Singleton """
+        if not hasattr(cls, '_instance'):
+            cls._instance = super().__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __init__(self):
         super().__init__()
         self.__user: User = None
@@ -87,7 +93,8 @@ class KeyStore(KeyCache):
     def __path(self) -> Optional[str]:
         if self.__user is None:
             return None
-        return os.path.join(self.__base_dir, 'protected', self.__user.identifier, 'keystore.js')
+        address = self.__user.identifier
+        return os.path.join(self.__base_dir, 'protected', str(address), 'keystore.js')
 
     def save_keys(self, key_map: dict) -> bool:
         # write key table to persistent storage

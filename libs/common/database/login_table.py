@@ -71,11 +71,10 @@ class LoginTable(Storage):
         msg = dictionary.get('msg')
         return {
             'cmd': LoginCommand(cmd),
-            'msg': ReliableMessage(msg),
+            'msg': ReliableMessage.parse(msg=msg),
         }
 
     def __save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
-        assert sender.valid, 'login ID not valid: %s' % sender
         path = self.__path(identifier=sender)
         self.info('Saving login into: %s' % path)
         return self.write_json(container={'cmd': cmd, 'msg': msg}, path=path)

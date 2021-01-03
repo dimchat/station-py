@@ -49,7 +49,6 @@ class AddressNameTable(Storage):
     def __cache_record(self, name: str, identifier: ID) -> bool:
         if name is None or len(name) == 0:
             return False
-        assert identifier.valid, 'ID not valid: %s' % identifier
         self.__caches[name] = identifier
         return True
 
@@ -67,7 +66,7 @@ class AddressNameTable(Storage):
                     continue
                 k = pair[0]
                 v = pair[1]
-                dictionary[k] = self.identifier(v)
+                dictionary[k] = ID.parse(identifier=v)
         #
         #  Reserved names
         #
@@ -75,7 +74,7 @@ class AddressNameTable(Storage):
         dictionary[EVERYONE.name] = EVERYONE
         dictionary[ANYONE.name] = ANYONE
         dictionary['owner'] = ANYONE
-        dictionary['founder'] = ID('moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ')  # 'Albert Moky'
+        dictionary['founder'] = ID.parse(identifier='moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ')  # 'Albert Moky'
         return dictionary
 
     def __save_records(self, caches: dict) -> bool:
@@ -116,7 +115,7 @@ class AddressNameTable(Storage):
         if '*' == identifier:
             return list(caches.keys())
         # get keys with the same value
-        identifier = self.identifier(identifier)
+        identifier = ID.parse(identifier=identifier)
         array = []
         for k in caches:
             v = caches[k]

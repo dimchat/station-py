@@ -33,7 +33,7 @@ import time
 from typing import Optional
 from urllib.error import URLError
 
-from dimp import NetworkID, ID
+from dimp import NetworkType, ID
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
@@ -45,8 +45,8 @@ from ..utils import Log
 
 class TextContentProcessor(ContentProcessor):
 
-    def __init__(self, messenger):
-        super().__init__(messenger=messenger)
+    def __init__(self):
+        super().__init__()
         self.__dialog: Dialog = None
 
     def info(self, msg: str):
@@ -54,6 +54,12 @@ class TextContentProcessor(ContentProcessor):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
+    def set_context(self, key: str, value):
+        self.messenger.set_context(key=key, value=value)
 
     @property
     def bots(self) -> list:
@@ -80,7 +86,7 @@ class TextContentProcessor(ContentProcessor):
 
     def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
         # check robot
-        if sender.type in [NetworkID.Robot, NetworkID.Station]:
+        if sender.type in [NetworkType.ROBOT, NetworkType.STATION]:
             # self.info('Dialog > ignore message from another robot: %s' % msg.content)
             return True
         # check time
@@ -110,8 +116,9 @@ class TextContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
+        sender = msg.sender
         nickname = self.facebook.nickname(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
@@ -130,12 +137,12 @@ class TextContentProcessor(ContentProcessor):
                 self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
                 if self.messenger.send_content(content=response, receiver=group):
                     text = 'Group message responded'
-                    return ReceiptCommand.new(message=text)
+                    return ReceiptCommand(message=text)
                 else:
                     text = 'Group message respond failed'
-                    return ReceiptCommand.new(message=text)
+                    return ReceiptCommand(message=text)
             return response
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Text, processor_class=TextContentProcessor)
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor())

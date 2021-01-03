@@ -41,29 +41,26 @@ from typing import Optional
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
-from dimp import GroupCommand, QueryCommand
+from dimp import Command, GroupCommand, QueryCommand
 
-from dimsdk import GroupCommandProcessor
+from dimsdk import CommandProcessor, GroupCommandProcessor
 
 
 class QueryCommandProcessor(GroupCommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, QueryCommand), 'group command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, QueryCommand), 'group command error: %s' % cmd
         facebook = self.facebook
-        group: ID = content.group
+        group: ID = cmd.group
         # 1. check permission
-        if not facebook.exists_member(member=sender, group=group):
-            if not facebook.exists_assistant(member=sender, group=group):
-                raise AssertionError('only member/assistant can query: %s, %s' % (group, sender))
+        if not facebook.exists_member(member=msg.sender, group=group):
+            if not facebook.exists_assistant(member=msg.sender, group=group):
+                raise AssertionError('only member/assistant can query: %s, %s' % (group, msg.sender))
         # 2. get group members
         members = facebook.members(identifier=group)
         if members is None or len(members) == 0:
             text = 'Group members not found: %s' % group
-            return TextContent.new(text=text)
+            return TextContent(text=text)
         # 3. response group members for sender
         user = facebook.current_user
         assert user is not None, 'current user not set'
@@ -74,4 +71,4 @@ class QueryCommandProcessor(GroupCommandProcessor):
 
 
 # register
-GroupCommandProcessor.register(command=GroupCommand.QUERY, processor_class=QueryCommandProcessor)
+CommandProcessor.register(command=GroupCommand.QUERY, cpu=QueryCommandProcessor())

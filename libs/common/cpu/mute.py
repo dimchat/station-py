@@ -30,6 +30,8 @@
     Mute protocol
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -41,6 +43,9 @@ from ..database import Database
 
 
 class MuteCommandProcessor(CommandProcessor):
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
 
     @property
     def database(self) -> Database:
@@ -54,29 +59,26 @@ class MuteCommandProcessor(CommandProcessor):
         else:
             # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
             # TODO: here should response an empty HistoryCommand: 'mute'
-            res = Command.new(command='mute')
+            res = Command(command=MuteCommand.MUTE)
             res['list'] = []
             return res
 
     def __put(self, cmd: MuteCommand, sender: ID) -> Content:
         # receive mute command, save it
         if self.database.save_mute_command(cmd=cmd, sender=sender):
-            return ReceiptCommand.new(message='Mute command of %s received!' % sender)
+            return ReceiptCommand(message='Mute command of %s received!' % sender)
         else:
-            return TextContent.new(text='Sorry, mute-list not stored %s!' % cmd)
+            return TextContent(text='Sorry, mute-list not stored %s!' % cmd)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
-        assert isinstance(content, MuteCommand), 'command error: %s' % content
-        if 'list' in content:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, MuteCommand), 'command error: %s' % cmd
+        if 'list' in cmd:
             # upload mute-list, save it
-            return self.__put(cmd=content, sender=sender)
+            return self.__put(cmd=cmd, sender=msg.sender)
         else:
             # query mute-list, load it
-            return self.__get(sender=sender)
+            return self.__get(sender=msg.sender)
 
 
 # register
-CommandProcessor.register(command='mute', processor_class=MuteCommandProcessor)
+CommandProcessor.register(command=MuteCommand.MUTE, cpu=MuteCommandProcessor())

@@ -94,13 +94,13 @@ class KeyCache(CipherKeyDelegate):
         """
         changed = False
         for _from in key_map:
-            sender = ID(_from)
+            sender = ID.parse(identifier=_from)
             table = key_map.get(_from)
             assert isinstance(table, dict), 'sender table error: %s, %s' % (_from, table)
             for _to in table:
-                receiver = ID(_to)
+                receiver = ID.parse(identifier=_to)
                 pw = table.get(_to)
-                key = SymmetricKey(pw)
+                key = SymmetricKey.parse(key=pw)
                 # TODO: check whether exists an old key
                 changed = True
                 # cache key with direction
@@ -108,13 +108,11 @@ class KeyCache(CipherKeyDelegate):
         return changed
 
     def __cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
-        assert sender.valid and receiver.valid, 'error: (%s -> %s)' % (sender, receiver)
         table = self.__key_map.get(sender)
         if table is not None:
             return table.get(receiver)
 
     def __cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        assert sender.valid and receiver.valid and key is not None, 'error: (%s -> %s) %s' % (sender, receiver, key)
         table = self.__key_map.get(sender)
         if table is None:
             table = {}
@@ -142,11 +140,17 @@ class KeyCache(CipherKeyDelegate):
     #
 
     # TODO: override to check whether key expired for sending message
-    def cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
+    def cipher_key(self, sender: ID, receiver: ID, generate: bool=False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
             return plain_key
         # get key from cache
-        return self.__cipher_key(sender, receiver)
+        key = self.__cipher_key(sender, receiver)
+        if key is None and generate:
+            # generate and cache it
+            key = SymmetricKey.generate(algorithm=SymmetricKey.AES)
+            assert key is not None, 'failed to generate key'
+            self.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        return key
 
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         if receiver.is_broadcast:

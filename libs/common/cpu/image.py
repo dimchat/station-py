@@ -31,9 +31,8 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
-from dimp import Content, ContentType
+from dimp import ContentType, Content
 from dimp import ImageContent
 from dimsdk import ContentProcessor
 
@@ -41,9 +40,6 @@ from ..utils import Log
 
 
 class ImageContentProcessor(ContentProcessor):
-
-    def __init__(self, messenger):
-        super().__init__(messenger=messenger)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -54,12 +50,12 @@ class ImageContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, ImageContent), 'image content error: %s' % content
-        nickname = self.facebook.nickname(identifier=sender)
+        nickname = self.facebook.nickname(identifier=msg.sender)
         self.info('Received image message from %s: %s' % (nickname, content))
         return None
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Image, processor_class=ImageContentProcessor)
+ContentProcessor.register(content_type=ContentType.IMAGE, cpu=ImageContentProcessor())

@@ -30,7 +30,9 @@
     Search users with keywords
 """
 
-from dimp import Command
+from typing import Optional
+
+from dimp import ID, Command
 
 
 class SearchCommand(Command):
@@ -54,34 +56,34 @@ class SearchCommand(Command):
 
     ONLINE_USERS = 'users'
 
-    def __new__(cls, cmd: dict):
-        """
-        Create search command
-
-        :param cmd: command info
-        :return: SearchCommand object
-        """
+    def __init__(self, cmd: Optional[dict]=None, keywords: str=None, users: list=None, results: dict=None):
         if cmd is None:
-            return None
-        elif cls is SearchCommand:
-            if isinstance(cmd, SearchCommand):
-                # return SearchCommand object directly
-                return cmd
-        # new SearchCommand(dict)
-        return super().__new__(cls, cmd)
-
-    def __init__(self, content: dict):
-        if self is content:
-            # no need to init again
-            return
-        super().__init__(content)
+            if keywords == SearchCommand.ONLINE_USERS:
+                command = keywords
+                keywords = None
+            else:
+                command = SearchCommand.SEARCH
+            super().__init__(command=command)
+        else:
+            super().__init__(cmd=cmd)
+        self.__users = users
+        if keywords is not None:
+            self['keywords'] = keywords
+        if users is not None:
+            self['users'] = ID.revert(members=users)
+        if results is not None:
+            self['results'] = results
 
     #
     #   User ID list
     #
     @property
     def users(self) -> list:
-        return self.get('users')
+        if self.__users is None:
+            array = self.get('users')
+            if isinstance(array, list):
+                self.__users = ID.convert(members=array)
+        return self.__users
 
     @users.setter
     def users(self, value):
@@ -89,12 +91,13 @@ class SearchCommand(Command):
             self.pop('users', None)
         else:
             self['users'] = value
+        self.__users = value
 
     #
     #   User's meta map
     #
     @property
-    def results(self) -> str:
+    def results(self) -> dict:
         return self.get('results')
 
     @results.setter
@@ -103,39 +106,3 @@ class SearchCommand(Command):
             self.pop('results', None)
         else:
             self['results'] = value
-
-    #
-    #   Factories
-    #
-    @classmethod
-    def new(cls, content: dict=None, keywords: str=None, users: list=None, results: dict=None):
-        """
-        Create search command
-
-        :param content: command info
-        :param keywords: search number, ID, or 'users'
-        :param users: user ID list
-        :param results: user meta map
-        :return: SearchCommand object
-        """
-        if content is None:
-            # create empty content
-            content = {}
-        # new SearchCommand(dict)
-        if keywords is None:
-            command = cls.SEARCH
-        elif keywords == cls.SEARCH or keywords == cls.ONLINE_USERS:
-            command = keywords
-        else:
-            command = cls.SEARCH
-            content['keywords'] = keywords
-        if users is not None:
-            content['users'] = users
-        if results is not None:
-            content['results'] = results
-        return super().new(content=content, command=command)
-
-
-# register command class
-Command.register(command=SearchCommand.SEARCH, command_class=SearchCommand)
-Command.register(command=SearchCommand.ONLINE_USERS, command_class=SearchCommand)

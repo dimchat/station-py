@@ -30,7 +30,7 @@
 """
 
 from dimp import PrivateKey
-from dimp import ID, Meta, Profile
+from dimp import ID, Meta, Document
 from dimp import Command
 from dimp import ReliableMessage
 from dimsdk import LoginCommand
@@ -112,10 +112,10 @@ class Database:
 
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
-    def save_profile(self, profile: Profile) -> bool:
+    def save_profile(self, profile: Document) -> bool:
         return self.__profile_table.save_profile(profile=profile)
 
-    def profile(self, identifier: ID) -> Profile:
+    def profile(self, identifier: ID) -> Document:
         return self.__profile_table.profile(identifier=identifier)
 
     """
@@ -210,7 +210,7 @@ class Database:
     #   IAPNsDelegate
     #
     def device_tokens(self, identifier: str) -> list:
-        identifier = Storage.identifier(string=identifier)
+        identifier = ID.parse(identifier=identifier)
         return self.__device_table.device_tokens(identifier=identifier)
 
     """
@@ -274,7 +274,7 @@ class Database:
         return self.__ans_table.record(name=name)
 
     def ans_names(self, identifier: ID) -> list:
-        return self.__ans_table.names(identifier=identifier)
+        return self.__ans_table.names(identifier=str(identifier))
 
     """
         Login Info

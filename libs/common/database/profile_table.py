@@ -26,7 +26,7 @@
 import os
 from typing import Optional
 
-from dimp import ID, Profile
+from dimp import ID, Document
 
 from .storage import Storage
 
@@ -48,14 +48,13 @@ class ProfileTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
 
-    def __cache_profile(self, profile: Profile) -> bool:
-        identifier = Storage.identifier(profile.identifier)
-        assert identifier.valid, 'profile ID not valid: %s' % profile
+    def __cache_profile(self, profile: Document) -> bool:
+        identifier = profile.identifier
         if profile.valid:
             self.__caches[identifier] = profile
             return True
 
-    def __load_profile(self, identifier: ID) -> Profile:
+    def __load_profile(self, identifier: ID) -> Document:
         path = self.__path(identifier=identifier)
         self.info('Loading profile from: %s' % path)
         dictionary = self.read_json(path=path)
@@ -67,23 +66,22 @@ class ProfileTable(Storage):
                 if data is not None:
                     dictionary['data'] = data
                     dictionary.pop('profile')
-            return Profile(dictionary)
+            return Document.parse(dictionary)
 
-    def __save_profile(self, profile: Profile) -> bool:
-        identifier = Storage.identifier(profile.identifier)
-        assert identifier.valid, 'profile ID not valid: %s' % profile
+    def __save_profile(self, profile: Document) -> bool:
+        identifier = profile.identifier
         path = self.__path(identifier=identifier)
         self.info('Saving profile into: %s' % path)
-        return self.write_json(container=profile, path=path)
+        return self.write_json(container=profile.dictionary, path=path)
 
-    def save_profile(self, profile: Profile) -> bool:
+    def save_profile(self, profile: Document) -> bool:
         if not self.__cache_profile(profile=profile):
             # raise ValueError('failed to cache profile: %s' % profile)
             self.error('failed to cache profile: %s' % profile)
             return False
         return self.__save_profile(profile=profile)
 
-    def profile(self, identifier: ID) -> Optional[Profile]:
+    def profile(self, identifier: ID) -> Optional[Document]:
         # 1. get from cache
         info = self.__caches.get(identifier)
         if info is not None:
@@ -94,7 +92,7 @@ class ProfileTable(Storage):
         info = self.__load_profile(identifier=identifier)
         if info is None:
             # place an empty profile for cache
-            info = Profile.new(identifier=identifier)
+            info = Document.create(doc_type='*', identifier=identifier)
         # 3. update memory cache
         self.__caches[identifier] = info
         return info
@@ -117,7 +115,6 @@ class DeviceTable(Storage):
         return os.path.join(self.root, 'protected', str(identifier.address), 'device.js')
 
     def __cache_device(self, device: dict, identifier: ID) -> bool:
-        assert identifier.valid, 'ID not valid: %s' % identifier
         self.__caches[identifier] = device
         return True
 

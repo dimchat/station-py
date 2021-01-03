@@ -27,7 +27,7 @@ import os
 import random
 from typing import Optional
 
-from dimp import NetworkID, ID, Meta
+from dimp import NetworkType, ID, Meta
 
 from .storage import Storage
 
@@ -59,7 +59,7 @@ class MetaTable(Storage):
         path = self.__path(identifier=identifier)
         self.info('Loading meta from: %s' % path)
         dictionary = self.read_json(path=path)
-        return Meta(dictionary)
+        return Meta.parse(meta=dictionary)
 
     def __save_meta(self, meta: Meta, identifier: ID) -> bool:
         path = self.__path(identifier=identifier)
@@ -67,7 +67,7 @@ class MetaTable(Storage):
             # meta file already exists
             return True
         self.info('Saving meta into: %s' % path)
-        return self.write_json(container=meta, path=path)
+        return self.write_json(container=meta.dictionary, path=path)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not self.__cache_meta(meta=meta, identifier=identifier):
@@ -108,7 +108,7 @@ class MetaTable(Storage):
         array = random.sample(array, len(array))
         for identifier in array:
             network = identifier.type
-            if network not in [NetworkID.Main, NetworkID.BTCMain, NetworkID.Robot]:
+            if network not in [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]:
                 # ignore
                 continue
             string = identifier.lower()
@@ -142,7 +142,7 @@ class MetaTable(Storage):
             if not os.path.exists(path):
                 # self.info('meta file not exists: %s' % path)
                 continue
-            address = self.identifier(filename)
+            address = ID.parse(identifier=filename)
             if address is None:
                 # self.error('ID/address error: %s' % filename)
                 continue

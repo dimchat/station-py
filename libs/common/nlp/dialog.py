@@ -73,7 +73,7 @@ class Dialog:
         # try each chat robots
         index = 0
         for robot in self.__bots:
-            answer = robot.ask(question=question, user=sender.number)
+            answer = robot.ask(question=question, user=sender.address)
             if answer is None:
                 index += 1
                 continue
@@ -90,7 +90,7 @@ class Dialog:
             question = content.text
             answer = self.ask(question=question, sender=sender)
             if answer is not None:
-                response = TextContent.new(text=answer)
+                response = TextContent(text=answer)
                 group = content.group
                 if group is not None:
                     response.group = group

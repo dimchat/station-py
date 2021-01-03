@@ -30,32 +30,53 @@
     Transform and send message
 """
 
-import traceback
 from abc import abstractmethod
 from typing import Optional, Union
 
-import dkd
-from dimp import Base64, sha256
 from dimp import ID, SymmetricKey
-from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content, InviteCommand, ResetCommand
+from dimp import InstantMessage
 
-from dimsdk import Messenger
-
-from ..mtp.utils import Utils as MTUUtils
+from dimsdk import Messenger, Packer, Processor
 
 from .utils import Log
+
+from .keystore import KeyStore
+from .facebook import CommonFacebook
 
 
 class CommonMessenger(Messenger):
 
-    MTP_JSON = 0x01
-    MTP_DMTP = 0x02
-
     def __init__(self):
         super().__init__()
-        # Message Transfer Protocol
-        self.mtp_format = self.MTP_JSON
+        self.key_cache = KeyStore()
+        self.__context = {}
+
+    @property
+    def context(self) -> dict:
+        return self.__context
+
+    def get_context(self, key: str):
+        return self.__context.get(key)
+
+    def set_context(self, key: str, value):
+        if value is None:
+            self.__context.pop(key, None)
+        else:
+            self.__context[key] = value
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    def _create_packer(self) -> Packer:
+        from .packer import CommonPacker
+        return CommonPacker(messenger=self)
+
+    def _create_processor(self) -> Processor:
+        from .processor import CommandProcessor
+        return CommandProcessor(messenger=self)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -63,194 +84,34 @@ class CommonMessenger(Messenger):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def __is_empty(self, group: ID) -> bool:
-        """
-        Check whether group info empty (lost)
-
-        :param group: group ID
-        :return: True on members, owner not found
-        """
-        facebook = self.facebook
-        members = facebook.members(identifier=group)
-        if members is None or len(members) == 0:
-            return True
-        owner = facebook.owner(identifier=group)
-        if owner is None:
-            return True
-
-    def __check_group(self, content: Content, sender: ID) -> bool:
-        """
-        Check if it is a group message, and whether the group members info needs update
-
-        :param content: message content
-        :param sender:  message sender
-        :return: True on updating
-        """
-        group = content.group
-        if group is None or group.is_broadcast:
-            # 1. personal message
-            # 2. broadcast message
-            return False
-        # check meta for new group ID
-        facebook = self.facebook
-        meta = facebook.meta(identifier=group)
-        if meta is None:
-            # NOTICE: if meta for group not found,
-            #         facebook should query it from DIM network automatically
-            # TODO: insert the message to a temporary queue to wait meta
-            # raise LookupError('group meta not found: %s' % group)
-            return True
-        # query group info
-        if self.__is_empty(group=group):
-            # NOTICE: if the group info not found, and this is not an 'invite' command
-            #         query group info from the sender
-            if isinstance(content, InviteCommand) or isinstance(content, ResetCommand):
-                # FIXME: can we trust this stranger?
-                #        may be we should keep this members list temporary,
-                #        and send 'query' to the owner immediately.
-                # TODO: check whether the members list is a full list,
-                #       it should contain the group owner(owner)
-                return False
-            else:
-                return self.query_group(group=group, users=[sender])
-        elif facebook.exists_member(member=sender, group=group):
-            # normal membership
-            return False
-        elif facebook.exists_assistant(member=sender, group=group):
-            # normal membership
-            return False
-        elif facebook.is_owner(member=sender, group=group):
-            # normal membership
-            return False
-        else:
-            # if assistants exists, query them
-            admins = facebook.assistants(identifier=group)
-            # if owner found, query it too
-            owner = facebook.owner(identifier=group)
-            if owner is not None:
-                if admins is None:
-                    admins = [owner]
-                elif owner not in admins:
-                    admins.append(owner)
-            return self.query_group(group=group, users=admins)
-
-    @abstractmethod
-    def query_meta(self, identifier: ID) -> bool:
-        pass
-
-    @abstractmethod
-    def query_profile(self, identifier: ID) -> bool:
-        pass
-
-    @abstractmethod
-    def query_group(self, group: ID, users: list) -> bool:
-        pass
-
-    #
-    #  Serialization
-    #
-    def serialize_message(self, msg: ReliableMessage) -> bytes:
-        self.__attach_key_digest(msg=msg)
-        if self.mtp_format == self.MTP_JSON:
-            # JsON
-            return super().serialize_message(msg=msg)
-        else:
-            # D-MTP
-            return MTUUtils.serialize_message(msg=msg)
-
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
-        if data is None or len(data) < 2:
-            return None
-        if data.startswith(b'{'):
-            # JsON
-            return super().deserialize_message(data=data)
-        else:
-            # D-MTP
-            return MTUUtils.deserialize_message(data=data)
-
-    def __attach_key_digest(self, msg: ReliableMessage):
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self
-        if msg.encrypted_key is not None:
-            # 'key' exists
-            return
-        keys = msg.encrypted_keys
-        if keys is None:
-            keys = {}
-        elif 'digest' in keys:
-            # key digest already exists
-            return
-        # get key with direction
-        sender = msg.sender
-        group = msg.group
-        if group is None:
-            receiver = msg.receiver
-            key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
-        else:
-            key = self.key_cache.cipher_key(sender=sender, receiver=group)
-        # get key data
-        data = key.data
-        if data is None or len(data) < 6:
-            return
-        # get digest
-        pos = len(data) - 6
-        digest = sha256(data[pos:])
-        base64 = Base64.encode(digest)
-        # set digest
-        pos = len(base64) - 8
-        keys['digest'] = base64[pos:]
-        msg['keys'] = keys
-
     #
     #   Reuse message key
     #
-
-    def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
-        s_msg = super().encrypt_message(msg=msg)
-        receiver = msg.receiver
-        if receiver.is_group:
-            # reuse group message keys
-            key = self.key_cache.cipher_key(sender=msg.sender, receiver=receiver)
-            key['reused'] = True
-        # TODO: reuse personal message key?
-        return s_msg
-
     def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
-        if key.get('reused'):
+        reused = key.get('reused')
+        if reused is not None:
             if msg.receiver.is_group:
                 # reuse key for grouped message
                 return None
-        return super().serialize_key(key=key, msg=msg)
+            # remove before serialize key
+            key.pop('reused', None)
+        data = super().serialize_key(key=key, msg=msg)
+        if reused is not None:
+            # put it back
+            key['reused'] = reused
+        return data
 
     #
-    #   Message
+    #   Interfaces for Sending Commands
     #
-    def save_message(self, msg: InstantMessage) -> bool:
-        # TODO: save instant message
-        return True
+    @abstractmethod
+    def query_meta(self, identifier: ID) -> bool:
+        raise NotImplemented
 
-    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
-        if isinstance(msg, dkd.ReliableMessage):
-            # TODO: save this message in a queue waiting sender's meta response
-            pass
-        elif isinstance(msg, dkd.InstantMessage):
-            # TODO: save this message in a queue waiting receiver's meta response
-            pass
+    @abstractmethod
+    def query_profile(self, identifier: ID) -> bool:
+        raise NotImplemented
 
-    # Override
-    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        if self.__check_group(content=content, sender=sender):
-            # save this message in a queue to wait group meta response
-            self.suspend_message(msg=msg)
-            return None
-        try:
-            return super().process_content(content=content, sender=sender, msg=msg)
-        except LookupError as e:
-            error = '%s' % e
-            if error.find('failed to get meta') >= 0:
-                # TODO: suspend message to wait meta
-                # self.suspend_message(msg=msg)
-                self.info(error)
-            else:
-                traceback.print_exc()
+    @abstractmethod
+    def query_group(self, group: ID, users: list) -> bool:
+        raise NotImplemented

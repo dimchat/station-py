@@ -30,7 +30,9 @@
     A map for short name to ID, just like DNS
 """
 
-from dimp import ID
+from typing import Optional, Union
+
+from dimp import ID, Address
 from dimsdk import AddressNameService
 
 
@@ -44,3 +46,26 @@ class AddressNameServer(AddressNameService):
         ok = super().save(name=name, identifier=identifier)
         # TODO: save new record into database
         return ok
+
+
+class IDFactory(ID.Factory):
+
+    def __init__(self):
+        super().__init__()
+        self.__ids = {}
+
+    def create_identifier(self, address: Address, name: Optional[str]=None, terminal: Optional[str]=None) -> ID:
+        return s_id_factory.create_identifier(address=address, name=name, terminal=terminal)
+
+    def parse_identifier(self, identifier: Union[ID, str, None]) -> Optional[ID]:
+        # try ANS record
+        _id = s_ans.identifier(name=identifier)
+        if _id is None:
+            # parse by original factory
+            _id = s_id_factory.parse_identifier(identifier=identifier)
+        return _id
+
+
+s_ans = AddressNameService()
+s_id_factory = ID.factory()
+ID.register(factory=IDFactory())

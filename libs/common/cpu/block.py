@@ -30,6 +30,8 @@
     Block protocol
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -41,6 +43,9 @@ from ..database import Database
 
 
 class BlockCommandProcessor(CommandProcessor):
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
 
     @property
     def database(self) -> Database:
@@ -54,29 +59,26 @@ class BlockCommandProcessor(CommandProcessor):
         else:
             # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
             # TODO: here should response an empty HistoryCommand: 'block'
-            res = Command.new(command='block')
+            res = Command(command=BlockCommand.BLOCK)
             res['list'] = []
             return res
 
     def __put(self, cmd: BlockCommand, sender: ID) -> Content:
         # receive block command, save it
         if self.database.save_block_command(cmd=cmd, sender=sender):
-            return ReceiptCommand.new(message='Block command of %s received!' % sender)
+            return ReceiptCommand(message='Block command of %s received!' % sender)
         else:
-            return TextContent.new(text='Sorry, block-list not stored: %s!' % cmd)
+            return TextContent(text='Sorry, block-list not stored: %s!' % cmd)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
-        assert isinstance(content, BlockCommand), 'block command error: %s' % content
-        if 'list' in content:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, BlockCommand), 'block command error: %s' % cmd
+        if 'list' in cmd:
             # upload block-list, save it
-            return self.__put(cmd=content, sender=sender)
+            return self.__put(cmd=cmd, sender=msg.sender)
         else:
             # query block-list, load it
-            return self.__get(sender=sender)
+            return self.__get(sender=msg.sender)
 
 
 # register
-CommandProcessor.register(command='block', processor_class=BlockCommandProcessor)
+CommandProcessor.register(command=BlockCommand.BLOCK, cpu=BlockCommandProcessor())

@@ -73,7 +73,7 @@ class MessageTable(Storage):
                 continue
             try:
                 msg = json.loads(msg)
-                msg = ReliableMessage(msg)
+                msg = ReliableMessage.parse(msg=msg)
                 messages.append(msg)
             except Exception as error:
                 self.info('message package error %s, %s' % (error, line))

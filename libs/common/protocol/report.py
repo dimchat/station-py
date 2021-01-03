@@ -30,6 +30,8 @@
     Report for online/offline, ...
 """
 
+from typing import Optional
+
 from dimp import Command
 
 
@@ -53,27 +55,13 @@ class ReportCommand(Command):
     ONLINE = 'online'
     OFFLINE = 'offline'
 
-    def __new__(cls, cmd: dict):
-        """
-        Create report command
-
-        :param cmd: command info
-        :return: ReportCommand object
-        """
+    def __init__(self, cmd: Optional[dict]=None, title: Optional[str]=None):
         if cmd is None:
-            return None
-        elif cls is ReportCommand:
-            if isinstance(cmd, ReportCommand):
-                # return ReportCommand object directly
-                return cmd
-        # new ReportCommand(dict)
-        return super().__new__(cls, cmd)
-
-    def __init__(self, content: dict):
-        if self is content:
-            # no need to init again
-            return
-        super().__init__(content)
+            super().__init__(command=ReportCommand.REPORT)
+        else:
+            super().__init__(cmd=cmd)
+        if title is not None:
+            self['title'] = title
 
     #
     #   report title
@@ -85,30 +73,3 @@ class ReportCommand(Command):
     @title.setter
     def title(self, value: str):
         self['title'] = value
-
-    #
-    #   Factories
-    #
-    @classmethod
-    def new(cls, content: dict=None, title: str=None, time: int=0):
-        """
-        Create report command
-
-        :param content: command info
-        :param title:   report title
-        :param time:    command time
-        :return: ReportCommand object
-        """
-        if content is None:
-            # create empty content
-            content = {}
-        # new ReportCommand(dict)
-        if title is None:
-            content['title'] = title
-        return super().new(content=content, command=cls.REPORT, time=time)
-
-
-# register command class
-Command.register(command=ReportCommand.REPORT, command_class=ReportCommand)
-Command.register(command=ReportCommand.ONLINE, command_class=ReportCommand)
-Command.register(command=ReportCommand.OFFLINE, command_class=ReportCommand)

@@ -30,6 +30,8 @@
     storage protocol: post/get contacts, private_key, ...
 """
 
+from typing import Optional
+
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -41,6 +43,9 @@ from ..database import Database
 
 
 class StorageCommandProcessor(CommandProcessor):
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
 
     @property
     def database(self) -> Database:
@@ -54,14 +59,14 @@ class StorageCommandProcessor(CommandProcessor):
             # response the stored contacts command directly
             return stored
         else:
-            return TextContent.new(text='Sorry, contacts of %s not found.' % sender)
+            return TextContent(text='Sorry, contacts of %s not found.' % sender)
 
     def __put_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
         # receive encrypted contacts, save it
         if self.database.save_contacts_command(cmd=cmd, sender=sender):
-            return ReceiptCommand.new(message='Contacts of %s received!' % sender)
+            return ReceiptCommand(message='Contacts of %s received!' % sender)
         else:
-            return TextContent.new(text='Contacts not stored %s!' % cmd)
+            return TextContent(text='Contacts not stored %s!' % cmd)
 
     def __process_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
         if cmd.data is None and 'contacts' not in cmd:
@@ -71,19 +76,17 @@ class StorageCommandProcessor(CommandProcessor):
             # upload contacts, save it
             return self.__put_contacts(cmd=cmd, sender=sender)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
-        assert isinstance(content, StorageCommand), 'command error: %s' % content
-        title = content.title
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, StorageCommand), 'command error: %s' % cmd
+        title = cmd.title
         if title == StorageCommand.CONTACTS:
-            return self.__process_contacts(cmd=content, sender=sender)
+            return self.__process_contacts(cmd=cmd, sender=msg.sender)
         # error
-        return TextContent.new(text='Storage command (title: %s) not support yet!' % title)
+        return TextContent(text='Storage command (title: %s) not support yet!' % title)
 
 
 # register
-CommandProcessor.register(command=StorageCommand.STORAGE, processor_class=StorageCommandProcessor)
-CommandProcessor.register(command=StorageCommand.CONTACTS, processor_class=StorageCommandProcessor)
-CommandProcessor.register(command=StorageCommand.PRIVATE_KEY, processor_class=StorageCommandProcessor)
+spu = StorageCommandProcessor()
+CommandProcessor.register(command=StorageCommand.STORAGE, cpu=spu)
+CommandProcessor.register(command=StorageCommand.CONTACTS, cpu=spu)
+CommandProcessor.register(command=StorageCommand.PRIVATE_KEY, cpu=spu)

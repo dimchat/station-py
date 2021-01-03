@@ -27,9 +27,6 @@ import time
 
 from dimsdk.dos import File, TextFile, JSONFile
 
-from dimp import ID
-from dimp import Barrack
-
 
 def current_time() -> str:
     time_array = time.localtime()
@@ -67,17 +64,6 @@ class Storage:
     @classmethod
     def remove(cls, path: str) -> bool:
         return File(path=path).remove()
-
-    #
-    #  Entity factory
-    #
-    barrack: Barrack = None
-
-    @classmethod
-    def identifier(cls, string: str) -> ID:
-        if cls.barrack is None:
-            return ID(string)
-        return cls.barrack.identifier(string=string)
 
     #
     #  Log

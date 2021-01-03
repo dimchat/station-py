@@ -105,7 +105,7 @@ class UserTable(Storage):
         self.__contacts_commands[sender] = cmd
         path = self.__contacts_command_path(identifier=sender)
         self.info('Saving contacts command into: %s' % path)
-        return self.write_json(container=cmd, path=path)
+        return self.write_json(container=cmd.dictionary, path=path)
 
     """
         Block Command
@@ -132,7 +132,7 @@ class UserTable(Storage):
         self.__block_commands[sender] = cmd
         path = self.__block_command_path(identifier=sender)
         self.info('Saving block command into: %s' % path)
-        return self.write_json(container=cmd, path=path)
+        return self.write_json(container=cmd.dictionary, path=path)
 
     """
         Mute Command
@@ -159,4 +159,4 @@ class UserTable(Storage):
         self.__mute_commands[sender] = cmd
         path = self.__mute_command_path(identifier=sender)
         self.info('Saving mute command into: %s' % path)
-        return self.write_json(container=cmd, path=path)
+        return self.write_json(container=cmd.dictionary, path=path)
