@@ -224,9 +224,8 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 """
 
 
-def neighbor_stations(identifier: str) -> list:
+def neighbor_stations(identifier: ID) -> list:
     """ Get neighbor stations for broadcast """
-    identifier = g_facebook.identifier(identifier)
     count = len(all_stations)
     if count <= 1:
         # only 1 station, no neighbors
@@ -255,7 +254,7 @@ def neighbor_stations(identifier: str) -> list:
 
 def create_server(identifier: str, host: str, port: int=9394) -> Server:
     """ Create Local Server """
-    identifier = g_facebook.identifier(identifier)
+    identifier = ID.parse(identifier=identifier)
     server = Server(identifier=identifier, host=host, port=port)
     g_facebook.cache_user(user=server)
     Log.info('local station created: %s' % server)
@@ -270,18 +269,18 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
 # load ANS reserved records
 Log.info('-------- loading ANS reserved records')
 for key, value in ans_reserved_records.items():
-    value = ID(value)
-    assert value.valid, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, value))
+    _id = ID.parse(identifier=value)
+    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
+    Log.info('Name: %s -> ID: %s' % (key, _id))
     if key in ans_keywords:
         # remove reserved name temporary
         index = ans_keywords.index(key)
         ans_keywords.remove(key)
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
         ans_keywords.insert(index, key)
     else:
         # not reserved name, save it directly
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
 
 
 # scan accounts
@@ -290,7 +289,7 @@ g_database.scan_ids()
 
 # convert string to IDs
 Log.info('-------- loading group assistants: %d' % len(group_assistants))
-group_assistants = [g_facebook.identifier(string=item) for item in group_assistants]
+group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 g_facebook.group_assistants = group_assistants
 
@@ -304,7 +303,7 @@ local_servers = [create_server(identifier=item, host=station_host, port=station_
 
 # current station
 current_station = None
-station_id = g_facebook.identifier(station_id)
+station_id = ID.parse(identifier=station_id)
 for srv in local_servers:
     if srv.identifier == station_id:
         # got it
@@ -334,7 +333,7 @@ for node in neighbors:
 
 # load admins for receiving system reports
 Log.info('-------- loading administrators: %d' % len(administrators))
-administrators = [g_facebook.identifier(item) for item in administrators]
+administrators = [ID.parse(identifier=item) for item in administrators]
 for admin in administrators:
     Log.info('add admin: %s' % admin)
     g_monitor.admins.add(admin)

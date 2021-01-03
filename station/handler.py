@@ -34,7 +34,7 @@ import json
 from socketserver import StreamRequestHandler
 from typing import Optional
 
-from dimp import User, NetworkID
+from dimp import User, NetworkType
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
@@ -42,6 +42,7 @@ from dimsdk import MessengerDelegate
 from libs.common import Log
 from libs.common import NetMsgHead, NetMsg
 from libs.common import WebSocket
+from libs.common import CommonPacker
 from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
@@ -126,7 +127,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         if user is None:
             g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
-            if user.identifier.type == NetworkID.Station:
+            if user.identifier.type == NetworkType.STATION:
                 g_dispatcher.remove_neighbor(station=user)
             nickname = g_facebook.nickname(identifier=user.identifier)
             session = g_session_server.get(identifier=user.identifier, client_address=address)
@@ -165,7 +166,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                     # it seems be a D-MTP package!
                     self.__process_package = self.process_dmtp_package
                     self.__push_data = self.push_dmtp_data
-                    self.messenger.mtp_format = self.messenger.MTP_DMTP
+                    packer = self.messenger.message_packer
+                    assert isinstance(packer, CommonPacker), 'packer error: %s' % packer
+                    packer.mtp_format = packer.MTP_DMTP
                     break
 
                 # (Protocol B) Web socket?
@@ -437,7 +440,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
+    def send_package(self, data: bytes, handler: CompletionHandler, priority: int=0) -> bool:
         if self.__push_data(body=data):
             if handler is not None:
                 handler.success()
@@ -467,7 +470,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         self.messenger.remote_user = user
         self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
         g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
-        if user.identifier.type == NetworkID.Station:
+        if user.identifier.type == NetworkType.STATION:
             g_dispatcher.add_neighbor(station=user)
         # add the new guest for checking offline messages
         g_receptionist.add_guest(identifier=sender)
