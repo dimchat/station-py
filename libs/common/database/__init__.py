@@ -113,6 +113,15 @@ class Database:
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
     def save_profile(self, profile: Document) -> bool:
+        if not profile.valid:
+            identifier = profile.identifier
+            if identifier is None:
+                return False
+            meta = self.meta(identifier=identifier)
+            if meta is None:
+                return False
+            if not profile.verify(public_key=meta.key):
+                return False
         return self.__profile_table.save_profile(profile=profile)
 
     def profile(self, identifier: ID) -> Document:

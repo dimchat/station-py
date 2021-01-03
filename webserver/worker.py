@@ -58,7 +58,7 @@ class Worker:
 
     def identifier(self, identifier: str) -> Optional[ID]:
         try:
-            return self.facebook.identifier(string=identifier)
+            return ID.parse(identifier=identifier)
         except ValueError:
             self.error('ID error: %s' % identifier)
 

@@ -30,9 +30,11 @@
     Search users with keywords
 """
 
-from typing import Optional
+from typing import Optional, List
 
+from dimp import Map
 from dimp import ID, Command
+from dimsdk import CommandFactoryBuilder
 
 
 class SearchCommand(Command):
@@ -70,15 +72,15 @@ class SearchCommand(Command):
         if keywords is not None:
             self['keywords'] = keywords
         if users is not None:
-            self['users'] = ID.revert(members=users)
+            self.users = users
         if results is not None:
-            self['results'] = results
+            self.results = results
 
     #
     #   User ID list
     #
     @property
-    def users(self) -> list:
+    def users(self) -> Optional[List[ID]]:
         if self.__users is None:
             array = self.get('users')
             if isinstance(array, list):
@@ -86,11 +88,11 @@ class SearchCommand(Command):
         return self.__users
 
     @users.setter
-    def users(self, value):
+    def users(self, value: List[ID]):
         if value is None:
             self.pop('users', None)
         else:
-            self['users'] = value
+            self['users'] = ID.revert(members=value)
         self.__users = value
 
     #
@@ -105,4 +107,20 @@ class SearchCommand(Command):
         if value is None:
             self.pop('results', None)
         else:
-            self['results'] = value
+            self['results'] = pure(value)
+
+
+def pure(__m: dict) -> dict:
+    __t = {}
+    for k in __m:
+        v = __m[k]
+        k = str(k)
+        if isinstance(v, Map):
+            v = v.dictionary
+        __t[k] = v
+    return __t
+
+
+# register
+Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
+Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))

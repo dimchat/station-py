@@ -31,6 +31,7 @@
 """
 
 import json
+import traceback
 from socketserver import StreamRequestHandler
 from typing import Optional
 
@@ -394,6 +395,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                     data = res + b'\n'
             except Exception as error:
                 self.error('parse message failed: %s' % error)
+                traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         # station MUST respond something to client request
@@ -468,8 +470,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         client_address = session.client_address
         user = g_facebook.user(identifier=sender)
         self.messenger.remote_user = user
-        self.info('handshake accepted %s %s %s, %s' % (user.name, client_address, sender, session_key))
-        g_monitor.report(message='User %s logged in %s %s' % (user.name, client_address, sender))
+        self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
+        g_monitor.report(message='User %s logged in %s' % (sender, client_address))
         if user.identifier.type == NetworkType.STATION:
             g_dispatcher.add_neighbor(station=user)
         # add the new guest for checking offline messages

@@ -70,7 +70,7 @@ class LoginCommandProcessor(CommandProcessor):
         assert station is not None, 'current station not in the context'
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = self.facebook.identifier(cmd.station.get('ID'))
+        sid = ID.parse(identifier=cmd.station.get('ID'))
         if sid == station.identifier:
             return None
         return sid

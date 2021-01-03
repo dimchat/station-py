@@ -66,7 +66,7 @@ class UserTable(Storage):
             if len(identifier) == 0:
                 # skip empty lines
                 continue
-            identifier = self.facebook.identifier(identifier)
+            identifier = ID.parse(identifier=identifier)
             info = self.user_info(identifier=identifier)
             if info is None:
                 # user info not found
@@ -75,10 +75,10 @@ class UserTable(Storage):
         return array
 
     def user_info(self, identifier: ID) -> Optional[dict]:
-        user = self.facebook.user(identifier)
-        name = user.name
+        doc = self.facebook.document(identifier=identifier)
+        name = doc.name
         url = usr_url(identifier=identifier)
-        desc = json.dumps(user.profile)
+        desc = json.dumps(doc.dictionary)
         return {
             'ID': identifier,
             'name': name,

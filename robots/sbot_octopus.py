@@ -78,7 +78,7 @@ class LoginCommandProcessor(CommandProcessor):
                 return None
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = self.facebook.identifier(cmd.station.get('ID'))
+        sid = ID.parse(identifier=cmd.station.get('ID'))
         if sid == g_station.identifier:
             return None
         return sid

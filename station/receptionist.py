@@ -32,6 +32,7 @@
 
 import os
 import time
+import traceback
 from json import JSONDecodeError
 from threading import Thread
 from typing import Optional
@@ -276,6 +277,7 @@ class Receptionist(Thread):
             self.error('JSON decode error %s' % error)
         except TypeError as error:
             self.error('type error %s' % error)
+            traceback.print_exc()
         except ValueError as error:
             self.error('value error %s' % error)
         finally:

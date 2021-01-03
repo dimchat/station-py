@@ -83,8 +83,11 @@ class ReportCommandProcessor(CommandProcessor):
         # check and run
         if cpu is None:
             return TextContent(text='Report command (title: %s) not support yet!' % title)
-        assert cpu is not self, 'Dead cycle! report cmd: %s' % cmd
-        return cpu.execute(content=cmd, msg=msg)
+        elif cpu is self:
+            raise AssertionError('Dead cycle! report cmd: %s' % cmd)
+        assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
+        cpu.messenger = self.messenger
+        return cpu.execute(cmd=cmd, msg=msg)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):

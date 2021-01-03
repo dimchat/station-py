@@ -33,6 +33,8 @@ import json
 
 from flask import Response, request
 
+from dimp import ID
+
 from .config import BASE_URL
 from .config import respond_js
 from .config import g_facebook, app
@@ -48,7 +50,7 @@ from .config import g_facebook, app
 def meta(address: str) -> Response:
     path = request.path
     try:
-        address = g_facebook.identifier(address)
+        address = ID.parse(identifier=address)
         info = g_facebook.meta(identifier=address)
         if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': 'meta not found: %s' % address}
@@ -68,8 +70,8 @@ def meta(address: str) -> Response:
 def profile(address: str) -> Response:
     path = request.path
     try:
-        address = g_facebook.identifier(address)
-        info = g_facebook.profile(identifier=address)
+        address = ID.parse(identifier=address)
+        info = g_facebook.document(identifier=address)
         if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': 'profile not found: %s' % address}
         else:

@@ -127,7 +127,7 @@ class Console(Cmd):
         return True
 
     def do_login(self, name: str):
-        sender = g_facebook.identifier(name)
+        sender = ID.parse(identifier=name)
         if sender is None:
             self.info('unknown user: %s' % name)
         else:
@@ -147,7 +147,7 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
-        receiver = g_facebook.identifier(name)
+        receiver = ID.parse(identifier=name)
         if receiver is None:
             self.info('unknown user: %s' % name)
         else:
@@ -201,7 +201,7 @@ class Console(Cmd):
             identifier = g_facebook.current_user.identifier
             profile = json.loads(name)
         else:
-            identifier = g_facebook.identifier(name)
+            identifier = ID.parse(identifier=name)
             if identifier is None:
                 self.info('I don\'t understand.')
                 return

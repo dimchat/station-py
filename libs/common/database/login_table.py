@@ -77,7 +77,7 @@ class LoginTable(Storage):
     def __save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
         path = self.__path(identifier=sender)
         self.info('Saving login into: %s' % path)
-        return self.write_json(container={'cmd': cmd, 'msg': msg}, path=path)
+        return self.write_json(container={'cmd': cmd.dictionary, 'msg': msg.dictionary}, path=path)
 
     def save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
         if not self.__cache_login(cmd=cmd, sender=sender, msg=msg):

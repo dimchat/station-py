@@ -34,7 +34,7 @@ import json
 import xmltodict
 from flask import Response, request, render_template
 
-from dimp import Address, Meta, Profile
+from dimp import ID, Address, Meta, Document
 
 from .config import BASE_URL
 from .config import respond_xml, respond_js
@@ -62,21 +62,21 @@ def upload_profile() -> Response:
         identifier = form['ID']
         meta = form['meta']
         profile = form['profile']
-        identifier = g_facebook.identifier(string=identifier)
+        identifier = ID.parse(identifier=identifier)
         # save meta
         if meta is None:
             meta = g_facebook.meta(identifier=identifier)
             if meta is None:
                 raise LookupError('meta not found: %s' % identifier)
         else:
-            meta = Meta(json.loads(meta))
+            meta = Meta.parse(meta=json.loads(meta))
             if not g_facebook.save_meta(meta=meta, identifier=identifier):
                 raise ValueError('meta not acceptable: %s' % identifier)
         # save profile
         if profile is None:
             raise ValueError('profile empty: %s' % identifier)
         else:
-            profile = Profile(json.loads(profile))
+            profile = Document.parse(document=json.loads(profile))
             if not g_facebook.save_profile(profile=profile, identifier=identifier):
                 raise ValueError('profile not acceptable: %s' % identifier)
         # OK
@@ -91,13 +91,13 @@ def upload_profile() -> Response:
 def user(address: str) -> Response:
     try:
         if address.find('@') < 0:
-            address = Address(address=address)
-        identifier = g_facebook.identifier(address)
+            address = Address.parse(address=address)
+        identifier = ID.parse(identifier=address)
         info = g_worker.user_info(identifier=identifier)
         if info is None:
             messages = []
         else:
-            identifier = g_facebook.identifier(info.get('ID'))
+            identifier = ID.parse(identifier=info.get('ID'))
             messages = g_worker.messages(identifier=identifier, start=0, count=20)
         xml = render_template('user.xml', user=info, messages=messages)
     except Exception as error:
@@ -124,8 +124,8 @@ def channel(address: str) -> Response:
         ext = 'xml'
     try:
         if address.find('@') < 0:
-            address = Address(address=address)
-        identifier = g_facebook.identifier(address)
+            address = Address.parse(address=address)
+        identifier = ID.parse(identifier=address)
         info = g_worker.user_info(identifier=identifier)
         if info is None:
             res = {'code': 404, 'name': 'Not Found', 'message': '%s not found' % address}
@@ -141,7 +141,7 @@ def channel(address: str) -> Response:
                 count = 20
             else:
                 count = int(count)
-            identifier = g_facebook.identifier(info.get('ID'))
+            identifier = ID.parse(identifier=info.get('ID'))
             messages = g_worker.messages(identifier=identifier, start=start, count=count)
             if ext == 'rss':
                 xml = render_template('channel.rss', user=info, messages=messages)

@@ -219,7 +219,7 @@ class AssistantMessenger(ClientMessenger):
                     if item == 'digest':
                         self.info('key digest: %s' % keys[item])
                         continue
-                    m = g_facebook.identifier(string=item)
+                    m = ID.parse(identifier=item)
                     if m not in members:
                         self.info('remove non-exists member: %s' % item)
                         expel_list.append(m)

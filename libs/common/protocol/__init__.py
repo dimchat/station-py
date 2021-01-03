@@ -23,18 +23,8 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import Command, CommandFactoryBuilder
-
 from .search import SearchCommand
 from .report import ReportCommand
-
-
-Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
-Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
-
-Command.register(command=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
-Command.register(command=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
-Command.register(command=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
 
 
 __all__ = [

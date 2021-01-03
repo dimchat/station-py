@@ -132,7 +132,7 @@ class Dispatcher(Thread):
                     self.error('traces node error: %s' % node)
             # broadcast message go through here
             traces.append(sid)
-        msg['traces'] = traces
+        msg['traces'] = ID.revert(members=traces)
         return False
 
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:

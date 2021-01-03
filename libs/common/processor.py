@@ -135,7 +135,7 @@ class CommonProcessor(MessageProcessor):
         if self.__is_waiting_group(content=content, sender=sender):
             # save this message in a queue to wait group meta response
             group = content.group
-            r_msg['waiting'] = group
+            r_msg['waiting'] = str(group)
             self.messenger.suspend_message(msg=r_msg)
             return None
         try:

@@ -54,7 +54,7 @@ class ServerProcessor(CommonProcessor):
     def process_reliable_message(self, r_msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check message delegate
         if r_msg.delegate is None:
-            r_msg.delegate = self
+            r_msg.delegate = self.transceiver
         receiver = r_msg.receiver
         if receiver.is_group:
             # deliver group message

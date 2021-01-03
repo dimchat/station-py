@@ -36,7 +36,8 @@ from typing import Optional, Union
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage
 
-from dimsdk import Messenger, Packer, Processor
+from dimsdk import Messenger, MessengerDataSource, Packer, Processor
+from dkd import ReliableMessage
 
 from .utils import Log
 
@@ -49,6 +50,7 @@ class CommonMessenger(Messenger):
     def __init__(self):
         super().__init__()
         self.key_cache = KeyStore()
+        self.data_source = MessageDataSource()
         self.__context = {}
 
     @property
@@ -75,8 +77,8 @@ class CommonMessenger(Messenger):
         return CommonPacker(messenger=self)
 
     def _create_processor(self) -> Processor:
-        from .processor import CommandProcessor
-        return CommandProcessor(messenger=self)
+        from .processor import CommonProcessor
+        return CommonProcessor(messenger=self)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -115,3 +117,20 @@ class CommonMessenger(Messenger):
     @abstractmethod
     def query_group(self, group: ID, users: list) -> bool:
         raise NotImplemented
+
+
+class MessageDataSource(MessengerDataSource):
+
+    def __new__(cls, *args, **kwargs):
+        """ Singleton """
+        if not hasattr(cls, '_instance'):
+            cls._instance = super().__new__(cls, *args, **kwargs)
+        return cls._instance
+
+    def save_message(self, msg: InstantMessage) -> bool:
+        Log.info('TODO: saving message: %s' % msg)
+        return True
+
+    def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
+        Log.info('TODO: suspending message: %s' % msg)
+        return True

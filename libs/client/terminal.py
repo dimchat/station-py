@@ -57,10 +57,10 @@ class Terminal(HandshakeDelegate):
         self.disconnect()
 
     def info(self, msg: str):
-        print('\r##### %s > %s' % (self.facebook.current_user.name, msg))
+        print('\r##### %s > %s' % (self.facebook.current_user, msg))
 
     def error(self, msg: str):
-        print('\r!!!!! %s > %s' % (self.facebook.current_user.name, msg))
+        print('\r!!!!! %s > %s' % (self.facebook.current_user, msg))
 
     def disconnect(self) -> bool:
         if self.connection:

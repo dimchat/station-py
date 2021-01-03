@@ -36,7 +36,7 @@ import os
 import threading
 import time
 
-from dimp import NetworkType, Group
+from dimp import NetworkType, ID, Group
 from dimp import TextContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -79,7 +79,7 @@ def load_freshmen() -> list:
         return freshmen
     array = text.splitlines()
     for item in array:
-        identifier = g_facebook.identifier(item)
+        identifier = ID.parse(identifier=item)
         if identifier is None:
             Log.error('ID error: %s' % item)
         elif identifier.type == NetworkType.MAIN.value:
@@ -97,7 +97,7 @@ class FreshmenScanner(threading.Thread):
         # delegate for send message
         self.messenger = messenger
         # group
-        gid = g_facebook.identifier(group_naruto)
+        gid = ID.parse(identifier=group_naruto)
         self.__group: Group = g_facebook.group(gid)
 
     def info(self, msg: str):
