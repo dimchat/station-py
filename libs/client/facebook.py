@@ -34,7 +34,7 @@ import time
 import weakref
 from typing import Optional
 
-from dimp import ID, Meta, Profile
+from dimp import ID, Meta, Document
 
 from libs.common import CommonFacebook
 
@@ -73,9 +73,9 @@ class ClientFacebook(CommonFacebook):
         if messenger is not None:
             messenger.query_meta(identifier=identifier)
 
-    def profile(self, identifier: ID) -> Optional[Profile]:
+    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
         # try from database
-        profile = super().profile(identifier=identifier)
+        profile = super().document(identifier=identifier, doc_type=doc_type)
         if profile is not None:
             # check expired time
             now = time.time()

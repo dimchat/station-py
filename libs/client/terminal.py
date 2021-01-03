@@ -31,7 +31,7 @@
 """
 
 from dimp import ID, EVERYONE
-from dimp import InstantMessage
+from dimp import Envelope, InstantMessage
 from dimp import Content, Command
 from dimsdk import HandshakeCommand, LoginCommand
 from dimsdk import Station, CompletionHandler
@@ -98,18 +98,19 @@ class Terminal(HandshakeDelegate):
 
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
-        return self.messenger.send_content(content=cmd, receiver=self.station.identifier)
+        return self.messenger.send_content(sender=None, receiver=self.station.identifier, content=cmd)
 
     def broadcast_content(self, content: Content, receiver: ID) -> bool:
         content.group = EVERYONE
-        return self.messenger.send_content(content=content, receiver=receiver)
+        return self.messenger.send_content(sender=None, receiver=receiver, content=content)
 
     def handshake(self):
         user = self.facebook.current_user
         assert user is not None, 'current user not set yet'
         server = self.messenger.station
         cmd = HandshakeCommand.start()
-        msg = InstantMessage.new(content=cmd, sender=user.identifier, receiver=server.identifier)
+        env = Envelope.create(sender=user.identifier, receiver=server.identifier)
+        msg = InstantMessage.create(head=env, body=cmd)
         msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
         # carry meta for first handshake
         msg.meta = user.meta
@@ -129,7 +130,7 @@ class Terminal(HandshakeDelegate):
         # post current profile to station
         # post contacts(encrypted) to station
         # broadcast login command
-        login = LoginCommand.new(identifier=user.identifier)
+        login = LoginCommand(identifier=user.identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
         login.station = self.station
         self.messenger.broadcast_content(content=login)

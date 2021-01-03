@@ -32,7 +32,7 @@
 
 from dimp import ID
 from dimp import Content, Command, GroupCommand
-from dimp import MetaCommand, ProfileCommand
+from dimp import MetaCommand, DocumentCommand
 
 from ..facebook import ClientFacebook
 from ..messenger import ClientMessenger
@@ -75,13 +75,13 @@ class GroupManager:
             self.messenger.query_group(group=self.group, users=assistants)
             return False
         # let group assistant to split and deliver this message to all members
-        return self.messenger.send_content(content=content, receiver=self.group, callback=None)
+        return self.messenger.send_content(sender=None, receiver=self.group, content=content)
 
     def __send_group_command(self, cmd: Command, members: list) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
-            if not messenger.send_content(content=cmd, receiver=identifier, callback=None):
+            if not messenger.send_content(sender=None, receiver=identifier, content=cmd):
                 ok = False
         return ok
 
@@ -105,7 +105,7 @@ class GroupManager:
         if profile is None or profile.get('data') is None:
             cmd = MetaCommand.response(identifier=self.group, meta=meta)
         else:
-            cmd = ProfileCommand.response(identifier=self.group, profile=profile, meta=meta)
+            cmd = DocumentCommand.response(document=profile, meta=meta, identifier=self.group)
         self.__send_group_command(cmd=cmd, members=invite_list)
 
         # 1. send 'invite' command with new members to existed members

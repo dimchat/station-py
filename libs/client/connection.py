@@ -241,7 +241,7 @@ class Connection(threading.Thread, MessengerDelegate):
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler) -> bool:
+    def send_package(self, data: bytes, handler: CompletionHandler, priority: int=0) -> bool:
         """ Send out a data package onto network """
         # pack
         pack = data + self.BOUNDARY

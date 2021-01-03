@@ -34,29 +34,27 @@
 import json
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
+from libs.common import SearchCommand
+
 
 class SearchCommandProcessor(CommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         # message
-        message = content.get('message')
+        message = cmd.get('message')
         print('search response: %s' % message)
         # users
-        users = content.get('users')
+        users = cmd.get('users')
         if users is not None:
             print('      users:', json.dumps(users))
         # results
-        results = content.get('results')
+        results = cmd.get('results')
         if results is not None:
             print('      results:', json.dumps(results))
         return None
@@ -64,21 +62,18 @@ class SearchCommandProcessor(CommandProcessor):
 
 class UsersCommandProcessor(CommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         # message
-        message = content.get('message')
+        message = cmd.get('message')
         print('online users response: %s' % message)
         # users
-        users = content.get('users')
+        users = cmd.get('users')
         if users is not None:
             print('      users:', json.dumps(users))
         return None
 
 
 # register
-CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)
-CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)
+CommandProcessor.register(command=SearchCommand.SEARCH, cpu=SearchCommandProcessor())
+CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=UsersCommandProcessor())

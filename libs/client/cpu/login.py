@@ -32,7 +32,6 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import LoginCommand
@@ -41,15 +40,12 @@ from dimsdk import CommandProcessor
 
 class LoginCommandProcessor(CommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, LoginCommand), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         # self.info('login command: %s' % content)
         # return ReceiptCommand.new(message='Login received')
         return None
 
 
 # register
-CommandProcessor.register(command=Command.LOGIN, processor_class=LoginCommandProcessor)
+CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())

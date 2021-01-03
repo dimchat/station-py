@@ -31,8 +31,8 @@
 """
 
 from abc import ABCMeta, abstractmethod
+from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
 from dimp import Command
@@ -50,23 +50,23 @@ class HandshakeDelegate(metaclass=ABCMeta):
 
 class HandshakeCommandProcessor(CommandProcessor):
 
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
     @property
     def delegate(self) -> HandshakeDelegate:
         return self.get_context('handshake_delegate')
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
-        assert isinstance(content, HandshakeCommand), 'command error: %s' % content
-        message = content.message
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
+        message = cmd.message
         if 'DIM?' == message:
             # station ask client to handshake again
-            return HandshakeCommand.restart(session=content.session)
+            return HandshakeCommand.restart(session=cmd.session)
         elif 'DIM!' == message:
             # handshake accepted by station
             self.delegate.handshake_success()
 
 
 # register
-CommandProcessor.register(command=Command.HANDSHAKE, processor_class=HandshakeCommandProcessor)
+CommandProcessor.register(command=Command.HANDSHAKE, cpu=HandshakeCommandProcessor())

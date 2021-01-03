@@ -31,14 +31,13 @@
 """
 
 import time
-from typing import Optional, Union
+from typing import Union
 
 import dkd
 from dimp import ID, EVERYONE
 from dimp import InstantMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand, ProfileCommand
+from dimp import Content, Command, MetaCommand, DocumentCommand
 from dimp import GroupCommand
-from dimsdk import HandshakeCommand
 from dimsdk import Station
 
 from libs.common import CommonMessenger
@@ -70,7 +69,7 @@ class ClientMessenger(CommonMessenger):
         return self.get_context('station')
 
     def broadcast_content(self, content: Content) -> bool:
-        return self.send_content(content=content, receiver=EVERYONE)
+        return self.send_content(sender=None, receiver=EVERYONE, content=content)
 
     #
     #   Command
@@ -80,7 +79,7 @@ class ClientMessenger(CommonMessenger):
         if station is None:
             # raise ValueError('current station not set')
             return False
-        return self.send_content(content=cmd, receiver=station.identifier)
+        return self.send_content(sender=None, receiver=station.identifier, content=cmd)
 
     def query_meta(self, identifier: ID) -> bool:
         now = time.time()
@@ -89,7 +88,7 @@ class ClientMessenger(CommonMessenger):
             return False
         self.__meta_queries[identifier] = now
         # query from DIM network
-        cmd = MetaCommand.new(identifier=identifier)
+        cmd = MetaCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 
     def query_profile(self, identifier: ID) -> bool:
@@ -99,7 +98,7 @@ class ClientMessenger(CommonMessenger):
             return False
         self.__profile_queries[identifier] = now
         # query from DIM network
-        cmd = ProfileCommand.new(identifier=identifier)
+        cmd = DocumentCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 
     # FIXME: separate checking for querying each user
@@ -115,7 +114,7 @@ class ClientMessenger(CommonMessenger):
         cmd = GroupCommand.query(group=group)
         checking = False
         for item in users:
-            if self.send_content(content=cmd, receiver=item):
+            if self.send_content(sender=None, receiver=item, content=cmd):
                 checking = True
         return checking
 
@@ -133,29 +132,3 @@ class ClientMessenger(CommonMessenger):
         elif isinstance(msg, dkd.InstantMessage):
             # TODO: save this message in a queue waiting receiver's meta response
             pass
-
-    # Override
-    def process_content(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        res = super().process_content(content=content, sender=sender, msg=msg)
-        if res is None:
-            # respond nothing
-            return None
-        if isinstance(res, HandshakeCommand):
-            # urgent command
-            return res
-        # if isinstance(i_msg.content, ReceiptCommand):
-        #     receiver = msg.receiver
-        #     if receiver.type == NetworkID.Station:
-        #         # no need to respond receipt to station
-        #         return None
-
-        # check receiver
-        receiver = msg.receiver
-        user = self._select(receiver=receiver)
-        assert user is not None, 'receiver error: %s' % receiver
-        # pack message
-        i_msg = InstantMessage.new(content=res, sender=user.identifier, receiver=sender)
-        # normal response
-        self.send_message(msg=i_msg, callback=None)
-        # DON'T respond to station directly
-        return None
