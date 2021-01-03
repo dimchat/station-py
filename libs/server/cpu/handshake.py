@@ -72,20 +72,17 @@ class HandshakeCommandProcessor(CommandProcessor):
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.session_key)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Content:
-        assert isinstance(content, HandshakeCommand), 'command error: %s' % content
-        message = content.message
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
+        message = cmd.message
         if message in ['DIM?', 'DIM!']:
             # S -> C
-            return TextContent.new(text='Handshake command error: %s' % message)
+            return TextContent(text='Handshake command error: %s' % message)
         else:
             # C -> S: Hello world!
-            assert 'Hello world!' == message, 'Handshake command error: %s' % content
-            return self.__offer(session_key=content.session, sender=sender)
+            assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
+            return self.__offer(session_key=cmd.session, sender=msg.sender)
 
 
 # register
-CommandProcessor.register(command=Command.HANDSHAKE, processor_class=HandshakeCommandProcessor)
+CommandProcessor.register(command=Command.HANDSHAKE, cpu=HandshakeCommandProcessor())

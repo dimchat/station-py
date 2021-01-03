@@ -30,17 +30,17 @@
     Transform and send message
 """
 import time
-from typing import Optional, Union
 
-import dkd
 from dimp import ID, EVERYWHERE, User
-from dimp import InstantMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand, ProfileCommand, GroupCommand
+from dimp import Envelope, InstantMessage
+from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimsdk import Processor, MessageTransmitter
 
 from libs.common import CommonMessenger
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
+from .facebook import ServerFacebook
 from .filter import Filter
 
 
@@ -50,13 +50,35 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
-        self.dispatcher: Dispatcher = None
+        self.__dispatcher: Dispatcher = None
         self.__filter: Filter = None
         self.__session: Session = None
         # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
+
+    def _create_processor(self) -> Processor:
+        from .processor import ServerProcessor
+        return ServerProcessor(messenger=self)
+
+    def _create_transmitter(self) -> MessageTransmitter:
+        from .transmitter import ServerTransmitter
+        return ServerTransmitter(messenger=self)
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, ServerFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def dispatcher(self) -> Dispatcher:
+        return self.__dispatcher
+
+    @dispatcher.setter
+    def dispatcher(self, value: Dispatcher):
+        self.__dispatcher = value
 
     @property
     def filter(self) -> Filter:
@@ -116,61 +138,11 @@ class ServerMessenger(CommonMessenger):
     def remote_address(self, value):
         self.set_context(key='remote_address', value=value)
 
-    # Override
-    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self
-        receiver = msg.receiver
-        if receiver.is_group:
-            # deliver group message
-            res = self.__deliver_message(msg=msg)
-            if receiver.is_broadcast:
-                # if this is a broadcast, deliver it, send back the response
-                # and continue to process it with the station.
-                # because this station is also a recipient too.
-                if res is not None:
-                    self.send_message(msg=res, callback=None)
-            else:
-                # or, this is is an ordinary group message,
-                # just deliver it to the group assistant
-                # and return the response to the sender.
-                return res
-        # try to decrypt and process message
-        try:
-            return super().process_message(msg=msg)
-        except LookupError as error:
-            if str(error).startswith('receiver error'):
-                # not mine? deliver it
-                return self.__deliver_message(msg=msg)
-            else:
-                raise error
-
-    def __deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        """ Deliver message to the receiver, or broadcast to neighbours """
-        s_msg = self.verify_message(msg=msg)
-        if s_msg is None:
-            # signature error?
-            return None
-        # FIXME: check deliver permission
-        res = None  # self.filter.check_deliver(msg=msg)
-        if res is None:
-            # delivering is allowed, call dispatcher to deliver this message
-            res = self.dispatcher.deliver(msg=msg)
-        # pack response
-        if res is not None:
-            user = self.facebook.current_user
-            sender = user.identifier
-            receiver = msg.sender
-            i_msg = InstantMessage.new(content=res, sender=sender, receiver=receiver)
-            s_msg = self.encrypt_message(msg=i_msg)
-            return self.sign_message(msg=s_msg)
-
     #
     #   Command
     #
     def __send_command(self, cmd: Command) -> bool:
-        everyone = ID.new(name='station', address=EVERYWHERE)
+        everyone = ID.create(name='station', address=EVERYWHERE)
         return self.__send_content(content=cmd, receiver=everyone)
 
     def __send_content(self, content: Content, receiver: ID) -> bool:
@@ -182,7 +154,8 @@ class ServerMessenger(CommonMessenger):
             sender = user.identifier
         else:
             sender = station.identifier
-        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver)
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=content)
         s_msg = self.encrypt_message(msg=i_msg)
         if s_msg is None:
             # failed to encrypt message
@@ -200,7 +173,7 @@ class ServerMessenger(CommonMessenger):
             return False
         self.__meta_queries[identifier] = now
         # query from DIM network
-        cmd = MetaCommand.new(identifier=identifier)
+        cmd = MetaCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 
     def query_profile(self, identifier: ID) -> bool:
@@ -210,7 +183,7 @@ class ServerMessenger(CommonMessenger):
             return False
         self.__profile_queries[identifier] = now
         # query from DIM network
-        cmd = ProfileCommand.new(identifier=identifier)
+        cmd = DocumentCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 
     # FIXME: separate checking for querying each user
@@ -229,18 +202,3 @@ class ServerMessenger(CommonMessenger):
             if self.__send_content(content=cmd, receiver=item):
                 checking = True
         return checking
-
-    #
-    #   Message
-    #
-    def save_message(self, msg: InstantMessage) -> bool:
-        # TODO: save instant message
-        return True
-
-    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
-        if isinstance(msg, dkd.ReliableMessage):
-            # TODO: save this message in a queue waiting sender's meta response
-            pass
-        elif isinstance(msg, dkd.InstantMessage):
-            # TODO: save this message in a queue waiting receiver's meta response
-            pass

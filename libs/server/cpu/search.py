@@ -33,7 +33,6 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
@@ -46,37 +45,37 @@ from ..session import SessionServer
 
 class SearchCommandProcessor(CommandProcessor):
 
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
     @property
     def database(self) -> Database:
         return self.get_context('database')
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         # keywords
-        keywords = content.get('keywords')
+        keywords = cmd.get('keywords')
         if keywords is None:
-            return TextContent.new(text='Search command error')
+            return TextContent(text='Search command error')
         keywords = keywords.split(' ')
         # search in database
         results = self.database.search(keywords=keywords)
         users = list(results.keys())
-        return SearchCommand.new(users=users, results=results)
+        return SearchCommand(users=users, results=results)
 
 
 class UsersCommandProcessor(CommandProcessor):
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
 
     @property
     def session_server(self) -> SessionServer:
         return self.get_context('session_server')
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, Command), 'command error: %s' % cmd
         facebook = self.facebook
         users = self.session_server.random_users()
         results = {}
@@ -84,9 +83,10 @@ class UsersCommandProcessor(CommandProcessor):
             meta = facebook.meta(identifier=item)
             if meta is not None:
                 results[item] = meta
-        return SearchCommand.new(users=users, results=results)
+        return SearchCommand(users=users, results=results)
 
 
 # register
-CommandProcessor.register(command='search', processor_class=SearchCommandProcessor)
-CommandProcessor.register(command='users', processor_class=UsersCommandProcessor)
+spu = SearchCommandProcessor()
+CommandProcessor.register(command=SearchCommand.SEARCH, cpu=SearchCommandProcessor())
+CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=SearchCommandProcessor())

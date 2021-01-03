@@ -60,7 +60,7 @@ class Filter:
         return self.facebook.database
 
     def __name(self, identifier: ID) -> str:
-        profile = self.facebook.profile(identifier)
+        profile = self.facebook.document(identifier)
         if profile is not None:
             name = profile.name
             if name is not None:
@@ -83,7 +83,7 @@ class Filter:
                 grp_name = self.__name(identifier=group)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
-            res = TextContent.new(text=text)
+            res = TextContent(text=text)
             res.group = group
             return res
 

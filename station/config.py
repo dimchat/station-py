@@ -34,18 +34,19 @@ from typing import Optional
 
 from dimp import ID
 
-from dimsdk.apns import ApplePushNotificationService
 from dimsdk.ans import keywords as ans_keywords
 
 #
 #  Common Libs
 #
 from libs.common import Log
+from libs.common import Server
 from libs.common import Database, AddressNameServer
 from libs.common import KeyStore
 from libs.common import ChatBot, Tuling, XiaoI
-from libs.server import ServerFacebook, ServerMessenger, SessionServer, Server
+from libs.server import ServerFacebook, ServerMessenger, SessionServer
 from libs.server import Dispatcher
+from libs.server import ApplePushNotificationService
 
 #
 #  Configurations

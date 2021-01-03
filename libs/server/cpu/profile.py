@@ -34,22 +34,24 @@ from typing import Optional
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import ForwardContent, Command, ProfileCommand
+from dimp import ForwardContent, Command, DocumentCommand
 
-from dimsdk import CommandProcessor
-from dimsdk import ProfileCommandProcessor as SuperCommandProcessor
+from dimsdk import CommandProcessor, DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import Database
 
 
-class ProfileCommandProcessor(SuperCommandProcessor):
+class DocumentCommandProcessor(SuperCommandProcessor):
+
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
 
     @property
     def database(self) -> Database:
         return self.get_context('database')
 
-    def __check_login(self, cmd: ProfileCommand, sender: ID) -> bool:
-        profile = cmd.profile
+    def __check_login(self, cmd: DocumentCommand, sender: ID) -> bool:
+        profile = cmd.document
         if profile is not None:
             # this command is submitting profile, not querying
             return False
@@ -59,18 +61,17 @@ class ProfileCommandProcessor(SuperCommandProcessor):
         if msg is None:
             # login message not found
             return False
-        cmd = ForwardContent.new(message=msg)
+        cmd = ForwardContent(message=msg)
         return self.messenger.send_content(content=cmd, receiver=sender)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ProfileCommand), 'command error: %s' % content
-        res = super().process(content=content, sender=sender, msg=msg)
-        self.__check_login(cmd=content, sender=sender)
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd
+        res = super().execute(cmd=cmd, msg=msg)
+        self.__check_login(cmd=cmd, sender=msg.sender)
         return res
 
 
 # register
-CommandProcessor.register(command=Command.PROFILE, processor_class=ProfileCommandProcessor)
+dpu = DocumentCommandProcessor()
+CommandProcessor.register(command=Command.PROFILE, cpu=dpu)
+CommandProcessor.register(command=Command.DOCUMENT, cpu=dpu)

@@ -34,14 +34,14 @@ import time
 
 from dimp import ID
 from dimp import TextContent
-from dimp import InstantMessage
-from dimsdk.apns import ApplePushNotificationService
+from dimp import Envelope, InstantMessage
 
 from libs.common import Log
 from libs.common import Database, CommonFacebook
 from libs.common import KeyStore
 from libs.server import ServerMessenger
 from libs.server import SessionServer
+from libs.server import ApplePushNotificationService
 
 
 class Monitor:
@@ -85,8 +85,9 @@ class Monitor:
             self.error('sender not set yet')
             return False
         timestamp = int(time.time())
-        content = TextContent.new(text=text)
-        i_msg = InstantMessage.new(content=content, sender=self.sender, receiver=receiver, time=timestamp)
+        content = TextContent(text=text)
+        env = Envelope.create(sender=self.sender, receiver=receiver, time=timestamp)
+        i_msg = InstantMessage.create(head=env, body=content)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
         r_msg = self.messenger.sign_message(msg=s_msg)
         if r_msg.delegate is None:

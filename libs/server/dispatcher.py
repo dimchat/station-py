@@ -107,7 +107,7 @@ class Dispatcher(Thread):
 
     @staticmethod
     def __receipt(message: str, msg: ReliableMessage) -> Content:
-        receipt = ReceiptCommand.new(message=message)
+        receipt = ReceiptCommand(message=message)
         for key in ['sender', 'receiver', 'time', 'group', 'signature']:
             value = msg.get(key)
             if value is not None:
@@ -166,7 +166,7 @@ class Dispatcher(Thread):
         # FIXME: what about the failures
         # response
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
-        res = TextContent.new(text=text)
+        res = TextContent(text=text)
         res.group = msg.group
         return res
         # return None
@@ -218,7 +218,7 @@ class Dispatcher(Thread):
             t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(login.time))
             self.info('%s login expired: [%s] %s' % (receiver, t_str, login))
             return None
-        sid = self.facebook.identifier(station.get('ID'))
+        sid = ID.parse(identifier=station.get('ID'))
         if sid == self.station.identifier:
             return None
         return sid

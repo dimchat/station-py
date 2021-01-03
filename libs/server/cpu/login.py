@@ -49,6 +49,9 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
     @property
     def database(self) -> Database:
         return self.get_context('database')
@@ -72,23 +75,21 @@ class LoginCommandProcessor(CommandProcessor):
             return None
         return sid
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, LoginCommand), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
+        sender = msg.sender
         # check roaming
-        sid = self.__roaming(cmd=content, sender=sender)
+        sid = self.__roaming(cmd=cmd, sender=sender)
         if sid is not None:
             self.info('%s roamed to: %s' % (sender, sid))
             self.receptionist.add_roamer(identifier=sender)
         # update login info
-        if not self.database.save_login(cmd=content, sender=sender, msg=msg):
+        if not self.database.save_login(cmd=cmd, sender=sender, msg=msg):
             return None
         # response
-        self.info('login command: %s' % content)
-        return ReceiptCommand.new(message='Login received')
+        self.info('login command: %s' % cmd)
+        return ReceiptCommand(message='Login received')
 
 
 # register
-CommandProcessor.register(command=Command.LOGIN, processor_class=LoginCommandProcessor)
+CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())

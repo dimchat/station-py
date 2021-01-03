@@ -31,15 +31,16 @@
 """
 
 from .handshake import HandshakeCommandProcessor, HandshakeDelegate
-from .report import ReportCommandProcessor
 from .login import LoginCommandProcessor
-from .profile import ProfileCommandProcessor
+from .report import ReportCommandProcessor
+from .profile import DocumentCommandProcessor
 from .search import SearchCommandProcessor, UsersCommandProcessor
+
 
 __all__ = [
     'HandshakeCommandProcessor', 'HandshakeDelegate',
     'ReportCommandProcessor',
-    'LoginCommandProcessor', 'ProfileCommandProcessor',
+    'LoginCommandProcessor', 'DocumentCommandProcessor',
     'SearchCommandProcessor',
     'UsersCommandProcessor',
 ]

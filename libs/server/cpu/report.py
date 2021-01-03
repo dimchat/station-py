@@ -46,6 +46,9 @@ from ..session import Session
 
 class ReportCommandProcessor(CommandProcessor):
 
+    def get_context(self, key: str):
+        return self.messenger.get_context(key=key)
+
     @property
     def database(self) -> Database:
         return self.get_context('database')
@@ -67,74 +70,63 @@ class ReportCommandProcessor(CommandProcessor):
                 session.active = True
             else:
                 session.active = True
-            return ReceiptCommand.new(message='Client state received')
+            return ReceiptCommand(message='Client state received')
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ReportCommand), 'report command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, ReportCommand), 'report command error: %s' % cmd
         # report title
-        title = content.title
+        title = cmd.title
         if title == ReportCommand.REPORT:
-            return self.__process_old_report(cmd=content, sender=sender)
+            return self.__process_old_report(cmd=cmd, sender=msg.sender)
         # get CPU by report title
-        cpu = self.cpu(command=title)
+        cpu = self.processor_for_name(command=title)
         # check and run
         if cpu is None:
-            return TextContent.new(text='Report command (title: %s) not support yet!' % title)
-        assert cpu is not self, 'Dead cycle! report cmd: %s' % content
-        return cpu.process(content=content, sender=sender, msg=msg)
+            return TextContent(text='Report command (title: %s) not support yet!' % title)
+        assert cpu is not self, 'Dead cycle! report cmd: %s' % cmd
+        return cpu.execute(content=cmd, msg=msg)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, Command), 'command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, Command), 'command error: %s' % cmd
         # submit device token for APNs
-        token = content.get('device_token')
+        token = cmd.get('device_token')
         if token is not None:
-            self.database.save_device_token(token=token, identifier=sender)
-            return ReceiptCommand.new(message='Token received')
+            self.database.save_device_token(token=token, identifier=msg.sender)
+            return ReceiptCommand(message='Token received')
 
 
 class OnlineCommandProcessor(ReportCommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ReportCommand), 'online report command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
-        self.receptionist.add_guest(identifier=sender)
-        session = self.messenger.current_session(identifier=sender)
+        self.receptionist.add_guest(identifier=msg.sender)
+        session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = True
         # TODO: notification for pushing offline message(s) from 'last_time'
-        return ReceiptCommand.new(message='Client online received')
+        return ReceiptCommand(message='Client online received')
 
 
 class OfflineCommandProcessor(ReportCommandProcessor):
 
-    #
-    #   main
-    #
-    def process(self, content: Content, sender: ID, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(content, ReportCommand), 'offline report command error: %s' % content
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
         # goodbye!
-        session = self.messenger.current_session(identifier=sender)
+        session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = False
-        return ReceiptCommand.new(message='Client offline received')
+        return ReceiptCommand(message='Client offline received')
 
 
 # register
-CommandProcessor.register(command='report', processor_class=ReportCommandProcessor)
-CommandProcessor.register(command='broadcast', processor_class=ReportCommandProcessor)
+rpu = ReportCommandProcessor()
+CommandProcessor.register(command=ReportCommand.REPORT, cpu=rpu)
+CommandProcessor.register(command='broadcast', cpu=rpu)
 
-CommandProcessor.register(command='apns', processor_class=APNsCommandProcessor)
-CommandProcessor.register(command='online', processor_class=OnlineCommandProcessor)
-CommandProcessor.register(command='offline', processor_class=OfflineCommandProcessor)
+CommandProcessor.register(command='apns', cpu=APNsCommandProcessor())
+CommandProcessor.register(command=ReportCommand.ONLINE, cpu=OnlineCommandProcessor())
+CommandProcessor.register(command=ReportCommand.OFFLINE, cpu=OfflineCommandProcessor())

@@ -41,7 +41,7 @@ from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 
 
-class CommandProcessor(MessageProcessor):
+class CommonProcessor(MessageProcessor):
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))

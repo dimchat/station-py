@@ -36,13 +36,14 @@ from json import JSONDecodeError
 from threading import Thread
 from typing import Optional
 
-from dimp import ID, NetworkID, ReliableMessage
+from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
-from dimsdk.apns import ApplePushNotificationService
 
-from libs.common import Storage, Database, CommonFacebook
 from libs.common import Log
-from libs.server import Server, SessionServer
+from libs.common import Storage, Database, CommonFacebook
+from libs.common import Server
+from libs.server import SessionServer
+from libs.server import ApplePushNotificationService
 
 
 def save_freshman(identifier: ID) -> bool:
@@ -187,8 +188,8 @@ class Receptionist(Thread):
             self.error('login station error: %s -> %s' % (identifier, login))
             return None
         facebook = self.facebook
-        sid = facebook.identifier(string=sid)
-        assert sid.type == NetworkID.Station, 'station ID error: %s' % station
+        sid = ID.parse(identifier=sid)
+        assert sid.type == NetworkType.STATION, 'station ID error: %s' % station
         if sid == self.station.identifier:
             self.info('login station is current station: %s -> %s' % (identifier, sid))
             return None
