@@ -51,14 +51,14 @@ class ServerProcessor(CommonProcessor):
         return self.messenger.message_transmitter
 
     # Override
-    def process_reliable_message(self, r_msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check message delegate
-        if r_msg.delegate is None:
-            r_msg.delegate = self.transceiver
-        receiver = r_msg.receiver
+        if msg.delegate is None:
+            msg.delegate = self.transceiver
+        receiver = msg.receiver
         if receiver.is_group:
             # deliver group message
-            res = self.transmitter.deliver_message(msg=r_msg)
+            res = self.transmitter.deliver_message(msg=msg)
             if receiver.is_broadcast:
                 # if this is a broadcast, deliver it, send back the response
                 # and continue to process it with the station.
@@ -72,10 +72,10 @@ class ServerProcessor(CommonProcessor):
                 return res
         # try to decrypt and process message
         try:
-            return super().process_reliable_message(r_msg=r_msg)
+            return super().process_reliable_message(msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
-                return self.transmitter.deliver_message(msg=r_msg)
+                return self.transmitter.deliver_message(msg=msg)
             else:
                 raise error

@@ -41,6 +41,7 @@ from dimsdk import ContentProcessor
 
 from ..nlp import Dialog
 from ..utils import Log
+from ..messenger import CommonMessenger
 
 
 class TextContentProcessor(ContentProcessor):
@@ -55,10 +56,16 @@ class TextContentProcessor(ContentProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    @ContentProcessor.messenger.getter
+    def messenger(self) -> CommonMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
+        assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
 
     def set_context(self, key: str, value):
+        assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
         self.messenger.set_context(key=key, value=value)
 
     @property

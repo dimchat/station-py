@@ -39,7 +39,7 @@ from libs.common import CommonProcessor
 from .messenger import ClientMessenger
 
 
-class ServerProcessor(CommonProcessor):
+class ClientProcessor(CommonProcessor):
 
     @property
     def messenger(self) -> ClientMessenger:

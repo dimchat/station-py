@@ -38,7 +38,7 @@ from dimp import ID, EVERYONE
 from dimp import InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand, DocumentCommand
 from dimp import GroupCommand
-from dimsdk import Station
+from dimsdk import Station, Processor
 
 from libs.common import CommonMessenger
 
@@ -63,6 +63,13 @@ class ClientMessenger(CommonMessenger):
             barrack = self.barrack
             assert isinstance(barrack, ClientFacebook), 'messenger delegate error: %s' % barrack
         return barrack
+
+    def _create_facebook(self) -> ClientFacebook:
+        return ClientFacebook()
+
+    def _create_processor(self) -> Processor:
+        from .processor import ClientProcessor
+        return ClientProcessor(messenger=self)
 
     @property
     def station(self) -> Station:

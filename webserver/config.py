@@ -104,18 +104,18 @@ g_messenger.key_cache = g_keystore
 # load ANS reserved records
 Log.info('-------- loading ANS reserved records')
 for key, value in ans_reserved_records.items():
-    value = ID(value)
-    assert value.valid, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, value))
+    _id = ID.parse(identifier=value)
+    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
+    Log.info('Name: %s -> ID: %s' % (key, _id))
     if key in ans_keywords:
         # remove reserved name temporary
         index = ans_keywords.index(key)
         ans_keywords.remove(key)
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
         ans_keywords.insert(index, key)
     else:
         # not reserved name, save it directly
-        g_ans.save(key, value)
+        g_ans.save(key, _id)
 
 
 """

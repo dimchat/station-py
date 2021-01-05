@@ -63,6 +63,10 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    @property
+    def messenger(self) -> ClientMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
         return self.messenger.get_context(key=key)
 
@@ -110,11 +114,11 @@ class InnerMessenger(ClientMessenger):
         self.accepted = False
 
     # Override
-    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted:
             return octopus.departure(msg=msg)
         else:
-            return super().process_message(msg=msg)
+            return super().process_reliable_message(msg=msg)
 
 
 class OuterMessenger(ClientMessenger):
@@ -125,11 +129,11 @@ class OuterMessenger(ClientMessenger):
         self.accepted = False
 
     # Override
-    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted:
             return octopus.arrival(msg=msg)
         else:
-            return super().process_message(msg=msg)
+            return super().process_reliable_message(msg=msg)
 
 
 class OctopusClient(Terminal):

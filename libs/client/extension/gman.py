@@ -101,7 +101,7 @@ class GroupManager:
 
         # 0. send 'meta/profile' command to new members
         meta = facebook.meta(self.group)
-        profile = facebook.profile(self.group)
+        profile = facebook.document(identifier=self.group)
         if profile is None or profile.get('data') is None:
             cmd = MetaCommand.response(identifier=self.group, meta=meta)
         else:

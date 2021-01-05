@@ -7,7 +7,7 @@ xmltodict
 mkm
 dkd
 dimp
-dimsdk>=0.5.3
+dimsdk>=0.5.5
 udp
 dmtp>=0.3.0
 pika

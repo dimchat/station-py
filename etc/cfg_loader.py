@@ -8,6 +8,7 @@
 """
 
 import os
+from typing import Union
 
 from dimp import ID, Meta, PrivateKey, Document, User
 from dimsdk import Station
@@ -29,7 +30,7 @@ def load_station_info(identifier: ID, filename: str):
     return Storage.read_json(path=os.path.join(etc, str(identifier.address), filename))
 
 
-def load_station(identifier: str, facebook: CommonFacebook) -> Station:
+def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Station:
     """ Load station info from 'etc' directory
 
         :param identifier - station ID

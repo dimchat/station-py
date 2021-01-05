@@ -39,6 +39,7 @@ from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import CommandProcessor
 
 from ...common import Log, Database
+from ..messenger import ServerMessenger
 
 
 class LoginCommandProcessor(CommandProcessor):
@@ -49,7 +50,12 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    @CommandProcessor.messenger.getter
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
+        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
 
     @property

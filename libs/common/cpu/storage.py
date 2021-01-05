@@ -40,11 +40,17 @@ from dimsdk import ReceiptCommand, StorageCommand
 from dimsdk import CommandProcessor
 
 from ..database import Database
+from ..messenger import CommonMessenger
 
 
 class StorageCommandProcessor(CommandProcessor):
 
+    @CommandProcessor.messenger.getter
+    def messenger(self) -> CommonMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
+        assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
 
     @property

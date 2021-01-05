@@ -77,7 +77,7 @@ class Worker:
         content = msg.get('content')
         if content is None:
             data = msg['data']
-            content = Content(json.loads(data))
+            content = Content.parse(content=json.loads(data))
             assert isinstance(content, TextContent), 'content error: %s' % data
             msg['content'] = content
         # message url
@@ -85,7 +85,7 @@ class Worker:
         if link is None:
             link = msg_url(signature=signature)
             msg['link'] = link
-        return msg
+        return msg.dictionary
 
     def messages(self, identifier: ID, start: int, count: int) -> list:
         array = []

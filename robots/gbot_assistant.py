@@ -162,7 +162,7 @@ class AssistantMessenger(ClientMessenger):
         print('[%s] ERROR - Storage > %s' % (current_time(), msg))
 
     # Override
-    def process_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check message delegate
         if msg.delegate is None:
             msg.delegate = self
@@ -172,7 +172,7 @@ class AssistantMessenger(ClientMessenger):
             # process group message
             return self.__process_group_message(msg=msg)
         # try to decrypt and process message
-        return super().process_message(msg=msg)
+        return super().process_reliable_message(msg=msg)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """

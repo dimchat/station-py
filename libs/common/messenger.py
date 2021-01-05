@@ -34,10 +34,9 @@ from abc import abstractmethod
 from typing import Optional, Union
 
 from dimp import ID, SymmetricKey
-from dimp import InstantMessage
-
-from dimsdk import Messenger, MessengerDataSource, Packer, Processor
-from dkd import ReliableMessage
+from dimp import InstantMessage, ReliableMessage
+from dimp import Packer, Processor
+from dimsdk import Messenger, MessengerDataSource
 
 from .utils import Log
 
@@ -71,6 +70,9 @@ class CommonMessenger(Messenger):
         barrack = super().facebook
         assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
         return barrack
+
+    def _create_facebook(self) -> CommonFacebook:
+        return CommonFacebook()
 
     def _create_packer(self) -> Packer:
         from .packer import CommonPacker

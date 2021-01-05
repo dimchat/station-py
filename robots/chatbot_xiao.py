@@ -82,7 +82,7 @@ def load_freshmen() -> list:
         identifier = ID.parse(identifier=item)
         if identifier is None:
             Log.error('ID error: %s' % item)
-        elif identifier.type == NetworkType.MAIN.value:
+        elif identifier.type == NetworkType.MAIN:
             freshmen.append(identifier)
         else:
             # Log.error('Not a user ID: %s' % identifier)

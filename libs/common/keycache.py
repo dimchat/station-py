@@ -38,9 +38,10 @@
 from abc import abstractmethod
 from typing import Optional
 
+from dimp import SymmetricKey, ID
+from dimp import CipherKeyDelegate
+
 from dimsdk.plugins import PlainKey
-from dimsdk import SymmetricKey, ID
-from dimsdk import CipherKeyDelegate
 
 plain_key = PlainKey({'algorithm': PlainKey.PLAIN})
 

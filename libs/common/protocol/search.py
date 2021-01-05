@@ -32,9 +32,8 @@
 
 from typing import Optional, List
 
-from dimp import Map
 from dimp import ID, Command
-from dimsdk import CommandFactoryBuilder
+from dimp.protocol import CommandFactoryBuilder
 
 
 class SearchCommand(Command):
@@ -107,18 +106,7 @@ class SearchCommand(Command):
         if value is None:
             self.pop('results', None)
         else:
-            self['results'] = pure(value)
-
-
-def pure(__m: dict) -> dict:
-    __t = {}
-    for k in __m:
-        v = __m[k]
-        k = str(k)
-        if isinstance(v, Map):
-            v = v.dictionary
-        __t[k] = v
-    return __t
+            self['results'] = value
 
 
 # register

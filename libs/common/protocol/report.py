@@ -33,7 +33,7 @@
 from typing import Optional
 
 from dimp import Command
-from dimsdk import CommandFactoryBuilder
+from dimp.protocol import CommandFactoryBuilder
 
 
 class ReportCommand(Command):

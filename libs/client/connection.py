@@ -40,6 +40,7 @@ from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
 
 from ..common import Log
+from .messenger import ClientMessenger
 
 
 class Connection(threading.Thread, MessengerDelegate):
@@ -49,7 +50,7 @@ class Connection(threading.Thread, MessengerDelegate):
 
     def __init__(self):
         super().__init__()
-        self.messenger = None  # ClientMessenger
+        self.__messenger = None  # ClientMessenger
         # current station
         self.__address = None
         self.__connected = False
@@ -64,6 +65,14 @@ class Connection(threading.Thread, MessengerDelegate):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def messenger(self) -> ClientMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, value: ClientMessenger):
+        self.__messenger = value
 
     def __del__(self):
         self.disconnect()

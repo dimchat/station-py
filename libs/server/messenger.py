@@ -34,7 +34,8 @@ import time
 from dimp import ID, EVERYWHERE, User
 from dimp import Envelope, InstantMessage
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
-from dimsdk import Processor, MessageTransmitter
+from dimp import Processor
+from dimsdk import MessageTransmitter
 
 from libs.common import CommonMessenger
 
@@ -57,6 +58,9 @@ class ServerMessenger(CommonMessenger):
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
+
+    def _create_facebook(self) -> ServerFacebook:
+        return ServerFacebook()
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor

@@ -25,7 +25,7 @@
 
 import os
 import random
-from typing import Optional
+from typing import Optional, List
 
 from dimp import NetworkType, ID, Meta
 
@@ -123,7 +123,7 @@ class MetaTable(Storage):
             # got it
             meta = self.meta(identifier)
             if meta:
-                results[identifier] = meta
+                results[str(identifier)] = meta.dictionary
                 # force to stop
                 max_count = max_count - 1
                 if max_count <= 0:
@@ -131,7 +131,7 @@ class MetaTable(Storage):
         self.info('Got %d account(s) matched %s' % (len(results), keywords))
         return results
 
-    def scan_ids(self) -> list:
+    def scan_ids(self) -> List[ID]:
         ids = []
         directory = os.path.join(self.root, 'public')
         # get all files in messages directory and sort by filename

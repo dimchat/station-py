@@ -48,7 +48,7 @@ class Filter:
         self.__messenger = messenger
 
     @property
-    def messenger(self):  # ServerMessenger
+    def messenger(self):  # -> ServerMessenger:
         return self.__messenger
 
     @property

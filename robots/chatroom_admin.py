@@ -40,10 +40,10 @@ from typing import Optional
 
 from dimsdk.dos import JSONFile
 
-from dimsdk import ID, EVERYONE
-from dimsdk import Envelope, InstantMessage, ReliableMessage
-from dimsdk import ContentType, Content, Command, TextContent
-from dimsdk import ForwardContent, ReceiptCommand
+from dimp import ID, EVERYONE
+from dimp import Envelope, InstantMessage, ReliableMessage
+from dimp import ContentType, Content, TextContent, ForwardContent, Command
+from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -94,6 +94,10 @@ class ReceiptCommandProcessor(CommandProcessor):
 #
 class ForwardContentProcessor(ContentProcessor):
 
+    @property
+    def messenger(self) -> ClientMessenger:
+        return super().messenger
+
     #
     #   main
     #
@@ -129,8 +133,8 @@ class ChatTextContentProcessor(TextContentProcessor):
 
 
 # register
-ContentProcessor.register(content_type=ContentType.Text, cpu=ChatTextContentProcessor())
-ContentProcessor.register(content_type=ContentType.Forward, cpu=ForwardContentProcessor())
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor())
+ContentProcessor.register(content_type=ContentType.FORWARD, cpu=ForwardContentProcessor())
 CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
 
 
@@ -205,14 +209,14 @@ class Statistic:
             self.__stat_prefix = prefix
 
     def update(self, identifier: ID, stat: StatKey):
-        if stat.value == StatKey.LOGIN.value:
+        if stat.value == StatKey.LOGIN:
             # login times
             array = self.__login_stat.get(identifier)
             if array is None:
                 array = []
                 self.__login_stat[identifier] = array
             array.append(time.time())
-        elif stat.value == StatKey.MESSAGE.value:
+        elif stat.value == StatKey.MESSAGE:
             # message count
             count = self.__message_stat.get(identifier)
             if count is None:

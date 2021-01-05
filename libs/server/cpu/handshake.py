@@ -41,6 +41,7 @@ from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
 from ..session import Session
+from ..messenger import ServerMessenger
 
 
 class HandshakeDelegate(metaclass=ABCMeta):
@@ -52,6 +53,10 @@ class HandshakeDelegate(metaclass=ABCMeta):
 
 
 class HandshakeCommandProcessor(CommandProcessor):
+
+    @CommandProcessor.messenger.getter
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
 
     @property
     def delegate(self) -> HandshakeDelegate:

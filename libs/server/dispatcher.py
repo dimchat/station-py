@@ -232,15 +232,15 @@ class Dispatcher(Thread):
     def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
         if msg_type == 0:
             something = 'a message'
-        elif msg_type == ContentType.Text:
+        elif msg_type == ContentType.TEXT:
             something = 'a text message'
-        elif msg_type == ContentType.File:
+        elif msg_type == ContentType.FILE:
             something = 'a file'
-        elif msg_type == ContentType.Image:
+        elif msg_type == ContentType.IMAGE:
             something = 'an image'
-        elif msg_type == ContentType.Audio:
+        elif msg_type == ContentType.AUDIO:
             something = 'a voice message'
-        elif msg_type == ContentType.Video:
+        elif msg_type == ContentType.VIDEO:
             something = 'a video'
         else:
             self.info('ignore msg type: %d' % msg_type)

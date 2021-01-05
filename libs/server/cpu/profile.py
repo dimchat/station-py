@@ -39,12 +39,17 @@ from dimp import ForwardContent, Command, DocumentCommand
 from dimsdk import CommandProcessor, DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import Database
+from ..messenger import ServerMessenger
 
 
 class DocumentCommandProcessor(SuperCommandProcessor):
 
     def get_context(self, key: str):
         return self.messenger.get_context(key=key)
+
+    @SuperCommandProcessor.messenger.getter
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
 
     @property
     def database(self) -> Database:
@@ -62,7 +67,8 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             # login message not found
             return False
         cmd = ForwardContent(message=msg)
-        return self.messenger.send_content(content=cmd, receiver=sender)
+        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
+        return self.messenger.send_content(sender=None, receiver=sender, content=cmd)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd

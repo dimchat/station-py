@@ -71,9 +71,12 @@ class Dialog:
 
     def ask(self, question: str, sender: ID) -> str:
         # try each chat robots
+        user = str(sender.address)
+        if len(user) > 32:
+            user = user[32:]
         index = 0
         for robot in self.__bots:
-            answer = robot.ask(question=question, user=sender.address)
+            answer = robot.ask(question=question, user=user)
             if answer is None:
                 index += 1
                 continue

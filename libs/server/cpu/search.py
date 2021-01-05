@@ -41,11 +41,17 @@ from dimsdk import CommandProcessor
 from ...common import SearchCommand
 from ...common import Database
 from ..session import SessionServer
+from ..messenger import ServerMessenger
 
 
 class SearchCommandProcessor(CommandProcessor):
 
+    @CommandProcessor.messenger.getter
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
+        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
 
     @property
@@ -67,7 +73,12 @@ class SearchCommandProcessor(CommandProcessor):
 
 class UsersCommandProcessor(CommandProcessor):
 
+    @CommandProcessor.messenger.getter
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
+
     def get_context(self, key: str):
+        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
 
     @property

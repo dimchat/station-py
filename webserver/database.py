@@ -120,7 +120,7 @@ class MessageTable(Storage):
         path = msg_path(signature=signature)
         msg = self.read_json(path=path)
         if msg is not None:
-            return ReliableMessage(msg)
+            return ReliableMessage.parse(msg=msg)
 
     def load(self, signature: str) -> Optional[ReliableMessage]:
         return self.__load_message(signature=signature)
@@ -129,7 +129,7 @@ class MessageTable(Storage):
         signature = msg['signature']
         timestamp = msg.time
         path = msg_path(signature=signature)
-        if not self.write_json(container=msg, path=path):
+        if not self.write_json(container=msg.dictionary, path=path):
             return False
         # append msg info to user's messages list
         sender = msg.sender

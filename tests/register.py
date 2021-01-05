@@ -36,7 +36,7 @@ import unittest
 import sys
 import os
 
-from dimp import Base64
+from dimp import base64_encode
 from dimp import PrivateKey
 from dimp import NetworkType, MetaType, Meta
 
@@ -93,10 +93,10 @@ class AccountTestCase(unittest.TestCase):
             print('[% 5d] %s@%s' % (index, seed, address))
 
             meta = {
-                'version': MetaType.DEFAULT,
+                'version': MetaType.DEFAULT.value,
                 'seed': seed,
                 'key': sk.public_key.dictionary,
-                'fingerprint': Base64.encode(ct),
+                'fingerprint': base64_encode(ct),
             }
             meta = Meta.parse(meta=meta)
             id1 = meta.generate_identifier(network=network)
