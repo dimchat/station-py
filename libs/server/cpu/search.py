@@ -33,6 +33,7 @@
 
 from typing import Optional
 
+from dimp import Meta
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
@@ -92,12 +93,12 @@ class UsersCommandProcessor(CommandProcessor):
         results = {}
         for item in users:
             meta = facebook.meta(identifier=item)
-            if meta is not None:
-                results[item] = meta
+            if isinstance(meta, Meta):
+                results[str(item)] = meta.dictionary
         return SearchCommand(users=users, results=results)
 
 
 # register
 spu = SearchCommandProcessor()
 CommandProcessor.register(command=SearchCommand.SEARCH, cpu=SearchCommandProcessor())
-CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=SearchCommandProcessor())
+CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=UsersCommandProcessor())

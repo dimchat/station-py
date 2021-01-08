@@ -16,8 +16,8 @@ class PushMessageService:
             channel.queue_declare(queue=self.queue_key)
 
             json_dict = {
-                "from": sender.address,
-                "to": receiver.address,
+                "from": str(sender.address),
+                "to": str(receiver.address),
                 "message": "{0}".format(message),
                 "platform": "ios"
             }
