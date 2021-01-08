@@ -63,10 +63,18 @@ class ProfileTable(Storage):
             data = dictionary.get('data')
             if data is None:
                 data = dictionary.get('profile')
-                if data is not None:
-                    dictionary['data'] = data
-                    dictionary.pop('profile')
-            return Document.parse(dictionary)
+                if data is None:
+                    return None
+            signature = dictionary.get('signature')
+            if signature is None:
+                return None
+            if identifier.is_group:
+                doc_type = Document.BULLETIN
+            elif identifier.is_user:
+                doc_type = Document.VISA
+            else:
+                doc_type = Document.PROFILE
+            return Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
 
     def __save_profile(self, profile: Document) -> bool:
         identifier = profile.identifier
