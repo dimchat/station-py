@@ -38,7 +38,9 @@ from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import CommandProcessor
 
-from ...common import Log, Database
+from libs.utils import Log
+from libs.common import Database
+
 from ..messenger import ServerMessenger
 
 

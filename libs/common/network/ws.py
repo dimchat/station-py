@@ -39,7 +39,7 @@ import struct
 
 from dimp import base64_encode
 
-from ..utils import Log
+from libs.utils import Log
 
 
 class WebSocket:

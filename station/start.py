@@ -41,8 +41,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log
-from libs.mtp import Server as UDPServer
+from libs.utils import Log
+from libs.utils.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
 from station.config import g_receptionist, g_dispatcher, current_station

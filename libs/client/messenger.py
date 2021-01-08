@@ -31,18 +31,13 @@
 """
 
 import time
-from typing import Union
 
-import dkd
 from dimp import ID, EVERYONE
-from dimp import InstantMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand, DocumentCommand
-from dimp import GroupCommand
-from dimsdk import Station, Processor
+from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimp import Transceiver
+from dimsdk import Station
 
 from libs.common import CommonMessenger
-
-from .facebook import ClientFacebook
 
 
 class ClientMessenger(CommonMessenger):
@@ -56,18 +51,7 @@ class ClientMessenger(CommonMessenger):
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
 
-    @property
-    def facebook(self) -> ClientFacebook:
-        barrack = self.get_context('facebook')
-        if barrack is None:
-            barrack = self.barrack
-            assert isinstance(barrack, ClientFacebook), 'messenger delegate error: %s' % barrack
-        return barrack
-
-    def _create_facebook(self) -> ClientFacebook:
-        return ClientFacebook()
-
-    def _create_processor(self) -> Processor:
+    def _create_processor(self) -> Transceiver.Processor:
         from .processor import ClientProcessor
         return ClientProcessor(messenger=self)
 
@@ -124,18 +108,3 @@ class ClientMessenger(CommonMessenger):
             if self.send_content(sender=None, receiver=item, content=cmd):
                 checking = True
         return checking
-
-    #
-    #   Message
-    #
-    def save_message(self, msg: InstantMessage) -> bool:
-        # TODO: save instant message
-        return True
-
-    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]):
-        if isinstance(msg, dkd.ReliableMessage):
-            # TODO: save this message in a queue waiting sender's meta response
-            pass
-        elif isinstance(msg, dkd.InstantMessage):
-            # TODO: save this message in a queue waiting receiver's meta response
-            pass

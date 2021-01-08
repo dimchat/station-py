@@ -31,9 +31,9 @@
     2. show online users (connected)
 """
 
-import json
 from typing import Optional
 
+from dimp import json_encode
 from dimp import ReliableMessage
 from dimp import Content
 from dimp import Command
@@ -52,11 +52,11 @@ class SearchCommandProcessor(CommandProcessor):
         # users
         users = cmd.get('users')
         if users is not None:
-            print('      users:', json.dumps(users))
+            print('      users:', json_encode(users))
         # results
         results = cmd.get('results')
         if results is not None:
-            print('      results:', json.dumps(results))
+            print('      results:', json_encode(results))
         return None
 
 
@@ -70,7 +70,7 @@ class UsersCommandProcessor(CommandProcessor):
         # users
         users = cmd.get('users')
         if users is not None:
-            print('      users:', json.dumps(users))
+            print('      users:', json_encode(users))
         return None
 
 

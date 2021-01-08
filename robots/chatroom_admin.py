@@ -38,8 +38,6 @@ import weakref
 from enum import IntEnum
 from typing import Optional
 
-from dimsdk.dos import JSONFile
-
 from dimp import ID, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, ForwardContent, Command
@@ -51,7 +49,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log
+from libs.utils import Log
+from libs.utils.dos import JSONFile
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
 
@@ -339,7 +338,7 @@ class ChatRoom:
         self.__users.append(identifier)
         self.__refresh()
         if not exists:
-            nickname = self.facebook.nickname(identifier=identifier)
+            nickname = self.facebook.name(identifier=identifier)
             self.__broadcast(text='Welcome %s (%s)!' % (nickname, identifier))
             self.__statistic.update(identifier=identifier, stat=StatKey.LOGIN)
         return True

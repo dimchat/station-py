@@ -41,12 +41,12 @@ from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 from dimsdk import ReceiptCommand
 
-from ..common import Server
-from ..common import Database, CommonFacebook
-from ..common import Log
+from libs.utils import Log
+from libs.common import Server
+from libs.common import Database, CommonFacebook
+from libs.common.push_message_service import PushMessageService
 
 from .session import SessionServer
-from libs.common.push_message_service import PushMessageService
 
 
 class Dispatcher(Thread):
@@ -245,13 +245,13 @@ class Dispatcher(Thread):
         else:
             self.info('ignore msg type: %d' % msg_type)
             return False
-        from_name = self.facebook.nickname(identifier=sender)
-        to_name = self.facebook.nickname(identifier=receiver)
+        from_name = self.facebook.name(identifier=sender)
+        to_name = self.facebook.name(identifier=receiver)
         text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
         # check group
         if group is not None:
             # group message
-            text += ' in group [%s]' % self.facebook.group_name(identifier=group)
+            text += ' in group [%s]' % self.facebook.name(identifier=group)
         # push it
         self.info('APNs message: %s' % text)
         # return self.apns.push(identifier=receiver, message=text)

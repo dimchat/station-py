@@ -36,7 +36,7 @@ import unittest
 import sys
 import os
 
-from dimp import base64_encode
+from dimp import base64_encode, utf8_encode
 from dimp import PrivateKey
 from dimp import NetworkType, MetaType, Meta
 
@@ -80,7 +80,7 @@ class AccountTestCase(unittest.TestCase):
             print('*** registering account (%s)' % seed)
 
         # seed
-        data = seed.encode('utf-8')
+        data = utf8_encode(string=seed)
 
         for index in range(0, 10000):
 

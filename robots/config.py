@@ -39,10 +39,10 @@ from dimsdk.ans import keywords as ans_keywords
 #
 #  Common Libs
 #
-from libs.common import Log
-from libs.common import Database, AddressNameServer, KeyStore
-from libs.common import ChatBot, Tuling, XiaoI
-from libs.client import Terminal, ClientMessenger, ClientFacebook
+from libs.utils import Log
+from libs.utils.nlp import ChatBot, Tuling, XiaoI
+from libs.common import Database, AddressNameServer, KeyStore, CommonFacebook
+from libs.client import Terminal, ClientMessenger
 
 #
 #  Configurations
@@ -94,7 +94,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = ClientFacebook()
+g_facebook = CommonFacebook()
 g_facebook.database = g_database
 g_facebook.ans = g_ans
 

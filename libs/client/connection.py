@@ -39,7 +39,8 @@ from typing import Optional, Union
 from dimp import InstantMessage
 from dimsdk import Station, CompletionHandler, MessengerDelegate
 
-from ..common import Log
+from libs.utils import Log
+
 from .messenger import ClientMessenger
 
 

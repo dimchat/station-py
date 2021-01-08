@@ -47,7 +47,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log, Database
+from libs.utils import Log
+from libs.common import Database
 
 from libs.client import Terminal, ClientMessenger
 

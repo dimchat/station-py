@@ -9,7 +9,7 @@ from dmtp import Command, HelloCommand
 from dmtp import Message
 from dmtp import Server as DMTPServer
 
-from libs.common import Log
+from libs.utils import Log
 
 from .manager import ContactManager, FieldValueEncoder
 

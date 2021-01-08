@@ -32,8 +32,8 @@ from typing import Optional
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import MessageTransmitter
 
+from libs.common import CommonFacebook
 from .dispatcher import Dispatcher
-from .facebook import ServerFacebook
 from .messenger import ServerMessenger
 
 
@@ -46,7 +46,7 @@ class ServerTransmitter(MessageTransmitter):
         return transceiver
 
     @property
-    def facebook(self) -> ServerFacebook:
+    def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
     @property

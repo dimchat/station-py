@@ -34,7 +34,8 @@ from dimp import ID
 from dimp import Content, Command, GroupCommand
 from dimp import MetaCommand, DocumentCommand
 
-from ..facebook import ClientFacebook
+from libs.common import CommonFacebook
+
 from ..messenger import ClientMessenger
 
 
@@ -46,10 +47,8 @@ class GroupManager:
         self.messenger: ClientMessenger = None
 
     @property
-    def facebook(self) -> ClientFacebook:
-        barrack = self.messenger.facebook
-        assert isinstance(barrack, ClientFacebook), 'Facebook error: %s' % barrack
-        return barrack
+    def facebook(self) -> CommonFacebook:
+        return self.messenger.facebook
 
     def send(self, content: Content) -> bool:
         """

@@ -39,8 +39,9 @@ from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
-from ..nlp import Dialog
-from ..utils import Log
+from libs.utils import Log
+from libs.utils.nlp import Dialog
+
 from ..messenger import CommonMessenger
 
 
@@ -111,7 +112,7 @@ class TextContentProcessor(ContentProcessor):
             raise ValueError('text content error: %s' % content)
         # checking '@nickname'
         receiver = msg.receiver
-        at = '@%s' % self.facebook.nickname(identifier=receiver)
+        at = '@%s' % self.facebook.name(identifier=receiver)
         self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
         if text.find(at) < 0:
             self.info('ignore group message that not querying me: %s' % text)
@@ -126,7 +127,7 @@ class TextContentProcessor(ContentProcessor):
     def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         sender = msg.sender
-        nickname = self.facebook.nickname(identifier=sender)
+        nickname = self.facebook.name(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
         self.info('Received text message from %s: %s' % (nickname, content))

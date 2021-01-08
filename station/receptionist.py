@@ -40,7 +40,7 @@ from typing import Optional
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
-from libs.common import Log
+from libs.utils import Log
 from libs.common import Storage, Database, CommonFacebook
 from libs.common import Server
 from libs.server import SessionServer

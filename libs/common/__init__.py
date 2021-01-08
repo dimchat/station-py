@@ -30,10 +30,6 @@
     Common libs for Server or Client
 """
 
-from .utils import Log
-
-from .nlp import Dialog, ChatBot, Tuling, XiaoI
-
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
 from .network import Server
@@ -53,13 +49,6 @@ from .push_message_service import PushMessageService
 
 
 __all__ = [
-    #
-    #   Utils
-    #
-    'Log',
-
-    # NLP
-    'Dialog', 'ChatBot', 'Tuling', 'XiaoI',
 
     #
     #   Protocol

@@ -33,7 +33,7 @@ from dimp import base64_encode, sha256
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 
-from ..mtp.utils import Utils as MTUUtils
+from libs.utils.mtp import MTPUtils
 
 from .messenger import CommonMessenger
 
@@ -89,7 +89,7 @@ class CommonPacker(MessagePacker):
             return super().serialize_message(msg=msg)
         else:
             # D-MTP
-            return MTUUtils.serialize_message(msg=msg)
+            return MTPUtils.serialize_message(msg=msg)
 
     def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
@@ -99,7 +99,7 @@ class CommonPacker(MessagePacker):
             return super().deserialize_message(data=data)
         else:
             # D-MTP
-            return MTUUtils.deserialize_message(data=data)
+            return MTPUtils.deserialize_message(data=data)
 
     def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
         s_msg = super().encrypt_message(msg=msg)

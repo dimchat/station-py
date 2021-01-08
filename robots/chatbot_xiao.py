@@ -44,8 +44,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
-from libs.common import Log, Storage
-
+from libs.utils import Log
+from libs.common import Storage
 from libs.client import Terminal, ClientMessenger
 from libs.client import GroupManager
 
@@ -137,7 +137,7 @@ class FreshmenScanner(threading.Thread):
         return users
 
     def __welcome(self, freshmen: list) -> TextContent:
-        names = [g_facebook.nickname(item) for item in freshmen]
+        names = [g_facebook.name(item) for item in freshmen]
         count = len(names)
         if count == 1:
             string = names[0]

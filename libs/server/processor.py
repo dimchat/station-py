@@ -48,7 +48,7 @@ class ServerProcessor(CommonProcessor):
 
     @property
     def transmitter(self) -> ServerTransmitter:
-        return self.messenger.message_transmitter
+        return self.messenger.transmitter
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:

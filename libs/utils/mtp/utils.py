@@ -14,7 +14,7 @@ from dmtp import StringValue, BinaryValue
 from dimp import ReliableMessage
 
 
-class Utils:
+class MTPUtils:
 
     @classmethod
     def parse_head(cls, data: bytes) -> Header:

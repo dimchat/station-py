@@ -39,12 +39,11 @@ from dimsdk.ans import keywords as ans_keywords
 #
 #  Common Libs
 #
-from libs.common import Log
-from libs.common import Server
-from libs.common import Database, AddressNameServer
-from libs.common import KeyStore
-from libs.common import ChatBot, Tuling, XiaoI
-from libs.server import ServerFacebook, ServerMessenger, SessionServer
+from libs.utils import Log
+from libs.utils.nlp import ChatBot, Tuling, XiaoI
+from libs.common import Server, AddressNameServer
+from libs.common import Database, KeyStore, CommonFacebook
+from libs.server import ServerMessenger, SessionServer
 from libs.server import Dispatcher
 from libs.server import ApplePushNotificationService
 
@@ -100,7 +99,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = ServerFacebook()
+g_facebook = CommonFacebook()
 g_facebook.database = g_database
 g_facebook.ans = g_ans
 

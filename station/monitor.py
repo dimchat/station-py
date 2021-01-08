@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import Envelope, InstantMessage
 
-from libs.common import Log
+from libs.utils import Log
 from libs.common import Database, CommonFacebook
 from libs.common import KeyStore
 from libs.server import ServerMessenger

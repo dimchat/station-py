@@ -40,13 +40,13 @@ from typing import Optional
 
 import numpy
 
-from dimp import hex_encode, sha1
+from dimp import hex_encode, utf8_encode, sha1
 
 from .chatbot import ChatBot
 
 
 def sha_hex(string: str) -> str:
-    return hex_encode(sha1(string.encode('utf-8')))
+    return hex_encode(data=sha1(data=utf8_encode(string=string)))
 
 
 class XiaoI(ChatBot):
@@ -83,7 +83,7 @@ class XiaoI(ChatBot):
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'X-Auth': self.__auth(),
         }
-        http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
+        http_post = urllib.request.Request(self.api_url, data=utf8_encode(string=request), headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
         if data is not None:

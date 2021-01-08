@@ -39,6 +39,8 @@ import json
 import urllib.request
 from typing import Optional
 
+from dimp import utf8_encode
+
 from .chatbot import ChatBot
 
 
@@ -76,7 +78,7 @@ class Tuling(ChatBot):
     def __post(self, text: str) -> dict:
         request = self.__request(text=text)
         headers = {'content-type': 'application/json'}
-        http_post = urllib.request.Request(self.api_url, data=request.encode('utf-8'), headers=headers)
+        http_post = urllib.request.Request(self.api_url, data=utf8_encode(string=request), headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
         if data is not None and len(data) > 0:

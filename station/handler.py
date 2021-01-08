@@ -30,17 +30,17 @@
     Handler for each connection
 """
 
-import json
 import traceback
 from socketserver import StreamRequestHandler
 from typing import Optional
 
+from dimp import json_encode
 from dimp import User, NetworkType
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
 
-from libs.common import Log
+from libs.utils import Log
 from libs.common import NetMsgHead, NetMsg
 from libs.common import WebSocket
 from libs.common import CommonPacker
@@ -48,7 +48,7 @@ from libs.server import Session
 from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
 
-from libs.mtp.utils import Utils as MTPUtils
+from libs.utils.mtp import MTPUtils
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
@@ -130,7 +130,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         else:
             if user.identifier.type == NetworkType.STATION:
                 g_dispatcher.remove_neighbor(station=user)
-            nickname = g_facebook.nickname(identifier=user.identifier)
+            nickname = g_facebook.name(identifier=user.identifier)
             session = g_session_server.get(identifier=user.identifier, client_address=address)
             if session is None:
                 self.error('user %s not login yet %s %s' % (user, address, station_name))
@@ -167,7 +167,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
                     # it seems be a D-MTP package!
                     self.__process_package = self.process_dmtp_package
                     self.__push_data = self.push_dmtp_data
-                    packer = self.messenger.message_packer
+                    packer = self.messenger.packer
                     assert isinstance(packer, CommonPacker), 'packer error: %s' % packer
                     packer.mtp_format = packer.MTP_DMTP
                     break
@@ -374,8 +374,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         return self.send(data=data)
 
     def push_message(self, msg: ReliableMessage) -> bool:
-        data = json.dumps(msg)
-        body = data.encode('utf-8')
+        body = json_encode(msg.dictionary)
         return self.__push_data(body=body)
 
     #

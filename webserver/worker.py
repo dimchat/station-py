@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import Content, TextContent
 from dimsdk import Facebook
 
-from libs.common import Log
+from libs.utils import Log
 
 from webserver.config import msg_url
 from webserver.database import UserTable, MessageTable

@@ -13,7 +13,8 @@ from typing import Union
 from dimp import ID, Meta, PrivateKey, Document, User
 from dimsdk import Station
 
-from libs.common import Storage, Log, Server, CommonFacebook
+from libs.utils import Log
+from libs.common import Storage, Server, CommonFacebook
 
 etc = os.path.abspath(os.path.dirname(__file__))
 

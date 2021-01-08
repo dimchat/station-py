@@ -32,7 +32,6 @@
 from .cpu import *
 
 from .session import Session, SessionServer
-from .facebook import ServerFacebook
 from .messenger import ServerMessenger
 from .processor import ServerProcessor
 from .transmitter import ServerTransmitter
@@ -47,7 +46,7 @@ __all__ = [
     'HandshakeDelegate',
 
     'Session', 'SessionServer',
-    'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
+    'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
     'Dispatcher', 'Filter',
 
     'ApplePushNotificationService',

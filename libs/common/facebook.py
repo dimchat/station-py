@@ -29,13 +29,15 @@
 
     Barrack for cache entities
 """
-
+import time
+import weakref
 from typing import Optional, List
 
 from dimp import PrivateKey, SignKey
 from dimp import ID, Meta, Document, User
 from dimsdk import Facebook
-from dimsdk.immortals import Immortals
+
+from libs.utils.immortals import Immortals
 
 from .database import Database
 
@@ -44,6 +46,7 @@ class CommonFacebook(Facebook):
 
     def __init__(self):
         super().__init__()
+        self.__messenger = None
         self.database: Database = None
         # built-in accounts
         #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
@@ -52,23 +55,26 @@ class CommonFacebook(Facebook):
         self.__local_users = None
         self.group_assistants = None  # robot ID list
 
-    def nickname(self, identifier: ID) -> str:
-        assert identifier.is_user, 'user ID error: %s' % identifier
-        profile = self.document(identifier=identifier)
-        if profile is not None:
-            name = profile.name
-            if name is not None and len(name) > 0:
-                return name
-        return identifier.name
+    @property
+    def messenger(self):  # CommonMessenger
+        if self.__messenger is None:
+            return None
+        return self.__messenger()
 
-    def group_name(self, identifier: ID) -> str:
-        assert identifier.is_group, 'group ID error: %s' % identifier
+    @messenger.setter
+    def messenger(self, value):
+        self.__messenger = weakref.ref(value)
+
+    def name(self, identifier: ID) -> str:
         profile = self.document(identifier=identifier)
         if profile is not None:
             name = profile.name
             if name is not None and len(name) > 0:
                 return name
-        return identifier.name
+        name = identifier.name
+        if name is not None and len(name) > 0:
+            return name
+        return str(identifier.address)
 
     #
     #   super()
@@ -123,16 +129,46 @@ class CommonFacebook(Facebook):
     #
 
     def meta(self, identifier: ID) -> Optional[Meta]:
+        if identifier.is_broadcast:
+            # broadcast ID has not meta
+            return None
         info = self.database.meta(identifier=identifier)
-        if info is not None:
+        if info is None:
+            info = self.__immortals.meta(identifier=identifier)
+        if info is not None and 'key' in info:
             return info
-        return self.__immortals.meta(identifier=identifier)
+        # query from DIM network
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_meta(identifier=identifier)
+
+    EXPIRES = 3600  # profile expires (1 hour)
+    EXPIRES_KEY = 'expires'
 
     def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
         info = self.database.profile(identifier=identifier)
+        if info is None:
+            info = self.__immortals.document(identifier=identifier, doc_type=doc_type)
         if info is not None:
-            return info
-        return self.__immortals.document(identifier=identifier, doc_type=doc_type)
+            # check expired time
+            now = time.time()
+            expires = info.get(self.EXPIRES_KEY)
+            if expires is None:
+                # set expired time
+                info[self.EXPIRES_KEY] = now + self.EXPIRES
+                # is empty?
+                if 'data' in info:
+                    return info
+            elif expires > now:
+                # not expired yet
+                return info
+            # DISCUSS: broadcast profile to every stations when user upload it
+            #          no need to query other stations time by time
+        # query from DIM network
+        messenger = self.messenger
+        if messenger is not None:
+            messenger.query_profile(identifier=identifier)
+        return info
 
     #
     #   UserDataSource

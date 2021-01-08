@@ -38,7 +38,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimp import Packer, Processor
 from dimsdk import Messenger, MessengerDataSource
 
-from .utils import Log
+from libs.utils import Log
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook
@@ -72,7 +72,10 @@ class CommonMessenger(Messenger):
         return barrack
 
     def _create_facebook(self) -> CommonFacebook:
-        return CommonFacebook()
+        # facebook = CommonFacebook()
+        # facebook.messenger = self
+        # return facebook
+        raise AssertionError('set facebook first')
 
     def _create_packer(self) -> Packer:
         from .packer import CommonPacker

@@ -41,7 +41,6 @@ from libs.common import CommonMessenger
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
-from .facebook import ServerFacebook
 from .filter import Filter
 
 
@@ -59,9 +58,6 @@ class ServerMessenger(CommonMessenger):
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
 
-    def _create_facebook(self) -> ServerFacebook:
-        return ServerFacebook()
-
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
         return ServerProcessor(messenger=self)
@@ -69,12 +65,6 @@ class ServerMessenger(CommonMessenger):
     def _create_transmitter(self) -> MessageTransmitter:
         from .transmitter import ServerTransmitter
         return ServerTransmitter(messenger=self)
-
-    @property
-    def facebook(self) -> ServerFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, ServerFacebook), 'facebook error: %s' % barrack
-        return barrack
 
     @property
     def dispatcher(self) -> Dispatcher:

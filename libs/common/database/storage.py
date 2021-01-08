@@ -25,7 +25,7 @@
 
 import time
 
-from dimsdk.dos import File, TextFile, JSONFile
+from libs.utils.dos import File, TextFile, JSONFile
 
 
 def current_time() -> str:

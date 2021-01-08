@@ -32,7 +32,6 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
@@ -59,14 +58,6 @@ class Filter:
     def database(self) -> Database:
         return self.facebook.database
 
-    def __name(self, identifier: ID) -> str:
-        profile = self.facebook.document(identifier)
-        if profile is not None:
-            name = profile.name
-            if name is not None:
-                return name
-        return identifier
-
     #
     #   check
     #
@@ -76,11 +67,11 @@ class Filter:
         group = envelope.group
         # check block-list
         if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
-            nickname = self.__name(identifier=receiver)
+            nickname = self.facebook.name(identifier=receiver)
             if group is None:
                 text = 'Message is blocked by %s' % nickname
             else:
-                grp_name = self.__name(identifier=group)
+                grp_name = self.facebook.name(identifier=group)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
             res = TextContent(text=text)

@@ -40,7 +40,7 @@ from apns2.payload import Payload
 
 from dimp import ID
 
-from dimsdk.dos import JSONFile
+from libs.utils.dos import JSONFile
 
 
 """

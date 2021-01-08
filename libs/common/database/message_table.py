@@ -23,12 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 import os
 import time
 
+from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
-from dimp import ReliableMessage
+from dimp import Message, ReliableMessage
 
 from .storage import Storage
 
@@ -64,7 +64,6 @@ class MessageTable(Storage):
         data = self.read_text(path=path)
         lines = data.splitlines()
         self.info('read %d line(s) from %s' % (len(lines), path))
-        # messages = [ReliableMessage(json.loads(line)) for line in lines]
         messages = []
         for line in lines:
             msg = line.strip()
@@ -72,7 +71,7 @@ class MessageTable(Storage):
                 self.info('skip empty line')
                 continue
             try:
-                msg = json.loads(msg)
+                msg = json_decode(data=utf8_encode(string=msg))
                 msg = ReliableMessage.parse(msg=msg)
                 messages.append(msg)
             except Exception as error:
@@ -100,7 +99,8 @@ class MessageTable(Storage):
             return False
         # self.info('Appending message into: %s' % path)
         # message data
-        data = json.dumps(msg) + '\n'
+        data = utf8_decode(data=json_encode(msg.dictionary))
+        data = data + '\n'
         return self.append_text(text=data, path=path)
 
     def load_message_batch(self, receiver: ID) -> dict:
@@ -153,7 +153,12 @@ class MessageTable(Storage):
             messages = messages[removed_count:]
             for msg in messages:
                 # message data
-                data = json.dumps(msg) + '\n'
+                if isinstance(msg, Message):
+                    dictionary = msg.dictionary
+                else:
+                    dictionary = msg
+                data = utf8_decode(data=json_encode(dictionary))
+                data = data + '\n'
                 self.append_text(text=data, path=path)
             self.info('the rest messages(%d) write back into file: %s' % path)
         return True

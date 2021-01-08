@@ -39,7 +39,7 @@ import os
 from typing import Optional
 
 from dimp import User
-from dimsdk.dos import JSONFile
+from libs.utils.dos import JSONFile
 
 from .keycache import KeyCache
 

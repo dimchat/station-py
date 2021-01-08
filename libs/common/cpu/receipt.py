@@ -41,7 +41,7 @@ class ReceiptCommandProcessor(CommandProcessor):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
-        # nickname = self.facebook.nickname(identifier=sender)
+        # nickname = self.facebook.name(identifier=sender)
         # self.info('Received receipt message from %s (%s)' % (nickname, sender))
         return None
 

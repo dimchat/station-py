@@ -9,8 +9,8 @@
 
 from .contact import *
 from .manager import *
-
 from .server import *
+from .utils import *
 
 
 __all__ = [
@@ -21,4 +21,5 @@ __all__ = [
     'ContactManager',
 
     'Server',
+    'MTPUtils',
 ]

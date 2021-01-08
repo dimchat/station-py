@@ -31,9 +31,9 @@
     Simple client for testing
 """
 
-import json
 from cmd import Cmd
 
+from dimp import json_decode, utf8_encode
 from dimp import ID, Document
 from dimp import TextContent
 from dimp import Command, DocumentCommand
@@ -133,7 +133,7 @@ class Console(Cmd):
         else:
             self.info('login as %s' % sender)
             self.login(identifier=sender)
-            self.prompt = Console.prompt + sender.name + '$ '
+            self.prompt = Console.prompt + g_facebook.name(identifier=sender) + '$ '
 
     def do_logout(self, arg):
         if self.client is None:
@@ -199,7 +199,7 @@ class Console(Cmd):
             identifier = g_facebook.current_user.identifier
         elif name.startswith('{') and name.endswith('}'):
             identifier = g_facebook.current_user.identifier
-            profile = json.loads(name)
+            profile = json_decode(data=utf8_encode(string=name))
         else:
             identifier = ID.parse(identifier=name)
             if identifier is None:
