@@ -356,6 +356,7 @@ class ChatRoom:
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=content)
         s_msg = messenger.encrypt_message(msg=i_msg)
+        assert s_msg is not None, 'failed to broadcast message: %s' % text
         r_msg = messenger.sign_message(msg=s_msg)
         # split for online users
         users = self.__users.copy()

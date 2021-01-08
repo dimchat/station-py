@@ -169,6 +169,11 @@ class AssistantMessenger(ClientMessenger):
         receiver = msg.receiver
         if receiver.is_group:
             # FIXME: check group meta/profile
+            meta = self.facebook.meta(identifier=receiver)
+            if meta is None:
+                self.suspend_message(msg=msg)
+                self.info(msg='waiting for meta of group: %s' % receiver)
+                return None
             # process group message
             return self.__process_group_message(msg=msg)
         # try to decrypt and process message
@@ -203,6 +208,10 @@ class AssistantMessenger(ClientMessenger):
                 env = Envelope.create(sender=sender, receiver=receiver)
                 i_msg = InstantMessage.create(head=env, body=cmd)
                 s_msg = self.encrypt_message(msg=i_msg)
+                if s_msg is None:
+                    self.error(msg='failed to encrypt message: %s' % i_msg)
+                    self.suspend_message(msg=i_msg)
+                    return None
                 return self.sign_message(msg=s_msg)
         members = g_facebook.members(receiver)
         if members is None or len(members) == 0:
@@ -239,6 +248,10 @@ class AssistantMessenger(ClientMessenger):
             env = Envelope.create(sender=sender, receiver=receiver)
             i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.encrypt_message(msg=i_msg)
+            if s_msg is None:
+                self.error(msg='failed to encrypt message: %s' % i_msg)
+                self.suspend_message(msg=i_msg)
+                return None
             return self.sign_message(msg=s_msg)
 
     def __split_group_message(self, msg: ReliableMessage, members: list) -> Optional[Content]:

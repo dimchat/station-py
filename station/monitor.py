@@ -89,6 +89,7 @@ class Monitor:
         env = Envelope.create(sender=self.sender, receiver=receiver, time=timestamp)
         i_msg = InstantMessage.create(head=env, body=content)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
+        assert s_msg is not None, 'failed to report: %s, %s' % (receiver, text)
         r_msg = self.messenger.sign_message(msg=s_msg)
         if r_msg.delegate is None:
             r_msg.delegate = self.messenger

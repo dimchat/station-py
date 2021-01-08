@@ -70,4 +70,6 @@ class ServerTransmitter(MessageTransmitter):
             env = Envelope.create(sender=user.identifier, receiver=msg.sender)
             i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.messenger.encrypt_message(msg=i_msg)
+            if s_msg is None:
+                raise AssertionError('failed to respond to: %s' % msg.sender)
             return self.messenger.sign_message(msg=s_msg)

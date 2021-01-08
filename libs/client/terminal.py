@@ -111,11 +111,14 @@ class Terminal(HandshakeDelegate):
         server = self.messenger.station
         cmd = HandshakeCommand.start()
         env = Envelope.create(sender=user.identifier, receiver=server.identifier)
-        msg = InstantMessage.create(head=env, body=cmd)
-        msg = self.messenger.sign_message(self.messenger.encrypt_message(msg=msg))
+        i_msg = InstantMessage.create(head=env, body=cmd)
+        s_msg = self.messenger.encrypt_message(msg=i_msg)
+        assert s_msg is not None, 'failed to handshake with server: %s' % server.identifier
+        r_msg = self.messenger.sign_message(msg=s_msg)
+        assert r_msg is not None, 'failed to sign message as user: %s' % user.identifier
         # carry meta for first handshake
-        msg.meta = user.meta
-        data = self.messenger.serialize_message(msg=msg)
+        r_msg.meta = user.meta
+        data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
         handler: CompletionHandler = None
         self.messenger.delegate.send_package(data=data, handler=handler)
