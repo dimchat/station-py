@@ -102,7 +102,7 @@ class SearchCommand(Command):
         return self.get('results')
 
     @results.setter
-    def results(self, value):
+    def results(self, value: dict):
         if value is None:
             self.pop('results', None)
         else:

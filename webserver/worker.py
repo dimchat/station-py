@@ -79,7 +79,7 @@ class Worker:
             data = msg['data']
             content = Content.parse(content=json.loads(data))
             assert isinstance(content, TextContent), 'content error: %s' % data
-            msg['content'] = content
+            msg['content'] = content.dictionary
         # message url
         link = msg.get('link')
         if link is None:

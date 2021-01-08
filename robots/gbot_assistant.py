@@ -255,9 +255,9 @@ class AssistantMessenger(ClientMessenger):
                 failed_list.append(item.receiver)
         response = ReceiptCommand(message='Group message delivering')
         if len(success_list) > 0:
-            response['success'] = success_list
+            response['success'] = ID.revert(success_list)
         if len(failed_list) > 0:
-            response['failed'] = failed_list
+            response['failed'] = ID.revert(failed_list)
             # failed to get keys for this members,
             # query from sender by invite members
             sender = msg.sender

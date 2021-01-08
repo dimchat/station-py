@@ -161,7 +161,7 @@ class Dispatcher(Thread):
         if sessions is not None:
             # tell the bridge ignore this neighbor stations
             sent_neighbors.append(sid)
-            msg['sent_neighbors'] = sent_neighbors
+            msg['sent_neighbors'] = ID.revert(sent_neighbors)
             self.__push_message(msg=msg, receiver=sid, sessions=sessions)
         # FIXME: what about the failures
         # response
