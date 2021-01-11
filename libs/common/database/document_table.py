@@ -31,7 +31,7 @@ from dimp import ID, Document
 from .storage import Storage
 
 
-class ProfileTable(Storage):
+class DocumentTable(Storage):
 
     def __init__(self):
         super().__init__()
@@ -49,20 +49,20 @@ class ProfileTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
 
-    def save_profile(self, profile: Document) -> bool:
-        if not profile.valid:
+    def save_document(self, document: Document) -> bool:
+        if not document.valid:
             # raise ValueError('document not valid: %s' % profile)
-            self.error('document not valid: %s' % profile)
+            self.error('document not valid: %s' % document)
             return False
-        identifier = profile.identifier
+        identifier = document.identifier
         # 1. store into memory cache
-        self.__caches[identifier] = profile
+        self.__caches[identifier] = document
         # 2. save into local storage
         path = self.__path(identifier=identifier)
         self.info('saving document into: %s' % path)
-        return self.write_json(container=profile.dictionary, path=path)
+        return self.write_json(container=document.dictionary, path=path)
 
-    def profile(self, identifier: ID, doc_type: str='*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
         # 1. try from memory cache
         info = self.__caches.get(identifier)
         if info is None:

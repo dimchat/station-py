@@ -77,7 +77,7 @@ def upload_profile() -> Response:
             raise ValueError('profile empty: %s' % identifier)
         else:
             profile = Document.parse(document=json.loads(profile))
-            if not g_facebook.save_profile(profile=profile, identifier=identifier):
+            if not g_facebook.save_document(document=profile):
                 raise ValueError('profile not acceptable: %s' % identifier)
         # OK
         return user(identifier)

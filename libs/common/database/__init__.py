@@ -29,6 +29,8 @@
 
 """
 
+from typing import Optional
+
 from dimp import PrivateKey
 from dimp import ID, Meta, Document
 from dimp import Command
@@ -38,7 +40,7 @@ from dimsdk import LoginCommand
 from .storage import Storage
 from .private_table import PrivateKeyTable
 from .meta_table import MetaTable
-from .profile_table import ProfileTable, DeviceTable
+from .document_table import DocumentTable, DeviceTable
 from .user_table import UserTable
 from .group_table import GroupTable
 from .message_table import MessageTable
@@ -49,7 +51,7 @@ from .login_table import LoginTable
 
 __all__ = [
     'Storage',
-    # 'MetaTable', 'ProfileTable', 'PrivateKeyTable',
+    # 'MetaTable', 'DocumentTable', 'PrivateKeyTable',
     # 'DeviceTable',
     # 'MessageTable',
     # 'AddressNameTable',
@@ -64,7 +66,7 @@ class Database:
         # data tables
         self.__private_table = PrivateKeyTable()
         self.__meta_table = MetaTable()
-        self.__profile_table = ProfileTable()
+        self.__document_table = DocumentTable()
         self.__device_table = DeviceTable()
         self.__user_table = UserTable()
         self.__group_table = GroupTable()
@@ -112,20 +114,20 @@ class Database:
 
         file path: '.dim/public/{ADDRESS}/profile.js'
     """
-    def save_profile(self, profile: Document) -> bool:
-        if not profile.valid:
-            identifier = profile.identifier
+    def save_document(self, document: Document) -> bool:
+        if not document.valid:
+            identifier = document.identifier
             if identifier is None:
                 return False
             meta = self.meta(identifier=identifier)
             if meta is None:
                 return False
-            if not profile.verify(public_key=meta.key):
+            if not document.verify(public_key=meta.key):
                 return False
-        return self.__profile_table.save_profile(profile=profile)
+        return self.__document_table.save_document(document=document)
 
-    def profile(self, identifier: ID) -> Document:
-        return self.__profile_table.profile(identifier=identifier)
+    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Document:
+        return self.__document_table.document(identifier=identifier, doc_type=doc_type)
 
     """
         User contacts

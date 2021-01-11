@@ -110,7 +110,7 @@ class CommonFacebook(Facebook):
         return self.database.save_meta(meta=meta, identifier=identifier)
 
     def save_document(self, document: Document) -> bool:
-        return self.database.save_profile(profile=document)
+        return self.database.save_document(document=document)
 
     def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
         return self.database.save_private_key(key=key, identifier=identifier)
@@ -146,7 +146,7 @@ class CommonFacebook(Facebook):
     EXPIRES_KEY = 'expires'
 
     def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
-        info = self.database.profile(identifier=identifier)
+        info = self.database.document(identifier=identifier, doc_type=doc_type)
         if info is None:
             info = self.__immortals.document(identifier=identifier, doc_type=doc_type)
         if info is not None:

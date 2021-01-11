@@ -124,7 +124,7 @@ class FreshmenScanner(threading.Thread):
                 freshmen.remove(item)
         users = []
         for item in freshmen:
-            profile = g_facebook.profile(identifier=item)
+            profile = g_facebook.document(identifier=item)
             if profile is None:
                 # profile not found
                 continue
