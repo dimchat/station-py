@@ -38,7 +38,7 @@ class MetaTable(Storage):
         super().__init__()
         # memory caches
         self.__caches: dict = {}
-        self.__empty_meta = {'desc': 'just to avoid loading non-exists file again'}
+        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
         Meta file for Entities (User/Group)
@@ -50,49 +50,44 @@ class MetaTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'meta.js')
 
-    def __cache_meta(self, meta: Meta, identifier: ID) -> bool:
-        if meta.match_identifier(identifier):
-            self.__caches[identifier] = meta
+    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        if not meta.match_identifier(identifier=identifier):
+            # raise ValueError('meta not match: %s, %s' % (identifier, meta))
+            self.error('meta not match: %s, %s' % (identifier, meta))
+            return False
+        # 0. check duplicate record
+        old = self.meta(identifier=identifier)
+        if old is not None:
+            # meta won't change, no need to update
             return True
-
-    def __load_meta(self, identifier: ID) -> Meta:
-        path = self.__path(identifier=identifier)
-        self.info('Loading meta from: %s' % path)
-        dictionary = self.read_json(path=path)
-        return Meta.parse(meta=dictionary)
-
-    def __save_meta(self, meta: Meta, identifier: ID) -> bool:
+        # 1. store into memory cache
+        self.__caches[identifier] = meta
+        # 2. save into local storage
         path = self.__path(identifier=identifier)
         if self.exists(path=path):
             # meta file already exists
             return True
-        self.info('Saving meta into: %s' % path)
+        self.info('saving meta into: %s' % path)
         return self.write_json(container=meta.dictionary, path=path)
 
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not self.__cache_meta(meta=meta, identifier=identifier):
-            # raise ValueError('failed to cache meta for ID: %s, %s' % (identifier, meta))
-            self.error('failed to cache meta for ID: %s, %s' % (identifier, meta))
-            return False
-        return self.__save_meta(meta=meta, identifier=identifier)
-
     def meta(self, identifier: ID) -> Optional[Meta]:
-        # 1. get from cache
+        # 1. try from memory cache
         info = self.__caches.get(identifier)
-        if info is not None:
-            if info is self.__empty_meta:
-                self.info('empty meta: %s, %s' % (identifier, info))
-                info = None
-            return info
-        # 2. load from storage
-        info = self.__load_meta(identifier=identifier)
         if info is None:
-            # place an empty meta for cache
-            self.__caches[identifier] = self.__empty_meta
-            return None
-        # 3. update memory cache
-        self.__caches[identifier] = info
-        return info
+            # 2. try from local storage
+            path = self.__path(identifier=identifier)
+            self.info('loading meta from: %s' % path)
+            dictionary = self.read_json(path=path)
+            if dictionary is not None:
+                info = Meta.parse(meta=dictionary)
+            if info is None:
+                # 2.1. place an empty meta for cache
+                info = self.__empty
+            # 3. store into memory cache
+            self.__caches[identifier] = info
+        if info is not self.__empty:
+            return info
+        self.error('meta not found: %s' % identifier)
 
     """
         Search Engine
@@ -155,7 +150,7 @@ class MetaTable(Storage):
                 if identifier != address:
                     # switch cache key
                     # self.__caches.pop(address)
-                    self.__cache_meta(meta=meta, identifier=identifier)
+                    self.__caches[identifier] = meta
                 ids.append(identifier)
         self.info('Scanned %d ID(s) from %s' % (len(ids), directory))
         return ids

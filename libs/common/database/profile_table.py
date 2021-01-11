@@ -37,6 +37,7 @@ class ProfileTable(Storage):
         super().__init__()
         # memory caches
         self.__caches: dict = {}
+        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
         Profile for Entities (User/Group)
@@ -48,62 +49,42 @@ class ProfileTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
 
-    def __cache_profile(self, profile: Document) -> bool:
+    def save_profile(self, profile: Document) -> bool:
+        if not profile.valid:
+            # raise ValueError('document not valid: %s' % profile)
+            self.error('document not valid: %s' % profile)
+            return False
         identifier = profile.identifier
-        if profile.valid:
-            self.__caches[identifier] = profile
-            return True
-
-    def __load_profile(self, identifier: ID) -> Document:
+        # 1. store into memory cache
+        self.__caches[identifier] = profile
+        # 2. save into local storage
         path = self.__path(identifier=identifier)
-        self.info('Loading profile from: %s' % path)
-        dictionary = self.read_json(path=path)
-        if dictionary is not None:
-            # compatible with v1.0
-            data = dictionary.get('data')
-            if data is None:
-                data = dictionary.get('profile')
-                if data is None:
-                    return None
-            signature = dictionary.get('signature')
-            if signature is None:
-                return None
-            if identifier.is_group:
-                doc_type = Document.BULLETIN
-            elif identifier.is_user:
-                doc_type = Document.VISA
-            else:
-                doc_type = Document.PROFILE
-            return Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
-
-    def __save_profile(self, profile: Document) -> bool:
-        identifier = profile.identifier
-        path = self.__path(identifier=identifier)
-        self.info('Saving profile into: %s' % path)
+        self.info('saving document into: %s' % path)
         return self.write_json(container=profile.dictionary, path=path)
 
-    def save_profile(self, profile: Document) -> bool:
-        if not self.__cache_profile(profile=profile):
-            # raise ValueError('failed to cache profile: %s' % profile)
-            self.error('failed to cache profile: %s' % profile)
-            return False
-        return self.__save_profile(profile=profile)
-
-    def profile(self, identifier: ID) -> Optional[Document]:
-        # 1. get from cache
+    def profile(self, identifier: ID, doc_type: str='*') -> Optional[Document]:
+        # 1. try from memory cache
         info = self.__caches.get(identifier)
-        if info is not None:
-            # if 'data' not in info:
-            #     self.info('empty profile: %s' % info)
-            return info
-        # 2. load from storage
-        info = self.__load_profile(identifier=identifier)
         if info is None:
-            # place an empty profile for cache
-            info = Document.create(doc_type='*', identifier=identifier)
-        # 3. update memory cache
-        self.__caches[identifier] = info
-        return info
+            # 2. try from local storage
+            path = self.__path(identifier=identifier)
+            self.info('loading document from: %s' % path)
+            dictionary = self.read_json(path=path)
+            if dictionary is not None:
+                data = dictionary.get('data')
+                if data is None:
+                    # compatible with v1.0
+                    data = dictionary.get('profile')
+                signature = dictionary.get('signature')
+                info = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+            if info is None:
+                # 2.1. place an empty meta for cache
+                info = self.__empty
+            # 3. store into memory cache
+            self.__caches[identifier] = info
+        if info is not self.__empty:
+            return info
+        self.error('document not found: %s' % identifier)
 
 
 class DeviceTable(Storage):
@@ -112,6 +93,7 @@ class DeviceTable(Storage):
         super().__init__()
         # memory caches
         self.__caches: dict = {}
+        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
         Device Tokens for APNS
@@ -122,54 +104,54 @@ class DeviceTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'device.js')
 
-    def __cache_device(self, device: dict, identifier: ID) -> bool:
+    def save_device(self, device: dict, identifier: ID) -> bool:
+        # 1. store info memory cache
         self.__caches[identifier] = device
-        return True
-
-    def __load_device(self, identifier: ID) -> dict:
+        # 2. save into local storage
         path = self.__path(identifier=identifier)
-        self.info('Loading device info from: %s' % path)
-        return self.read_json(path=path)
-
-    def __save_device(self, device: dict, identifier: ID) -> bool:
-        path = self.__path(identifier=identifier)
-        self.info('Saving device info into: %s' % path)
+        self.info('saving device info into: %s' % path)
         return self.write_json(container=device, path=path)
+
+    def device(self, identifier: ID) -> Optional[dict]:
+        # 1. try from memory cache
+        info = self.__caches.get(identifier)
+        if info is None:
+            # 2. try from local storage
+            path = self.__path(identifier=identifier)
+            self.info('loading device from: %s' % path)
+            info = self.read_json(path=path)
+            if info is None:
+                info = self.__empty
+            # 3. store into memory cache
+            self.__caches[identifier] = info
+        if info is not self.__empty:
+            return info
+        self.error('device not found: %s' % identifier)
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID
-        # 1. check from caches
-        # 2. load from storage
-        device = self.__load_device(identifier=identifier)
+        device = self.device(identifier=identifier)
         if device is None:
-            device = {}
-        # get tokens list for updating
-        tokens = device.get('tokens')
-        if tokens is None:
-            # new device token
-            tokens = [token]
-        elif token in tokens:
-            # already exists
-            return True
+            device = {'tokens': [token]}
         else:
-            # append token
-            # TODO: keep only last two records
-            tokens.append(token)
-        device['tokens'] = tokens
-        if not self.__cache_device(device=device, identifier=identifier):
-            raise ValueError('failed to cache device info for: %s, %s' % (identifier, device))
-            # self.error('failed to cache device info for: %s, %s' % (identifier, device))
-            # return False
-        return self.__save_device(device=device, identifier=identifier)
+            # get tokens list for updating
+            tokens = device.get('tokens')
+            if tokens is None:
+                # new device token
+                tokens = [token]
+            elif token in tokens:
+                # already exists
+                return True
+            elif len(tokens) > 2:
+                # keep only last three records
+                tokens = tokens[-2:]
+                # append token
+                tokens.append(token)
+            device['tokens'] = tokens
+        return self.save_device(device=device, identifier=identifier)
 
-    def device_tokens(self, identifier: ID) -> list:
-        # 1. get from cache
-        device = self.__caches.get(identifier)
+    def device_tokens(self, identifier: ID) -> Optional[list]:
+        # get device info with ID
+        device = self.device(identifier=identifier)
         if device is not None:
-            return device.get('tokens')
-        # 2. load from storage
-        device = self.__load_device(identifier=identifier)
-        if device is not None:
-            # 3. update memory cache
-            self.__cache_device(device=device, identifier=identifier)
             return device.get('tokens')
