@@ -92,7 +92,7 @@ class LoginCommandProcessor(CommandProcessor):
             self.info('%s roamed to: %s' % (sender, sid))
             self.receptionist.add_roamer(identifier=sender)
         # update login info
-        if not self.database.save_login(cmd=cmd, sender=sender, msg=msg):
+        if not self.database.save_login(cmd=cmd, msg=msg):
             return None
         # response
         self.info('login command: %s' % cmd)

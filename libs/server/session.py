@@ -35,7 +35,7 @@
     for login user
 """
 
-from typing import Optional
+from typing import Optional, List
 import numpy
 import random
 from weakref import WeakValueDictionary
@@ -88,7 +88,7 @@ class Server:
         # memory cache
         self.__pool = {}  # {identifier: [session]}
 
-    def all(self, identifier: ID) -> Optional[list]:
+    def all(self, identifier: ID) -> Optional[List[Session]]:
         """ Get all sessions of this user """
         return self.__pool.get(identifier)
 
@@ -96,7 +96,7 @@ class Server:
         """ Add a session with ID into memory cache """
         identifier = session.identifier
         # 1. get all sessions with identifier
-        array: list = self.all(identifier)
+        array = self.all(identifier)
         if array is None:
             # 2.1. set a list contains this session object
             self.__pool[identifier] = [session]
@@ -117,7 +117,7 @@ class Server:
         """ Remove the session from memory cache """
         identifier = session.identifier
         # 1. get all sessions with identifier
-        array: list = self.all(identifier)
+        array = self.all(identifier)
         if array is None:
             return False
         # 2. check each session with client address
@@ -135,7 +135,7 @@ class Server:
 
     def get(self, identifier: ID, client_address) -> Optional[Session]:
         """ Search session with ID and client address """
-        array: list = self.all(identifier)
+        array = self.all(identifier)
         if array is not None:
             for item in array:
                 assert isinstance(item, Session), 'session error: %s' % item
@@ -155,11 +155,11 @@ class Server:
     #
     #   Users
     #
-    def all_users(self) -> list:
+    def all_users(self) -> List[ID]:
         """ Get all users """
         return list(self.__pool.keys())
 
-    def online_users(self) -> list:
+    def online_users(self) -> List[ID]:
         """ Get online users """
         keys = self.all_users()
         array = []
@@ -192,7 +192,7 @@ class SessionServer(Server):
     def clear_handler(self, client_address):
         self.__handlers.pop(client_address, None)
 
-    def random_users(self, max_count=20) -> list:
+    def random_users(self, max_count=20) -> List[ID]:
         array = self.online_users()
         count = len(array)
         # limit the response

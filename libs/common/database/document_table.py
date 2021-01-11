@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import os
-from typing import Optional
+from typing import Optional, List, Dict
 
 from dimp import ID, Document
 
@@ -36,7 +36,7 @@ class DocumentTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
+        self.__caches: Dict[ID, Document] = {}
         self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
@@ -59,7 +59,7 @@ class DocumentTable(Storage):
         self.__caches[identifier] = document
         # 2. save into local storage
         path = self.__path(identifier=identifier)
-        self.info('saving document into: %s' % path)
+        self.info('Saving document into: %s' % path)
         return self.write_json(container=document.dictionary, path=path)
 
     def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
@@ -68,7 +68,7 @@ class DocumentTable(Storage):
         if info is None:
             # 2. try from local storage
             path = self.__path(identifier=identifier)
-            self.info('loading document from: %s' % path)
+            self.info('Loading document from: %s' % path)
             dictionary = self.read_json(path=path)
             if dictionary is not None:
                 data = dictionary.get('data')
@@ -92,8 +92,7 @@ class DeviceTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
-        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
+        self.__caches: Dict[ID, dict] = {}
 
     """
         Device Tokens for APNS
@@ -109,7 +108,7 @@ class DeviceTable(Storage):
         self.__caches[identifier] = device
         # 2. save into local storage
         path = self.__path(identifier=identifier)
-        self.info('saving device info into: %s' % path)
+        self.info('Saving device info into: %s' % path)
         return self.write_json(container=device, path=path)
 
     def device(self, identifier: ID) -> Optional[dict]:
@@ -118,15 +117,14 @@ class DeviceTable(Storage):
         if info is None:
             # 2. try from local storage
             path = self.__path(identifier=identifier)
-            self.info('loading device from: %s' % path)
+            self.info('Loading device from: %s' % path)
             info = self.read_json(path=path)
             if info is None:
-                info = self.__empty
+                self.error('device not found: %s' % identifier)
+                info = {}
             # 3. store into memory cache
             self.__caches[identifier] = info
-        if info is not self.__empty:
-            return info
-        self.error('device not found: %s' % identifier)
+        return info
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID
@@ -135,22 +133,22 @@ class DeviceTable(Storage):
             device = {'tokens': [token]}
         else:
             # get tokens list for updating
-            tokens = device.get('tokens')
+            tokens: list = device.get('tokens')
             if tokens is None:
                 # new device token
                 tokens = [token]
             elif token in tokens:
                 # already exists
                 return True
-            elif len(tokens) > 2:
+            else:
                 # keep only last three records
-                tokens = tokens[-2:]
-                # append token
-                tokens.append(token)
+                while len(tokens) > 2:
+                    tokens.pop()
+                tokens.insert(0, token)
             device['tokens'] = tokens
         return self.save_device(device=device, identifier=identifier)
 
-    def device_tokens(self, identifier: ID) -> Optional[list]:
+    def device_tokens(self, identifier: ID) -> Optional[List[str]]:
         # get device info with ID
         device = self.device(identifier=identifier)
         if device is not None:

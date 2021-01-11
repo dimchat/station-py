@@ -33,7 +33,7 @@ import time
 import weakref
 from typing import Optional, List
 
-from dimp import PrivateKey, SignKey
+from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document, User
 from dimsdk import Facebook
 
@@ -52,8 +52,8 @@ class CommonFacebook(Facebook):
         #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
         #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
         self.__immortals = Immortals()
-        self.__local_users = None
-        self.group_assistants = None  # robot ID list
+        self.__local_users: List[User] = None
+        self.group_assistants: List[ID] = None  # robot ID list
 
     @property
     def messenger(self):  # CommonMessenger
@@ -112,16 +112,16 @@ class CommonFacebook(Facebook):
     def save_document(self, document: Document) -> bool:
         return self.database.save_document(document=document)
 
-    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        return self.database.save_private_key(key=key, identifier=identifier)
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M') -> bool:
+        return self.database.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
-    def save_contacts(self, contacts: list, identifier: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         return self.database.save_contacts(contacts=contacts, user=identifier)
 
-    def save_members(self, members: list, identifier: ID) -> bool:
+    def save_members(self, members: List[ID], identifier: ID) -> bool:
         return self.database.save_members(members=members, group=identifier)
 
-    def save_assistants(self, assistants: list, identifier: ID) -> bool:
+    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
         pass
 
     #
@@ -174,32 +174,26 @@ class CommonFacebook(Facebook):
     #   UserDataSource
     #
 
-    def contacts(self, identifier: ID) -> Optional[list]:
-        array = self.database.contacts(user=identifier)
-        if array is None:
-            # create empty list for cache
-            array = []
-            self.database.cache_contacts(contacts=array, identifier=identifier)
-        elif len(array) > 0 and not isinstance(array[0], ID):
-            array = ID.convert(members=array)
-            self.database.cache_contacts(contacts=array, identifier=identifier)
-        return array
+    def contacts(self, identifier: ID) -> Optional[List[ID]]:
+        return self.database.contacts(user=identifier)
 
-    def private_keys_for_decryption(self, identifier: ID) -> Optional[list]:
-        key = self.database.private_key(identifier=identifier)
-        if key is not None:
-            return [key]
-        return self.__immortals.private_keys_for_decryption(identifier=identifier)
+    def private_keys_for_decryption(self, identifier: ID) -> Optional[List[DecryptKey]]:
+        keys = self.database.private_keys_for_decryption(identifier=identifier)
+        if keys is None or len(keys) == 0:
+            keys = self.__immortals.private_keys_for_decryption(identifier=identifier)
+        return keys
 
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        key = self.database.private_key(identifier=identifier)
-        if key is not None:
-            return key
-        return self.__immortals.private_key_for_signature(identifier=identifier)
+        key = self.database.private_key_for_signature(identifier=identifier)
+        if key is None:
+            key = self.__immortals.private_key_for_signature(identifier=identifier)
+        return key
 
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        # TODO: support multi-keys
-        return self.private_key_for_signature(identifier=identifier)
+        key = self.private_key_for_signature(identifier=identifier)
+        if key is None:
+            key = self.__immortals.private_key_for_visa_signature(identifier=identifier)
+        return key
 
     #
     #    GroupDataSource
@@ -219,18 +213,10 @@ class CommonFacebook(Facebook):
             return user
         return super().owner(identifier=identifier)
 
-    def members(self, identifier: ID) -> Optional[list]:
-        array = self.database.members(group=identifier)
-        if array is None:
-            # create empty list for cache
-            array = []
-            self.database.cache_members(members=array, identifier=identifier)
-        elif len(array) > 0 and not isinstance(array[0], ID):
-            array = ID.convert(members=array)
-            self.database.cache_members(members=array, identifier=identifier)
-        return array
+    def members(self, identifier: ID) -> Optional[List[ID]]:
+        return self.database.members(group=identifier)
 
-    def assistants(self, identifier: ID) -> Optional[list]:
+    def assistants(self, identifier: ID) -> Optional[List[ID]]:
         assert identifier.is_group, 'group ID error: %s' % identifier
         # get group assistants
         robots = self.group_assistants

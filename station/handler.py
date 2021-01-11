@@ -32,7 +32,7 @@
 
 import traceback
 from socketserver import StreamRequestHandler
-from typing import Optional
+from typing import Optional, List
 
 from dimp import json_encode
 from dimp import User, NetworkType
@@ -49,6 +49,7 @@ from libs.server import ServerMessenger
 from libs.server import HandshakeDelegate
 
 from libs.utils.mtp import MTPUtils
+from libs.utils.nlp import ChatBot
 
 from .config import g_database, g_facebook, g_keystore, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
@@ -76,7 +77,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
-    def chat_bots(self) -> list:
+    def chat_bots(self) -> List[ChatBot]:
         bots = []
         # Tuling
         tuling = chat_bot('tuling')

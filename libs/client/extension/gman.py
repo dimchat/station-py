@@ -30,6 +30,8 @@
     This is for sending group message, or managing group members
 """
 
+from typing import List
+
 from dimp import ID
 from dimp import Content, Command, GroupCommand
 from dimp import MetaCommand, DocumentCommand
@@ -76,7 +78,7 @@ class GroupManager:
         # let group assistant to split and deliver this message to all members
         return self.messenger.send_content(sender=None, receiver=self.group, content=content)
 
-    def __send_group_command(self, cmd: Command, members: list) -> bool:
+    def __send_group_command(self, cmd: Command, members: List[ID]) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
@@ -84,7 +86,7 @@ class GroupManager:
                 ok = False
         return ok
 
-    def invite(self, invite_list: list) -> bool:
+    def invite(self, invite_list: List[ID]) -> bool:
         """
         Invite new members to this group
         (only existed member/assistant can do this)
@@ -126,7 +128,7 @@ class GroupManager:
         self.__send_group_command(cmd=cmd, members=invite_list)
         return True
 
-    def expel(self, expel_list: list) -> bool:
+    def expel(self, expel_list: List[ID]) -> bool:
         """
         Expel members from this group
         (only group owner/assistant can do this)
@@ -201,7 +203,7 @@ class GroupManager:
     #
     #  Local Storage
     #
-    def add_members(self, invite_list: list) -> bool:
+    def add_members(self, invite_list: List[ID]) -> bool:
         facebook = self.facebook
         members = facebook.members(self.group)
         if members is None:
@@ -216,7 +218,7 @@ class GroupManager:
             return False
         return facebook.save_members(members=members, identifier=self.group)
 
-    def remove_members(self, expel_list: list) -> bool:
+    def remove_members(self, expel_list: List[ID]) -> bool:
         facebook = self.facebook
         members = facebook.members(self.group)
         if members is None:

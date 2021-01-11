@@ -25,7 +25,7 @@
 
 import os
 import random
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimp import NetworkType, ID, Meta
 
@@ -37,7 +37,7 @@ class MetaTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
+        self.__caches: Dict[ID, Meta] = {}
         self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
@@ -64,10 +64,7 @@ class MetaTable(Storage):
         self.__caches[identifier] = meta
         # 2. save into local storage
         path = self.__path(identifier=identifier)
-        if self.exists(path=path):
-            # meta file already exists
-            return True
-        self.info('saving meta into: %s' % path)
+        self.info('Saving meta into: %s' % path)
         return self.write_json(container=meta.dictionary, path=path)
 
     def meta(self, identifier: ID) -> Optional[Meta]:
@@ -76,10 +73,9 @@ class MetaTable(Storage):
         if info is None:
             # 2. try from local storage
             path = self.__path(identifier=identifier)
-            self.info('loading meta from: %s' % path)
+            self.info('Loading meta from: %s' % path)
             dictionary = self.read_json(path=path)
-            if dictionary is not None:
-                info = Meta.parse(meta=dictionary)
+            info = Meta.parse(meta=dictionary)
             if info is None:
                 # 2.1. place an empty meta for cache
                 info = self.__empty
@@ -96,7 +92,7 @@ class MetaTable(Storage):
         Search accounts by the 'Search Number'
     """
 
-    def search(self, keywords: list) -> dict:
+    def search(self, keywords: List[str]) -> dict:
         results = {}
         max_count = 20
         array = self.scan_ids()

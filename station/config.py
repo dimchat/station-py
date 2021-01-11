@@ -30,11 +30,12 @@
     Configuration for DIM network server node
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID
 
 from dimsdk.ans import keywords as ans_keywords
+from dimsdk import Station
 
 #
 #  Common Libs
@@ -223,7 +224,7 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 """
 
 
-def neighbor_stations(identifier: ID) -> list:
+def neighbor_stations(identifier: ID) -> List[Station]:
     """ Get neighbor stations for broadcast """
     count = len(all_stations)
     if count <= 1:
@@ -266,7 +267,7 @@ def create_server(identifier: str, host: str, port: int=9394) -> Server:
 """
 
 # load ANS reserved records
-Log.info('-------- loading ANS reserved records')
+Log.info('-------- Loading ANS reserved records')
 for key, value in ans_reserved_records.items():
     _id = ID.parse(identifier=value)
     assert _id is not None, 'ANS record error: %s, %s' % (key, value)
@@ -287,13 +288,13 @@ Log.info('-------- scanning accounts')
 g_database.scan_ids()
 
 # convert string to IDs
-Log.info('-------- loading group assistants: %d' % len(group_assistants))
+Log.info('-------- Loading group assistants: %d' % len(group_assistants))
 group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 g_facebook.group_assistants = group_assistants
 
 # convert ID to Station
-Log.info('-------- loading stations: %d' % len(all_stations))
+Log.info('-------- Loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
 
 # convert ID to Server
@@ -325,13 +326,13 @@ g_monitor.sender = current_station.identifier
 
 # load neighbour station for delivering message
 neighbors = neighbor_stations(identifier=current_station.identifier)
-Log.info('-------- loading neighbor stations: %d' % len(neighbors))
+Log.info('-------- Loading neighbor stations: %d' % len(neighbors))
 for node in neighbors:
     Log.info('add node: %s' % node)
     g_dispatcher.add_neighbor(station=node)
 
 # load admins for receiving system reports
-Log.info('-------- loading administrators: %d' % len(administrators))
+Log.info('-------- Loading administrators: %d' % len(administrators))
 administrators = [ID.parse(identifier=item) for item in administrators]
 for admin in administrators:
     Log.info('add admin: %s' % admin)

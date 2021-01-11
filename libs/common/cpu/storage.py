@@ -59,13 +59,13 @@ class StorageCommandProcessor(CommandProcessor):
 
     def __get_contacts(self, sender: ID) -> Content:
         # query encrypted contacts, load it
-        stored: Command = self.database.contacts_command(identifier=sender)
+        stored = self.database.contacts_command(identifier=sender)
         # response
-        if stored is not None:
+        if stored is None:
+            return TextContent(text='Sorry, contacts of %s not found.' % sender)
+        else:
             # response the stored contacts command directly
             return stored
-        else:
-            return TextContent(text='Sorry, contacts of %s not found.' % sender)
 
     def __put_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
         # receive encrypted contacts, save it

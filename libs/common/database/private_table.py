@@ -24,63 +24,136 @@
 # ==============================================================================
 
 import os
+from typing import Optional, Dict, List
 
-from dimp import ID, PrivateKey
+from dimp import ID, PrivateKey, SignKey, DecryptKey
 
 from .storage import Storage
 
 
 class PrivateKeyTable(Storage):
 
+    META = 'M'
+    VISA = 'V'
+
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
+        self.__meta_private_keys: Dict[ID, PrivateKey] = {}
+        self.__visa_private_keys: Dict[ID, List[PrivateKey]] = {}
+        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
+
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M'):
+        if key_type == 'M':
+            return self.__save_identify_key(key=key, identifier=identifier)
+        else:
+            return self.__save_message_key(key=key, identifier=identifier)
+
+    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+        array: list = self.__message_keys(identifier=identifier)
+        key = self.__identity_key(identifier=identifier)
+        if isinstance(key, DecryptKey) and key not in array:
+            array = array.copy()
+            array.append(key)
+        return array
+
+    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+        # TODO: support multi private keys
+        return self.private_key_for_visa_signature(identifier=identifier)
+
+    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+        return self.__identity_key(identifier=identifier)
 
     """
         Private Key file for Local Users
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        
+        1. Identify Key - paired to meta.key, CONSTANT
+        2. Message Key  - paired to visa.key, VOLATILE
 
         file path: '.dim/private/{ADDRESS}/secret.js'
     """
-    def __path(self, identifier: ID) -> str:
+    def __identity_key_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'private', str(identifier.address), 'secret.js')
 
-    def __cache_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        assert key is not None, 'private key error: %s, %s' % (identifier, key)
-        self.__caches[identifier] = key
+    def __message_keys_path(self, identifier: ID) -> str:
+        return os.path.join(self.root, 'private', str(identifier.address), 'secret_keys.js')
+
+    def __identity_key(self, identifier: ID) -> Optional[PrivateKey]:
+        # 1. try from memory cache
+        key = self.__meta_private_keys.get(identifier)
+        if key is None:
+            # 2. try from local storage
+            path = self.__identity_key_path(identifier=identifier)
+            self.info('Loading identity key from: %s' % path)
+            dictionary = self.read_json(path=path)
+            key = PrivateKey.parse(key=dictionary)
+            if key is None:
+                # 2.1. place an empty key for cache
+                key = self.__empty
+            # 3. store into memory cache
+            self.__meta_private_keys[identifier] = key
+        if key is not self.__empty:
+            return key
+
+    def __message_keys(self, identifier: ID) -> List[PrivateKey]:
+        # 1. try from memory cache
+        keys = self.__visa_private_keys.get(identifier)
+        if keys is None:
+            keys = []
+            # 2. try from local storage
+            path = self.__message_keys_path(identifier=identifier)
+            self.info('Loading message keys from: %s' % path)
+            array = self.read_json(path=path)
+            if array is not None:
+                for item in array:
+                    k = PrivateKey.parse(key=item)
+                    if k is not None:
+                        keys.append(k)
+            # 3. store into memory cache
+            self.__visa_private_keys[identifier] = keys
+        return keys
+
+    def __cache_identity_key(self, identifier: ID, key: PrivateKey) -> bool:
+        old = self.__identity_key(identifier=identifier)
+        if old is None:
+            self.__meta_private_keys[identifier] = key
+            return True
+
+    def __cache_message_key(self, key: PrivateKey, identifier: ID) -> bool:
+        array = self.__message_keys(identifier=identifier)
+        index = find(item=key, array=array)
+        if index == 0:
+            return False      # nothing changed
+        elif index > 0:
+            array.pop(index)  # move to the front
+        elif len(array) > 2:
+            array.pop()       # keep only last three records
+        array.insert(0, key)
+        self.__visa_private_keys[identifier] = array
         return True
 
-    def __load_private_key(self, identifier: ID) -> PrivateKey:
-        path = self.__path(identifier=identifier)
-        self.info('Loading private key from: %s' % path)
-        dictionary = self.read_json(path=path)
-        return PrivateKey.parse(key=dictionary)
+    def __save_identify_key(self, key: PrivateKey, identifier: ID) -> bool:
+        # 1. try to store into memory cache
+        if self.__cache_identity_key(key=key, identifier=identifier):
+            # 2. save into local storage
+            path = self.__identity_key_path(identifier=identifier)
+            self.info('Saving identity key into: %s' % path)
+            return self.write_json(container=key.dictionary, path=path)
 
-    def __save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        path = self.__path(identifier=identifier)
-        if self.exists(path=path):
-            # meta file already exists
-            return True
-        self.info('Saving private key into: %s' % path)
-        # assert isinstance(key, dict), 'key error: %s' % key
-        return self.write_json(container=key.dictionary, path=path)
+    def __save_message_key(self, key: PrivateKey, identifier: ID) -> bool:
+        # 1. try to store into memory cache
+        if self.__cache_message_key(key=key, identifier=identifier):
+            array = self.__message_keys(identifier).copy()
+            plain = [item.dictionary for item in array]
+            # 2. save into local storage
+            path = self.__message_keys_path(identifier=identifier)
+            self.info('Saving message keys into: %s' % path)
+            return self.write_json(container=plain, path=path)
 
-    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        if not self.__cache_private_key(key=key, identifier=identifier):
-            raise ValueError('failed to cache private key for ID: %s, %s' % (identifier, key))
-            # self.error('failed to cache private key for ID: %s, %s' % (identifier, key))
-            # return False
-        return self.__save_private_key(key=key, identifier=identifier)
 
-    def private_key(self, identifier: ID) -> PrivateKey:
-        # 1. get from cache
-        info = self.__caches.get(identifier)
-        if info is not None:
-            return info
-        # 2. load from storage
-        info = self.__load_private_key(identifier=identifier)
-        if info is not None:
-            # 3. update memory cache
-            self.__caches[identifier] = info
-            return info
+def find(item, array: list) -> int:
+    try:
+        return array.index(item)
+    except ValueError:
+        return -1

@@ -97,7 +97,7 @@ class LoginCommandProcessor(CommandProcessor):
             self.info('%s is roamer to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
         # update login info
-        if not self.database.save_login(cmd=cmd, sender=sender, msg=msg):
+        if not self.database.save_login(cmd=cmd, msg=msg):
             return None
         # respond nothing
         return None

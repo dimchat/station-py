@@ -31,7 +31,7 @@
 """
 
 from abc import abstractmethod
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage, ReliableMessage
@@ -120,7 +120,7 @@ class CommonMessenger(Messenger):
         raise NotImplemented
 
     @abstractmethod
-    def query_group(self, group: ID, users: list) -> bool:
+    def query_group(self, group: ID, users: List[ID]) -> bool:
         raise NotImplemented
 
 

@@ -31,6 +31,7 @@
 """
 
 import time
+from typing import List
 
 from dimp import ID, EVERYONE
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
@@ -93,7 +94,7 @@ class ClientMessenger(CommonMessenger):
         return self.__send_command(cmd=cmd)
 
     # FIXME: separate checking for querying each user
-    def query_group(self, group: ID, users: list) -> bool:
+    def query_group(self, group: ID, users: List[ID]) -> bool:
         now = time.time()
         last = self.__group_queries.get(group, 0)
         if (now - last) < self.EXPIRES:

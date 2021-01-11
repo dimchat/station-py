@@ -34,15 +34,29 @@
 
     A service for pushing notification to offline device
 """
-
+import weakref
 from abc import ABC, abstractmethod
+from typing import List
 
 from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
 from apns2.payload import Payload
 
+from dimp import ID
+
 
 class ApplePushNotificationService:
+
+    class Delegate(ABC):
+        """
+            APNs Delegate
+            ~~~~~~~~~~~~~
+        """
+
+        @abstractmethod
+        def device_tokens(self, identifier: ID) -> List[str]:
+            """ get device tokens in hex format """
+            pass
 
     def __init__(self, credentials, use_sandbox=False, use_alternative_port=False, proto=None, json_encoder=None,
                  password=None, proxy_host=None, proxy_port=None):
@@ -60,9 +74,18 @@ class ApplePushNotificationService:
         # topic
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
-        self.delegate = None  # IAPNsDelegate
+        self.__delegate: weakref.ReferenceType = None  # APNs Delegate
         # counting offline messages
         self.badge_table = {}
+
+    @property
+    def delegate(self) -> Delegate:
+        if self.__delegate is not None:
+            return self.__delegate()
+
+    @delegate.setter
+    def delegate(self, value: Delegate):
+        self.__delegate = weakref.ref(value)
 
     @staticmethod
     def info(msg: str):
@@ -74,7 +97,7 @@ class ApplePushNotificationService:
         # Log.error('APNs ERROR:\t%s' % msg)
         pass
 
-    def badge(self, identifier: str) -> int:
+    def badge(self, identifier: ID) -> int:
         num = self.badge_table.get(identifier)
         if num is None:
             num = 1
@@ -83,7 +106,7 @@ class ApplePushNotificationService:
         self.badge_table[identifier] = num
         return num
 
-    def clear_badge(self, identifier: str) -> bool:
+    def clear_badge(self, identifier: ID) -> bool:
         if identifier in self.badge_table:
             self.badge_table.pop(identifier)
             return True
@@ -118,7 +141,7 @@ class ApplePushNotificationService:
             self.error('failed to push notification: %s, error %s' % (notification, error))
             return -400  # Bad Request
 
-    def push(self, identifier: str, message: str) -> bool:
+    def push(self, identifier: ID, message: str) -> bool:
         # 1. check
         tokens = self.delegate.device_tokens(identifier=identifier)
         if tokens is None:
@@ -146,15 +169,3 @@ class ApplePushNotificationService:
         if success > 0:
             self.info('sending notification success:%d badge=%d, %s' % (success, badge, identifier))
             return True
-
-
-class IAPNsDelegate(ABC):
-    """
-        APNs Delegate
-        ~~~~~~~~~~~~~
-    """
-
-    @abstractmethod
-    def device_tokens(self, identifier: str) -> list:
-        """ get device tokens in hex format """
-        pass

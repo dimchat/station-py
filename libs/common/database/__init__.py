@@ -29,9 +29,9 @@
 
 """
 
-from typing import Optional
+from typing import Optional, List
 
-from dimp import PrivateKey
+from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document
 from dimp import Command
 from dimp import ReliableMessage
@@ -88,13 +88,19 @@ class Database:
         Private Key file for Users
         ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/private_key.js'
+        file path: '.dim/private/{ADDRESS}/secret.js'
     """
-    def save_private_key(self, key: PrivateKey, identifier: ID) -> bool:
-        return self.__private_table.save_private_key(key=key, identifier=identifier)
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M'):
+        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
-    def private_key(self, identifier: ID) -> PrivateKey:
-        return self.__private_table.private_key(identifier=identifier)
+    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
+        return self.__private_table.private_keys_for_decryption(identifier=identifier)
+
+    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_signature(identifier=identifier)
+
+    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_visa_signature(identifier=identifier)
 
     """
         Meta file for entities
@@ -135,13 +141,10 @@ class Database:
 
         file path: '.dim/protected/{ADDRESS}/contacts.txt'
     """
-    def save_contacts(self, contacts: list, user: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, user=user)
 
-    def cache_contacts(self, contacts: list, identifier: ID) -> bool:
-        return self.__user_table.cache_contacts(contacts=contacts, identifier=identifier)
-
-    def contacts(self, user: ID) -> list:
+    def contacts(self, user: ID) -> List[ID]:
         return self.__user_table.contacts(user=user)
 
     """
@@ -153,7 +156,7 @@ class Database:
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         return self.__user_table.save_contacts_command(cmd=cmd, sender=sender)
 
-    def contacts_command(self, identifier: ID) -> Command:
+    def contacts_command(self, identifier: ID) -> Optional[Command]:
         return self.__user_table.contacts_command(identifier=identifier)
 
     """
@@ -218,10 +221,9 @@ class Database:
         return self.__device_table.save_device_token(token=token, identifier=identifier)
 
     #
-    #   IAPNsDelegate
+    #   APNs Delegate
     #
-    def device_tokens(self, identifier: str) -> list:
-        identifier = ID.parse(identifier=identifier)
+    def device_tokens(self, identifier: ID) -> List[str]:
         return self.__device_table.device_tokens(identifier=identifier)
 
     """
@@ -230,13 +232,10 @@ class Database:
 
         file path: '.dim/protected/{ADDRESS}/members.txt'
     """
-    def save_members(self, members: list, group: ID) -> bool:
+    def save_members(self, members: List[ID], group: ID) -> bool:
         return self.__group_table.save_members(members=members, group=group)
 
-    def cache_members(self, members: list, identifier: ID) -> bool:
-        return self.__group_table.cache_members(members=members, identifier=identifier)
-
-    def members(self, group: ID) -> list:
+    def members(self, group: ID) -> List[ID]:
         return self.__group_table.members(group=group)
 
     def founder(self, group: ID) -> ID:
@@ -266,7 +265,7 @@ class Database:
 
         Search accounts by the 'Search Number'
     """
-    def search(self, keywords: list) -> dict:
+    def search(self, keywords: List[str]) -> dict:
         return self.__meta_table.search(keywords=keywords)
 
     def scan_ids(self):
@@ -284,8 +283,8 @@ class Database:
     def ans_record(self, name: str) -> ID:
         return self.__ans_table.record(name=name)
 
-    def ans_names(self, identifier: ID) -> list:
-        return self.__ans_table.names(identifier=str(identifier))
+    def ans_names(self, identifier: ID) -> List[str]:
+        return self.__ans_table.names(identifier=identifier)
 
     """
         Login Info
@@ -293,8 +292,8 @@ class Database:
         
         file path: '.dim/public/{ADDRESS}/login.js'
     """
-    def save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login(cmd=cmd, sender=sender, msg=msg)
+    def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login(cmd=cmd, msg=msg)
 
     def login_command(self, identifier: ID) -> LoginCommand:
         return self.__login_table.login_command(identifier=identifier)

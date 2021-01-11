@@ -25,6 +25,7 @@
 
 import os
 import time
+from typing import List
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
@@ -60,9 +61,9 @@ class MessageTable(Storage):
         # message file path
         return os.path.join(directory, filename)
 
-    def __load_messages(self, path: str) -> list:
-        data = self.read_text(path=path)
-        lines = data.splitlines()
+    def __load_messages(self, path: str) -> List[ReliableMessage]:
+        text = self.read_text(path=path)
+        lines = text.splitlines()
         self.info('read %d line(s) from %s' % (len(lines), path))
         messages = []
         for line in lines:

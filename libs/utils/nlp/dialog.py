@@ -36,7 +36,7 @@
 """
 
 import random
-from typing import Union
+from typing import Union, List
 
 from dimp import ID
 from dimp import Content, TextContent, AudioContent
@@ -49,10 +49,10 @@ class Dialog:
     def __init__(self):
         super().__init__()
         # chat bot candidates
-        self.__bots: list = []
+        self.__bots = []
 
     @property
-    def bots(self) -> list:
+    def bots(self) -> List[ChatBot]:
         return self.__bots
 
     @bots.setter
@@ -61,7 +61,7 @@ class Dialog:
             count = len(array)
             if count > 1:
                 # set bots with random order
-                self.__bots = random.sample(array, len(array))
+                self.__bots = random.sample(array, count)
             else:
                 self.__bots = array
         elif isinstance(array, ChatBot):

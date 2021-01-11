@@ -35,7 +35,7 @@ import time
 import traceback
 from json import JSONDecodeError
 from threading import Thread
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
@@ -64,8 +64,8 @@ def save_freshman(identifier: ID) -> bool:
             # already exists
             return False
     # append
-    line = identifier + '\n'
-    Storage.info('saving freshman: %s' % identifier)
+    line = str(identifier) + '\n'
+    Storage.info('Saving freshman: %s' % identifier)
     return Storage.append_text(text=line, path=path)
 
 
@@ -134,7 +134,7 @@ class Receptionist(Thread):
                 self.error('failed to push message (%s, %s)' % sess.client_address)
         return success
 
-    def __process_guests(self, guests: list):
+    def __process_guests(self, guests: List[ID]):
         database = self.database
         apns = self.apns
         for identifier in guests:
@@ -229,7 +229,7 @@ class Receptionist(Thread):
                 self.error('failed to push message (%s, %s)' % sess.client_address)
         return success
 
-    def __process_roamers(self, roamers: list):
+    def __process_roamers(self, roamers: List[ID]):
         database = self.database
         for identifier in roamers:
             # 1. scan offline messages

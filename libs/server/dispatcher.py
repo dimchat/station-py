@@ -33,7 +33,7 @@
 import time
 import threading
 from threading import Thread
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -46,7 +46,7 @@ from libs.common import Server
 from libs.common import Database, CommonFacebook
 from libs.common.push_message_service import PushMessageService
 
-from .session import SessionServer
+from .session import Session, SessionServer
 
 
 class Dispatcher(Thread):
@@ -59,8 +59,8 @@ class Dispatcher(Thread):
         self.session_server: SessionServer = None
         # self.apns: ApplePushNotificationService = None
         self.push_service: PushMessageService = PushMessageService()
-        self.__neighbors: list = []     # ID list
-        self.__waiting_list: list = []  # ReliableMessage list
+        self.__neighbors: List[ID] = []     # ID list
+        self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
 
     def info(self, msg: str):
@@ -171,7 +171,7 @@ class Dispatcher(Thread):
         return res
         # return None
 
-    def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: list) -> bool:
+    def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: List[Session]) -> bool:
         self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.sender))
         success = 0
         session_server = self.session_server
@@ -223,7 +223,7 @@ class Dispatcher(Thread):
             return None
         return sid
 
-    def __online_sessions(self, receiver: ID) -> Optional[list]:
+    def __online_sessions(self, receiver: ID) -> Optional[List[Session]]:
         sessions = self.session_server.all(identifier=receiver)
         if sessions is not None and len(sessions) == 0:
             sessions = None

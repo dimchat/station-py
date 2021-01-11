@@ -24,6 +24,7 @@
 # ==============================================================================
 
 import time
+from typing import Optional, Union
 
 from libs.utils.dos import File, TextFile, JSONFile
 
@@ -42,11 +43,11 @@ class Storage:
         return File(path=path).exists(path=path)
 
     @classmethod
-    def read_text(cls, path: str) -> str:
+    def read_text(cls, path: str) -> Optional[str]:
         return TextFile(path=path).read()
 
     @classmethod
-    def read_json(cls, path: str) -> dict:
+    def read_json(cls, path: str) -> Union[dict, list, None]:
         return JSONFile(path=path).read()
 
     @classmethod
@@ -54,7 +55,7 @@ class Storage:
         return TextFile(path=path).write(text=text)
 
     @classmethod
-    def write_json(cls, container: dict, path: str) -> bool:
+    def write_json(cls, container: Union[dict, list], path: str) -> bool:
         return JSONFile(path=path).write(container=container)
 
     @classmethod

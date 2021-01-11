@@ -24,6 +24,7 @@
 # ==============================================================================
 
 import os
+from typing import List, Dict
 
 from dimp import ID
 
@@ -35,7 +36,7 @@ class GroupTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__members: dict = {}
+        self.__members: Dict[ID, List[ID]] = {}
 
     """
         Group members
@@ -46,38 +47,37 @@ class GroupTable(Storage):
     def __members_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'members.txt')
 
-    def cache_members(self, members: list, identifier: ID) -> bool:
-        assert identifier.is_group, 'group ID error: %s' % identifier
-        if members is None or len(members) == 0:
-            return False
-        self.__members[identifier] = members
-        return True
+    def members(self, group: ID) -> List[ID]:
+        # 1. try from memory cache
+        array = self.__members.get(group)
+        if array is None:
+            # 2. try from local storage
+            path = self.__members_path(identifier=group)
+            self.info('Loading members from: %s' % path)
+            text = self.read_text(path=path)
+            if text is None:
+                array = []
+            else:
+                array = ID.convert(members=text.splitlines())
+            # 3. store into memory cache
+            self.__members[group] = array
+        return array
 
-    def __load_members(self, identifier: ID) -> list:
-        path = self.__members_path(identifier=identifier)
-        self.info('Loading members from: %s' % path)
-        data = self.read_text(path=path)
-        if data is not None:
-            return data.splitlines()
-
-    def __save_members(self, members: list, identifier: ID) -> bool:
-        path = self.__members_path(identifier=identifier)
+    def save_members(self, members: List[ID], group: ID) -> bool:
+        assert len(members) > 0, 'group members should not be empty: %s' % group
+        # 1. store into memory cache
+        self.__members[group] = members
+        # 2. store into local storage
+        path = self.__members_path(identifier=group)
         self.info('Saving members into: %s' % path)
+        members = ID.revert(members=members)
         text = '\n'.join(members)
         return self.write_text(text=text, path=path)
 
-    def members(self, group: ID) -> list:
-        array = self.__members.get(group)
-        if array is not None:
-            return array
-        return self.__load_members(identifier=group)
-
-    def save_members(self, members: list, group: ID) -> bool:
-        if self.cache_members(members=members, identifier=group):
-            return self.__save_members(members=members, identifier=group)
-
     def founder(self, group: ID) -> ID:
+        # TODO: get founder
         pass
 
     def owner(self, group: ID) -> ID:
+        # TODO: get owner
         pass

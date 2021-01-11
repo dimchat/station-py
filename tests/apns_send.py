@@ -34,6 +34,7 @@
 """
 
 import sys
+from typing import List
 
 from apns2.client import APNsClient
 from apns2.payload import Payload
@@ -64,7 +65,7 @@ class Device:
         return base_dir + '/protected/' + str(address) + '/device.js'
 
     @property
-    def tokens(self) -> list:
+    def tokens(self) -> List[str]:
         device = JSONFile(self.path).read()
         if device is not None:
             # TODO: only get the last two devices

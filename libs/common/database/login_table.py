@@ -24,6 +24,7 @@
 # ==============================================================================
 
 import os
+from typing import Optional, Dict
 
 from dimp import ID, ReliableMessage
 from dimsdk import LoginCommand
@@ -36,7 +37,9 @@ class LoginTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: dict = {}
+        self.__commands: Dict[ID, LoginCommand] = {}
+        self.__messages: Dict[ID, ReliableMessage] = {}
+        self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
     """
         Login info for Users
@@ -47,61 +50,60 @@ class LoginTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'login.js')
 
-    def __cache_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
-        assert cmd.station is not None, 'login station error: %s' % cmd
-        info = self.__caches.get(sender)
-        if info is not None:
-            old = info.get('cmd')
-            if old is not None:
-                # check login time
-                if cmd.time <= old.time:
-                    return False
-        assert sender == cmd.identifier, 'login ID not valid: %s' % cmd
-        assert sender == msg.sender, 'login ID not valid: %s' % msg
-        self.__caches[sender] = {'cmd': cmd, 'msg': msg}
-        return True
+    def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+        identifier = cmd.identifier
+        assert identifier == msg.sender, 'login ID not match: %s, %s' % (cmd, msg)
+        # check last login time
+        old = self.login_command(identifier=identifier)
+        if old is not None and cmd.time <= old.time:
+            return False
+        # store into memory cache
+        self.__commands[identifier] = cmd
+        self.__messages[identifier] = msg
+        # store into local storage
+        path = self.__path(identifier=identifier)
+        self.info('Saving login into: %s' % path)
+        dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
+        return self.write_json(container=dictionary, path=path)
 
-    def __load_login(self, identifier: ID) -> dict:
+    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
+        cmd, _ = self.__login_info(identifier=identifier)
+        return cmd
+
+    def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
+        _, msg = self.__login_info(identifier=identifier)
+        return msg
+
+    def __login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+        # 1. try from memory cache
+        cmd = self.__commands.get(identifier)
+        msg = self.__messages.get(identifier)
+        if cmd is None or msg is None:
+            # 2. try from local storage
+            cmd, msg = self.__load_login(identifier=identifier)
+            if cmd is None:
+                cmd = self.__empty
+            if msg is None:
+                msg = self.__empty
+            # 3. store into memory cache
+            self.__commands[identifier] = cmd
+            self.__messages[identifier] = msg
+        if cmd is self.__empty:
+            cmd = None
+        if msg is self.__empty:
+            msg = None
+        return cmd, msg
+
+    def __load_login(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         path = self.__path(identifier=identifier)
         self.info('Loading login from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is None:
-            return {}
+            return None, None
         cmd = dictionary.get('cmd')
         msg = dictionary.get('msg')
-        return {
-            'cmd': LoginCommand(cmd),
-            'msg': ReliableMessage.parse(msg=msg),
-        }
-
-    def __save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
-        path = self.__path(identifier=sender)
-        self.info('Saving login into: %s' % path)
-        return self.write_json(container={'cmd': cmd.dictionary, 'msg': msg.dictionary}, path=path)
-
-    def save_login(self, cmd: LoginCommand, sender: ID, msg: ReliableMessage) -> bool:
-        if not self.__cache_login(cmd=cmd, sender=sender, msg=msg):
-            # raise ValueError('failed to cache login: %s -> %s, %s' % (sender, cmd, msg))
-            self.error('failed to cache login: %s -> %s' % (sender, cmd))
-            return False
-        return self.__save_login(cmd=cmd, sender=sender, msg=msg)
-
-    def login_command(self, identifier: ID) -> LoginCommand:
-        # 1. get from cache
-        info = self.__caches.get(identifier)
-        if info is None:
-            # 2. load from storage
-            info = self.__load_login(identifier=identifier)
-            # 3. update memory cache
-            self.__caches[identifier] = info
-        return info.get('cmd')
-
-    def login_message(self, identifier: ID) -> ReliableMessage:
-        # 1. get from cache
-        info = self.__caches.get(identifier)
-        if info is None:
-            # 2. load from storage
-            info = self.__load_login(identifier=identifier)
-            # 3. update memory cache
-            self.__caches[identifier] = info
-        return info.get('msg')
+        if cmd is not None:
+            cmd = LoginCommand(cmd)
+        if msg is not None:
+            msg = ReliableMessage.parse(msg=msg)
+        return cmd, msg

@@ -34,7 +34,7 @@
 import sys
 import os
 import time
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -254,7 +254,7 @@ class AssistantMessenger(ClientMessenger):
                 return None
             return self.sign_message(msg=s_msg)
 
-    def __split_group_message(self, msg: ReliableMessage, members: list) -> Optional[Content]:
+    def __split_group_message(self, msg: ReliableMessage, members: List[ID]) -> Optional[Content]:
         """ Split group message for each member """
         messages = msg.split(members=members)
         success_list = []

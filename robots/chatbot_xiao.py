@@ -35,6 +35,7 @@ import sys
 import os
 import threading
 import time
+from typing import List
 
 from dimp import NetworkType, ID, Group
 from dimp import TextContent
@@ -72,7 +73,7 @@ g_messenger.context['bots'] = [chat_bot('xiaoi')]
 g_facebook.messenger = g_messenger
 
 
-def load_freshmen() -> list:
+def load_freshmen() -> List[ID]:
     freshmen = []
     text = Storage.read_text(path=freshmen_file)
     if text is None:
@@ -106,14 +107,14 @@ class FreshmenScanner(threading.Thread):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def __members(self) -> list:
+    def __members(self) -> List[ID]:
         members = self.__group.members
         if members is None:
             return []
         self.info('got %d member(s) in group: %s' % (len(members), self.__group))
         return members
 
-    def __freshmen(self) -> list:
+    def __freshmen(self) -> List[ID]:
         freshmen = load_freshmen()
         if freshmen is None:
             return []
@@ -136,7 +137,7 @@ class FreshmenScanner(threading.Thread):
         self.info('got freshmen: %d from %d' % (len(users), len(freshmen)))
         return users
 
-    def __welcome(self, freshmen: list) -> TextContent:
+    def __welcome(self, freshmen: List[ID]) -> TextContent:
         names = [g_facebook.name(item) for item in freshmen]
         count = len(names)
         if count == 1:
