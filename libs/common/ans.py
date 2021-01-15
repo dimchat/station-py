@@ -35,7 +35,18 @@ from typing import Optional, Union
 from dimp import ID, Address
 from dimsdk import AddressNameService
 
+from libs.utils import Singleton
 
+
+"""
+    Address Name Service
+    ~~~~~~~~~~~~~~~~~~~~
+
+    A map for short name to ID, just like DNS
+"""
+
+
+@Singleton
 class AddressNameServer(AddressNameService):
 
     def load(self):
@@ -59,13 +70,13 @@ class IDFactory(ID.Factory):
 
     def parse_identifier(self, identifier: Union[ID, str, None]) -> Optional[ID]:
         # try ANS record
-        _id = s_ans.identifier(name=identifier)
+        _id = g_ans.identifier(name=identifier)
         if _id is None:
             # parse by original factory
             _id = s_id_factory.parse_identifier(identifier=identifier)
         return _id
 
 
-s_ans = AddressNameServer()
+g_ans = AddressNameServer()
 s_id_factory = ID.factory()
 ID.register(factory=IDFactory())

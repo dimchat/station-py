@@ -50,7 +50,7 @@ from libs.common import Storage
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import g_facebook, g_station
 from robots.config import dims_connect
 from robots.config import chat_bot, group_assistants
 
@@ -72,7 +72,7 @@ class GroupKeyCache(Storage):
     @staticmethod
     def __path(group: ID, sender: ID) -> str:
         filename = 'group-keys-%s.js' % str(sender.address)
-        return os.path.join(g_database.base_dir, 'protected', str(group.address), filename)
+        return os.path.join(Storage.root, 'protected', str(group.address), filename)
 
     def __load_keys(self, sender: ID, group: ID) -> dict:
         path = self.__path(group=group, sender=sender)
@@ -300,13 +300,7 @@ class AssistantMessenger(ClientMessenger):
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = AssistantMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_messenger.context['database'] = g_database
-# chat bot
-g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
-
-g_facebook.messenger = g_messenger
+g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]  # chat bot
 
 
 if __name__ == '__main__':

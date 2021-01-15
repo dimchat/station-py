@@ -43,18 +43,17 @@ from dimsdk import ReceiptCommand
 
 from libs.utils import Log
 from libs.common import Server
-from libs.common import Database, CommonFacebook
+from libs.common import Database
 from libs.common.push_message_service import PushMessageService
 
 from .session import Session, SessionServer
+from .facebook import ServerFacebook
 
 
 class Dispatcher(Thread):
 
     def __init__(self):
         super().__init__()
-        self.database: Database = None
-        self.facebook: CommonFacebook = None
         self.station: Server = None
         self.session_server: SessionServer = None
         # self.apns: ApplePushNotificationService = None
@@ -68,6 +67,14 @@ class Dispatcher(Thread):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return ServerFacebook()
+
+    @property
+    def database(self) -> Database:
+        return self.facebook.database
 
     def add_neighbor(self, station: Union[Station, ID]) -> bool:
         if isinstance(station, Station):

@@ -113,11 +113,9 @@ def load_user(identifier: str, facebook: CommonFacebook) -> User:
         # load from 'etc' directory
         private_key = PrivateKey.parse(key=load_robot_info(identifier=identifier, filename='secret.js'))
         if private_key is None:
-            pass
+            raise AssertionError('private key not found for ID: %s' % identifier)
         elif not facebook.save_private_key(key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
-    if private_key is None:
-        raise AssertionError('private key not found for ID: %s' % identifier)
     # check profile
     profile = load_robot_info(identifier=identifier, filename='profile.js')
     if profile is None:

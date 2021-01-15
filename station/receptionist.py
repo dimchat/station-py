@@ -41,10 +41,11 @@ from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
 from libs.utils import Log
-from libs.common import Storage, Database, CommonFacebook
+from libs.common import Storage, Database
 from libs.common import Server
 from libs.server import SessionServer
 from libs.server import ApplePushNotificationService
+from libs.server import ServerFacebook
 
 
 def save_freshman(identifier: ID) -> bool:
@@ -75,8 +76,6 @@ class Receptionist(Thread):
         super().__init__()
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
-        self.database: Database = None
-        self.facebook: CommonFacebook = None
         # current station and guests
         self.station: Server = None
         self.guests = []
@@ -87,6 +86,14 @@ class Receptionist(Thread):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return ServerFacebook()
+
+    @property
+    def database(self) -> Database:
+        return self.facebook.database
 
     def add_guest(self, identifier: ID):
         # FIXME: thread safe

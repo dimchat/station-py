@@ -37,11 +37,11 @@ from dimp import TextContent
 from dimp import Envelope, InstantMessage
 
 from libs.utils import Log
-from libs.common import Database, CommonFacebook
-from libs.common import KeyStore
+from libs.common import Database
 from libs.server import ServerMessenger
 from libs.server import SessionServer
 from libs.server import ApplePushNotificationService
+from libs.server import ServerFacebook
 
 
 class Monitor:
@@ -50,9 +50,6 @@ class Monitor:
         super().__init__()
         self.apns: ApplePushNotificationService = None
         self.session_server: SessionServer = None
-        self.database: Database = None
-        self.facebook: CommonFacebook = None
-        self.keystore: KeyStore = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
@@ -69,9 +66,16 @@ class Monitor:
         if self.__messenger is None:
             m = ServerMessenger()
             m.barrack = self.facebook
-            m.key_cache = self.keystore
             self.__messenger = m
         return self.__messenger
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return ServerFacebook()
+
+    @property
+    def database(self) -> Database:
+        return self.facebook.database
 
     def report(self, message: str) -> int:
         success = 0

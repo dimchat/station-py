@@ -34,9 +34,11 @@
 """
 
 from .log import Log
+from .singleton import Singleton
 
 
 __all__ = [
 
     'Log',
+    'Singleton',
 ]

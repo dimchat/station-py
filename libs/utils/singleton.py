@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,32 +23,21 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Server Module
-    ~~~~~~~~~~~~~
 
-"""
+class Singleton(object):
 
-from .cpu import *
+    __instances = {}
 
-from .session import Session, SessionServer
-from .facebook import ServerFacebook
-from .messenger import ServerMessenger
-from .processor import ServerProcessor
-from .transmitter import ServerTransmitter
-from .dispatcher import Dispatcher
-from .filter import Filter
+    def __init__(self, cls):
+        self.__cls = cls
 
-from .apns import ApplePushNotificationService
+    def __call__(self, *args, **kwargs):
+        cls = self.__cls
+        instance = self.__instances.get(cls, None)
+        if instance is None:
+            instance = cls(*args, **kwargs)
+            self.__instances[cls] = instance
+        return instance
 
-
-__all__ = [
-
-    'HandshakeDelegate',
-
-    'Session', 'SessionServer',
-    'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
-    'Dispatcher', 'Filter',
-
-    'ApplePushNotificationService',
-]
+    def __getattr__(self, key):
+        return getattr(self.__cls, key, None)

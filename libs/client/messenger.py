@@ -40,6 +40,8 @@ from dimsdk import Station
 
 from libs.common import CommonMessenger
 
+from .facebook import ClientFacebook
+
 
 class ClientMessenger(CommonMessenger):
 
@@ -51,6 +53,9 @@ class ClientMessenger(CommonMessenger):
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
+
+    def _create_facebook(self) -> ClientFacebook:
+        return ClientFacebook()
 
     def _create_processor(self) -> Transceiver.Processor:
         from .processor import ClientProcessor

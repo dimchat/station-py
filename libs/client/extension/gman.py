@@ -46,7 +46,15 @@ class GroupManager:
     def __init__(self, identifier: ID):
         super().__init__()
         self.group: ID = identifier
-        self.messenger: ClientMessenger = None
+        self.__messenger: ClientMessenger = None
+
+    @property
+    def messenger(self) -> ClientMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, value: ClientMessenger):
+        self.__messenger = value
 
     @property
     def facebook(self) -> CommonFacebook:

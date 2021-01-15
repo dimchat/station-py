@@ -52,7 +52,7 @@ from libs.common import Database
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_station, g_database, g_released
+from robots.config import g_facebook, g_station, g_released
 from robots.config import load_station, dims_connect, all_stations
 
 
@@ -73,7 +73,7 @@ class LoginCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.get_context('database')
+        return self.messenger.database
 
     def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
         # check time expires
@@ -179,9 +179,6 @@ class Octopus:
                 station = g_station
             else:
                 messenger = OuterMessenger()
-                messenger.barrack = g_facebook
-                messenger.key_cache = g_keystore
-                messenger.context['database'] = g_database
                 # client for remote station
                 station = load_station(identifier=identifier, facebook=g_facebook)
                 assert isinstance(station, Station), 'station error: %s' % identifier
@@ -295,11 +292,12 @@ class Octopus:
         return self.__pack_message(content=res, receiver=sender)
 
     def roaming(self, roamer: ID, station: ID) -> int:
+        db = Database()
         sent_count = 0
         while True:
             # 1. scan offline messages
             self.info('%s is roaming, scanning messages for it' % roamer)
-            batch = g_database.load_message_batch(roamer)
+            batch = db.load_message_batch(roamer)
             if batch is None:
                 self.info('no message for this roamer: %s' % roamer)
                 return sent_count
@@ -322,7 +320,7 @@ class Octopus:
             # 3. remove messages after success
             total_count = len(messages)
             self.info('a batch message(%d/%d) redirect for %s' % (count, total_count, roamer))
-            g_database.remove_message_batch(batch, removed_count=count)
+            db.remove_message_batch(batch, removed_count=count)
             sent_count += count
             if count < total_count:
                 self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, roamer))
@@ -346,10 +344,6 @@ class Octopus:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = InnerMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_messenger.context['database'] = g_database
-g_facebook.messenger = g_messenger
 
 
 if __name__ == '__main__':

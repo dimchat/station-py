@@ -35,11 +35,13 @@ from typing import Optional, Union, List
 
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage, ReliableMessage
-from dimp import Packer, Processor
+from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
 from libs.utils import Log
+from libs.utils import Singleton
 
+from .database import Database
 from .keystore import KeyStore
 from .facebook import CommonFacebook
 
@@ -48,8 +50,6 @@ class CommonMessenger(Messenger):
 
     def __init__(self):
         super().__init__()
-        self.key_cache = KeyStore()
-        self.data_source = MessageDataSource()
         self.__context = {}
 
     @property
@@ -64,6 +64,36 @@ class CommonMessenger(Messenger):
             self.__context.pop(key, None)
         else:
             self.__context[key] = value
+
+    @property
+    def database(self) -> Database:
+        return Database()
+
+    @property
+    def key_cache(self) -> CipherKeyDelegate:
+        delegate = super().key_cache
+        if delegate is None:
+            """
+                Key Store
+                ~~~~~~~~~
+
+                Memory cache for reused passwords (symmetric key)
+            """
+            delegate = self.key_store
+            Messenger.key_cache.__set__(self, delegate)
+        return delegate
+
+    @property
+    def key_store(self) -> KeyStore:
+        return KeyStore()
+
+    @property
+    def data_source(self) -> MessengerDataSource:
+        delegate = super().data_source
+        if delegate is None:
+            delegate = MessageDataSource()
+            Messenger.data_source.__set__(self, delegate)
+        return delegate
 
     @property
     def facebook(self) -> CommonFacebook:
@@ -124,13 +154,8 @@ class CommonMessenger(Messenger):
         raise NotImplemented
 
 
+@Singleton
 class MessageDataSource(MessengerDataSource):
-
-    def __new__(cls, *args, **kwargs):
-        """ Singleton """
-        if not hasattr(cls, '_instance'):
-            cls._instance = super().__new__(cls, *args, **kwargs)
-        return cls._instance
 
     def save_message(self, msg: InstantMessage) -> bool:
         Log.info('TODO: saving message: %s' % msg)

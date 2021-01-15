@@ -38,7 +38,7 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import HandshakeCommand
-from dimsdk import CommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
 
 from ..session import Session
 from ..messenger import ServerMessenger
@@ -54,9 +54,13 @@ class HandshakeDelegate(metaclass=ABCMeta):
 
 class HandshakeCommandProcessor(CommandProcessor):
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     @property
     def delegate(self) -> HandshakeDelegate:

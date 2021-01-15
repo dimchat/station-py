@@ -43,8 +43,8 @@ from dimsdk import Station
 from libs.utils import Log
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
 from libs.common import Server, AddressNameServer
-from libs.common import Database, KeyStore, CommonFacebook
-from libs.server import ServerMessenger, SessionServer
+from libs.common import Storage, Database
+from libs.server import ServerFacebook, ServerMessenger, SessionServer
 from libs.server import Dispatcher
 from libs.server import ApplePushNotificationService
 
@@ -65,24 +65,10 @@ from .receptionist import Receptionist
 from .monitor import Monitor
 
 
-"""
-    Key Store
-    ~~~~~~~~~
+Log.info("local storage directory: %s" % base_dir)
+Storage.root = base_dir
 
-    Memory cache for reused passwords (symmetric key)
-"""
-g_keystore = KeyStore()
-
-
-"""
-    Database
-    ~~~~~~~~
-
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
 g_database = Database()
-g_database.base_dir = base_dir
-Log.info("database directory: %s" % g_database.base_dir)
 
 
 """
@@ -92,7 +78,6 @@ Log.info("database directory: %s" % g_database.base_dir)
     A map for short name to ID, just like DNS
 """
 g_ans = AddressNameServer()
-g_ans.database = g_database
 
 """
     Facebook
@@ -100,9 +85,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = CommonFacebook()
-g_facebook.database = g_database
-g_facebook.ans = g_ans
+g_facebook = ServerFacebook()
 
 
 """
@@ -133,8 +116,6 @@ Log.info('APNs credentials: %s' % apns_credentials)
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-g_dispatcher.database = g_database
-g_dispatcher.facebook = g_facebook
 g_dispatcher.session_server = g_session_server
 g_dispatcher.apns = g_apns
 
@@ -146,9 +127,6 @@ g_dispatcher.apns = g_apns
     A dispatcher for sending reports to administrator(s)
 """
 g_monitor = Monitor()
-g_monitor.database = g_database
-g_monitor.facebook = g_facebook
-g_monitor.keystore = g_keystore
 g_monitor.session_server = g_session_server
 g_monitor.apns = g_apns
 
@@ -161,8 +139,6 @@ g_monitor.apns = g_apns
 """
 g_receptionist = Receptionist()
 g_receptionist.session_server = g_session_server
-g_receptionist.database = g_database
-g_receptionist.facebook = g_facebook
 g_receptionist.apns = g_apns
 
 
@@ -171,11 +147,7 @@ g_receptionist.apns = g_apns
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ServerMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
 g_messenger.dispatcher = g_dispatcher
-g_messenger.context['database'] = g_database
-g_facebook.messenger = g_messenger
 
 
 """
@@ -316,7 +288,7 @@ Log.info('current station(%s): %s' % (station_name, current_station))
 g_facebook.local_users = local_servers
 g_facebook.current_user = current_station
 # set current station for key store
-g_keystore.user = current_station
+g_messenger.key_store.user = current_station
 # set current station for dispatcher
 g_dispatcher.station = current_station
 # set current station for receptionist

@@ -37,7 +37,7 @@ from dimp import Meta
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import CommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
 
 from ...common import SearchCommand
 from ...common import Database
@@ -47,9 +47,13 @@ from ..messenger import ServerMessenger
 
 class SearchCommandProcessor(CommandProcessor):
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     def get_context(self, key: str):
         assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
@@ -57,7 +61,7 @@ class SearchCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.get_context('database')
+        return self.messenger.database
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd

@@ -44,6 +44,7 @@ from libs.common import CommonMessenger
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
 from .filter import Filter
+from .facebook import ServerFacebook
 
 
 class ServerMessenger(CommonMessenger):
@@ -59,6 +60,9 @@ class ServerMessenger(CommonMessenger):
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
         self.__group_queries = {}    # ID -> time
+
+    def _create_facebook(self) -> ServerFacebook:
+        return ServerFacebook()
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor

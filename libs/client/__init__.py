@@ -36,6 +36,7 @@ from .extension import GroupManager
 from .connection import Connection
 from .terminal import Terminal
 
+from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 
 
@@ -49,5 +50,6 @@ __all__ = [
 
     'Connection',
     'Terminal',
+    'ClientFacebook',
     'ClientMessenger',
 ]

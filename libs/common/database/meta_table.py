@@ -83,7 +83,7 @@ class MetaTable(Storage):
             self.__caches[identifier] = info
         if info is not self.__empty:
             return info
-        self.error('meta not found: %s' % identifier)
+        # self.error('meta not found: %s' % identifier)
 
     """
         Search Engine

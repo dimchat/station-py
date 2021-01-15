@@ -37,7 +37,7 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand
-from dimsdk import CommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
 
 from ...common import ReportCommand
 from ...common import Database
@@ -47,17 +47,21 @@ from ..messenger import ServerMessenger
 
 class ReportCommandProcessor(CommandProcessor):
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
+
+    @property
+    def database(self) -> Database:
+        return self.messenger.database
 
     def get_context(self, key: str):
         assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
         return self.messenger.get_context(key=key)
-
-    @property
-    def database(self) -> Database:
-        return self.get_context('database')
 
     @property
     def receptionist(self):

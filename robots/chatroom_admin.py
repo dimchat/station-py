@@ -51,12 +51,13 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
 from libs.utils.dos import JSONFile
+from libs.common import Storage
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import g_facebook, g_station
 from robots.config import dims_connect
 from robots.config import chatroom_id
 from robots.config import chat_bot
@@ -69,13 +70,7 @@ from etc.cfg_loader import load_user
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_messenger.context['database'] = g_database
-# chat bot
-g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]
-
-g_facebook.messenger = g_messenger
+g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]  # chat bot
 
 
 #
@@ -96,6 +91,10 @@ class ForwardContentProcessor(ContentProcessor):
     @property
     def messenger(self) -> ClientMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ClientMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     #
     #   main
@@ -164,7 +163,7 @@ class Statistic:
         self.__load_stat()
 
     def __load_stat(self):
-        base = os.path.join(g_database.base_dir, 'stat')
+        base = os.path.join(Storage.root, 'stat')
         prefix = 'stat-' + date_string()
         # load login stat
         path = os.path.join(base, prefix + '-login.js')
@@ -191,7 +190,7 @@ class Statistic:
             return
         self.__update_time = now
 
-        base = os.path.join(g_database.base_dir, 'stat')
+        base = os.path.join(Storage.root, 'stat')
         prefix = self.__stat_prefix
         # save login stat
         path = os.path.join(base, prefix + '-login.js')
@@ -248,7 +247,7 @@ class History:
 
     @staticmethod
     def __path() -> str:
-        base = os.path.join(g_database.base_dir, 'public')
+        base = os.path.join(Storage.root, 'public')
         return os.path.join(base, 'chatroom-history.js')
 
     def __load_history(self):

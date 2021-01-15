@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
-from dimsdk import CommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
 
 from libs.utils import Log
 from libs.common import Database
@@ -52,9 +52,13 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     def get_context(self, key: str):
         assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
@@ -62,7 +66,7 @@ class LoginCommandProcessor(CommandProcessor):
 
     @property
     def database(self) -> Database:
-        return self.get_context('database')
+        return self.messenger.database
 
     @property
     def receptionist(self):

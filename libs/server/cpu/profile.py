@@ -36,7 +36,8 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimp import ForwardContent, Command, DocumentCommand
 
-from dimsdk import CommandProcessor, DocumentCommandProcessor as SuperCommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import Database
 from ..messenger import ServerMessenger
@@ -44,16 +45,17 @@ from ..messenger import ServerMessenger
 
 class DocumentCommandProcessor(SuperCommandProcessor):
 
-    def get_context(self, key: str):
-        return self.messenger.get_context(key=key)
-
-    @SuperCommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
 
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
+
     @property
     def database(self) -> Database:
-        return self.get_context('database')
+        return self.messenger.database
 
     def __check_login(self, cmd: DocumentCommand, sender: ID) -> bool:
         profile = cmd.document

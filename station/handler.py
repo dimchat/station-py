@@ -51,7 +51,7 @@ from libs.server import HandshakeDelegate
 from libs.utils.mtp import MTPUtils
 from libs.utils.nlp import ChatBot
 
-from .config import g_database, g_facebook, g_keystore, g_session_server
+from .config import g_facebook, g_session_server
 from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, chat_bot
 
@@ -94,12 +94,10 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
         if self.__messenger is None:
             m = ServerMessenger()
             m.barrack = g_facebook
-            m.key_cache = g_keystore
             m.dispatcher = g_dispatcher
             m.delegate = self
             # set context
             m.context['station'] = current_station
-            m.context['database'] = g_database
             m.context['session_server'] = g_session_server
             m.context['receptionist'] = g_receptionist
             m.context['bots'] = self.chat_bots

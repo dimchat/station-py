@@ -37,7 +37,7 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, MuteCommand
-from dimsdk import CommandProcessor
+from dimsdk import ContentProcessor, CommandProcessor
 
 from ..database import Database
 from ..messenger import CommonMessenger
@@ -45,17 +45,17 @@ from ..messenger import CommonMessenger
 
 class MuteCommandProcessor(CommandProcessor):
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> CommonMessenger:
         return super().messenger
 
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     @property
     def database(self) -> Database:
-        return self.get_context('database')
+        return self.messenger.database
 
     def __get(self, sender: ID) -> Content:
         stored: Command = self.database.mute_command(identifier=sender)

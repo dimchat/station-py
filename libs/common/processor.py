@@ -35,6 +35,7 @@ from dimp import ID
 from dimp import Content, ReliableMessage
 from dimp import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
+from dimsdk import ContentProcessor
 
 from libs.utils import Log
 
@@ -55,6 +56,10 @@ class CommonProcessor(MessageProcessor):
         transceiver = super().messenger
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
+
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     @property
     def facebook(self) -> CommonFacebook:

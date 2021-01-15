@@ -41,8 +41,9 @@ from dimsdk.ans import keywords as ans_keywords
 #
 from libs.utils import Log
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
-from libs.common import Database, AddressNameServer, KeyStore, CommonFacebook
-from libs.client import Terminal, ClientMessenger
+from libs.common import AddressNameServer
+from libs.common import Storage
+from libs.client import Terminal, ClientMessenger, ClientFacebook
 
 #
 #  Configurations
@@ -58,45 +59,8 @@ from etc.cfg_loader import load_robot_info, load_station
 
 g_released = True
 
-"""
-    Key Store
-    ~~~~~~~~~
-
-    Memory cache for reused passwords (symmetric key)
-"""
-g_keystore = KeyStore()
-
-
-"""
-    Database
-    ~~~~~~~~
-
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
-g_database = Database()
-g_database.base_dir = base_dir
-Log.info("database directory: %s" % g_database.base_dir)
-
-
-"""
-    Address Name Service
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A map for short name to ID, just like DNS
-"""
-g_ans = AddressNameServer()
-g_ans.database = g_database
-
-
-"""
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = CommonFacebook()
-g_facebook.database = g_database
-g_facebook.ans = g_ans
+Log.info("local storage directory: %s" % base_dir)
+Storage.root = base_dir
 
 
 """
@@ -105,15 +69,18 @@ g_facebook.ans = g_ans
 """
 station_id = ID.parse(identifier=station_id)
 
-# station_host = '127.0.0.1'
-station_host = '134.175.87.98'  # dimchat-gz
+station_host = '127.0.0.1'
+# station_host = '134.175.87.98'  # dimchat-gz
 # station_host = '124.156.108.150'  # dimchat-hk
 station_port = 9394
 
 g_station = Station(identifier=station_id, host=station_host, port=station_port)
+
+g_facebook = ClientFacebook()
 g_facebook.cache_user(user=g_station)
 
 # Address Name Service
+g_ans = AddressNameServer()
 g_ans.save('station', g_station.identifier)
 g_ans.save('moki', ID.parse(identifier='moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
 g_ans.save('hulk', ID.parse(identifier='hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
@@ -197,7 +164,7 @@ def load_naruto():
 """
 
 # load ANS reserved records
-Log.info('-------- loading ANS reserved records')
+Log.info('-------- Loading ANS reserved records')
 for key, value in ans_reserved_records.items():
     _id = ID.parse(identifier=value)
     assert _id is not None, 'ANS record error: %s, %s' % (key, value)
@@ -213,11 +180,11 @@ for key, value in ans_reserved_records.items():
         g_ans.save(key, _id)
 
 # convert ID to Station
-Log.info('-------- loading stations: %d' % len(all_stations))
+Log.info('-------- Loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
 
 # load group 'DIM Plaza'
-Log.info('-------- loading group contains all users')
+Log.info('-------- Loading group contains all users')
 load_naruto()
 
 # convert robot IDs

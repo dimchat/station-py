@@ -37,6 +37,8 @@ from dimp import Command
 from dimp import ReliableMessage
 from dimsdk import LoginCommand
 
+from libs.utils import Singleton
+
 from .storage import Storage
 from .private_table import PrivateKeyTable
 from .meta_table import MetaTable
@@ -59,6 +61,7 @@ __all__ = [
 ]
 
 
+@Singleton
 class Database:
 
     def __init__(self):
@@ -75,14 +78,6 @@ class Database:
         self.__ans_table = AddressNameTable()
         # login info
         self.__login_table = LoginTable()
-
-    @property
-    def base_dir(self) -> str:
-        return Storage.root
-
-    @base_dir.setter
-    def base_dir(self, root: str):
-        Storage.root = root
 
     """
         Private Key file for Users

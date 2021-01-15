@@ -50,7 +50,7 @@ from libs.common import Storage
 from libs.client import Terminal, ClientMessenger
 from libs.client import GroupManager
 
-from robots.config import g_facebook, g_keystore, g_database, g_station
+from robots.config import g_facebook, g_station
 from robots.config import group_naruto
 from robots.config import dims_connect
 from robots.config import chat_bot, xiaoxiao_id
@@ -64,13 +64,7 @@ from etc.cfg_bots import freshmen_file
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-g_messenger.context['database'] = g_database
-# chat bot
-g_messenger.context['bots'] = [chat_bot('xiaoi')]
-
-g_facebook.messenger = g_messenger
+g_messenger.context['bots'] = [chat_bot('xiaoi')] # chat bot
 
 
 def load_freshmen() -> List[ID]:

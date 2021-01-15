@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import dims_connect
-from robots.config import g_keystore, g_facebook, g_station
+from robots.config import g_facebook, g_station
 
 
 """
@@ -56,13 +56,7 @@ from robots.config import g_keystore, g_facebook, g_station
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
-
-# current station
-g_messenger.set_context('station', g_station)
-
-g_facebook.messenger = g_messenger
+g_messenger.set_context('station', g_station)  # current station
 
 
 class Console(Cmd):

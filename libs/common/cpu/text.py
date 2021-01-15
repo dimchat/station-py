@@ -57,9 +57,13 @@ class TextContentProcessor(ContentProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    @ContentProcessor.messenger.getter
+    @property
     def messenger(self) -> CommonMessenger:
         return super().messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: CommonMessenger):
+        ContentProcessor.messenger.__set__(self, transceiver)
 
     def get_context(self, key: str):
         assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
@@ -143,7 +147,7 @@ class TextContentProcessor(ContentProcessor):
             else:
                 # group message
                 self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
-                if self.messenger.send_content(content=response, receiver=group):
+                if self.messenger.send_content(sender=None, receiver=group, content=response):
                     text = 'Group message responded'
                     return ReceiptCommand(message=text)
                 else:

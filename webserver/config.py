@@ -39,10 +39,9 @@ from dimsdk.ans import keywords as ans_keywords
 #
 #  Common Libs
 #
-
 from libs.utils import Log
-from libs.common import Database, AddressNameServer, KeyStore, CommonFacebook
-from libs.server import ServerMessenger
+from libs.common import Storage, AddressNameServer
+from libs.server import ServerFacebook
 
 
 #
@@ -50,23 +49,8 @@ from libs.server import ServerMessenger
 #
 from etc.cfg_db import base_dir, ans_reserved_records
 
-"""
-    Key Store
-    ~~~~~~~~~
-
-    Memory cache for reused passwords (symmetric key)
-"""
-g_keystore = KeyStore()
-
-"""
-    Database
-    ~~~~~~~~
-
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
-g_database = Database()
-g_database.base_dir = base_dir
-Log.info("database directory: %s" % g_database.base_dir)
+Log.info("local storage directory: %s" % base_dir)
+Storage.root = base_dir
 
 """
     Address Name Service
@@ -75,7 +59,6 @@ Log.info("database directory: %s" % g_database.base_dir)
     A map for short name to ID, just like DNS
 """
 g_ans = AddressNameServer()
-g_ans.database = g_database
 
 """
     Facebook
@@ -83,17 +66,7 @@ g_ans.database = g_database
 
     Barrack for cache entities
 """
-g_facebook = CommonFacebook()
-g_facebook.database = g_database
-g_facebook.ans = g_ans
-
-"""
-    Messenger for server
-    ~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = ServerMessenger()
-g_messenger.barrack = g_facebook
-g_messenger.key_cache = g_keystore
+g_facebook = ServerFacebook()
 
 
 """
@@ -102,7 +75,7 @@ g_messenger.key_cache = g_keystore
 """
 
 # load ANS reserved records
-Log.info('-------- loading ANS reserved records')
+Log.info('-------- Loading ANS reserved records')
 for key, value in ans_reserved_records.items():
     _id = ID.parse(identifier=value)
     assert _id is not None, 'ANS record error: %s, %s' % (key, value)

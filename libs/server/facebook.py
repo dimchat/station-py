@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,31 +24,35 @@
 # ==============================================================================
 
 """
-    Server Module
-    ~~~~~~~~~~~~~
-
+    Facebook for station
+    ~~~~~~~~~~~~~~~~~~~~
 """
 
-from .cpu import *
+from typing import Optional
 
-from .session import Session, SessionServer
-from .facebook import ServerFacebook
-from .messenger import ServerMessenger
-from .processor import ServerProcessor
-from .transmitter import ServerTransmitter
-from .dispatcher import Dispatcher
-from .filter import Filter
+from dimp import ID, Meta, Document
 
-from .apns import ApplePushNotificationService
+from libs.utils import Singleton
+from libs.common import CommonFacebook
 
 
-__all__ = [
+@Singleton
+class ServerFacebook(CommonFacebook):
 
-    'HandshakeDelegate',
+    def meta(self, identifier: ID) -> Optional[Meta]:
+        info = super().meta(identifier=identifier)
+        if info is None:
+            if identifier.is_broadcast:
+                return None
+            # DISCUSS: broadcast meta to every stations when user login,
+            #          no need to query other stations time by time
+            pass
+        return info
 
-    'Session', 'SessionServer',
-    'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
-    'Dispatcher', 'Filter',
-
-    'ApplePushNotificationService',
-]
+    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
+        info = super().document(identifier=identifier, doc_type=doc_type)
+        if info is None or self.is_expired_document(document=info):
+            # DISCUSS: broadcast document to every stations when user upload it,
+            #          no need to query other stations time by time
+            pass
+        return info
