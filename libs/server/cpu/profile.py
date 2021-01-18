@@ -81,5 +81,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
 
 # register
 dpu = DocumentCommandProcessor()
-CommandProcessor.register(command=Command.PROFILE, cpu=dpu)
 CommandProcessor.register(command=Command.DOCUMENT, cpu=dpu)
+CommandProcessor.register(command='profile', cpu=dpu)
+CommandProcessor.register(command='visa', cpu=dpu)
+CommandProcessor.register(command='bulletin', cpu=dpu)
