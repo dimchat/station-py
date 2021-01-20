@@ -34,26 +34,23 @@ import socket
 import threading
 import time
 import traceback
-from typing import Optional, Union
-
-from dimp import InstantMessage
-from dimsdk import Station, CompletionHandler, MessengerDelegate
+import weakref
+from typing import Optional
 
 from libs.utils import Log
 
-from .messenger import ClientMessenger
 
-
-class Connection(threading.Thread, MessengerDelegate):
+class Connection(threading.Thread):
 
     # boundary for packages
     BOUNDARY = b'\n'
 
     def __init__(self):
         super().__init__()
-        self.__messenger = None  # ClientMessenger
+        self.__messenger: weakref.ReferenceType = None
         # current station
-        self.__address = None
+        self.__host = None
+        self.__port = 9394
         self.__connected = False
         self.__running = False
         # socket
@@ -68,12 +65,13 @@ class Connection(threading.Thread, MessengerDelegate):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
-    def messenger(self) -> ClientMessenger:
-        return self.__messenger
+    def messenger(self):  # -> ClientMessenger:
+        if self.__messenger is not None:
+            return self.__messenger()
 
     @messenger.setter
-    def messenger(self, value: ClientMessenger):
-        self.__messenger = value
+    def messenger(self, transceiver):
+        self.__messenger = weakref.ref(transceiver)
 
     def __del__(self):
         self.disconnect()
@@ -139,23 +137,20 @@ class Connection(threading.Thread, MessengerDelegate):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, server: Union[Station, tuple]) -> Optional[socket.error]:
+    def connect(self, host: str, port: int=9394) -> Optional[socket.error]:
         # connect to new socket (host:port)
-        if isinstance(server, Station):
-            address = (server.host, server.port)
-        else:
-            address = server
-        self.info('Connecting: (%s:%d) ...' % address)
         sock = socket.socket()
         try:
-            sock.connect(address)
+            self.info('Connecting: (%s:%d) ...' % (host, port))
+            sock.connect((host, port))
+            self.info('DIM Station (%s:%d) connected.' % (host, port))
         except socket.error as error:
-            self.error('failed to connect %s: %s' % (address, error))
+            self.error('failed to connect (%s:%d): %s' % (host, port, error))
             return error
-        self.__address = address
+        self.__host = host
+        self.__port = port
         self.__sock = sock
         self.__connected = True
-        self.info('DIM Station (%s:%d) connected.' % address)
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
@@ -169,7 +164,7 @@ class Connection(threading.Thread, MessengerDelegate):
             self.disconnect()
             time.sleep(2)
         # connect to same station
-        return self.connect(server=self.__address)
+        return self.connect(host=self.__host, port=self.__port)
 
     def heartbeat(self):
         while self.__connected:
@@ -247,27 +242,3 @@ class Connection(threading.Thread, MessengerDelegate):
             # receive OK, record the current time
             self.__last_time = int(time.time())
         return data
-
-    #
-    #   MessengerDelegate
-    #
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int=0) -> bool:
-        """ Send out a data package onto network """
-        # pack
-        pack = data + self.BOUNDARY
-        # send
-        error = self.send(data=pack)
-        if handler is not None:
-            if error is None:
-                handler.success()
-            else:
-                handler.failed(error=error)
-        return error is None
-
-    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
-        """ Upload encrypted data to CDN """
-        pass
-
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
-        """ Download encrypted data from CDN, and decrypt it when finished """
-        pass

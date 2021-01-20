@@ -14,7 +14,7 @@ from dimp import ID, Meta, PrivateKey, Document, User
 from dimsdk import Station
 
 from libs.utils import Log
-from libs.common import Storage, Server, CommonFacebook
+from libs.common import Storage, CommonFacebook
 
 etc = os.path.abspath(os.path.dirname(__file__))
 
@@ -79,7 +79,7 @@ def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Statio
         if not facebook.save_document(document=profile):
             raise AssertionError('failed to save profile: %s' % profile)
         # local station
-        station = Server(identifier=identifier, host=host, port=port)
+        station = Station(identifier=identifier, host=host, port=port)
     facebook.cache_user(user=station)
     Log.info('station loaded: %s' % station)
     return station

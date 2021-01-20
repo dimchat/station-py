@@ -81,7 +81,7 @@ class Console(Cmd):
         g_facebook.current_user = g_facebook.user(identifier=identifier)
         self.info('connecting to %s ...' % g_station)
         client = Terminal()
-        dims_connect(terminal=client, messenger=g_messenger, station=g_station)
+        dims_connect(terminal=client, messenger=g_messenger, server=g_station)
         self.client = client
         if self.receiver is None:
             self.receiver = g_station.identifier
@@ -89,7 +89,7 @@ class Console(Cmd):
     def logout(self):
         client = self.client
         if client:
-            self.info('disconnect from %s ...' % client.station)
+            self.info('disconnect from %s ...' % client.server)
             client.disconnect()
             self.client = None
         self.receiver = None

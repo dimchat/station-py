@@ -44,9 +44,7 @@ from libs.utils import Log
 from libs.common import NetMsgHead, NetMsg
 from libs.common import WebSocket
 from libs.common import CommonPacker
-from libs.server import Session
 from libs.server import ServerMessenger
-from libs.server import HandshakeDelegate
 
 from libs.utils.mtp import MTPUtils
 from libs.utils.nlp import ChatBot
@@ -56,7 +54,7 @@ from .config import g_dispatcher, g_receptionist, g_monitor
 from .config import current_station, station_name, chat_bot
 
 
-class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate):
+class RequestHandler(StreamRequestHandler, MessengerDelegate):
 
     def __init__(self, request, client_address, server):
         # messenger
@@ -150,7 +148,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def handle(self):
         self.info('client connected (%s, %s)' % self.client_address)
         data = b''
-        while current_station.running:
+        while True:
             # receive all data
             remaining_length = len(data)
             data = self.receive(data)
@@ -458,19 +456,3 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, HandshakeDelegate)
     def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         # download encrypted file data
         pass
-
-    #
-    #   HandshakeDelegate (Server)
-    #
-    def handshake_accepted(self, session: Session):
-        sender = session.identifier
-        session_key = session.session_key
-        client_address = session.client_address
-        user = g_facebook.user(identifier=sender)
-        self.messenger.remote_user = user
-        self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
-        g_monitor.report(message='User %s logged in %s' % (sender, client_address))
-        if user.identifier.type == NetworkType.STATION:
-            g_dispatcher.add_neighbor(station=user)
-        # add the new guest for checking offline messages
-        g_receptionist.add_guest(identifier=sender)

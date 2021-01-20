@@ -50,7 +50,6 @@ from station.config import g_receptionist, g_dispatcher, current_station
 
 if __name__ == '__main__':
 
-    current_station.running = True
     g_receptionist.start()
     g_dispatcher.start()
 
@@ -69,5 +68,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)
     finally:
-        current_station.running = False
+        g_dispatcher.stop()
+        g_receptionist.stop()
         Log.info('======== station shutdown!')

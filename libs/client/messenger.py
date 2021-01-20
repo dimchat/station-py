@@ -31,24 +31,27 @@
 """
 
 import time
+import weakref
 from typing import List
 
 from dimp import ID, EVERYONE
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Transceiver
-from dimsdk import Station
+from dimsdk import LoginCommand
 
 from libs.common import CommonMessenger
 
+from .network import Terminal, Server, ServerDelegate
 from .facebook import ClientFacebook
 
 
-class ClientMessenger(CommonMessenger):
+class ClientMessenger(CommonMessenger, ServerDelegate):
 
     EXPIRES = 600  # query expires (10 minutes)
 
     def __init__(self):
         super().__init__()
+        self.__terminal: weakref.ReferenceType = None
         # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
@@ -62,8 +65,17 @@ class ClientMessenger(CommonMessenger):
         return ClientProcessor(messenger=self)
 
     @property
-    def station(self) -> Station:
-        return self.get_context('station')
+    def terminal(self) -> Terminal:
+        if self.__terminal is not None:
+            return self.__terminal()
+
+    @terminal.setter
+    def terminal(self, client: Terminal):
+        self.__terminal = weakref.ref(client)
+
+    @property
+    def server(self) -> Server:
+        return self.terminal.server
 
     def broadcast_content(self, content: Content) -> bool:
         return self.send_content(sender=None, receiver=EVERYONE, content=content)
@@ -72,7 +84,7 @@ class ClientMessenger(CommonMessenger):
     #   Command
     #
     def __send_command(self, cmd: Command) -> bool:
-        station = self.station
+        station = self.server
         if station is None:
             # raise ValueError('current station not set')
             return False
@@ -114,3 +126,17 @@ class ClientMessenger(CommonMessenger):
             if self.send_content(sender=None, receiver=item, content=cmd):
                 checking = True
         return checking
+
+    #
+    #   Server Delegate
+    #
+    def handshake_accepted(self, server: Server):
+        user = self.facebook.current_user
+        # post current profile to station
+        # post contacts(encrypted) to station
+        # broadcast login command
+        login = LoginCommand(identifier=user.identifier)
+        login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
+        login.station = self.server
+        # self.messenger.broadcast_content(content=login)
+        return self.send_content(sender=user.identifier, receiver=EVERYONE, content=login)

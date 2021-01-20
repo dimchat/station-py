@@ -33,23 +33,18 @@ from .cpu import *
 
 from .extension import GroupManager
 
-from .connection import Connection
-from .terminal import Terminal
+from .network import Connection, Terminal, Server, ServerDelegate
 
 from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 
 
 __all__ = [
-    #
-    #   Command Processor Units
-    #
-    'HandshakeDelegate',
 
     'GroupManager',
 
-    'Connection',
-    'Terminal',
+    'Connection', 'Terminal', 'Server', 'ServerDelegate',
+
     'ClientFacebook',
     'ClientMessenger',
 ]

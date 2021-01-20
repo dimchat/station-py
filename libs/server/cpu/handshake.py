@@ -30,7 +30,6 @@
     Handshake Protocol
 """
 
-from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from dimp import ID
@@ -40,16 +39,7 @@ from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
-from ..session import Session
 from ..messenger import ServerMessenger
-
-
-class HandshakeDelegate(metaclass=ABCMeta):
-
-    @abstractmethod
-    def handshake_accepted(self, session: Session) -> Optional[Content]:
-        """ Processed by Station """
-        pass
 
 
 class HandshakeCommandProcessor(CommandProcessor):
@@ -62,10 +52,6 @@ class HandshakeCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: ServerMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    @property
-    def delegate(self) -> HandshakeDelegate:
-        return self.messenger.delegate
-
     def __offer(self, sender: ID, session_key: str=None) -> Content:
         # set/update session in session server with new session key
         session = self.messenger.current_session(identifier=sender)
@@ -73,7 +59,7 @@ class HandshakeCommandProcessor(CommandProcessor):
             # session verified success
             session.valid = True
             session.active = True
-            response = self.delegate.handshake_accepted(session=session)
+            response = self.messenger.handshake_accepted(session=session)
             if response is None:
                 response = HandshakeCommand.success()
             return response

@@ -44,8 +44,6 @@ from .apns import ApplePushNotificationService
 
 __all__ = [
 
-    'HandshakeDelegate',
-
     'Session', 'SessionServer',
     'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
     'Dispatcher', 'Filter',

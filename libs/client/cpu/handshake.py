@@ -30,7 +30,6 @@
     Handshake Protocol
 """
 
-from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from dimp import ReliableMessage
@@ -40,22 +39,7 @@ from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
 
-class HandshakeDelegate(metaclass=ABCMeta):
-
-    @abstractmethod
-    def handshake_success(self):
-        """ Processed by Client """
-        pass
-
-
 class HandshakeCommandProcessor(CommandProcessor):
-
-    def get_context(self, key: str):
-        return self.messenger.get_context(key=key)
-
-    @property
-    def delegate(self) -> HandshakeDelegate:
-        return self.get_context('handshake_delegate')
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
@@ -65,7 +49,8 @@ class HandshakeCommandProcessor(CommandProcessor):
             return HandshakeCommand.restart(session=cmd.session)
         elif 'DIM!' == message:
             # handshake accepted by station
-            self.delegate.handshake_success()
+            server = self.messenger.server
+            server.handshake_success()
 
 
 # register

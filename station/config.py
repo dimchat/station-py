@@ -42,7 +42,7 @@ from dimsdk import Station
 #
 from libs.utils import Log
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
-from libs.common import Server, AddressNameServer
+from libs.common import AddressNameServer
 from libs.common import Storage, Database
 from libs.server import ServerFacebook, ServerMessenger, SessionServer
 from libs.server import Dispatcher
@@ -224,10 +224,10 @@ def neighbor_stations(identifier: ID) -> List[Station]:
     return array
 
 
-def create_server(identifier: str, host: str, port: int=9394) -> Server:
+def create_server(identifier: str, host: str, port: int=9394) -> Station:
     """ Create Local Server """
     identifier = ID.parse(identifier=identifier)
-    server = Server(identifier=identifier, host=host, port=port)
+    server = Station(identifier=identifier, host=host, port=port)
     g_facebook.cache_user(user=server)
     Log.info('local station created: %s' % server)
     return server

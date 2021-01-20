@@ -457,4 +457,4 @@ if __name__ == '__main__':
     # create client and connect to the station
     client = Terminal()
     client.room = ChatRoom(g_messenger)
-    dims_connect(terminal=client, messenger=g_messenger, station=g_station)
+    dims_connect(terminal=client, messenger=g_messenger, server=g_station)

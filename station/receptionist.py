@@ -42,7 +42,6 @@ from dimsdk import Station
 
 from libs.utils import Log
 from libs.common import Storage, Database
-from libs.common import Server
 from libs.server import SessionServer
 from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
@@ -74,10 +73,11 @@ class Receptionist(Thread):
 
     def __init__(self):
         super().__init__()
+        self.__running = True
         self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
         # current station and guests
-        self.station: Server = None
+        self.station: Station = None
         self.guests = []
         self.roamers = []
 
@@ -307,7 +307,7 @@ class Receptionist(Thread):
 
     def run(self):
         self.info('receptionist starting...')
-        while self.station.running:
+        while self.__running:
             # noinspection PyBroadException
             try:
                 self.__run_unsafe()
@@ -317,3 +317,6 @@ class Receptionist(Thread):
                 # sleep for next loop
                 time.sleep(0.1)
         self.info('receptionist exit!')
+
+    def stop(self):
+        self.__running = False

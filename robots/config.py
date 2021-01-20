@@ -33,7 +33,6 @@
 from typing import Optional
 
 from dimp import Meta, ID
-from dimsdk import Station
 from dimsdk.ans import keywords as ans_keywords
 
 #
@@ -43,7 +42,7 @@ from libs.utils import Log
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
 from libs.common import AddressNameServer
 from libs.common import Storage
-from libs.client import Terminal, ClientMessenger, ClientFacebook
+from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
 
 #
 #  Configurations
@@ -74,7 +73,7 @@ station_host = '127.0.0.1'
 # station_host = '124.156.108.150'  # dimchat-hk
 station_port = 9394
 
-g_station = Station(identifier=station_id, host=station_host, port=station_port)
+g_station = Server(identifier=station_id, host=station_host, port=station_port)
 
 g_facebook = ClientFacebook()
 g_facebook.cache_user(user=g_station)
@@ -131,15 +130,19 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 """
 
 
-def dims_connect(terminal: Terminal, station: Station, messenger: ClientMessenger) -> Terminal:
+def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger) -> Terminal:
     # context
-    messenger.context['station'] = station
-    messenger.context['remote_address'] = (station.host, station.port)
+    messenger.context['station'] = server
+    messenger.context['remote_address'] = (server.host, server.port)
     messenger.context['handshake_delegate'] = terminal
+    messenger.delegate = server
+    messenger.terminal = terminal
     # client
     terminal.messenger = messenger
-    terminal.connect(station=station)
-    terminal.handshake()
+    terminal.start(server=server)
+    # start server
+    server.messenger = messenger
+    server.handshake()
     return terminal
 
 

@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,23 +23,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Station Server
-    ~~~~~~~~~~~~~~
-
-    Local station
-"""
-
-from dimp import ID
-from dimsdk import Station
+from .connection import Connection
+from .terminal import Terminal
+from .server import Server, ServerDelegate
 
 
-class Server(Station):
-    """
-        Local Station
-        ~~~~~~~~~~~~~
-    """
+__all__ = [
 
-    def __init__(self, identifier: ID, host: str, port: int=9394):
-        super().__init__(identifier=identifier, host=host, port=port)
-        self.running = False
+    'Connection',
+    'Terminal',
+    'Server', 'ServerDelegate',
+]

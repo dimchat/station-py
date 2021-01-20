@@ -33,10 +33,11 @@
 import time
 from typing import List
 
-from dimp import ID, EVERYWHERE, User
+from dimp import NetworkType, ID, EVERYWHERE, User
 from dimp import Envelope, InstantMessage
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Processor
+from dimsdk import Station
 from dimsdk import MessageTransmitter
 
 from libs.common import CommonMessenger
@@ -137,6 +138,23 @@ class ServerMessenger(CommonMessenger):
     @remote_address.setter
     def remote_address(self, value):
         self.set_context(key='remote_address', value=value)
+
+    #
+    #   HandshakeDelegate
+    #
+    def handshake_accepted(self, session: Session):
+        sender = session.identifier
+        session_key = session.session_key
+        client_address = session.client_address
+        user = self.facebook.user(identifier=sender)
+        self.set_context(key='remote_user', value=user)
+        self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
+        # g_monitor.report(message='User %s logged in %s' % (sender, client_address))
+        if user.identifier.type == NetworkType.STATION:
+            assert isinstance(user, Station), 'station error: %s' % user
+            self.dispatcher.add_neighbor(station=user)
+        # add the new guest for checking offline messages
+        # g_receptionist.add_guest(identifier=sender)
 
     #
     #   Command

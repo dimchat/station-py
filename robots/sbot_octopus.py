@@ -50,7 +50,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.utils import Log
 from libs.common import Database
 
-from libs.client import Terminal, ClientMessenger
+from libs.client import Server, Terminal, ClientMessenger
 
 from robots.config import g_facebook, g_station, g_released
 from robots.config import load_station, dims_connect, all_stations
@@ -121,6 +121,11 @@ class InnerMessenger(ClientMessenger):
         else:
             return super().process_reliable_message(msg=msg)
 
+    def handshake_accepted(self, server: Server):
+        super().handshake_accepted(server=server)
+        self.info('start bridge for: %s' % self.server)
+        self.accepted = True
+
 
 class OuterMessenger(ClientMessenger):
     """ Messenger for processing message from remote station """
@@ -136,14 +141,10 @@ class OuterMessenger(ClientMessenger):
         else:
             return super().process_reliable_message(msg=msg)
 
-
-class OctopusClient(Terminal):
-
-    def handshake_success(self):
-        super().handshake_success()
-        station = self.messenger.get_context('station')
-        self.info('start bridge for: %s' % station)
-        self.messenger.accepted = True
+    def handshake_accepted(self, server: Server):
+        super().handshake_accepted(server=server)
+        self.info('start bridge for: %s' % self.server)
+        self.accepted = True
 
 
 class Octopus:
@@ -183,18 +184,18 @@ class Octopus:
                 station = load_station(identifier=identifier, facebook=g_facebook)
                 assert isinstance(station, Station), 'station error: %s' % identifier
             # create client for station with octopus and messenger
-            client = OctopusClient()
+            client = Terminal()
             client.octopus = octopus
-            dims_connect(terminal=client, messenger=messenger, station=station)
+            dims_connect(terminal=client, messenger=messenger, server=station)
             self.__clients[identifier] = client
         return client
 
     def __remove_client(self, identifier: ID):
         client = self.__clients.get(identifier)
-        if client is not None:
+        if isinstance(client, Terminal):
             client.octopus = None
             client.messenger = None
-            client.station = None
+            client.stop()
             self.__clients.pop(identifier)
 
     def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:

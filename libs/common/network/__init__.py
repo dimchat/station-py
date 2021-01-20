@@ -23,13 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .server import Server
 from .mars import NetMsgHead, NetMsg
 from .ws import WebSocket
 
 
 __all__ = [
-    'Server',
 
     # data packing
     'NetMsgHead', 'NetMsg',

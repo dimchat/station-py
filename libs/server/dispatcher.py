@@ -42,7 +42,6 @@ from dimsdk import Station
 from dimsdk import ReceiptCommand
 
 from libs.utils import Log
-from libs.common import Server
 from libs.common import Database
 from libs.common.push_message_service import PushMessageService
 
@@ -54,7 +53,8 @@ class Dispatcher(Thread):
 
     def __init__(self):
         super().__init__()
-        self.station: Server = None
+        self.__running = True
+        self.station: Station = None
         self.session_server: SessionServer = None
         # self.apns: ApplePushNotificationService = None
         self.push_service: PushMessageService = PushMessageService()
@@ -321,7 +321,7 @@ class Dispatcher(Thread):
 
     def run(self):
         self.info('dispatcher starting...')
-        while self.station.running:
+        while self.__running:
             # noinspection PyBroadException
             try:
                 self.__run_unsafe()
@@ -331,3 +331,6 @@ class Dispatcher(Thread):
                 # sleep for next loop
                 time.sleep(0.1)
         self.info('dispatcher exit!')
+
+    def stop(self):
+        self.__running = False

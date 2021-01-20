@@ -30,7 +30,7 @@
     Processors for commands
 """
 
-from .handshake import HandshakeCommandProcessor, HandshakeDelegate
+from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 from .report import ReportCommandProcessor
 from .profile import DocumentCommandProcessor
@@ -38,7 +38,7 @@ from .search import SearchCommandProcessor, UsersCommandProcessor
 
 
 __all__ = [
-    'HandshakeCommandProcessor', 'HandshakeDelegate',
+    'HandshakeCommandProcessor',
     'ReportCommandProcessor',
     'LoginCommandProcessor', 'DocumentCommandProcessor',
     'SearchCommandProcessor',

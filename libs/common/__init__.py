@@ -32,7 +32,6 @@
 
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
-from .network import Server
 from .network import NetMsgHead, NetMsg
 from .network import WebSocket
 from .database import Storage, Database
@@ -63,7 +62,6 @@ __all__ = [
     #
     #   Network
     #
-    'Server',
     'NetMsgHead', 'NetMsg',
     'WebSocket',
 
