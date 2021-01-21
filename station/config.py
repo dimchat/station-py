@@ -43,7 +43,7 @@ from dimsdk import Station
 from libs.utils import Log
 from libs.common import AddressNameServer
 from libs.common import Storage, Database
-from libs.server import ServerFacebook, ServerMessenger, SessionServer
+from libs.server import ServerFacebook, ServerMessenger
 from libs.server import Dispatcher
 from libs.server import ApplePushNotificationService
 
@@ -87,15 +87,6 @@ g_facebook = ServerFacebook()
 
 
 """
-    Session Server
-    ~~~~~~~~~~~~~~
-
-    for login user
-"""
-g_session_server = SessionServer()
-
-
-"""
     Apple Push Notification service (APNs)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -114,7 +105,6 @@ Log.info('APNs credentials: %s' % apns_credentials)
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-g_dispatcher.session_server = g_session_server
 g_dispatcher.apns = g_apns
 
 
@@ -125,7 +115,6 @@ g_dispatcher.apns = g_apns
     A dispatcher for sending reports to administrator(s)
 """
 g_monitor = Monitor()
-g_monitor.session_server = g_session_server
 g_monitor.apns = g_apns
 
 
@@ -136,7 +125,6 @@ g_monitor.apns = g_apns
     A message scanner for new guests who have just come in.
 """
 g_receptionist = Receptionist()
-g_receptionist.session_server = g_session_server
 g_receptionist.apns = g_apns
 
 
@@ -145,7 +133,6 @@ g_receptionist.apns = g_apns
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ServerMessenger()
-g_messenger.dispatcher = g_dispatcher
 
 
 """

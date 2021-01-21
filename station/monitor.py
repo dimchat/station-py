@@ -52,7 +52,6 @@ class Monitor(Observer):
     def __init__(self):
         super().__init__()
         self.apns: ApplePushNotificationService = None
-        self.session_server: SessionServer = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
@@ -69,6 +68,10 @@ class Monitor(Observer):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def session_server(self) -> SessionServer:
+        return SessionServer()
 
     #
     #    Notification Observer

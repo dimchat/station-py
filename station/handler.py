@@ -44,14 +44,13 @@ from libs.utils import Log
 from libs.common import NetMsgHead, NetMsg
 from libs.common import WebSocket
 from libs.common import CommonPacker
-from libs.server import ServerMessenger
+from libs.server import ServerMessenger, SessionServer
 
 from libs.utils.mtp import MTPUtils
 
 from robots.nlp import chat_bots
 
-from .config import g_session_server
-from .config import g_dispatcher, g_monitor
+from .config import g_monitor
 from .config import current_station, station_name
 
 
@@ -79,7 +78,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
     def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
             m = ServerMessenger()
-            m.dispatcher = g_dispatcher
             m.delegate = self
             # set context
             m.context['station'] = current_station
@@ -87,6 +85,10 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
             m.context['remote_address'] = self.client_address
             self.__messenger = m
         return self.__messenger
+
+    @property
+    def session_server(self) -> SessionServer:
+        return self.messenger.session_server
 
     @property
     def remote_user(self) -> Optional[User]:
@@ -101,7 +103,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
         self.timeout = self.request.gettimeout()
         address = self.client_address
         self.info('set up with %s [%s]' % (address, station_name))
-        g_session_server.set_handler(client_address=address, request_handler=self)
+        self.session_server.set_handler(client_address=address, request_handler=self)
         g_monitor.report(message='Client connected %s [%s]' % (address, station_name))
 
     def finish(self):
@@ -111,17 +113,17 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
             g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
         else:
             if user.identifier.type == NetworkType.STATION:
-                g_dispatcher.remove_neighbor(station=user)
+                self.messenger.dispatcher.remove_neighbor(station=user.identifier)
             nickname = self.messenger.facebook.name(identifier=user.identifier)
-            session = g_session_server.get(identifier=user.identifier, client_address=address)
+            session = self.session_server.get(identifier=user.identifier, client_address=address)
             if session is None:
                 self.error('user %s not login yet %s %s' % (user, address, station_name))
             else:
                 g_monitor.report(message='User %s logged out %s [%s]' % (nickname, address, station_name))
                 # clear current session
-                g_session_server.remove(session=session)
+                self.session_server.remove(session=session)
         # remove request handler fro session handler
-        g_session_server.clear_handler(client_address=address)
+        self.session_server.clear_handler(client_address=address)
         self.__messenger = None
         self.info('finish with %s %s' % (address, user))
         super().finish()

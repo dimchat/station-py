@@ -77,7 +77,6 @@ class Receptionist(Thread, Observer):
     def __init__(self):
         super().__init__()
         self.__running = True
-        self.session_server: SessionServer = None
         self.apns: ApplePushNotificationService = None
         # current station and guests
         self.station: Station = None
@@ -97,6 +96,10 @@ class Receptionist(Thread, Observer):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def session_server(self) -> SessionServer:
+        return SessionServer()
 
     #
     #    Notification Observer

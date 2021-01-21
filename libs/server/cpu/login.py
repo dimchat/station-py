@@ -88,6 +88,7 @@ class LoginCommandProcessor(CommandProcessor):
         sid = self.__roaming(cmd=cmd, sender=sender)
         if sid is not None:
             self.info('%s roamed to: %s' % (sender, sid))
+            # post notification: USER_ONLINE
             NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
                 'ID': sender,
                 'station': sid,

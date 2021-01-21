@@ -56,9 +56,8 @@ class Dispatcher(Thread):
         super().__init__()
         self.__running = True
         self.station: Station = None
-        self.session_server: SessionServer = None
         # self.apns: ApplePushNotificationService = None
-        self.push_service: PushMessageService = PushMessageService()
+        self.push_service = PushMessageService()
         self.__neighbors: List[ID] = []     # ID list
         self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
@@ -68,6 +67,10 @@ class Dispatcher(Thread):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def session_server(self) -> SessionServer:
+        return SessionServer()
 
     @property
     def facebook(self) -> ServerFacebook:

@@ -101,6 +101,7 @@ def post_notification(session: Session, sender):
         notification = NotificationNames.USER_ONLINE
     else:
         notification = NotificationNames.USER_OFFLINE
+    # post notification
     NotificationCenter().post(name=notification, sender=sender, info={
         'ID': session.identifier,
         'client_address': session.client_address,

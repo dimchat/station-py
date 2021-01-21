@@ -56,7 +56,6 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
-        self.__dispatcher: Dispatcher = None
         self.__filter: Filter = None
         self.__session: Session = None
         # for checking duplicated queries
@@ -77,11 +76,7 @@ class ServerMessenger(CommonMessenger):
 
     @property
     def dispatcher(self) -> Dispatcher:
-        return self.__dispatcher
-
-    @dispatcher.setter
-    def dispatcher(self, value: Dispatcher):
-        self.__dispatcher = value
+        return Dispatcher()
 
     @property
     def filter(self) -> Filter:
@@ -146,8 +141,8 @@ class ServerMessenger(CommonMessenger):
         if user.identifier.type == NetworkType.STATION:
             assert isinstance(user, Station), 'station error: %s' % user
             self.dispatcher.add_neighbor(station=user)
-        nc = NotificationCenter()
-        nc.post(name=NotificationNames.USER_LOGIN, sender=self, info={
+        # post notification: USER_LOGIN
+        NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
             'ID': sender,
             'client_address': client_address,
         })
