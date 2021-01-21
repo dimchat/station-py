@@ -30,8 +30,6 @@
     Configuration for Robot
 """
 
-from typing import Optional
-
 from dimp import Meta, ID
 from dimsdk.ans import keywords as ans_keywords
 
@@ -39,7 +37,6 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.utils import Log
-from libs.utils.nlp import ChatBot, Tuling, XiaoI
 from libs.common import AddressNameServer
 from libs.common import Storage
 from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
@@ -51,7 +48,6 @@ from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_gsp import station_id, all_stations
 from etc.cfg_bots import group_assistants
 from etc.cfg_bots import group_naruto
-from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id, tokentalkteam_id
 
 from etc.cfg_loader import load_robot_info, load_station
@@ -83,44 +79,6 @@ g_ans = AddressNameServer()
 g_ans.save('station', g_station.identifier)
 g_ans.save('moki', ID.parse(identifier='moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
 g_ans.save('hulk', ID.parse(identifier='hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
-
-
-"""
-    Chat Bots
-    ~~~~~~~~~
-
-    Chat bots from 3rd-party
-"""
-
-
-def chat_bot(name: str) -> Optional[ChatBot]:
-    if 'tuling' == name:
-        if tuling_keys is None or tuling_ignores is None:
-            return None
-        # Tuling
-        api_key = tuling_keys.get('api_key')
-        assert api_key is not None, 'Tuling keys error: %s' % tuling_keys
-        tuling = Tuling(api_key=api_key)
-        # ignore codes
-        for item in tuling_ignores:
-            if item not in tuling.ignores:
-                tuling.ignores.append(item)
-        return tuling
-    elif 'xiaoi' == name:
-        if xiaoi_keys is None or xiaoi_ignores is None:
-            return None
-        # XiaoI
-        app_key = xiaoi_keys.get('app_key')
-        app_secret = xiaoi_keys.get('app_secret')
-        assert app_key is not None and app_secret is not None, 'XiaoI keys error: %s' % xiaoi_keys
-        xiaoi = XiaoI(app_key=app_key, app_secret=app_secret)
-        # ignore responses
-        for item in xiaoi_ignores:
-            if item not in xiaoi.ignores:
-                xiaoi.ignores.append(item)
-        return xiaoi
-    else:
-        raise NotImplementedError('unknown chat bot: %s' % name)
 
 
 """

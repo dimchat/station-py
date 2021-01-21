@@ -32,7 +32,7 @@
 
 import traceback
 from socketserver import StreamRequestHandler
-from typing import Optional, List
+from typing import Optional
 
 from dimp import json_encode
 from dimp import User, NetworkType
@@ -47,11 +47,12 @@ from libs.common import CommonPacker
 from libs.server import ServerMessenger
 
 from libs.utils.mtp import MTPUtils
-from libs.utils.nlp import ChatBot
+
+from robots.nlp import chat_bots
 
 from .config import g_facebook, g_session_server
 from .config import g_dispatcher, g_monitor
-from .config import current_station, station_name, chat_bot
+from .config import current_station, station_name
 
 
 class RequestHandler(StreamRequestHandler, MessengerDelegate):
@@ -75,19 +76,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
-    def chat_bots(self) -> List[ChatBot]:
-        bots = []
-        # Tuling
-        tuling = chat_bot('tuling')
-        if tuling is not None:
-            bots.append(tuling)
-        # XiaoI
-        xiaoi = chat_bot('xiaoi')
-        if xiaoi is not None:
-            bots.append(xiaoi)
-        return bots
-
-    @property
     def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
             m = ServerMessenger()
@@ -96,7 +84,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
             m.delegate = self
             # set context
             m.context['station'] = current_station
-            m.context['bots'] = self.chat_bots
+            m.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
             m.context['remote_address'] = self.client_address
             self.__messenger = m
         return self.__messenger

@@ -57,10 +57,10 @@ from libs.common import TextContentProcessor
 
 from libs.client import Terminal, ClientMessenger
 
+from robots.nlp import chat_bots
 from robots.config import g_facebook, g_station
 from robots.config import dims_connect
 from robots.config import chatroom_id
-from robots.config import chat_bot
 
 from etc.cfg_loader import load_user
 
@@ -70,7 +70,7 @@ from etc.cfg_loader import load_user
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]  # chat bot
+g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
 
 
 #

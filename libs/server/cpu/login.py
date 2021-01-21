@@ -62,10 +62,6 @@ class LoginCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: ServerMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
-
     @property
     def database(self) -> Database:
         return self.messenger.database
@@ -76,7 +72,7 @@ class LoginCommandProcessor(CommandProcessor):
         if old is not None:
             if cmd.time < old.time:
                 return None
-        station = self.get_context(key='station')
+        station = self.messenger.get_context(key='station')
         assert station is not None, 'current station not in the context'
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd

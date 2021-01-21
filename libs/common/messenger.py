@@ -59,12 +59,6 @@ class CommonMessenger(Messenger):
     def get_context(self, key: str):
         return self.__context.get(key)
 
-    def set_context(self, key: str, value):
-        if value is None:
-            self.__context.pop(key, None)
-        else:
-            self.__context[key] = value
-
     @property
     def database(self) -> Database:
         return Database()

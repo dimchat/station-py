@@ -50,9 +50,10 @@ from libs.common import Storage
 
 from libs.client import Terminal, ClientMessenger
 
+from robots.nlp import chat_bots
 from robots.config import g_facebook, g_station
 from robots.config import dims_connect
-from robots.config import chat_bot, group_assistants
+from robots.config import group_assistants
 
 from etc.cfg_loader import load_user
 
@@ -300,7 +301,7 @@ class AssistantMessenger(ClientMessenger):
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = AssistantMessenger()
-g_messenger.context['bots'] = [chat_bot('tuling'), chat_bot('xiaoi')]  # chat bot
+g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
 
 
 if __name__ == '__main__':

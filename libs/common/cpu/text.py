@@ -65,13 +65,9 @@ class TextContentProcessor(ContentProcessor):
     def messenger(self, transceiver: CommonMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, CommonMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
-
     @property
     def bots(self) -> list:
-        array = self.get_context(key='bots')
+        array = self.messenger.get_context(key='bots')
         if array is None:
             array = []
         return array

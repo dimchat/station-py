@@ -41,9 +41,10 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.client import Terminal, ClientMessenger
 
+from robots.nlp import chat_bots
 from robots.config import g_facebook, g_station
 from robots.config import dims_connect
-from robots.config import chat_bot, lingling_id
+from robots.config import lingling_id
 
 from etc.cfg_loader import load_user
 
@@ -53,7 +54,7 @@ from etc.cfg_loader import load_user
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = [chat_bot('tuling')]  # chat bot
+g_messenger.context['bots'] = chat_bots(names=['tuling'])  # chat bot
 
 
 if __name__ == '__main__':

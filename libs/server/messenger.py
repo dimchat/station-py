@@ -129,17 +129,9 @@ class ServerMessenger(CommonMessenger):
     def remote_user(self) -> User:
         return self.get_context(key='remote_user')
 
-    @remote_user.setter
-    def remote_user(self, value: User):
-        self.set_context(key='remote_user', value=value)
-
     @property
     def remote_address(self):  # (IP, port)
         return self.get_context(key='remote_address')
-
-    @remote_address.setter
-    def remote_address(self, value):
-        self.set_context(key='remote_address', value=value)
 
     #
     #   HandshakeDelegate
@@ -149,7 +141,7 @@ class ServerMessenger(CommonMessenger):
         session_key = session.session_key
         client_address = session.client_address
         user = self.facebook.user(identifier=sender)
-        self.set_context(key='remote_user', value=user)
+        self.context['remote_user'] = user
         self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
         if user.identifier.type == NetworkType.STATION:
             assert isinstance(user, Station), 'station error: %s' % user
