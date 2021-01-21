@@ -39,6 +39,8 @@ from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
 from libs.utils import Log
+from libs.utils import NotificationCenter
+from libs.common import NotificationNames
 from libs.common import Database
 
 from ..messenger import ServerMessenger
@@ -68,17 +70,13 @@ class LoginCommandProcessor(CommandProcessor):
     def database(self) -> Database:
         return self.messenger.database
 
-    @property
-    def receptionist(self):
-        return self.get_context('receptionist')
-
     def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
         # check time expires
         old = self.database.login_command(identifier=sender)
         if old is not None:
             if cmd.time < old.time:
                 return None
-        station = self.get_context('station')
+        station = self.get_context(key='station')
         assert station is not None, 'current station not in the context'
         # get station ID
         assert cmd.station is not None, 'login command error: %s' % cmd
@@ -94,7 +92,10 @@ class LoginCommandProcessor(CommandProcessor):
         sid = self.__roaming(cmd=cmd, sender=sender)
         if sid is not None:
             self.info('%s roamed to: %s' % (sender, sid))
-            self.receptionist.add_roamer(identifier=sender)
+            NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
+                'ID': sender,
+                'station': sid,
+            })
         # update login info
         if not self.database.save_login(cmd=cmd, msg=msg):
             return None

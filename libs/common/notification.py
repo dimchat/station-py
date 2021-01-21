@@ -34,3 +34,6 @@
 class NotificationNames:
 
     USER_LOGIN = 'USER_LOGIN'
+
+    USER_ONLINE = 'USER_ONLINE'    # foreground
+    USER_OFFLINE = 'USER_OFFLINE'  # background

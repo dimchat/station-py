@@ -30,11 +30,10 @@
     Local User
 """
 
-import weakref
-from typing import Union
-
 from dimp import ID, EVERYONE
 from dimp import Content, Command
+
+from libs.common import CommonMessenger, CommonFacebook
 
 from .server import Server
 
@@ -43,7 +42,7 @@ class Terminal:
 
     def __init__(self):
         super().__init__()
-        self.__messenger: weakref.ReferenceType = None
+        self.__messenger = None
         # current station
         self.__server: Server = None
 
@@ -60,14 +59,7 @@ class Terminal:
     def server(self):
         return self.__server
 
-    def start(self, server: Union[Server, dict]):
-        if isinstance(server, dict):
-            sid = ID.parse(identifier=server['ID'])
-            host = server['host']
-            port = server.get('port')
-            server = Server(identifier=sid, host=host, port=port)
-        server.delegate = self.facebook
-        server.messenger = self.messenger
+    def start(self, server: Server):
         server.connect()
         self.__server = server
 
@@ -76,16 +68,15 @@ class Terminal:
             self.__server.disconnect()
 
     @property
-    def messenger(self):  # -> ClientMessenger:
-        if self.__messenger is not None:
-            return self.__messenger()
+    def messenger(self) -> CommonMessenger:
+        return self.__messenger
 
     @messenger.setter
-    def messenger(self, transceiver):
-        self.__messenger = weakref.ref(transceiver)
+    def messenger(self, transceiver: CommonMessenger):
+        self.__messenger = transceiver
 
     @property
-    def facebook(self):  # -> ClientFacebook:
+    def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
     def send_command(self, cmd: Command) -> bool:

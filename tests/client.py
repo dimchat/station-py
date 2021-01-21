@@ -56,7 +56,6 @@ from robots.config import g_facebook, g_station
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.set_context('station', g_station)  # current station
 
 
 class Console(Cmd):

@@ -38,6 +38,7 @@ from dimp import Meta, Document, Visa
 from dimp import ID, User, UserDataSource
 
 from .dos import JSONFile
+from .singleton import Singleton
 
 
 def load_resource_file(filename: str) -> dict:
@@ -47,6 +48,7 @@ def load_resource_file(filename: str) -> dict:
     return file.read()
 
 
+@Singleton
 class Immortals(UserDataSource):
 
     # Immortal Hulk (195-183-9394)

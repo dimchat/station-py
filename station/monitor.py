@@ -36,7 +36,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import Envelope, InstantMessage
 
-from libs.utils import Log
+from libs.utils import Log, Singleton
 from libs.utils import Observer, Notification, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
@@ -46,6 +46,7 @@ from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
 
 
+@Singleton
 class Monitor(Observer):
 
     def __init__(self):

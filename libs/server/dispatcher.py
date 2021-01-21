@@ -41,7 +41,7 @@ from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 from dimsdk import ReceiptCommand
 
-from libs.utils import Log
+from libs.utils import Log, Singleton
 from libs.common import Database
 from libs.common.push_message_service import PushMessageService
 
@@ -49,6 +49,7 @@ from .session import Session, SessionServer
 from .facebook import ServerFacebook
 
 
+@Singleton
 class Dispatcher(Thread):
 
     def __init__(self):

@@ -131,17 +131,12 @@ def chat_bot(name: str) -> Optional[ChatBot]:
 
 
 def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger) -> Terminal:
-    # context
-    messenger.context['station'] = server
-    messenger.context['remote_address'] = (server.host, server.port)
-    messenger.context['handshake_delegate'] = terminal
     messenger.delegate = server
     messenger.terminal = terminal
+    server.messenger = messenger
     # client
     terminal.messenger = messenger
     terminal.start(server=server)
-    # start server
-    server.messenger = messenger
     server.handshake()
     return terminal
 

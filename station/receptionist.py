@@ -40,7 +40,7 @@ from typing import Optional, List
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
-from libs.utils import Log
+from libs.utils import Log, Singleton
 from libs.utils import Observer, Notification, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Storage, Database
@@ -71,6 +71,7 @@ def save_freshman(identifier: ID) -> bool:
     return Storage.append_text(text=line, path=path)
 
 
+@Singleton
 class Receptionist(Thread, Observer):
 
     def __init__(self):
@@ -84,10 +85,12 @@ class Receptionist(Thread, Observer):
         self.roamers = []
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
+        nc.add(observer=self, name=NotificationNames.USER_ONLINE)
 
     def __del__(self):
         nc = NotificationCenter()
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
+        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -99,11 +102,20 @@ class Receptionist(Thread, Observer):
     #    Notification Observer
     #
     def received_notification(self, notification: Notification):
-        if notification.name == NotificationNames.USER_LOGIN:
-            info = notification.info
-            sender = info.get('ID')
+        name = notification.name
+        info = notification.info
+        if name == NotificationNames.USER_LOGIN:
+            user = info.get('ID')
             # add the new guest for checking offline messages
-            self.add_guest(identifier=sender)
+            self.add_guest(identifier=user)
+        elif name == NotificationNames.USER_ONLINE:
+            user = info.get('ID')
+            sid = info.get('station')
+            if sid is None or sid == self.station.identifier:
+                # add the new guest for checking offline messages
+                self.add_guest(identifier=user)
+            else:
+                self.add_roamer(identifier=user)
 
     @property
     def facebook(self) -> ServerFacebook:

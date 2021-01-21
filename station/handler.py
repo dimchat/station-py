@@ -50,7 +50,7 @@ from libs.utils.mtp import MTPUtils
 from libs.utils.nlp import ChatBot
 
 from .config import g_facebook, g_session_server
-from .config import g_dispatcher, g_receptionist, g_monitor
+from .config import g_dispatcher, g_monitor
 from .config import current_station, station_name, chat_bot
 
 
@@ -96,8 +96,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
             m.delegate = self
             # set context
             m.context['station'] = current_station
-            m.context['session_server'] = g_session_server
-            m.context['receptionist'] = g_receptionist
             m.context['bots'] = self.chat_bots
             m.context['remote_address'] = self.client_address
             self.__messenger = m

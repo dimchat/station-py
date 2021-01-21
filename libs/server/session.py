@@ -43,6 +43,8 @@ from weakref import WeakValueDictionary
 from dimp import ID
 from dimp import hex_encode
 
+from libs.utils import Singleton
+
 
 class Session:
 
@@ -177,6 +179,7 @@ class Server:
         return array
 
 
+@Singleton
 class SessionServer(Server):
 
     def __init__(self):

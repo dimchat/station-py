@@ -55,10 +55,6 @@ class SearchCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: ServerMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
-
     @property
     def database(self) -> Database:
         return self.messenger.database
@@ -78,17 +74,17 @@ class SearchCommandProcessor(CommandProcessor):
 
 class UsersCommandProcessor(CommandProcessor):
 
-    @CommandProcessor.messenger.getter
+    @property
     def messenger(self) -> ServerMessenger:
         return super().messenger
 
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        CommandProcessor.messenger.__set__(self, transceiver)
 
     @property
     def session_server(self) -> SessionServer:
-        return self.get_context('session_server')
+        return self.messenger.session_server
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, Command), 'command error: %s' % cmd

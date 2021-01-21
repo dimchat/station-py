@@ -98,7 +98,7 @@ class ServerMessenger(CommonMessenger):
     #
     @property
     def session_server(self) -> SessionServer:
-        return self.get_context(key='session_server')
+        return SessionServer()
 
     def current_session(self, identifier: ID) -> Session:
         session = self.__session
@@ -168,7 +168,7 @@ class ServerMessenger(CommonMessenger):
         return self.__send_content(content=cmd, receiver=everyone)
 
     def __send_content(self, content: Content, receiver: ID) -> bool:
-        station = self.get_context('station')
+        station = self.get_context(key='station')
         if station is None:
             user = self.facebook.current_user
             if user is None:

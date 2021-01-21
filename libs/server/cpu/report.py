@@ -37,10 +37,13 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
-from ...common import ReportCommand
-from ...common import Database
+from libs.utils import NotificationCenter
+from libs.common import NotificationNames
+from libs.common import ReportCommand
+from libs.common import Database
+
 from ..session import Session
 from ..messenger import ServerMessenger
 
@@ -53,19 +56,11 @@ class ReportCommandProcessor(CommandProcessor):
 
     @messenger.setter
     def messenger(self, transceiver: ServerMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
+        CommandProcessor.messenger.__set__(self, transceiver)
 
     @property
     def database(self) -> Database:
         return self.messenger.database
-
-    def get_context(self, key: str):
-        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.get_context(key=key)
-
-    @property
-    def receptionist(self):
-        return self.get_context('receptionist')
 
     def __process_old_report(self, cmd: ReportCommand, sender: ID) -> Optional[Content]:
         # compatible with v1.0
@@ -76,10 +71,11 @@ class ReportCommandProcessor(CommandProcessor):
                 session.active = False
             elif 'foreground' == state:
                 # welcome back!
-                self.receptionist.add_guest(identifier=session.identifier)
                 session.active = True
             else:
                 session.active = True
+            # post notification
+            post_notification(session=session, sender=self)
             return ReceiptCommand(message='Client state received')
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
@@ -100,6 +96,17 @@ class ReportCommandProcessor(CommandProcessor):
         return cpu.execute(cmd=cmd, msg=msg)
 
 
+def post_notification(session: Session, sender):
+    if session.active:
+        notification = NotificationNames.USER_ONLINE
+    else:
+        notification = NotificationNames.USER_OFFLINE
+    NotificationCenter().post(name=notification, sender=sender, info={
+        'ID': session.identifier,
+        'client_address': session.client_address,
+    })
+
+
 class APNsCommandProcessor(ReportCommandProcessor):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
@@ -116,10 +123,11 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
-        self.receptionist.add_guest(identifier=msg.sender)
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = True
+        # post notification
+        post_notification(session=session, sender=self)
         # TODO: notification for pushing offline message(s) from 'last_time'
         return ReceiptCommand(message='Client online received')
 
@@ -132,6 +140,8 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = False
+        # post notification
+        post_notification(session=session, sender=self)
         return ReceiptCommand(message='Client offline received')
 
 

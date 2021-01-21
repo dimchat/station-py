@@ -68,9 +68,6 @@ class LoginCommandProcessor(CommandProcessor):
     def messenger(self) -> ClientMessenger:
         return super().messenger
 
-    def get_context(self, key: str):
-        return self.messenger.get_context(key=key)
-
     @property
     def database(self) -> Database:
         return self.messenger.database
