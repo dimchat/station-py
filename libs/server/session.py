@@ -35,172 +35,184 @@
     for login user
 """
 
-from typing import Optional, List
+import weakref
+from abc import abstractmethod
+from weakref import WeakValueDictionary
+from typing import Optional, Dict, Set
 import numpy
 import random
-from weakref import WeakValueDictionary
 
-from dimp import ID
 from dimp import hex_encode
+from dimp import ID, ReliableMessage
 
 from libs.utils import Singleton
 
 
+def generate_session_key() -> str:
+    return hex_encode(bytes(numpy.random.bytes(32)))
+
+
 class Session:
 
-    def __init__(self, identifier: ID, client_address):
+    class Handler:
+        """ Session handler """
+        @abstractmethod
+        def push_message(self, msg: ReliableMessage) -> bool:
+            raise NotImplemented
+
+    def __init__(self, client_address: tuple, handler: Handler):
         super().__init__()
-        # user ID
-        self.__identifier = identifier
-        # (IP, port)
-        self.__client_address = client_address
-        # generate session key
-        self.__session_key = hex_encode(bytes(numpy.random.bytes(32)))
-        # valid flag: when handshake accepted, this should be set to True
-        self.valid = False
-        # active status: when the client entered background, it should be set to False
-        self.active = True
+        self.__key = generate_session_key()
+        self.__address = client_address
+        self.__handler = weakref.ref(handler)
+        self.__identifier = None
+        self.__active = True
 
     def __str__(self):
         clazz = self.__class__.__name__
-        return '<%s:%s %s|%s valid=%d active=%d />' % (clazz,
-                                                       self.__session_key,
-                                                       self.__client_address,
-                                                       self.__identifier,
-                                                       self.valid,
-                                                       self.active)
+        return '<%s:%s %s|%s active=%d />' % (clazz, self.__key,
+                                              self.__address, self.__identifier,
+                                              self.__active)
 
     @property
-    def identifier(self) -> ID:
+    def key(self) -> str:
+        return self.__key
+
+    @property
+    def client_address(self) -> tuple:
+        """ (IP, port) """
+        return self.__address
+
+    @property
+    def handler(self) -> Optional[Handler]:
+        """ Request handler """
+        return self.__handler()
+
+    @property
+    def identifier(self) -> Optional[ID]:
         return self.__identifier
 
-    @property
-    def client_address(self):  # (IP, port)
-        return self.__client_address
+    @identifier.setter
+    def identifier(self, value: ID):
+        self.__identifier = value
 
     @property
-    def session_key(self) -> str:
-        return self.__session_key
+    def active(self) -> bool:
+        """ when the client entered background, it should be set to False """
+        return self.__active
+
+    @active.setter
+    def active(self, value: bool):
+        self.__active = value
+
+    def push_message(self, msg: ReliableMessage) -> bool:
+        """ Push message when session active """
+        if self.__active:
+            return self.handler.push_message(msg=msg)
 
 
-class Server:
+@Singleton
+class SessionServer:
 
     def __init__(self):
         super().__init__()
         # memory cache
-        self.__pool = {}  # {identifier: [session]}
+        self.__addresses: Dict[ID, Set[tuple]] = {}                    # {identifier, [client_address]}
+        self.__sessions: Dict[tuple, Session] = WeakValueDictionary()  # {client_address, session}
 
-    def all(self, identifier: ID) -> Optional[List[Session]]:
-        """ Get all sessions of this user """
-        return self.__pool.get(identifier)
+    def get_session(self, client_address: tuple, handler: Optional[Session.Handler]=None) -> Session:
+        """ Session factory """
+        session = self.__sessions.get(client_address)
+        if session is None and handler is not None:
+            # create a new session and cache it
+            session = Session(client_address=client_address, handler=handler)
+            self.__sessions[client_address] = session
+        return session
 
-    def add(self, session: Session) -> bool:
-        """ Add a session with ID into memory cache """
+    def insert_session(self, session: Session):
+        """ Insert a session with ID into memory cache """
         identifier = session.identifier
-        # 1. get all sessions with identifier
-        array = self.all(identifier)
+        address = session.client_address
+        assert identifier is not None and address is not None, 'session error: %s' % session
+        # 1. set session with client_address
+        self.__sessions[address] = session
+        # 2. insert client_address with ID
+        array = self.__addresses.get(identifier)
         if array is None:
-            # 2.1. set a list contains this session object
-            self.__pool[identifier] = [session]
-            return True
-        else:
-            # 2.2. check each session with client address
-            client_address = session.client_address
-            for item in array:
-                assert isinstance(item, Session), 'session error: %s' % item
-                if item.client_address == client_address:
-                    # already exists
-                    return False
-            # 3. add this session object to the current array
-            array.append(session)
-            return True
+            array = set()
+        array.add(address)
+        self.__addresses[identifier] = array
 
-    def remove(self, session: Session) -> bool:
+    def remove_session(self, session: Session):
         """ Remove the session from memory cache """
         identifier = session.identifier
-        # 1. get all sessions with identifier
-        array = self.all(identifier)
-        if array is None:
-            return False
-        # 2. check each session with client address
-        count = 0
-        for item in array:
-            assert isinstance(item, Session), 'session error: %s' % item
-            if item.client_address == session.client_address:
-                # got it
-                array.remove(session)
-                count += 1
-        if len(array) == 0:
-            # 3. empty array, remove it
-            self.__pool.pop(identifier)
-        return count > 0
+        address = session.client_address
+        assert address is not None, 'session error: %s' % session
+        if identifier is not None:
+            # 1. remove client_address with ID
+            array = self.__addresses.get(identifier)
+            if array is not None:
+                array.discard(address)
+                if len(array) == 0:
+                    # all sessions removed
+                    self.__addresses.pop(identifier)
+        # 2. remove session with client_address
+        self.__sessions.pop(address, None)
 
-    def get(self, identifier: ID, client_address) -> Optional[Session]:
-        """ Search session with ID and client address """
-        array = self.all(identifier)
+    def all_sessions(self, identifier: ID) -> Set[Session]:
+        """ Get all sessions of this user """
+        results = set()
+        # 1. get all client_address with ID
+        array = self.__addresses.get(identifier)
         if array is not None:
+            array = array.copy()
+            # 2. get session by each client_address
             for item in array:
-                assert isinstance(item, Session), 'session error: %s' % item
-                if item.client_address == client_address:
-                    # got it
-                    return item
+                session = self.__sessions.get(item)
+                if session is not None:
+                    results.add(session)
+        return results
 
-    def new(self, identifier: ID, client_address):
-        """ Session factory """
-        session = self.get(identifier=identifier, client_address=client_address)
-        if session is None:
-            # create a new session
-            session = Session(identifier=identifier, client_address=client_address)
-            self.add(session=session)
-        return session
+    def active_sessions(self, identifier: ID) -> Set[Session]:
+        results = set()
+        # 1. get all sessions
+        array = self.all_sessions(identifier=identifier)
+        for item in array:
+            # 2. check session active
+            if item.active:
+                results.add(item)
+        return results
 
     #
     #   Users
     #
-    def all_users(self) -> List[ID]:
+    def all_users(self) -> Set[ID]:
         """ Get all users """
-        return list(self.__pool.keys())
+        return set(self.__addresses.keys())
 
-    def online_users(self) -> List[ID]:
-        """ Get online users """
-        keys = self.all_users()
-        array = []
-        for identifier in keys:
-            sessions = self.all(identifier)
-            if sessions is None:
-                # should not happen
-                continue
-            for item in sessions:
-                assert isinstance(item, Session), 'session error: %s' % item
-                if item.valid and item.active:
-                    # got it
-                    array.append(identifier)
-                    break
-        return array
+    def is_active(self, identifier: ID) -> bool:
+        """ Check whether user has active session """
+        sessions = self.all_sessions(identifier=identifier)
+        for item in sessions:
+            if item.active:
+                return True
 
+    def active_users(self) -> Set[ID]:
+        """ Get active users """
+        users = set()
+        array = self.all_users()
+        for item in array:
+            if self.is_active(identifier=item):
+                users.add(item)
+        return users
 
-@Singleton
-class SessionServer(Server):
-
-    def __init__(self):
-        super().__init__()
-        self.__handlers = WeakValueDictionary()
-
-    def set_handler(self, client_address, request_handler):
-        self.__handlers[client_address] = request_handler
-
-    def get_handler(self, client_address):
-        return self.__handlers.get(client_address)
-
-    def clear_handler(self, client_address):
-        self.__handlers.pop(client_address, None)
-
-    def random_users(self, max_count=20) -> List[ID]:
-        array = self.online_users()
+    def random_users(self, max_count=20) -> Set[ID]:
+        array = self.active_users()
         count = len(array)
-        # limit the response
-        if count < 2:
-            return array
-        elif count > max_count:
-            count = max_count
-        return random.sample(array, count)
+        if count > 1:
+            # limit the response
+            if count > max_count:
+                count = max_count
+            some = random.sample(array, count)
+            array = set(some)
+        return array

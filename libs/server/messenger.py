@@ -33,11 +33,10 @@
 import time
 from typing import List
 
-from dimp import NetworkType, ID, EVERYWHERE, User
+from dimp import ID, EVERYWHERE, User
 from dimp import Envelope, InstantMessage
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Processor
-from dimsdk import Station
 from dimsdk import MessageTransmitter
 
 from libs.utils import NotificationCenter
@@ -113,7 +112,7 @@ class ServerMessenger(CommonMessenger):
         # get new session with identifier
         address = self.remote_address
         assert address is not None, 'client address not found: %s' % identifier
-        session = self.session_server.new(identifier=identifier, client_address=address)
+        session = self.session_server.get_session(client_address=address)
         self.__session = session
         return session
 
@@ -132,15 +131,13 @@ class ServerMessenger(CommonMessenger):
     #   HandshakeDelegate
     #
     def handshake_accepted(self, session: Session):
+        self.session_server.insert_session(session=session)
         sender = session.identifier
-        session_key = session.session_key
+        session_key = session.key
         client_address = session.client_address
         user = self.facebook.user(identifier=sender)
         self.context['remote_user'] = user
         self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
-        if user.identifier.type == NetworkType.STATION:
-            assert isinstance(user, Station), 'station error: %s' % user
-            self.dispatcher.add_neighbor(station=user)
         # post notification: USER_LOGIN
         NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
             'ID': sender,

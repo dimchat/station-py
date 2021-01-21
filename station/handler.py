@@ -35,30 +35,32 @@ from socketserver import StreamRequestHandler
 from typing import Optional
 
 from dimp import json_encode
-from dimp import User, NetworkType
+from dimp import User
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
 
 from libs.utils import Log
+from libs.utils import NotificationCenter
+from libs.common import NotificationNames
 from libs.common import NetMsgHead, NetMsg
 from libs.common import WebSocket
 from libs.common import CommonPacker
-from libs.server import ServerMessenger, SessionServer
+from libs.server import ServerMessenger, SessionServer, Session
 
 from libs.utils.mtp import MTPUtils
 
 from robots.nlp import chat_bots
 
-from .config import g_monitor
-from .config import current_station, station_name
+from .config import current_station
 
 
-class RequestHandler(StreamRequestHandler, MessengerDelegate):
+class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
 
     def __init__(self, request, client_address, server):
         # messenger
         self.__messenger: ServerMessenger = None
+        self.__session: Session = None
         # handlers with Protocol
         self.__process_package = None
         self.__push_data = None
@@ -101,31 +103,18 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
     def setup(self):
         super().setup()
         self.timeout = self.request.gettimeout()
-        address = self.client_address
-        self.info('set up with %s [%s]' % (address, station_name))
-        self.session_server.set_handler(client_address=address, request_handler=self)
-        g_monitor.report(message='Client connected %s [%s]' % (address, station_name))
+        self.__session = self.session_server.get_session(client_address=self.client_address, handler=self)
+        NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+            'session': self.__session,
+        })
 
     def finish(self):
-        address = self.client_address
-        user = self.remote_user
-        if user is None:
-            g_monitor.report(message='Client disconnected %s [%s]' % (address, station_name))
-        else:
-            if user.identifier.type == NetworkType.STATION:
-                self.messenger.dispatcher.remove_neighbor(station=user.identifier)
-            nickname = self.messenger.facebook.name(identifier=user.identifier)
-            session = self.session_server.get(identifier=user.identifier, client_address=address)
-            if session is None:
-                self.error('user %s not login yet %s %s' % (user, address, station_name))
-            else:
-                g_monitor.report(message='User %s logged out %s [%s]' % (nickname, address, station_name))
-                # clear current session
-                self.session_server.remove(session=session)
-        # remove request handler fro session handler
-        self.session_server.clear_handler(client_address=address)
+        NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+            'session': self.__session,
+        })
+        self.session_server.remove_session(session=self.__session)
+        self.__session = None
         self.__messenger = None
-        self.info('finish with %s %s' % (address, user))
         super().finish()
 
     """

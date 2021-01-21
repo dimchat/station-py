@@ -37,6 +37,7 @@ from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
 from ..common import Database, CommonFacebook
+from .session import Session
 
 
 class Filter:
@@ -86,15 +87,12 @@ class Filter:
         if user is None:
             # FIXME: make sure the client sends message after handshake accepted
             sender = envelope.sender
-            session = self.messenger.current_session(identifier=sender)
-            assert session is not None, 'failed to get session for sender: %s' % sender
-            assert not session.valid, 'session error: %s' % session
         else:
-            session = self.messenger.current_session(identifier=user.identifier)
-            assert session is not None, 'failed to get session for user: %s' % user
-        # check session valid
-        if not session.valid:
-            return HandshakeCommand.ask(session=session.session_key)
+            sender = user.identifier
+        session = self.messenger.current_session(identifier=sender)
+        assert isinstance(session, Session), 'session error: %s' % session
+        if session.identifier is None:
+            return HandshakeCommand.ask(session=session.key)
 
     #
     #   filters

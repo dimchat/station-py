@@ -95,7 +95,7 @@ class UsersCommandProcessor(CommandProcessor):
             meta = facebook.meta(identifier=item)
             if isinstance(meta, Meta):
                 results[str(item)] = meta.dictionary
-        return SearchCommand(users=users, results=results)
+        return SearchCommand(users=list(users), results=results)
 
 
 # register

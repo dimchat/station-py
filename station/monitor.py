@@ -41,7 +41,7 @@ from libs.utils import Observer, Notification, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
 from libs.server import ServerMessenger
-from libs.server import SessionServer
+from libs.server import SessionServer, Session
 from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
 
@@ -57,6 +57,8 @@ class Monitor(Observer):
         self.admins: set = set()
         self.__messenger: ServerMessenger = None
         nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.CONNECTED)
+        nc.add(observer=self, name=NotificationNames.DISCONNECTED)
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
 
     def __del__(self):
@@ -77,8 +79,26 @@ class Monitor(Observer):
     #    Notification Observer
     #
     def received_notification(self, notification: Notification):
-        if notification.name == NotificationNames.USER_LOGIN:
-            info = notification.info
+        name = notification.name
+        info = notification.info
+        if name == NotificationNames.CONNECTED:
+            session = info.get('session')
+            assert isinstance(session, Session), 'session error: %s' % session
+            address = session.client_address
+            station_name = self.facebook.name(identifier=self.sender)
+            self.report(message='Client connected %s [%s]' % (address, station_name))
+        elif name == NotificationNames.DISCONNECTED:
+            session = info.get('session')
+            assert isinstance(session, Session), 'session error: %s' % session
+            user = session.identifier
+            address = session.client_address
+            station_name = self.facebook.name(identifier=self.sender)
+            if user is None:
+                self.report(message='Client disconnected %s [%s]' % (address, station_name))
+            else:
+                nickname = self.facebook.name(identifier=user)
+                self.report(message='User %s logged out %s [%s]' % (nickname, address, station_name))
+        elif name == NotificationNames.USER_LOGIN:
             sender = info.get('ID')
             client_address = info.get('client_address')
             self.report(message='User %s logged in %s' % (sender, client_address))
@@ -120,19 +140,12 @@ class Monitor(Observer):
         if r_msg.delegate is None:
             r_msg.delegate = self.messenger
         # try for online user
-        sessions = self.session_server.all(identifier=receiver)
-        if sessions and len(sessions) > 0:
+        sessions = self.session_server.active_sessions(identifier=receiver)
+        if len(sessions) > 0:
             self.info('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
             for sess in sessions:
-                if sess.valid is False or sess.active is False:
-                    # self.info('session invalid %s' % sess)
-                    continue
-                request_handler = self.session_server.get_handler(client_address=sess.client_address)
-                if request_handler is None:
-                    self.error('handler lost: %s' % sess)
-                    continue
-                if request_handler.push_message(r_msg):
+                if sess.push_message(r_msg):
                     success = success + 1
                 else:
                     self.error('failed to push report via connection (%s, %s)' % sess.client_address)

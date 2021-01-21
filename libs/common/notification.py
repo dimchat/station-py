@@ -33,7 +33,11 @@
 
 class NotificationNames:
 
-    USER_LOGIN = 'USER_LOGIN'
+    CONNECTED = 'connected'        # request handler setup
+    DISCONNECTED = 'disconnected'  # request handler finished
 
-    USER_ONLINE = 'USER_ONLINE'    # foreground
-    USER_OFFLINE = 'USER_OFFLINE'  # background
+    USER_LOGIN = 'user_login'      # handshake accepted
+    USER_LOGOUT = 'user_logout'    # disconnected
+
+    USER_ONLINE = 'user_online'    # foreground
+    USER_OFFLINE = 'user_offline'  # background

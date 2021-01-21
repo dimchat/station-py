@@ -55,9 +55,9 @@ class HandshakeCommandProcessor(CommandProcessor):
     def __offer(self, sender: ID, session_key: str=None) -> Content:
         # set/update session in session server with new session key
         session = self.messenger.current_session(identifier=sender)
-        if session_key == session.session_key:
+        if session_key == session.key:
             # session verified success
-            session.valid = True
+            session.identifier = sender
             session.active = True
             response = self.messenger.handshake_accepted(session=session)
             if response is None:
@@ -65,7 +65,7 @@ class HandshakeCommandProcessor(CommandProcessor):
             return response
         else:
             # session key not match, ask client to sign it with the new session key
-            return HandshakeCommand.again(session=session.session_key)
+            return HandshakeCommand.again(session=session.key)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd

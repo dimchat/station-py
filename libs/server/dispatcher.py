@@ -33,15 +33,17 @@
 import time
 import threading
 from threading import Thread
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Set
 
-from dimp import ID
+from dimp import ID, NetworkType
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 from dimsdk import ReceiptCommand
 
 from libs.utils import Log, Singleton
+from libs.utils import Observer, Notification, NotificationCenter
+from libs.common import NotificationNames
 from libs.common import Database
 from libs.common.push_message_service import PushMessageService
 
@@ -50,7 +52,7 @@ from .facebook import ServerFacebook
 
 
 @Singleton
-class Dispatcher(Thread):
+class Dispatcher(Thread, Observer):
 
     def __init__(self):
         super().__init__()
@@ -61,12 +63,32 @@ class Dispatcher(Thread):
         self.__neighbors: List[ID] = []     # ID list
         self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
+        nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.DISCONNECTED)
+        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
 
     def info(self, msg: str):
         Log.info('%s > %s >\t%s' % (threading.current_thread().getName(), self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    #
+    #    Notification Observer
+    #
+    def received_notification(self, notification: Notification):
+        name = notification.name
+        info = notification.info
+        if name == NotificationNames.DISCONNECTED:
+            session = info.get('session')
+            if isinstance(session, Session):
+                identifier = session.identifier
+                if identifier is not None and identifier.type == NetworkType.STATION:
+                    self.remove_neighbor(station=identifier)
+        elif name == NotificationNames.USER_LOGIN:
+            identifier = info.get('ID')
+            if identifier is not None and identifier.type == NetworkType.STATION:
+                self.add_neighbor(station=identifier)
 
     @property
     def session_server(self) -> SessionServer:
@@ -152,6 +174,7 @@ class Dispatcher(Thread):
         if self.__traced(msg=msg, station=self.station):
             self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
             return None
+        session_server = self.session_server
         # push to all neighbors connected th current station
         neighbors = self.__neighbors.copy()
         sent_neighbors = []
@@ -159,8 +182,8 @@ class Dispatcher(Thread):
         for sid in neighbors:
             if sid == self.station.identifier:
                 continue
-            sessions = self.__online_sessions(receiver=sid)
-            if sessions is None:
+            sessions = session_server.active_sessions(identifier=sid)
+            if len(sessions) == 0:
                 self.info('remote station (%s) not connected, try later.' % sid)
                 continue
             if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
@@ -168,8 +191,8 @@ class Dispatcher(Thread):
                 success += 1
         # push to the bridge (octopus) of current station
         sid = self.station.identifier
-        sessions = self.__online_sessions(receiver=sid)
-        if sessions is not None:
+        sessions = session_server.active_sessions(identifier=sid)
+        if len(sessions) > 0:
             # tell the bridge ignore this neighbor stations
             sent_neighbors.append(sid)
             msg['sent_neighbors'] = ID.revert(sent_neighbors)
@@ -182,19 +205,11 @@ class Dispatcher(Thread):
         return res
         # return None
 
-    def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: List[Session]) -> bool:
+    def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: Set[Session]) -> bool:
         self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.sender))
         success = 0
-        session_server = self.session_server
         for sess in sessions:
-            if sess.valid is False or sess.active is False:
-                # self.info('session invalid %s' % sess)
-                continue
-            request_handler = session_server.get_handler(client_address=sess.client_address)
-            if request_handler is None:
-                self.error('handler lost: %s' % sess)
-                continue
-            if request_handler.push_message(msg):
+            if sess.push_message(msg):
                 success = success + 1
             else:
                 self.error('failed to push message via connection (%s, %s)' % sess.client_address)
@@ -204,12 +219,12 @@ class Dispatcher(Thread):
 
     def __redirect_message(self, msg: ReliableMessage, receiver: ID, neighbor: ID) -> bool:
         self.info('%s is roaming, try to redirect: %s' % (receiver, neighbor))
-        sessions = self.__online_sessions(receiver=neighbor)
-        if sessions is None:
+        sessions = self.session_server.active_sessions(identifier=neighbor)
+        if len(sessions) == 0:
             self.info('remote station (%s) not connected, trying bridge...' % neighbor)
             neighbor = self.station.identifier
-            sessions = self.__online_sessions(receiver=neighbor)
-            if sessions is None:
+            sessions = self.session_server.active_sessions(identifier=neighbor)
+            if len(sessions) == 0:
                 self.error('station bridge (%s) not connected, cannot redirect.' % neighbor)
                 return False
         if self.__push_message(msg=msg, receiver=neighbor, sessions=sessions):
@@ -233,12 +248,6 @@ class Dispatcher(Thread):
         if sid == self.station.identifier:
             return None
         return sid
-
-    def __online_sessions(self, receiver: ID) -> Optional[List[Session]]:
-        sessions = self.session_server.all(identifier=receiver)
-        if sessions is not None and len(sessions) == 0:
-            sessions = None
-        return sessions
 
     def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
         if msg_type == 0:
@@ -284,8 +293,8 @@ class Dispatcher(Thread):
                     raise LookupError('failed to get assistant for group: %s' % receiver)
                 receiver = assistants[0]
         # check online sessions
-        sessions = self.__online_sessions(receiver=receiver)
-        if sessions is None:
+        sessions = self.session_server.active_sessions(identifier=receiver)
+        if len(sessions) == 0:
             # check roaming station
             neighbor = self.__roaming(receiver=receiver)
             if neighbor is not None:

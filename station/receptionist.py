@@ -151,24 +151,16 @@ class Receptionist(Thread, Observer):
     #
 
     def __push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        session_server = self.session_server
         # get all sessions of the receiver
         self.info('checking session for new guest %s' % receiver)
-        sessions = session_server.all(identifier=receiver)
-        if sessions is None:
+        sessions = self.session_server.active_sessions(identifier=receiver)
+        if len(sessions) == 0:
             self.error('session not found for guest: %s' % receiver)
             return 0
         # push this message to all sessions one by one
         success = 0
         for sess in sessions:
-            if sess.valid is False or sess.active is False:
-                # self.info('session invalid %s' % sess)
-                continue
-            request_handler = session_server.get_handler(client_address=sess.client_address)
-            if request_handler is None:
-                self.error('handler lost: %s' % sess)
-                continue
-            if request_handler.push_message(msg):
+            if sess.push_message(msg):
                 success = success + 1
             else:
                 self.error('failed to push message (%s, %s)' % sess.client_address)
@@ -245,25 +237,17 @@ class Receptionist(Thread, Observer):
             self.error('station not found for roamer: %s' % receiver)
             return 0
         # try to redirect message to this station
-        session_server = self.session_server
-        # get all sessions of the receiver
         sid = station.identifier
         self.info('checking session for station %s' % sid)
-        sessions = session_server.all(identifier=sid)
-        if sessions is None:
+        # get all sessions of the receiver
+        sessions = self.session_server.active_sessions(identifier=sid)
+        if len(sessions) == 0:
             self.error('session not found for guest: %s' % sid)
             return 0
         # push this message to all sessions one by one
         success = 0
         for sess in sessions:
-            if sess.valid is False or sess.active is False:
-                # self.info('session invalid %s' % sess)
-                continue
-            request_handler = session_server.get_handler(client_address=sess.client_address)
-            if request_handler is None:
-                self.error('handler lost: %s' % sess)
-                continue
-            if request_handler.push_message(msg):
+            if sess.push_message(msg):
                 success = success + 1
             else:
                 self.error('failed to push message (%s, %s)' % sess.client_address)
