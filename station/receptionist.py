@@ -41,6 +41,8 @@ from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
 from libs.utils import Log
+from libs.utils import Observer, Notification, NotificationCenter
+from libs.common import NotificationNames
 from libs.common import Storage, Database
 from libs.server import SessionServer
 from libs.server import ApplePushNotificationService
@@ -69,7 +71,7 @@ def save_freshman(identifier: ID) -> bool:
     return Storage.append_text(text=line, path=path)
 
 
-class Receptionist(Thread):
+class Receptionist(Thread, Observer):
 
     def __init__(self):
         super().__init__()
@@ -80,12 +82,28 @@ class Receptionist(Thread):
         self.station: Station = None
         self.guests = []
         self.roamers = []
+        nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    #
+    #    Notification Observer
+    #
+    def received_notification(self, notification: Notification):
+        if notification.name == NotificationNames.USER_LOGIN:
+            info = notification.info
+            sender = info.get('ID')
+            # add the new guest for checking offline messages
+            self.add_guest(identifier=sender)
 
     @property
     def facebook(self) -> ServerFacebook:

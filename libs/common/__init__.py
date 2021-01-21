@@ -37,6 +37,7 @@ from .network import WebSocket
 from .database import Storage, Database
 
 from .ans import AddressNameServer
+from .notification import NotificationNames
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook
@@ -75,6 +76,7 @@ __all__ = [
     #   Common libs
     #
     'AddressNameServer',
+    'NotificationNames',
 
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',

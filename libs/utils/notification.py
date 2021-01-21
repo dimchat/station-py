@@ -32,6 +32,8 @@ from weakref import WeakSet
 from abc import ABC, abstractmethod
 from typing import Optional, Any
 
+from .singleton import Singleton
+
 
 class Notification:
     """ Notification object with name, sender and extra info """
@@ -73,6 +75,7 @@ class Observer(ABC):
         pass
 
 
+@Singleton
 class NotificationCenter:
     """ Notification dispatcher """
 
@@ -147,13 +150,3 @@ class NotificationCenter:
             # call observers one by one
             for observer in array:
                 observer.received_notification(notification=notification)
-
-    @classmethod
-    def default(cls):
-        return default_center
-
-
-#
-#   Singleton
-#
-default_center = NotificationCenter()

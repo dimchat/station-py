@@ -37,6 +37,8 @@ from dimp import TextContent
 from dimp import Envelope, InstantMessage
 
 from libs.utils import Log
+from libs.utils import Observer, Notification, NotificationCenter
+from libs.common import NotificationNames
 from libs.common import Database
 from libs.server import ServerMessenger
 from libs.server import SessionServer
@@ -44,7 +46,7 @@ from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
 
 
-class Monitor:
+class Monitor(Observer):
 
     def __init__(self):
         super().__init__()
@@ -54,12 +56,28 @@ class Monitor:
         self.sender: ID = None
         self.admins: set = set()
         self.__messenger: ServerMessenger = None
+        nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    #
+    #    Notification Observer
+    #
+    def received_notification(self, notification: Notification):
+        if notification.name == NotificationNames.USER_LOGIN:
+            info = notification.info
+            sender = info.get('ID')
+            client_address = info.get('client_address')
+            self.report(message='User %s logged in %s' % (sender, client_address))
 
     @property
     def messenger(self) -> ServerMessenger:

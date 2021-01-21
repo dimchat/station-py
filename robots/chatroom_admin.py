@@ -50,7 +50,7 @@ sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
-from libs.utils.dos import JSONFile
+from libs.utils import JSONFile
 from libs.common import Storage
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor

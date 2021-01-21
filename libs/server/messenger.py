@@ -40,6 +40,8 @@ from dimp import Processor
 from dimsdk import Station
 from dimsdk import MessageTransmitter
 
+from libs.utils import NotificationCenter
+from libs.common import NotificationNames
 from libs.common import CommonMessenger
 
 from .session import Session, SessionServer
@@ -149,12 +151,14 @@ class ServerMessenger(CommonMessenger):
         user = self.facebook.user(identifier=sender)
         self.set_context(key='remote_user', value=user)
         self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
-        # g_monitor.report(message='User %s logged in %s' % (sender, client_address))
         if user.identifier.type == NetworkType.STATION:
             assert isinstance(user, Station), 'station error: %s' % user
             self.dispatcher.add_neighbor(station=user)
-        # add the new guest for checking offline messages
-        # g_receptionist.add_guest(identifier=sender)
+        nc = NotificationCenter()
+        nc.post(name=NotificationNames.USER_LOGIN, sender=self, info={
+            'ID': sender,
+            'client_address': client_address,
+        })
 
     #
     #   Command

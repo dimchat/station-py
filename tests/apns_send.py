@@ -41,7 +41,7 @@ from apns2.payload import Payload
 
 from dimp import ID
 
-from libs.utils.dos import JSONFile
+from libs.utils import JSONFile
 
 
 """
