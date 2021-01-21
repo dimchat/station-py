@@ -34,7 +34,6 @@
 import sys
 import os
 import time
-import weakref
 from enum import IntEnum
 from typing import Optional
 
@@ -58,7 +57,7 @@ from libs.common import TextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
-from robots.config import g_facebook, g_station
+from robots.config import g_station
 from robots.config import dims_connect
 from robots.config import chatroom_id
 
@@ -285,7 +284,7 @@ class ChatRoom:
 
     def __init__(self, messenger: ClientMessenger):
         super().__init__()
-        self.__messenger = weakref.ref(messenger)
+        self.__messenger = messenger
         self.__users: list = []  # ID
         self.__times: dict = {}  # ID -> time
         self.__statistic = Statistic()
@@ -293,7 +292,7 @@ class ChatRoom:
 
     @property
     def messenger(self) -> ClientMessenger:
-        return self.__messenger()
+        return self.__messenger
 
     @property
     def facebook(self):  # Facebook
@@ -345,8 +344,7 @@ class ChatRoom:
     def __broadcast(self, text: str):
         """ Broadcast text message to each online user """
         messenger = self.messenger
-        facebook = self.facebook
-        sender = facebook.current_user.identifier
+        sender = self.facebook.current_user.identifier
         receiver = EVERYONE
         # create content
         content = TextContent(text=text)
@@ -367,12 +365,11 @@ class ChatRoom:
 
     def __online(self) -> Content:
         """ Get online users """
-        facebook = self.facebook
         users = self.__users.copy()
         users.reverse()
         results = {}
         for item in users:
-            meta = facebook.meta(identifier=item)
+            meta = self.facebook.meta(identifier=item)
             if meta is not None:
                 results[item] = meta
         return SearchCommand(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
@@ -452,7 +449,8 @@ class ChatRoom:
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(chatroom_id, facebook=g_facebook)
+    facebook = g_messenger.facebook
+    facebook.current_user = load_user(chatroom_id, facebook=facebook)
 
     # create client and connect to the station
     client = Terminal()

@@ -37,7 +37,7 @@ import threading
 import time
 from typing import List
 
-from dimp import NetworkType, ID, Group
+from dimp import NetworkType, ID
 from dimp import TextContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -46,12 +46,12 @@ sys.path.append(rootPath)
 sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
-from libs.common import Storage
+from libs.common import Storage, CommonFacebook
 from libs.client import Terminal, ClientMessenger
 from libs.client import GroupManager
 
 from robots.nlp import chat_bots
-from robots.config import g_facebook, g_station
+from robots.config import g_station
 from robots.config import group_naruto
 from robots.config import dims_connect
 from robots.config import xiaoxiao_id
@@ -65,7 +65,7 @@ from etc.cfg_bots import freshmen_file
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['xiaoi']) # chat bot
+g_messenger.context['bots'] = chat_bots(names=['xiaoi'])  # chat bot
 
 
 def load_freshmen() -> List[ID]:
@@ -94,13 +94,17 @@ class FreshmenScanner(threading.Thread):
         self.messenger = messenger
         # group
         gid = ID.parse(identifier=group_naruto)
-        self.__group: Group = g_facebook.group(gid)
+        self.__group = messenger.facebook.group(gid)
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.messenger.facebook
 
     def __members(self) -> List[ID]:
         members = self.__group.members
@@ -120,7 +124,7 @@ class FreshmenScanner(threading.Thread):
                 freshmen.remove(item)
         users = []
         for item in freshmen:
-            profile = g_facebook.document(identifier=item)
+            profile = self.facebook.document(identifier=item)
             if profile is None:
                 # profile not found
                 continue
@@ -133,7 +137,7 @@ class FreshmenScanner(threading.Thread):
         return users
 
     def __welcome(self, freshmen: List[ID]) -> TextContent:
-        names = [g_facebook.name(item) for item in freshmen]
+        names = [self.facebook.name(item) for item in freshmen]
         count = len(names)
         if count == 1:
             string = names[0]
@@ -184,7 +188,8 @@ class FreshmenScanner(threading.Thread):
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(xiaoxiao_id, facebook=g_facebook)
+    facebook = g_messenger.facebook
+    facebook.current_user = load_user(xiaoxiao_id, facebook=facebook)
 
     # create client and connect to the station
     client = Terminal()

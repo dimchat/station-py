@@ -42,7 +42,7 @@ sys.path.append(os.path.join(rootPath, 'libs'))
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
-from robots.config import g_facebook, g_station
+from robots.config import g_station
 from robots.config import dims_connect
 from robots.config import lingling_id
 
@@ -60,7 +60,8 @@ g_messenger.context['bots'] = chat_bots(names=['tuling'])  # chat bot
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(lingling_id, facebook=g_facebook)
+    facebook = g_messenger.facebook
+    facebook.current_user = load_user(lingling_id, facebook=facebook)
 
     # create client and connect to the station
     client = Terminal()

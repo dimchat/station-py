@@ -51,7 +51,7 @@ from libs.common import Storage
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
-from robots.config import g_facebook, g_station
+from robots.config import g_station
 from robots.config import dims_connect
 from robots.config import group_assistants
 
@@ -200,11 +200,11 @@ class AssistantMessenger(ClientMessenger):
             return None
         sender = msg.sender
         receiver = msg.receiver
-        if not g_facebook.exists_member(member=sender, group=receiver):
-            if not g_facebook.is_owner(member=sender, group=receiver):
+        if not self.facebook.exists_member(member=sender, group=receiver):
+            if not self.facebook.is_owner(member=sender, group=receiver):
                 # not allow, kick it out
                 cmd = GroupCommand.expel(group=receiver, member=sender)
-                sender = g_facebook.current_user.identifier
+                sender = self.facebook.current_user.identifier
                 receiver = msg.sender
                 env = Envelope.create(sender=sender, receiver=receiver)
                 i_msg = InstantMessage.create(head=env, body=cmd)
@@ -214,7 +214,7 @@ class AssistantMessenger(ClientMessenger):
                     self.suspend_message(msg=i_msg)
                     return None
                 return self.sign_message(msg=s_msg)
-        members = g_facebook.members(receiver)
+        members = self.facebook.members(receiver)
         if members is None or len(members) == 0:
             # members not found for this group,
             # query it from sender
@@ -244,7 +244,7 @@ class AssistantMessenger(ClientMessenger):
             res = self.__split_group_message(msg=msg, members=members)
         # pack response
         if res is not None:
-            sender = g_facebook.current_user.identifier
+            sender = self.facebook.current_user.identifier
             receiver = msg.sender
             env = Envelope.create(sender=sender, receiver=receiver)
             i_msg = InstantMessage.create(head=env, body=res)
@@ -307,7 +307,8 @@ g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(group_assistants[0], facebook=g_facebook)
+    facebook = g_messenger.facebook
+    facebook.current_user = load_user(group_assistants[0], facebook=facebook)
 
     # create client and connect to the station
     client = Terminal()

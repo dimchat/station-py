@@ -50,7 +50,7 @@ from libs.utils.mtp import MTPUtils
 
 from robots.nlp import chat_bots
 
-from .config import g_facebook, g_session_server
+from .config import g_session_server
 from .config import g_dispatcher, g_monitor
 from .config import current_station, station_name
 
@@ -79,7 +79,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
     def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
             m = ServerMessenger()
-            m.barrack = g_facebook
             m.dispatcher = g_dispatcher
             m.delegate = self
             # set context
@@ -113,7 +112,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate):
         else:
             if user.identifier.type == NetworkType.STATION:
                 g_dispatcher.remove_neighbor(station=user)
-            nickname = g_facebook.name(identifier=user.identifier)
+            nickname = self.messenger.facebook.name(identifier=user.identifier)
             session = g_session_server.get(identifier=user.identifier, client_address=address)
             if session is None:
                 self.error('user %s not login yet %s %s' % (user, address, station_name))

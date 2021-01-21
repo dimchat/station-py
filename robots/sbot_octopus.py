@@ -52,7 +52,7 @@ from libs.common import Database
 
 from libs.client import Server, Terminal, ClientMessenger
 
-from robots.config import g_facebook, g_station, g_released
+from robots.config import g_station, g_released
 from robots.config import load_station, dims_connect, all_stations
 
 
@@ -178,7 +178,7 @@ class Octopus:
             else:
                 messenger = OuterMessenger()
                 # client for remote station
-                station = load_station(identifier=identifier, facebook=g_facebook)
+                station = load_station(identifier=identifier, facebook=messenger.facebook)
                 assert isinstance(station, Station), 'station error: %s' % identifier
             # create client for station with octopus and messenger
             client = Terminal()
@@ -219,9 +219,6 @@ class Octopus:
         return g_messenger.sign_message(msg=s_msg)
 
     def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self
         receiver = msg.receiver
         if receiver == g_station.identifier:
             self.info('msg for %s will be stopped here' % receiver)
@@ -245,7 +242,7 @@ class Octopus:
             return None
         # response
         sender = msg.sender
-        meta = g_facebook.meta(identifier=sender)
+        meta = g_messenger.facebook.meta(identifier=sender)
         if meta is None:
             # waiting for meta
             return None
@@ -347,7 +344,7 @@ g_messenger = InnerMessenger()
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = g_station
+    g_messenger.facebook.current_user = g_station
 
     octopus = Octopus()
     # add neighbors

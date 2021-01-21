@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import dims_connect
-from robots.config import g_facebook, g_station
+from robots.config import g_station
 
 
 """
@@ -77,7 +77,8 @@ class Console(Cmd):
         # logout first
         self.logout()
         # login with user ID
-        g_facebook.current_user = g_facebook.user(identifier=identifier)
+        facebook = g_messenger.facebook
+        facebook.current_user = facebook.user(identifier=identifier)
         self.info('connecting to %s ...' % g_station)
         client = Terminal()
         dims_connect(terminal=client, messenger=g_messenger, server=g_station)
@@ -107,10 +108,12 @@ class Console(Cmd):
         print('        exit              - terminate')
         print('')
         if self.client:
+            facebook = g_messenger.facebook
+            user = facebook.current_user
             if self.receiver:
-                print('You(%s) are talking with "%s" now.' % (g_facebook.current_user.identifier, self.receiver))
+                print('You(%s) are talking with "%s" now.' % (user.identifier, self.receiver))
             else:
-                print('%s is login in' % g_facebook.current_user.identifier)
+                print('%s is login in' % user.identifier)
 
     def do_exit(self, arg):
         if self.client:
@@ -126,13 +129,15 @@ class Console(Cmd):
         else:
             self.info('login as %s' % sender)
             self.login(identifier=sender)
-            self.prompt = Console.prompt + g_facebook.name(identifier=sender) + '$ '
+            facebook = g_messenger.facebook
+            self.prompt = Console.prompt + facebook.name(identifier=sender) + '$ '
 
     def do_logout(self, arg):
         if self.client is None:
             self.info('not login yet')
         else:
-            self.info('%s logout' % g_facebook.current_user.identifier)
+            facebook = g_messenger.facebook
+            self.info('%s logout' % facebook.current_user.identifier)
             self.logout()
         self.prompt = Console.prompt
 
@@ -144,7 +149,8 @@ class Console(Cmd):
         if receiver is None:
             self.info('unknown user: %s' % name)
         else:
-            meta = g_facebook.meta(identifier=receiver)
+            facebook = g_messenger.facebook
+            meta = facebook.meta(identifier=receiver)
             self.info('talking with %s now, meta=%s' % (receiver, meta))
             # switch receiver
             self.receiver = receiver
@@ -187,11 +193,13 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
+        facebook = g_messenger.facebook
+        user = facebook.current_user
         profile = None
         if name is None:
-            identifier = g_facebook.current_user.identifier
+            identifier = user.identifier
         elif name.startswith('{') and name.endswith('}'):
-            identifier = g_facebook.current_user.identifier
+            identifier = user.identifier
             profile = json_decode(data=utf8_encode(string=name))
         else:
             identifier = ID.parse(identifier=name)
@@ -199,7 +207,7 @@ class Console(Cmd):
                 self.info('I don\'t understand.')
                 return
         if profile:
-            private_key = g_facebook.private_key_for_signature(identifier=g_facebook.current_user.identifier)
+            private_key = facebook.private_key_for_signature(identifier=identifier)
             assert private_key is not None, 'failed to get private key for client: %s' % self.client
             # create new profile and set all properties
             tai = Document.create(doc_type=Document.VISA, identifier=identifier)
