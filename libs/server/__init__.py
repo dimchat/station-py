@@ -40,6 +40,7 @@ from .dispatcher import Dispatcher
 from .filter import Filter
 
 from .apns import ApplePushNotificationService
+from .push_message_service import PushMessageService
 
 
 __all__ = [
@@ -48,5 +49,5 @@ __all__ = [
     'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
     'Dispatcher', 'Filter',
 
-    'ApplePushNotificationService',
+    'ApplePushNotificationService', 'PushMessageService',
 ]

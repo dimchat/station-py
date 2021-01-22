@@ -105,7 +105,6 @@ Log.info('APNs credentials: %s' % apns_credentials)
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-g_dispatcher.apns = g_apns
 
 
 """
@@ -115,7 +114,6 @@ g_dispatcher.apns = g_apns
     A dispatcher for sending reports to administrator(s)
 """
 g_monitor = Monitor()
-g_monitor.apns = g_apns
 
 
 """
@@ -125,7 +123,6 @@ g_monitor.apns = g_apns
     A message scanner for new guests who have just come in.
 """
 g_receptionist = Receptionist()
-g_receptionist.apns = g_apns
 
 
 """

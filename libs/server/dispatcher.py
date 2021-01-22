@@ -45,8 +45,8 @@ from libs.utils import Log, Singleton
 from libs.utils import Observer, Notification, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
-from libs.common.push_message_service import PushMessageService
 
+from .push_message_service import PushMessageService
 from .session import Session, SessionServer
 from .facebook import ServerFacebook
 
@@ -57,9 +57,9 @@ class Dispatcher(Thread, Observer):
     def __init__(self):
         super().__init__()
         self.__running = True
-        self.station: Station = None
+        self.__station: ID = None
         # self.apns: ApplePushNotificationService = None
-        self.push_service = PushMessageService()
+        self.__push_service = PushMessageService()
         self.__neighbors: List[ID] = []     # ID list
         self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
         self.__waiting_list_lock = threading.Lock()
@@ -67,11 +67,30 @@ class Dispatcher(Thread, Observer):
         nc.add(observer=self, name=NotificationNames.DISCONNECTED)
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
 
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
+
     def info(self, msg: str):
         Log.info('%s > %s >\t%s' % (threading.current_thread().getName(), self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def station(self) -> ID:
+        return self.__station
+
+    @station.setter
+    def station(self, server: Union[ID, Station]):
+        if isinstance(server, Station):
+            server = server.identifier
+        self.__station = server
+
+    def push(self, sender: ID, receiver: ID, message: str) -> bool:
+        self.__push_service.push(sender=sender, receiver=receiver, message=message)
+        return True
 
     #
     #    Notification Observer
@@ -107,7 +126,7 @@ class Dispatcher(Thread, Observer):
             station = station.identifier
         else:
             assert isinstance(station, ID), 'station ID error: %s' % station
-        if station == self.station.identifier:
+        if station == self.station:
             return False
         # FIXME: thread safe
         if station in self.__neighbors:
@@ -147,24 +166,23 @@ class Dispatcher(Thread, Observer):
                 receipt[key] = value
         return receipt
 
-    def __traced(self, msg: ReliableMessage, station: Station) -> bool:
-        sid = station.identifier
+    def __traced(self, msg: ReliableMessage, station: ID) -> bool:
         traces = msg.get('traces')
         if traces is None:
             # broadcast message starts from here
-            traces = [sid]
+            traces = [station]
         else:
             for node in traces:
                 if isinstance(node, str):
-                    if sid == node:
+                    if station == node:
                         return True
                 elif isinstance(node, dict):
-                    if sid == node.get('ID'):
+                    if station == node.get('ID'):
                         return True
                 else:
                     self.error('traces node error: %s' % node)
             # broadcast message go through here
-            traces.append(sid)
+            traces.append(station)
         msg['traces'] = ID.revert(members=traces)
         return False
 
@@ -180,7 +198,7 @@ class Dispatcher(Thread, Observer):
         sent_neighbors = []
         success = 0
         for sid in neighbors:
-            if sid == self.station.identifier:
+            if sid == self.station:
                 continue
             sessions = session_server.active_sessions(identifier=sid)
             if len(sessions) == 0:
@@ -190,7 +208,7 @@ class Dispatcher(Thread, Observer):
                 sent_neighbors.append(sid)
                 success += 1
         # push to the bridge (octopus) of current station
-        sid = self.station.identifier
+        sid = self.station
         sessions = session_server.active_sessions(identifier=sid)
         if len(sessions) > 0:
             # tell the bridge ignore this neighbor stations
@@ -222,7 +240,7 @@ class Dispatcher(Thread, Observer):
         sessions = self.session_server.active_sessions(identifier=neighbor)
         if len(sessions) == 0:
             self.info('remote station (%s) not connected, trying bridge...' % neighbor)
-            neighbor = self.station.identifier
+            neighbor = self.station
             sessions = self.session_server.active_sessions(identifier=neighbor)
             if len(sessions) == 0:
                 self.error('station bridge (%s) not connected, cannot redirect.' % neighbor)
@@ -245,7 +263,7 @@ class Dispatcher(Thread, Observer):
             self.info('%s login expired: [%s] %s' % (receiver, t_str, login))
             return None
         sid = ID.parse(identifier=station.get('ID'))
-        if sid == self.station.identifier:
+        if sid == self.station:
             return None
         return sid
 
@@ -275,7 +293,7 @@ class Dispatcher(Thread, Observer):
         # push it
         self.info('APNs message: %s' % text)
         # return self.apns.push(identifier=receiver, message=text)
-        return self.push_service.push(sender, receiver, text)
+        return self.push(sender=sender, receiver=receiver, message=text)
 
     def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver

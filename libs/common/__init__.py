@@ -45,8 +45,6 @@ from .messenger import CommonMessenger
 from .packer import CommonPacker
 from .processor import CommonProcessor
 
-from .push_message_service import PushMessageService
-
 
 __all__ = [
 
@@ -80,6 +78,4 @@ __all__ = [
 
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
-
-    'PushMessageService',
 ]

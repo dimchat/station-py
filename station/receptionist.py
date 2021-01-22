@@ -35,7 +35,7 @@ import time
 import traceback
 from json import JSONDecodeError
 from threading import Thread
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
@@ -45,7 +45,6 @@ from libs.utils import Observer, Notification, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Storage, Database
 from libs.server import SessionServer
-from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
 
 
@@ -77,11 +76,10 @@ class Receptionist(Thread, Observer):
     def __init__(self):
         super().__init__()
         self.__running = True
-        self.apns: ApplePushNotificationService = None
         # current station and guests
-        self.station: Station = None
-        self.guests = []
-        self.roamers = []
+        self.__station: ID = None
+        self.__guests = []
+        self.__roamers = []
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
@@ -96,6 +94,16 @@ class Receptionist(Thread, Observer):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    @property
+    def station(self) -> ID:
+        return self.__station
+
+    @station.setter
+    def station(self, server: Union[ID, Station]):
+        if isinstance(server, Station):
+            server = server.identifier
+        self.__station = server
 
     @property
     def session_server(self) -> SessionServer:
@@ -114,7 +122,7 @@ class Receptionist(Thread, Observer):
         elif name == NotificationNames.USER_ONLINE:
             user = info.get('ID')
             sid = info.get('station')
-            if sid is None or sid == self.station.identifier:
+            if sid is None or sid == self.station:
                 # add the new guest for checking offline messages
                 self.add_guest(identifier=user)
             else:
@@ -130,21 +138,21 @@ class Receptionist(Thread, Observer):
 
     def add_guest(self, identifier: ID):
         # FIXME: thread safe
-        self.guests.append(identifier)
+        self.__guests.append(identifier)
         # check freshman
         save_freshman(identifier=identifier)
 
     def remove_guest(self, identifier: ID):
         # FIXME: thread safe
-        self.guests.remove(identifier)
+        self.__guests.remove(identifier)
 
     def add_roamer(self, identifier: ID):
         # FIXME: thread safe
-        self.roamers.append(identifier)
+        self.__roamers.append(identifier)
 
     def remove_roamer(self, identifier: ID):
         # FIXME: thread safe
-        self.roamers.remove(identifier)
+        self.__roamers.remove(identifier)
 
     #
     #   Guests login this station
@@ -168,7 +176,6 @@ class Receptionist(Thread, Observer):
 
     def __process_guests(self, guests: List[ID]):
         database = self.database
-        apns = self.apns
         for identifier in guests:
             # 1. scan offline messages
             self.info('%s is connected, scanning messages for it' % identifier)
@@ -176,7 +183,10 @@ class Receptionist(Thread, Observer):
             if batch is None:
                 self.info('no message for this guest, remove it: %s' % identifier)
                 self.remove_guest(identifier)
-                apns.clear_badge(identifier=identifier)
+                # post notification: INBOX_EMPTY
+                NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
+                    'ID': identifier,
+                })
                 continue
             messages = batch.get('messages')
             if messages is None or len(messages) == 0:
@@ -223,7 +233,7 @@ class Receptionist(Thread, Observer):
         facebook = self.facebook
         sid = ID.parse(identifier=sid)
         assert sid.type == NetworkType.STATION, 'station ID error: %s' % station
-        if sid == self.station.identifier:
+        if sid == self.station:
             self.info('login station is current station: %s -> %s' % (identifier, sid))
             return None
         # anything else?
@@ -294,7 +304,7 @@ class Receptionist(Thread, Observer):
     def __run_unsafe(self):
         # process guests
         try:
-            self.__process_guests(guests=self.guests.copy())
+            self.__process_guests(guests=self.__guests.copy())
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
@@ -309,7 +319,7 @@ class Receptionist(Thread, Observer):
             time.sleep(0.1)
         # process roamers
         try:
-            self.__process_roamers(roamers=self.roamers.copy())
+            self.__process_roamers(roamers=self.__roamers.copy())
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:

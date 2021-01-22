@@ -42,7 +42,6 @@ from libs.common import NotificationNames
 from libs.common import Database
 from libs.server import ServerMessenger
 from libs.server import SessionServer, Session
-from libs.server import ApplePushNotificationService
 from libs.server import ServerFacebook
 
 
@@ -51,7 +50,6 @@ class Monitor(Observer):
 
     def __init__(self):
         super().__init__()
-        self.apns: ApplePushNotificationService = None
         # message from the station to administrator(s)
         self.sender: ID = None
         self.admins: set = set()
@@ -63,6 +61,8 @@ class Monitor(Observer):
 
     def __del__(self):
         nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.CONNECTED)
+        nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     def info(self, msg: str):
@@ -156,4 +156,5 @@ class Monitor(Observer):
         self.info('%s is offline, store report: %s' % (receiver, text))
         self.database.store_message(r_msg)
         # push notification
-        return self.apns.push(identifier=receiver, message=text)
+        dispatcher = self.messenger.dispatcher
+        return dispatcher.push(sender=self.sender, receiver=receiver, message=text)

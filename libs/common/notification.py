@@ -41,3 +41,5 @@ class NotificationNames:
 
     USER_ONLINE = 'user_online'    # foreground
     USER_OFFLINE = 'user_offline'  # background
+
+    INBOX_EMPTY = 'inbox_empty'    # new message not found
