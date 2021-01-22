@@ -117,7 +117,7 @@ class SessionServer:
     def __init__(self):
         super().__init__()
         # memory cache
-        self.__addresses: Dict[ID, Set[tuple]] = {}                    # {identifier, [client_address]}
+        self.__client_addresses: Dict[ID, Set[tuple]] = {}             # {identifier, [client_address]}
         self.__sessions: Dict[tuple, Session] = WeakValueDictionary()  # {client_address, session}
 
     def get_session(self, client_address: tuple, handler: Optional[Session.Handler]=None) -> Session:
@@ -129,19 +129,33 @@ class SessionServer:
             self.__sessions[client_address] = session
         return session
 
-    def insert_session(self, session: Session):
-        """ Insert a session with ID into memory cache """
-        identifier = session.identifier
-        address = session.client_address
-        assert identifier is not None and address is not None, 'session error: %s' % session
-        # 1. set session with client_address
-        self.__sessions[address] = session
-        # 2. insert client_address with ID
-        array = self.__addresses.get(identifier)
+    def __insert(self, client_address: tuple, identifier: ID):
+        array = self.__client_addresses.get(identifier)
         if array is None:
             array = set()
-        array.add(address)
-        self.__addresses[identifier] = array
+            self.__client_addresses[identifier] = array
+        array.add(client_address)
+
+    def __remove(self, client_address: tuple, identifier: ID):
+        array = self.__client_addresses.get(identifier)
+        if array is not None:
+            array.discard(client_address)
+            if len(array) == 0:
+                # all sessions removed
+                self.__client_addresses.pop(identifier)
+
+    def update_session(self, session: Session, identifier: ID):
+        """ Insert a session with ID into memory cache """
+        address = session.client_address
+        assert address is not None, 'session error: %s' % session
+        old = session.identifier
+        if old is not None:
+            # 0. remove client_address from old ID
+            self.__remove(client_address=address, identifier=old)
+        # 1. insert client_address for new ID
+        self.__insert(client_address=address, identifier=identifier)
+        # 2. update session ID
+        session.identifier = identifier
 
     def remove_session(self, session: Session):
         """ Remove the session from memory cache """
@@ -150,12 +164,7 @@ class SessionServer:
         assert address is not None, 'session error: %s' % session
         if identifier is not None:
             # 1. remove client_address with ID
-            array = self.__addresses.get(identifier)
-            if array is not None:
-                array.discard(address)
-                if len(array) == 0:
-                    # all sessions removed
-                    self.__addresses.pop(identifier)
+            self.__remove(client_address=address, identifier=identifier)
         # 2. remove session with client_address
         self.__sessions.pop(address, None)
 
@@ -163,7 +172,7 @@ class SessionServer:
         """ Get all sessions of this user """
         results = set()
         # 1. get all client_address with ID
-        array = self.__addresses.get(identifier)
+        array = self.__client_addresses.get(identifier)
         if array is not None:
             array = array.copy()
             # 2. get session by each client_address
@@ -188,7 +197,7 @@ class SessionServer:
     #
     def all_users(self) -> Set[ID]:
         """ Get all users """
-        return set(self.__addresses.keys())
+        return set(self.__client_addresses.keys())
 
     def is_active(self, identifier: ID) -> bool:
         """ Check whether user has active session """

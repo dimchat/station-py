@@ -131,7 +131,7 @@ class ServerMessenger(CommonMessenger):
     #   HandshakeDelegate
     #
     def handshake_accepted(self, session: Session):
-        self.session_server.insert_session(session=session)
+        session.active = True
         sender = session.identifier
         session_key = session.key
         client_address = session.client_address

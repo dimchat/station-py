@@ -40,6 +40,7 @@ from dimsdk import HandshakeCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
 from ..messenger import ServerMessenger
+from ..session import SessionServer
 
 
 class HandshakeCommandProcessor(CommandProcessor):
@@ -52,13 +53,16 @@ class HandshakeCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: ServerMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
+    @property
+    def session_server(self) -> SessionServer:
+        return self.messenger.session_server
+
     def __offer(self, sender: ID, session_key: str=None) -> Content:
         # set/update session in session server with new session key
         session = self.messenger.current_session(identifier=sender)
         if session_key == session.key:
             # session verified success
-            session.identifier = sender
-            session.active = True
+            self.session_server.update_session(session=session, identifier=sender)
             response = self.messenger.handshake_accepted(session=session)
             if response is None:
                 response = HandshakeCommand.success()
