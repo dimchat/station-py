@@ -166,6 +166,7 @@ class SessionServer:
             # 1. remove client_address with ID
             self.__remove(client_address=address, identifier=identifier)
         # 2. remove session with client_address
+        session.active = False
         self.__sessions.pop(address, None)
 
     def all_sessions(self, identifier: ID) -> Set[Session]:

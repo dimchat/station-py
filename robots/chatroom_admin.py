@@ -46,7 +46,6 @@ from dimsdk import ContentProcessor, CommandProcessor
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
 from libs.utils import JSONFile
@@ -290,6 +289,18 @@ class ChatRoom:
         self.__statistic = Statistic()
         self.__history = History()
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
     @property
     def messenger(self) -> ClientMessenger:
         return self.__messenger
@@ -297,12 +308,6 @@ class ChatRoom:
     @property
     def facebook(self):  # Facebook
         return self.messenger.facebook
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def __refresh(self):
         """ Remove timeout user(s) """
@@ -325,7 +330,7 @@ class ChatRoom:
     def __update(self, identifier: ID) -> bool:
         """ Update user active status """
         if identifier.name != 'web-demo':
-            self.info('ignore ID: %s' % identifier)
+            self.warning('ignore ID: %s' % identifier)
             return False
         if self.__times.get(identifier):
             self.__users.remove(identifier)
@@ -409,7 +414,7 @@ class ChatRoom:
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
-        self.info('forwarding message from: %s' % sender)
+        self.debug('forwarding message from: %s' % sender)
         self.__history.push(content=content)
         self.__statistic.update(identifier=sender, stat=StatKey.MESSAGE)
         # forwarding
@@ -425,13 +430,13 @@ class ChatRoom:
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
-        self.info('got receipt from %s: %s' % (sender, cmd))
+        self.debug('got receipt from %s: %s' % (sender, cmd))
         return None
 
     def receive(self, content: Content, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
-        self.info('got message from %s' % sender)
+        self.debug('got message from %s' % sender)
         if isinstance(content, TextContent):
             text = content.text
             if text == 'show users':

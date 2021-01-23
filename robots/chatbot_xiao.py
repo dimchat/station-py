@@ -43,7 +43,6 @@ from dimp import TextContent
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
 from libs.common import Storage, CommonFacebook
@@ -96,8 +95,14 @@ class FreshmenScanner(threading.Thread):
         gid = ID.parse(identifier=group_naruto)
         self.__group = messenger.facebook.group(gid)
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -110,7 +115,7 @@ class FreshmenScanner(threading.Thread):
         members = self.__group.members
         if members is None:
             return []
-        self.info('got %d member(s) in group: %s' % (len(members), self.__group))
+        self.debug('got %d member(s) in group: %s' % (len(members), self.__group))
         return members
 
     def __freshmen(self) -> List[ID]:
@@ -133,7 +138,7 @@ class FreshmenScanner(threading.Thread):
                 continue
             # profile OK
             users.append(item)
-        self.info('got freshmen: %d from %d' % (len(users), len(freshmen)))
+        self.debug('got freshmen: %d from %d' % (len(users), len(freshmen)))
         return users
 
     def __welcome(self, freshmen: List[ID]) -> TextContent:
@@ -160,7 +165,7 @@ class FreshmenScanner(threading.Thread):
         if len(freshmen) == 0:
             time.sleep(30)
             return
-        self.info('freshmen: %s' % freshmen)
+        self.debug('freshmen: %s' % freshmen)
         #
         #  2. send group command for inviting freshmen
         #

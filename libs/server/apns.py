@@ -44,6 +44,8 @@ from apns2.payload import Payload
 
 from dimp import ID
 
+from libs.utils import Log
+
 
 class ApplePushNotificationService:
 
@@ -78,6 +80,18 @@ class ApplePushNotificationService:
         # counting offline messages
         self.badge_table = {}
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
     @property
     def delegate(self) -> Delegate:
         if self.__delegate is not None:
@@ -86,16 +100,6 @@ class ApplePushNotificationService:
     @delegate.setter
     def delegate(self, value: Delegate):
         self.__delegate = weakref.ref(value)
-
-    @staticmethod
-    def info(msg: str):
-        # Log.info('APNs:\t%s' % msg)
-        pass
-
-    @staticmethod
-    def error(msg: str):
-        # Log.error('APNs ERROR:\t%s' % msg)
-        pass
 
     def badge(self, identifier: ID) -> int:
         num = self.badge_table.get(identifier)
@@ -152,7 +156,7 @@ class ApplePushNotificationService:
         payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:
-            self.info('sending notification %s to user %s with token %s' % (message, identifier, token))
+            self.debug('sending notification %s to user %s with token %s' % (message, identifier, token))
             # first try
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable

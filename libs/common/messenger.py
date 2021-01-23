@@ -152,9 +152,9 @@ class CommonMessenger(Messenger):
 class MessageDataSource(MessengerDataSource):
 
     def save_message(self, msg: InstantMessage) -> bool:
-        Log.info('TODO: saving message: %s' % msg)
+        Log.info('TODO: saving message')
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
-        Log.info('TODO: suspending message: %s' % msg)
+        Log.info('TODO: suspending message')
         return True

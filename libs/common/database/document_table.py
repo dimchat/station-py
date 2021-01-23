@@ -84,7 +84,7 @@ class DocumentTable(Storage):
             self.__caches[identifier] = info
         if info is not self.__empty:
             return info
-        # self.error('document not found: %s' % identifier)
+        self.info('document not found: %s' % identifier)
 
 
 class DeviceTable(Storage):
@@ -120,7 +120,7 @@ class DeviceTable(Storage):
             self.info('Loading device from: %s' % path)
             info = self.read_json(path=path)
             if info is None:
-                # self.error('device not found: %s' % identifier)
+                self.info('device not found: %s' % identifier)
                 info = {}
             # 3. store into memory cache
             self.__caches[identifier] = info

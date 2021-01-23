@@ -42,7 +42,6 @@ class LoginCommandProcessor(CommandProcessor):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
-        # self.info('login command: %s' % content)
         # return ReceiptCommand.new(message='Login received')
         return None
 

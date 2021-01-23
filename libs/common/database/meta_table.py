@@ -83,7 +83,7 @@ class MetaTable(Storage):
             self.__caches[identifier] = info
         if info is not self.__empty:
             return info
-        # self.error('meta not found: %s' % identifier)
+        self.error('meta not found: %s' % identifier)
 
     """
         Search Engine
@@ -130,23 +130,23 @@ class MetaTable(Storage):
         for filename in files:
             path = os.path.join(directory, filename, 'meta.js')
             if not os.path.exists(path):
-                # self.info('meta file not exists: %s' % path)
+                self.warning('meta file not exists: %s' % path)
                 continue
             address = ID.parse(identifier=filename)
             if address is None:
-                # self.error('ID/address error: %s' % filename)
+                self.error('ID/address error: %s' % filename)
                 continue
             meta = self.meta(identifier=address)
             if meta is None:
                 self.error('meta error: %s' % address)
             else:
-                # self.info('loaded meta for %s from %s: %s' % (identifier, path, meta))
                 identifier = meta.generate_identifier(network=address.type)
+                self.debug('loaded meta for %s from %s: %s' % (identifier, path, meta))
                 # the ID contains 'username' now
                 if identifier != address:
                     # switch cache key
                     # self.__caches.pop(address)
                     self.__caches[identifier] = meta
                 ids.append(identifier)
-        self.info('Scanned %d ID(s) from %s' % (len(ids), directory))
+        self.debug('Scanned %d ID(s) from %s' % (len(ids), directory))
         return ids

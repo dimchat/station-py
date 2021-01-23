@@ -64,19 +64,19 @@ class MessageTable(Storage):
     def __load_messages(self, path: str) -> List[ReliableMessage]:
         text = self.read_text(path=path)
         lines = text.splitlines()
-        self.info('read %d line(s) from %s' % (len(lines), path))
+        self.debug('read %d line(s) from %s' % (len(lines), path))
         messages = []
         for line in lines:
             msg = line.strip()
             if len(msg) == 0:
-                self.info('skip empty line')
+                self.warning('skip empty line')
                 continue
             try:
                 msg = json_decode(data=utf8_encode(string=msg))
                 msg = ReliableMessage.parse(msg=msg)
                 messages.append(msg)
             except Exception as error:
-                self.info('message package error %s, %s' % (error, line))
+                self.error('message package error %s, %s' % (error, line))
         return messages
 
     def __message_exists(self, msg: ReliableMessage, path: str) -> bool:
@@ -98,7 +98,7 @@ class MessageTable(Storage):
         if self.__message_exists(msg=msg, path=path):
             self.error('message duplicated: %s' % msg)
             return False
-        # self.info('Appending message into: %s' % path)
+        self.debug('Appending message into: %s' % path)
         # message data
         data = utf8_decode(data=json_encode(msg.dictionary))
         data = data + '\n'
@@ -118,15 +118,15 @@ class MessageTable(Storage):
                 # load messages from file path
                 path = os.path.join(directory, filename)
                 messages = self.__load_messages(path=path)
-                self.info('got %d message(s) for %s' % (len(messages), receiver))
+                self.debug('got %d message(s) for %s' % (len(messages), receiver))
                 if len(messages) == 0:
-                    self.info('remove empty message file %s' % path)
+                    self.debug('remove empty message file %s' % path)
                     self.remove(path)
                 return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
 
     def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
         if removed_count <= 0:
-            self.info('message count to removed error: %d' % removed_count)
+            self.warning('message count to removed error: %d' % removed_count)
             return False
         # 0. get message file path
         path = batch.get('path')
@@ -139,10 +139,10 @@ class MessageTable(Storage):
                 # message file path
                 path = os.path.join(directory, filename)
         if not self.exists(path):
-            self.info('message file not exists: %s' % path)
+            self.warning('message file not exists: %s' % path)
             return False
         # 1. remove all message(s)
-        self.info('remove message file: %s' % path)
+        self.debug('remove message file: %s' % path)
         self.remove(path)
         # 2. store the rest messages back
         messages = batch.get('messages')
@@ -161,5 +161,5 @@ class MessageTable(Storage):
                 data = utf8_decode(data=json_encode(dictionary))
                 data = data + '\n'
                 self.append_text(text=data, path=path)
-            self.info('the rest messages(%d) write back into file: %s' % path)
+            self.debug('the rest messages(%d) write back into file: %s' % path)
         return True

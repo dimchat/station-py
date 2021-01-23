@@ -51,12 +51,6 @@ class TextContentProcessor(ContentProcessor):
         super().__init__()
         self.__dialog: Dialog = None
 
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
-
     @property
     def messenger(self) -> CommonMessenger:
         return super().messenger
@@ -85,18 +79,18 @@ class TextContentProcessor(ContentProcessor):
         try:
             return dialog.query(content=content, sender=sender)
         except URLError as error:
-            self.error('%s' % error)
+            Log.error('%s' % error)
 
     def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
         # check robot
         if sender.type in [NetworkType.ROBOT, NetworkType.STATION]:
-            # self.info('Dialog > ignore message from another robot: %s' % msg.content)
+            Log.info('Dialog > ignore message from another robot: %s' % sender)
             return True
         # check time
         now = int(time.time())
         dt = now - msg.time
         if dt > 600:
-            self.info('Old message, ignore it: %s' % msg)
+            # Old message, ignore it
             return True
         # check group message
         if content.group is None:
@@ -108,9 +102,8 @@ class TextContentProcessor(ContentProcessor):
         # checking '@nickname'
         receiver = msg.receiver
         at = '@%s' % self.facebook.name(identifier=receiver)
-        self.info('Group Dialog > searching "%s" in "%s"...' % (at, text))
         if text.find(at) < 0:
-            self.info('ignore group message that not querying me: %s' % text)
+            Log.info('ignore group message that not querying me: %s' % text)
             return True
         # TODO: remove all '@nickname'
         text = text.replace(at, '')
@@ -125,7 +118,7 @@ class TextContentProcessor(ContentProcessor):
         nickname = self.facebook.name(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
-        self.info('Received text message from %s: %s' % (nickname, content))
+        Log.debug('Received text message from %s: %s' % (nickname, content))
         response = self.__query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
@@ -134,10 +127,10 @@ class TextContentProcessor(ContentProcessor):
             group = content.group
             if group is None:
                 # personal message
-                self.info('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+                Log.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
             else:
                 # group message
-                self.info('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
+                Log.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
                 if self.messenger.send_content(sender=None, receiver=group, content=response):
                     text = 'Group message responded'
                     return ReceiptCommand(message=text)

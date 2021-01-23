@@ -27,6 +27,7 @@ import time
 from typing import Optional, Union
 
 from libs.utils import File, TextFile, JSONFile
+from libs.utils import Log
 
 
 def current_time() -> str:
@@ -69,10 +70,14 @@ class Storage:
     #
     #  Log
     #
-    @classmethod
-    def info(cls, msg: str):
-        print('[%s] Storage > %s' % (current_time(), msg))
+    def debug(self, msg: str):
+        Log.debug('Storage::%s >\t%s' % (self.__class__.__name__, msg))
 
-    @classmethod
-    def error(cls, msg: str):
-        print('[%s] ERROR - Storage > %s' % (current_time(), msg))
+    def info(self, msg: str):
+        Log.info('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('Storage::%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('Storage::%s >\t%s' % (self.__class__.__name__, msg))

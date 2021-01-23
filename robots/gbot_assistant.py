@@ -44,7 +44,6 @@ from dimsdk import ReceiptCommand
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.common import Storage
 
@@ -173,7 +172,7 @@ class AssistantMessenger(ClientMessenger):
             meta = self.facebook.meta(identifier=receiver)
             if meta is None:
                 self.suspend_message(msg=msg)
-                self.info(msg='waiting for meta of group: %s' % receiver)
+                self.info('waiting for meta of group: %s' % receiver)
                 return None
             # process group message
             return self.__process_group_message(msg=msg)
@@ -210,7 +209,7 @@ class AssistantMessenger(ClientMessenger):
                 i_msg = InstantMessage.create(head=env, body=cmd)
                 s_msg = self.encrypt_message(msg=i_msg)
                 if s_msg is None:
-                    self.error(msg='failed to encrypt message: %s' % i_msg)
+                    self.error('failed to encrypt message: %s' % i_msg)
                     self.suspend_message(msg=i_msg)
                     return None
                 return self.sign_message(msg=s_msg)
@@ -250,7 +249,7 @@ class AssistantMessenger(ClientMessenger):
             i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.encrypt_message(msg=i_msg)
             if s_msg is None:
-                self.error(msg='failed to encrypt message: %s' % i_msg)
+                self.error('failed to encrypt message: %s' % i_msg)
                 self.suspend_message(msg=i_msg)
                 return None
             return self.sign_message(msg=s_msg)

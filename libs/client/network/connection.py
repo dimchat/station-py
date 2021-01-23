@@ -58,8 +58,14 @@ class Connection(threading.Thread):
         self.__thread_heartbeat = None
         self.__last_time: int = 0
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -95,7 +101,7 @@ class Connection(threading.Thread):
             remaining_length = len(data)
             data = self.receive(last=data)
             if len(data) == remaining_length:
-                self.info('no more data, remaining=%d' % remaining_length)
+                self.debug('no more data, remaining=%d' % remaining_length)
                 time.sleep(0.5)
                 continue
             # check whether contain incomplete message

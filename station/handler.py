@@ -67,11 +67,17 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         # init
         super().__init__(request=request, client_address=client_address, server=server)
 
-    def __del__(self):
-        Log.info('request handler deleted: %s' % str(self.client_address))
+    # def __del__(self):
+    #     Log.info('request handler deleted: %s' % str(self.client_address))
+
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -107,8 +113,10 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             'session': self.__session,
         })
+        self.info('client connected: %s' % self.__session)
 
     def finish(self):
+        self.info('client disconnected: %s' % self.__session)
         NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
             'session': self.__session,
         })
@@ -122,7 +130,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     """
 
     def handle(self):
-        self.info('client connected (%s, %s)' % self.client_address)
         data = b''
         while True:
             # receive all data
@@ -304,11 +311,11 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
             res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
         elif head.cmd == head.NOOP:
             # TODO: handle NOOP request
-            self.info('mars NOOP, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
+            self.debug('mars NOOP, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = pack
         else:
             # TODO: handle Unknown request
-            self.error('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
+            self.warning('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
             res = NetMsg(cmd=6, seq=0)
         self.send(res)
         # return the remaining incomplete package
@@ -328,7 +335,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         pack = pack.lstrip()
         if len(pack) == 0:
             # NOOP: heartbeat package
-            self.info('respond <heartbeats>: %s' % pack)
+            self.debug('respond <heartbeats>: %s' % self.__session)
             self.send(b'\n')
             return b''
         # check whether contain incomplete message

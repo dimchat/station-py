@@ -65,8 +65,14 @@ class Monitor(Observer):
         nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -142,7 +148,7 @@ class Monitor(Observer):
         # try for online user
         sessions = self.session_server.active_sessions(identifier=receiver)
         if len(sessions) > 0:
-            self.info('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
+            self.debug('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
             for sess in sessions:
                 if sess.push_message(r_msg):
@@ -150,10 +156,10 @@ class Monitor(Observer):
                 else:
                     self.error('failed to push report via connection (%s, %s)' % sess.client_address)
             if success > 0:
-                self.info('report pushed to activated session(%d) of user: %s' % (success, receiver))
+                self.debug('report pushed to activated session(%d) of user: %s' % (success, receiver))
                 return True
         # store in local cache file
-        self.info('%s is offline, store report: %s' % (receiver, text))
+        self.debug('%s is offline, store report: %s' % (receiver, text))
         self.database.store_message(r_msg)
         # push notification
         dispatcher = self.messenger.dispatcher

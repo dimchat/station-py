@@ -31,21 +31,35 @@
 import time
 
 
+def current_time() -> str:
+    time_array = time.localtime()
+    return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
+
+
 class Log:
 
-    @staticmethod
-    def time_string(timestamp: int) -> str:
-        time_array = time.localtime(timestamp)
-        return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
+    DEBUG = 0
+    DEVELOP = 1
+    RELEASE = 2
 
-    @staticmethod
-    def info(msg: str):
-        timestamp = int(time.time())
-        time_string = Log.time_string(timestamp)
-        print('[%s] %s' % (time_string, msg))
+    LEVEL = DEVELOP
 
-    @staticmethod
-    def error(msg: str):
-        timestamp = int(time.time())
-        time_string = Log.time_string(timestamp)
-        print('[%s] ERROR - %s' % (time_string, msg))
+    @classmethod
+    def debug(cls, msg: str):
+        if cls.LEVEL > cls.DEBUG:
+            return None
+        print('[%s] DEBUG - %s' % (current_time(), msg))
+
+    @classmethod
+    def info(cls, msg: str):
+        if cls.LEVEL > cls.DEVELOP:
+            return None
+        print('[%s] %s' % (current_time(), msg))
+
+    @classmethod
+    def warning(cls, msg: str):
+        print('[%s] %s' % (current_time(), msg))
+
+    @classmethod
+    def error(cls, msg: str):
+        print('[%s] ERROR - %s' % (current_time(), msg))

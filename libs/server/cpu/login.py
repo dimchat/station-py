@@ -38,7 +38,6 @@ from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
-from libs.utils import Log
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
@@ -47,12 +46,6 @@ from ..messenger import ServerMessenger
 
 
 class LoginCommandProcessor(CommandProcessor):
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def messenger(self) -> ServerMessenger:
@@ -87,7 +80,6 @@ class LoginCommandProcessor(CommandProcessor):
         # check roaming
         sid = self.__roaming(cmd=cmd, sender=sender)
         if sid is not None:
-            self.info('%s roamed to: %s' % (sender, sid))
             # post notification: USER_ONLINE
             NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
                 'ID': sender,
@@ -97,7 +89,6 @@ class LoginCommandProcessor(CommandProcessor):
         if not self.database.save_login(cmd=cmd, msg=msg):
             return None
         # response
-        self.info('login command: %s' % cmd)
         return ReceiptCommand(message='Login received')
 
 

@@ -40,7 +40,6 @@ from flask import send_from_directory
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
 
 from webserver.config import WWW_HOST, WWW_PORT
 

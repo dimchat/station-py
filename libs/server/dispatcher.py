@@ -72,8 +72,14 @@ class Dispatcher(Thread, Observer):
         nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
-        Log.info('%s > %s >\t%s' % (threading.current_thread().getName(), self.__class__.__name__, msg))
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -188,7 +194,7 @@ class Dispatcher(Thread, Observer):
 
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
-        self.info('broadcasting message %s' % msg)
+        self.debug('broadcasting message from: %s' % msg.sender)
         if self.__traced(msg=msg, station=self.station):
             self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
             return None
@@ -202,7 +208,7 @@ class Dispatcher(Thread, Observer):
                 continue
             sessions = session_server.active_sessions(identifier=sid)
             if len(sessions) == 0:
-                self.info('remote station (%s) not connected, try later.' % sid)
+                self.warning('remote station (%s) not connected, try later.' % sid)
                 continue
             if self.__push_message(msg=msg, receiver=sid, sessions=sessions):
                 sent_neighbors.append(sid)
@@ -224,7 +230,7 @@ class Dispatcher(Thread, Observer):
         # return None
 
     def __push_message(self, msg: ReliableMessage, receiver: ID, sessions: Set[Session]) -> bool:
-        self.info('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.sender))
+        self.debug('%s is online(%d), try to push message for: %s' % (receiver, len(sessions), msg.sender))
         success = 0
         for sess in sessions:
             if sess.push_message(msg):
@@ -232,21 +238,21 @@ class Dispatcher(Thread, Observer):
             else:
                 self.error('failed to push message via connection (%s, %s)' % sess.client_address)
         if success > 0:
-            self.info('message for user %s pushed to %d sessions' % (receiver, success))
+            self.debug('message for user %s pushed to %d sessions' % (receiver, success))
             return True
 
     def __redirect_message(self, msg: ReliableMessage, receiver: ID, neighbor: ID) -> bool:
-        self.info('%s is roaming, try to redirect: %s' % (receiver, neighbor))
+        self.debug('%s is roaming, try to redirect: %s' % (receiver, neighbor))
         sessions = self.session_server.active_sessions(identifier=neighbor)
         if len(sessions) == 0:
-            self.info('remote station (%s) not connected, trying bridge...' % neighbor)
+            self.debug('remote station (%s) not connected, trying bridge...' % neighbor)
             neighbor = self.station
             sessions = self.session_server.active_sessions(identifier=neighbor)
             if len(sessions) == 0:
                 self.error('station bridge (%s) not connected, cannot redirect.' % neighbor)
                 return False
         if self.__push_message(msg=msg, receiver=neighbor, sessions=sessions):
-            self.info('message for user %s redirected to %s' % (receiver, neighbor))
+            self.debug('message for user %s redirected to %s' % (receiver, neighbor))
             return True
 
     def __roaming(self, receiver: ID) -> Optional[ID]:
@@ -258,9 +264,13 @@ class Dispatcher(Thread, Observer):
             return None
         # check time expires
         now = time.time()
-        if (now - login.time) > (3600 * 24 * 7):
-            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(login.time))
-            self.info('%s login expired: [%s] %s' % (receiver, t_str, login))
+        login_time = login.time
+        if login_time is None:
+            self.error('%s login time not set: %s' % (receiver, login))
+            return None
+        if (now - login_time) > (3600 * 24 * 7):
+            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(login_time))
+            self.debug('%s login expired: [%s] %s' % (receiver, t_str, login))
             return None
         sid = ID.parse(identifier=station.get('ID'))
         if sid == self.station:
@@ -281,7 +291,7 @@ class Dispatcher(Thread, Observer):
         elif msg_type == ContentType.VIDEO:
             something = 'a video'
         else:
-            self.info('ignore msg type: %d' % msg_type)
+            self.debug('ignore msg type: %d' % msg_type)
             return False
         from_name = self.facebook.name(identifier=sender)
         to_name = self.facebook.name(identifier=receiver)
@@ -325,7 +335,7 @@ class Dispatcher(Thread, Observer):
         sender = msg.sender
         group = msg.group
 
-        self.info('%s is offline, store message from: %s' % (receiver, sender))
+        self.debug('%s is offline, store message from: %s' % (receiver, sender))
         self.database.store_message(msg)
         # check mute-list
         if self.database.is_muted(sender=sender, receiver=receiver, group=group):

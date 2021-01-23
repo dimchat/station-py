@@ -45,7 +45,6 @@ from dimsdk import CommandProcessor
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-sys.path.append(os.path.join(rootPath, 'libs'))
 
 from libs.utils import Log
 from libs.common import Database
@@ -151,8 +150,14 @@ class Octopus:
         self.__neighbors = []  # ID list
         self.__clients = {}    # ID -> Terminal
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -221,7 +226,7 @@ class Octopus:
     def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = msg.receiver
         if receiver == g_station.identifier:
-            self.info('msg for %s will be stopped here' % receiver)
+            self.debug('msg for %s will be stopped here' % receiver)
             return None
         sent_neighbors = msg.get('sent_neighbors')
         if sent_neighbors is None:
@@ -232,7 +237,7 @@ class Octopus:
         success = 0
         for sid in neighbors:
             if sid in sent_neighbors:
-                self.info('station %s in sent list, ignore this neighbor' % sid)
+                self.debug('station %s in sent list, ignore this neighbor' % sid)
                 continue
             if self.__deliver_message(msg=msg, neighbor=sid):
                 success += 1
@@ -247,7 +252,7 @@ class Octopus:
             # waiting for meta
             return None
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
-        self.info('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
+        self.debug('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
         res = TextContent(text=text)
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
@@ -270,7 +275,7 @@ class Octopus:
             msg.delegate = self
         sid = g_station.identifier
         if self.__traced(msg=msg, station=g_station):
-            self.info('current station %s in traces list, ignore this message: %s' % (sid, msg))
+            self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
             return None
         if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to send income message: %s' % msg)
@@ -281,7 +286,7 @@ class Octopus:
         # response
         sender = msg.sender
         text = 'Message reached station: %s' % g_station
-        self.info('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
+        self.debug('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
         res = TextContent(text=text)
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
@@ -291,17 +296,17 @@ class Octopus:
         sent_count = 0
         while True:
             # 1. scan offline messages
-            self.info('%s is roaming, scanning messages for it' % roamer)
+            self.debug('%s is roaming, scanning messages for it' % roamer)
             batch = db.load_message_batch(roamer)
             if batch is None:
-                self.info('no message for this roamer: %s' % roamer)
+                self.debug('no message for this roamer: %s' % roamer)
                 return sent_count
             messages = batch.get('messages')
             if messages is None or len(messages) == 0:
                 self.error('message batch error: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
-            self.info('got %d message(s) for %s' % (len(messages), roamer))
+            self.debug('got %d message(s) for %s' % (len(messages), roamer))
             # 2. redirect offline messages one by one
             count = 0
             for msg in messages:
@@ -314,7 +319,7 @@ class Octopus:
                     break
             # 3. remove messages after success
             total_count = len(messages)
-            self.info('a batch message(%d/%d) redirect for %s' % (count, total_count, roamer))
+            self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, roamer))
             db.remove_message_batch(batch, removed_count=count)
             sent_count += count
             if count < total_count:

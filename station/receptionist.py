@@ -89,8 +89,14 @@ class Receptionist(Thread, Observer):
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
         nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
 
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
@@ -160,10 +166,10 @@ class Receptionist(Thread, Observer):
 
     def __push_message(self, msg: ReliableMessage, receiver: ID) -> int:
         # get all sessions of the receiver
-        self.info('checking session for new guest %s' % receiver)
+        self.debug('checking session for new guest %s' % receiver)
         sessions = self.session_server.active_sessions(identifier=receiver)
         if len(sessions) == 0:
-            self.error('session not found for guest: %s' % receiver)
+            self.warning('session not found for guest: %s' % receiver)
             return 0
         # push this message to all sessions one by one
         success = 0
@@ -178,10 +184,10 @@ class Receptionist(Thread, Observer):
         database = self.database
         for identifier in guests:
             # 1. scan offline messages
-            self.info('%s is connected, scanning messages for it' % identifier)
+            self.debug('%s is connected, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
-                self.info('no message for this guest, remove it: %s' % identifier)
+                self.debug('no message for this guest, remove it: %s' % identifier)
                 self.remove_guest(identifier)
                 # post notification: INBOX_EMPTY
                 NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
@@ -193,7 +199,7 @@ class Receptionist(Thread, Observer):
                 self.error('message batch error: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
-            self.info('got %d message(s) for %s' % (len(messages), identifier))
+            self.debug('got %d message(s) for %s' % (len(messages), identifier))
             # 2. push offline messages one by one
             count = 0
             for msg in messages:
@@ -206,7 +212,7 @@ class Receptionist(Thread, Observer):
                     break
             # 3. remove messages after success
             total_count = len(messages)
-            self.info('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
+            self.debug('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
             if count < total_count:
                 # remove the guest on failed
@@ -234,25 +240,25 @@ class Receptionist(Thread, Observer):
         sid = ID.parse(identifier=sid)
         assert sid.type == NetworkType.STATION, 'station ID error: %s' % station
         if sid == self.station:
-            self.info('login station is current station: %s -> %s' % (identifier, sid))
+            self.debug('login station is current station: %s -> %s' % (identifier, sid))
             return None
         # anything else?
         return facebook.user(identifier=sid)
 
     def __redirect_message(self, msg: ReliableMessage, receiver: ID) -> int:
         # get station of the roamer
-        self.info('checking station for new roamer %s' % receiver)
+        self.debug('checking station for new roamer %s' % receiver)
         station = self.__login_station(identifier=receiver)
         if station is None:
-            self.error('station not found for roamer: %s' % receiver)
+            self.debug('station not found for roamer: %s' % receiver)
             return 0
         # try to redirect message to this station
         sid = station.identifier
-        self.info('checking session for station %s' % sid)
+        self.debug('checking session for station %s' % sid)
         # get all sessions of the receiver
         sessions = self.session_server.active_sessions(identifier=sid)
         if len(sessions) == 0:
-            self.error('session not found for guest: %s' % sid)
+            self.debug('session not found for guest: %s' % sid)
             return 0
         # push this message to all sessions one by one
         success = 0
@@ -267,10 +273,10 @@ class Receptionist(Thread, Observer):
         database = self.database
         for identifier in roamers:
             # 1. scan offline messages
-            self.info('%s is roaming, scanning messages for it' % identifier)
+            self.debug('%s is roaming, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
             if batch is None:
-                self.info('no message for this roamer, remove it: %s' % identifier)
+                self.debug('no message for this roamer, remove it: %s' % identifier)
                 self.remove_roamer(identifier)
                 continue
             messages = batch.get('messages')
@@ -278,7 +284,7 @@ class Receptionist(Thread, Observer):
                 self.error('message batch error: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
-            self.info('got %d message(s) for %s' % (len(messages), identifier))
+            self.debug('got %d message(s) for %s' % (len(messages), identifier))
             # 2. redirect offline messages one by one
             count = 0
             for msg in messages:
@@ -291,7 +297,7 @@ class Receptionist(Thread, Observer):
                     break
             # 3. remove messages after success
             total_count = len(messages)
-            self.info('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
+            self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
             database.remove_message_batch(batch, removed_count=count)
             if count < total_count:
                 # remove the roamer on failed
