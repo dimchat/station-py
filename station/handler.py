@@ -269,7 +269,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     @staticmethod
     def parse_mars_head(data: bytes) -> Optional[NetMsgHead]:
         try:
-            head = NetMsgHead(data)
+            head = NetMsgHead.parse(data=data)
             if head.version != 200:
                 return None
             if head.cmd not in [head.SEND_MSG, head.NOOP]:
@@ -289,16 +289,18 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
                 self.error('sticky mars, cut the head: %s' % (pack[:pos-4]))
                 return pack[pos-4:]
             self.error('not a mars pack, drop it: %s' % pack)
-            self.send(NetMsg(cmd=6, seq=0))
+            head = NetMsgHead.new(cmd=6, seq=0)
+            msg = NetMsg.new(head=head)
+            self.send(data=msg.data)
             return b''
         # try to get complete package
         try:
-            mars = NetMsg(pack)
+            mars = NetMsg.parse(data=pack)
         except ValueError:
             # partially package? keep it for next loop
             return pack
-        head: NetMsgHead = mars.head
-        pack_len = head.head_length + head.body_length
+        head = mars.head
+        pack_len = head.length + head.body_length
         # cut sticky packages
         remaining = pack[pack_len:]
         pack = pack[:pack_len]
@@ -308,7 +310,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
             if head.body_length == 0:
                 raise ValueError('mars body not found: %s, remaining: %d' % (pack, len(remaining)))
             body = self.received_package(mars.body)
-            res = NetMsg(cmd=head.cmd, seq=head.seq, body=body)
+            head = NetMsgHead.new(cmd=head.cmd, seq=head.seq, body_len=len(body))
+            msg = NetMsg.new(head=head, body=body)
+            res = msg.data
         elif head.cmd == head.NOOP:
             # TODO: handle NOOP request
             self.debug('mars NOOP, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
@@ -316,7 +320,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         else:
             # TODO: handle Unknown request
             self.warning('mars unknown, cmd=%d, seq=%d: %s, remaining: %d' % (head.cmd, head.seq, pack, len(remaining)))
-            res = NetMsg(cmd=6, seq=0)
+            head = NetMsgHead.new(cmd=6, seq=0)
+            msg = NetMsg.new(head=head)
+            res = msg.data
         self.send(res)
         # return the remaining incomplete package
         return remaining
@@ -324,8 +330,9 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     def push_mars_data(self, body: bytes) -> bool:
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
-        data = NetMsg(cmd=10001, seq=0, body=body)
-        return self.send(data)
+        head = NetMsgHead.new(cmd=10001, seq=0, body_len=len(body))
+        msg = NetMsg.new(head=head, body=body)
+        return self.send(data=msg.data)
 
     #
     #   Protocol: raw data (JSON string)

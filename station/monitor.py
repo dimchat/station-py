@@ -31,6 +31,7 @@
 """
 
 import time
+from typing import Optional
 
 from dimp import ID
 from dimp import TextContent
@@ -51,9 +52,9 @@ class Monitor(Observer):
     def __init__(self):
         super().__init__()
         # message from the station to administrator(s)
-        self.sender: ID = None
+        self.sender: Optional[ID] = None
         self.admins: set = set()
-        self.__messenger: ServerMessenger = None
+        self.__messenger: Optional[ServerMessenger] = None
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.CONNECTED)
         nc.add(observer=self, name=NotificationNames.DISCONNECTED)

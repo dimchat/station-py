@@ -155,9 +155,9 @@ class Statistic:
 
     def __init__(self):
         super().__init__()
-        self.__login_stat: dict = None    # ID -> [time]
-        self.__message_stat: dict = None  # ID -> int
-        self.__stat_prefix: str = None
+        self.__login_stat: Optional[dict] = None    # ID -> [time]
+        self.__message_stat: Optional[dict] = None  # ID -> int
+        self.__stat_prefix: Optional[str] = None
         self.__load_stat()
 
     def __load_stat(self):
