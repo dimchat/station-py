@@ -38,9 +38,8 @@
 import urllib.request
 from typing import Optional
 
-import numpy
-
 from dimp import hex_encode, utf8_encode, sha1
+from dimsdk.plugins.aes import random_bytes
 
 from .chatbot import ChatBot
 
@@ -69,7 +68,7 @@ class XiaoI(ChatBot):
         return 'type=0&platform=dim&userId=%s&question=%s' % (self.user_id, text)
 
     def __auth(self) -> str:
-        random: bytes = numpy.random.bytes(40)
+        random: bytes = random_bytes(40)
         nonce = hex_encode(random)
         # sign
         ha1 = sha_hex(self.app_key + ':' + self.realm + ':' + self.app_secret)
@@ -97,7 +96,7 @@ class XiaoI(ChatBot):
         # got it
         return response
 
-    def ask(self, question: str, user: str=None) -> str:
+    def ask(self, question: str, user: str = None) -> str:
         if user is not None:
             self.user_id = user
         response = self.__post(text=question)

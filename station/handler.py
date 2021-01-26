@@ -52,15 +52,15 @@ from libs.utils.mtp import MTPUtils
 
 from robots.nlp import chat_bots
 
-from .config import current_station
+from config import current_station
 
 
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
 
     def __init__(self, request, client_address, server):
         # messenger
-        self.__messenger: ServerMessenger = None
-        self.__session: Session = None
+        self.__messenger: Optional[ServerMessenger] = None
+        self.__session: Optional[Session] = None
         # handlers with Protocol
         self.__process_package = None
         self.__push_data = None
@@ -297,7 +297,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         except ValueError:
             # partially package? keep it for next loop
             return pack
-        head = mars.head
+        head: NetMsgHead = mars.head
         pack_len = head.head_length + head.body_length
         # cut sticky packages
         remaining = pack[pack_len:]
@@ -389,7 +389,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     def is_closed(self) -> bool:
         return getattr(self.request, '_closed', False)
 
-    def receive(self, data: bytes=b'') -> bytes:
+    def receive(self, data: bytes = b'') -> bytes:
         while not self.is_closed:
             part = self.request.recv(1024)
             if part is None:
@@ -421,7 +421,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int=0) -> bool:
+    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         if self.__push_data(body=data):
             if handler is not None:
                 handler.success()

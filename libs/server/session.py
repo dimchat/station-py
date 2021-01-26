@@ -39,17 +39,17 @@ import weakref
 from abc import abstractmethod
 from weakref import WeakValueDictionary
 from typing import Optional, Dict, Set
-import numpy
 import random
 
 from dimp import hex_encode
 from dimp import ID, ReliableMessage
+from dimsdk.plugins.aes import random_bytes
 
 from libs.utils import Singleton
 
 
 def generate_session_key() -> str:
-    return hex_encode(bytes(numpy.random.bytes(32)))
+    return hex_encode(random_bytes(32))
 
 
 class Session:

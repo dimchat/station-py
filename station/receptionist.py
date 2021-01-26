@@ -66,7 +66,7 @@ def save_freshman(identifier: ID) -> bool:
             return False
     # append
     line = str(identifier) + '\n'
-    Storage.info('Saving freshman: %s' % identifier)
+    Log.info('Saving freshman: %s' % identifier)
     return Storage.append_text(text=line, path=path)
 
 
@@ -77,7 +77,7 @@ class Receptionist(Thread, Observer):
         super().__init__()
         self.__running = True
         # current station and guests
-        self.__station: ID = None
+        self.__station: Optional[ID] = None
         self.__guests = []
         self.__roamers = []
         nc = NotificationCenter()
