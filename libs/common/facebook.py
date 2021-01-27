@@ -50,8 +50,8 @@ class CommonFacebook(Facebook):
         #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
         #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
         self.__immortals = Immortals()
-        self.__database: Database = None
-        self.__local_users: List[User] = None
+        self.__database: Optional[Database] = None
+        self.__local_users: Optional[List[User]] = None
 
     @property
     def database(self) -> Database:
@@ -98,7 +98,7 @@ class CommonFacebook(Facebook):
     #   Private Keys
     #
 
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M') -> bool:
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
         return self.database.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     #
@@ -113,12 +113,15 @@ class CommonFacebook(Facebook):
     #
 
     def save_document(self, document: Document) -> bool:
+        meta = self.meta(identifier=document.identifier)
+        if meta is None or not document.verify(public_key=meta.key):
+            return False
         return self.database.save_document(document=document)
 
     EXPIRES = 3600  # profile expires (1 hour)
     EXPIRES_KEY = 'expires'
 
-    def is_expired_document(self, document: Document, reset: bool=True) -> bool:
+    def is_expired_document(self, document: Document, reset: bool = True) -> bool:
         # check expired time
         now = time.time()
         expires = document.get(self.EXPIRES_KEY)
@@ -184,7 +187,7 @@ class CommonFacebook(Facebook):
 
     def meta(self, identifier: ID) -> Optional[Meta]:
         if identifier.is_broadcast:
-            # broadcast ID has not meta
+            # broadcast ID has no meta
             return None
         # try from database
         info = self.database.meta(identifier=identifier)
@@ -193,7 +196,10 @@ class CommonFacebook(Facebook):
             info = self.__immortals.meta(identifier=identifier)
         return info
 
-    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        if identifier.is_broadcast:
+            # broadcast ID has no document
+            return None
         # try from database
         info = self.database.document(identifier=identifier, doc_type=doc_type)
         if info is None and identifier.type == NetworkType.MAIN:

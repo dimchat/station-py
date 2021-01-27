@@ -52,7 +52,7 @@ from libs.utils.mtp import MTPUtils
 
 from robots.nlp import chat_bots
 
-from config import current_station
+from station.config import current_station
 
 
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):

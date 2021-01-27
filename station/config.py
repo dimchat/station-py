@@ -59,8 +59,8 @@ from etc.cfg_bots import group_assistants
 
 from etc.cfg_loader import load_station
 
-from receptionist import Receptionist
-from monitor import Monitor
+from station.receptionist import Receptionist
+from station.monitor import Monitor
 
 
 Log.info("local storage directory: %s" % base_dir)
