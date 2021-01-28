@@ -30,6 +30,8 @@
     Local User
 """
 
+from typing import Optional
+
 from dimp import ID, EVERYONE
 from dimp import Content, Command
 
@@ -44,7 +46,7 @@ class Terminal:
         super().__init__()
         self.__messenger = None
         # current station
-        self.__server: Server = None
+        self.__server: Optional[Server] = None
 
     def __del__(self):
         self.stop()

@@ -50,10 +50,10 @@ class Server(Station, MessengerDelegate):
         ~~~~~~~~~~~~~~
     """
 
-    def __init__(self, identifier: ID, host: str, port: int=9394):
+    def __init__(self, identifier: ID, host: str, port: int = 9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.__conn: Connection = None
-        self.__messenger: weakref.ReferenceType = None
+        self.__conn: Optional[Connection] = None
+        self.__messenger: Optional[weakref.ReferenceType] = None
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
@@ -89,7 +89,7 @@ class Server(Station, MessengerDelegate):
     #
     #   Handshake
     #
-    def handshake(self, session: Optional[str]=None):
+    def handshake(self, session: Optional[str] = None):
         user = self.facebook.current_user
         assert user is not None, 'current user not set yet'
         cmd = HandshakeCommand.start(session=session)
@@ -103,14 +103,11 @@ class Server(Station, MessengerDelegate):
         r_msg.meta = user.meta
         data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
-        handler: CompletionHandler = None
-        self.messenger.send_package(data=data, handler=handler)
+        self.messenger.send_package(data=data, handler=None)
 
     def handshake_success(self):
         user = self.facebook.current_user
         self.info('handshake success: %s' % user.identifier)
-        if isinstance(user, Station):
-            return None
         from ..messenger import ClientMessenger
         messenger = self.messenger
         assert isinstance(messenger, ClientMessenger)
@@ -119,7 +116,7 @@ class Server(Station, MessengerDelegate):
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int=0) -> bool:
+    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         """ Send out a data package onto network """
         # pack
         pack = data + self.__conn.BOUNDARY

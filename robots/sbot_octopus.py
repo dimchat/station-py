@@ -33,7 +33,7 @@
 
 import sys
 import os
-from typing import Optional, Union
+from typing import Optional, Union, Set, Dict
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -49,12 +49,13 @@ sys.path.append(rootPath)
 from libs.utils import Log
 from libs.common import Database
 
-from libs.client import Server, Terminal, ClientMessenger
+from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
 from robots.config import g_station, g_released
 from robots.config import load_station, dims_connect, all_stations
 
 
+g_facebook = ClientFacebook()
 g_database = Database()
 
 
@@ -103,11 +104,13 @@ class InnerMessenger(ClientMessenger):
 
     def __init__(self):
         super().__init__()
-        self.accepted = False
+        self.__accepted = False
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        if self.accepted:
+        if self.__accepted:
+            if msg.delegate is None:
+                msg.delegate = self
             return octopus.departure(msg=msg)
         else:
             return super().process_reliable_message(msg=msg)
@@ -115,7 +118,7 @@ class InnerMessenger(ClientMessenger):
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
         self.info('start bridge for: %s' % self.server)
-        self.accepted = True
+        self.__accepted = True
 
 
 class OuterMessenger(ClientMessenger):
@@ -123,11 +126,13 @@ class OuterMessenger(ClientMessenger):
 
     def __init__(self):
         super().__init__()
-        self.accepted = False
+        self.__accepted = False
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        if self.accepted:
+        if self.__accepted:
+            if msg.delegate is None:
+                msg.delegate = self
             return octopus.arrival(msg=msg)
         else:
             return super().process_reliable_message(msg=msg)
@@ -135,15 +140,15 @@ class OuterMessenger(ClientMessenger):
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
         self.info('start bridge for: %s' % self.server)
-        self.accepted = True
+        self.__accepted = True
 
 
 class Octopus:
 
     def __init__(self):
         super().__init__()
-        self.__neighbors = []  # ID list
-        self.__clients = {}    # ID -> Terminal
+        self.__neighbors: Set[ID] = set()        # station ID list
+        self.__clients: Dict[ID, Terminal] = {}  # ID -> Terminal
 
     def debug(self, msg: str):
         Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
@@ -166,7 +171,7 @@ class Octopus:
             return False
         if station in self.__neighbors:
             return False
-        self.__neighbors.append(station)
+        self.__neighbors.add(station)
         return True
 
     def __get_client(self, identifier: ID) -> Terminal:
@@ -174,23 +179,24 @@ class Octopus:
         if client is None:
             if identifier == g_station.identifier:
                 messenger = g_messenger
-                station = g_station
+                server = g_station
             else:
                 messenger = OuterMessenger()
                 # client for remote station
-                station = load_station(identifier=identifier, facebook=messenger.facebook)
-                assert isinstance(station, Station), 'station error: %s' % identifier
+                server = load_station(identifier=identifier, facebook=g_facebook)
+                assert isinstance(server, Station), 'station error: %s' % identifier
+            if not isinstance(server, Server):
+                server = Server(identifier=identifier, host=server.host, port=server.port)
+                g_facebook.cache_user(user=server)
             # create client for station with octopus and messenger
             client = Terminal()
-            client.octopus = octopus
-            dims_connect(terminal=client, messenger=messenger, server=station)
+            dims_connect(terminal=client, messenger=messenger, server=server)
             self.__clients[identifier] = client
         return client
 
     def __remove_client(self, identifier: ID):
         client = self.__clients.get(identifier)
         if isinstance(client, Terminal):
-            client.octopus = None
             client.messenger = None
             client.stop()
             self.__clients.pop(identifier)
@@ -242,7 +248,7 @@ class Octopus:
             return None
         # response
         sender = msg.sender
-        meta = g_messenger.facebook.meta(identifier=sender)
+        meta = g_facebook.meta(identifier=sender)
         if meta is None:
             # waiting for meta
             return None
@@ -266,8 +272,6 @@ class Octopus:
 
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self
         sid = g_station.identifier
         if self.__traced(msg=msg, station=g_station):
             self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
@@ -343,7 +347,7 @@ g_messenger = InnerMessenger()
 if __name__ == '__main__':
 
     # set current user
-    g_messenger.facebook.current_user = g_station
+    g_facebook.current_user = g_station
 
     octopus = Octopus()
     # add neighbors

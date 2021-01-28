@@ -32,12 +32,12 @@
 
 import time
 import weakref
-from typing import List
+from typing import List, Optional
 
 from dimp import ID, EVERYONE
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Transceiver
-from dimsdk import LoginCommand
+from dimsdk import LoginCommand, Station
 
 from libs.common import CommonMessenger
 
@@ -51,7 +51,7 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
 
     def __init__(self):
         super().__init__()
-        self.__terminal: weakref.ReferenceType = None
+        self.__terminal: Optional[weakref.ReferenceType] = None
         # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
@@ -132,6 +132,8 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     #
     def handshake_accepted(self, server: Server):
         user = self.facebook.current_user
+        if isinstance(user, Station):
+            return None
         # post current profile to station
         # post contacts(encrypted) to station
         # broadcast login command
