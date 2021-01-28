@@ -41,7 +41,7 @@ from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
 from libs.utils import Log, Singleton
-from libs.utils import Observer, Notification, NotificationCenter
+from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Storage, Database
 from libs.server import SessionServer
@@ -71,7 +71,7 @@ def save_freshman(identifier: ID) -> bool:
 
 
 @Singleton
-class Receptionist(Thread, Observer):
+class Receptionist(Thread, NotificationObserver):
 
     def __init__(self):
         super().__init__()
@@ -346,6 +346,7 @@ class Receptionist(Thread, Observer):
                 self.__run_unsafe()
             except Exception as error:
                 self.error('receptionist error: %s' % error)
+                traceback.print_exc()
             finally:
                 # sleep for next loop
                 time.sleep(0.1)

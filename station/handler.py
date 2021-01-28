@@ -108,7 +108,11 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
     #
     def setup(self):
         super().setup()
-        self.timeout = self.request.gettimeout()
+        timeout = self.request.gettimeout()
+        if timeout is None:
+            self.timeout = 300
+        else:
+            self.timeout = timeout
         self.__session = self.session_server.get_session(client_address=self.client_address, handler=self)
         NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             'session': self.__session,

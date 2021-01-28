@@ -16,7 +16,7 @@ from .manager import ContactManager, FieldValueEncoder
 
 class Server(DMTPServer):
 
-    def __init__(self, port: int, host: str='127.0.0.1'):
+    def __init__(self, port: int, host: str = '127.0.0.1'):
         super().__init__(local_address=(host, port))
         # database for location of contacts
         db = self._create_contact_manager()
@@ -48,7 +48,8 @@ class Server(DMTPServer):
         # noinspection PyBroadException
         try:
             return super().process_command(cmd=cmd, source=source)
-        except Exception:
+        except Exception as error:
+            self.error('failed to process command (%s): %s' % (cmd, error))
             traceback.print_exc()
             return False
 

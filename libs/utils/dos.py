@@ -40,7 +40,7 @@ class File:
     def __init__(self, path: str):
         super().__init__()
         self.__path: str = path
-        self.__data: AnyStr = None
+        self.__data: Optional[AnyStr] = None
 
     @classmethod
     def make_dirs(cls, directory: str) -> bool:
@@ -54,20 +54,20 @@ class File:
             os.makedirs(directory, exist_ok=True)
             return True
 
-    def exists(self, path: str=None) -> bool:
+    def exists(self, path: str = None) -> bool:
         # param 'path' deprecated
         if path is None:
             path = self.__path
         return os.path.exists(path)
 
-    def remove(self, path: str=None) -> bool:
+    def remove(self, path: str = None) -> bool:
         if path is None:
             path = self.__path
         if os.path.exists(path):
             os.remove(path)
             return True
 
-    def read(self, mode: str='rb', encoding=None) -> Optional[AnyStr]:
+    def read(self, mode: str = 'rb', encoding=None) -> Optional[AnyStr]:
         if self.__data is not None:
             # get data from cache
             return self.__data
@@ -81,7 +81,7 @@ class File:
             self.__data = file.read()
         return self.__data
 
-    def write(self, data: AnyStr, mode: str='wb', encoding=None) -> bool:
+    def write(self, data: AnyStr, mode: str = 'wb', encoding=None) -> bool:
         directory = os.path.dirname(self.__path)
         if not self.make_dirs(directory):
             return False
@@ -91,7 +91,7 @@ class File:
                 self.__data = data
                 return True
 
-    def append(self, data: AnyStr, mode: str='ab', encoding=None) -> bool:
+    def append(self, data: AnyStr, mode: str = 'ab', encoding=None) -> bool:
         if not os.path.exists(self.__path):
             # new file
             return self.write(data, mode=mode)
@@ -105,13 +105,13 @@ class File:
 
 class TextFile(File):
 
-    def read(self, mode: str='r', encoding='utf-8') -> Optional[str]:
+    def read(self, mode: str = 'r', encoding='utf-8') -> Optional[str]:
         return super().read(mode=mode, encoding=encoding)
 
-    def write(self, text: str, mode: str='w', encoding='utf-8') -> bool:
+    def write(self, text: str, mode: str = 'w', encoding='utf-8') -> bool:
         return super().write(text, mode=mode, encoding=encoding)
 
-    def append(self, text: str, mode: str='a', encoding='utf-8') -> bool:
+    def append(self, text: str, mode: str = 'a', encoding='utf-8') -> bool:
         return super().append(text, mode=mode, encoding=encoding)
 
 

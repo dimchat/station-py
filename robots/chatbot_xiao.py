@@ -35,6 +35,7 @@ import sys
 import os
 import threading
 import time
+import traceback
 from typing import List
 
 from dimp import NetworkType, ID
@@ -188,6 +189,7 @@ class FreshmenScanner(threading.Thread):
                 self.__run_unsafe()
             except Exception as error:
                 self.error('scan freshmen error: %s' % error)
+                traceback.print_exc()
 
 
 if __name__ == '__main__':

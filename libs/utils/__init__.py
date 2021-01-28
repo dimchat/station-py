@@ -36,7 +36,7 @@
 from .log import Log
 from .singleton import Singleton
 
-from .notification import Observer, Notification, NotificationCenter
+from .notification import Notification, NotificationObserver, NotificationCenter
 
 from .dos import File, TextFile, JSONFile
 
@@ -46,7 +46,7 @@ __all__ = [
     'Log',
     'Singleton',
 
-    'Observer', 'Notification', 'NotificationCenter',
+    'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'File', 'TextFile', 'JSONFile',
 ]

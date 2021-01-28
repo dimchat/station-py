@@ -28,17 +28,19 @@
 # SOFTWARE.
 # ==============================================================================
 
+import traceback
 from weakref import WeakSet
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from .singleton import Singleton
+from .log import Log
 
 
 class Notification:
     """ Notification object with name, sender and extra info """
 
-    def __init__(self, name: str, sender: Any, info: dict=None):
+    def __init__(self, name: str, sender: Any, info: dict = None):
         super().__init__()
         self.__name = name
         self.__sender = sender
@@ -61,7 +63,7 @@ class Notification:
         self.__info = value
 
 
-class Observer(ABC):
+class NotificationObserver(ABC):
     """ Notification Observer """
 
     @abstractmethod
@@ -72,7 +74,7 @@ class Observer(ABC):
         :param notification: notification with name, sender and extra info
         :return:
         """
-        pass
+        raise NotImplemented
 
 
 @Singleton
@@ -81,9 +83,9 @@ class NotificationCenter:
 
     def __init__(self):
         super().__init__()
-        self.__observers: dict = {}
+        self.__observers: Dict[str, WeakSet] = {}
 
-    def add(self, observer: Observer, name: str):
+    def add(self, observer: NotificationObserver, name: str):
         """
         Add observer with notification name
 
@@ -91,30 +93,21 @@ class NotificationCenter:
         :param name:     notification name
         :return:
         """
-        array: WeakSet = self.__observers.get(name)
+        array = self.__observers.get(name)
         if array is None:
             array = WeakSet()
             self.__observers[name] = array
-        else:
-            # check duplicated
-            for item in array:
-                if item == observer:
-                    # already exists
-                    return
+        elif observer in array:
+            # already exists
+            return
         array.add(observer)
 
-    def __remove(self, observer: Observer, name: str):
-        array: WeakSet = self.__observers.get(name)
-        if array is None:
-            return
-        # check
-        for item in array:
-            if item == observer:
-                # got it
-                array.remove(item)
-                break
+    def __remove(self, observer: NotificationObserver, name: str):
+        array = self.__observers.get(name)
+        if array is not None:
+            array.discard(observer)
 
-    def remove(self, observer: Observer, name: str=None):
+    def remove(self, observer: NotificationObserver, name: str = None):
         """
         Remove observer from notification center, no mather what names
 
@@ -129,8 +122,8 @@ class NotificationCenter:
         else:
             self.__remove(observer=observer, name=name)
 
-    def post(self, notification: Notification=None,
-             name: str=None, sender: Any=None, info: dict=None):
+    def post(self, notification: Notification = None,
+             name: str = None, sender: Any = None, info: dict = None):
         """
         Post a notification (with name, sender and extra info)
 
@@ -147,6 +140,12 @@ class NotificationCenter:
         # temporary array buffer, used as a snapshot of the state of current observers
         array = self.__observers.get(notification.name)
         if array is not None:
+            array = array.copy()
             # call observers one by one
             for observer in array:
-                observer.received_notification(notification=notification)
+                try:
+                    assert isinstance(observer, NotificationObserver), 'notification observer error: %s' % observer
+                    observer.received_notification(notification=notification)
+                except Exception as error:
+                    Log.error('failed to call notification observer %s: %s' % (observer, error))
+                    traceback.print_exc()

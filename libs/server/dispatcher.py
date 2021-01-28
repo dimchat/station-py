@@ -32,6 +32,7 @@
 
 import time
 import threading
+import traceback
 from threading import Thread
 from typing import Optional, Union, List, Set
 
@@ -42,7 +43,7 @@ from dimsdk import Station
 from dimsdk import ReceiptCommand
 
 from libs.utils import Log, Singleton
-from libs.utils import Observer, Notification, NotificationCenter
+from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
 
@@ -52,12 +53,12 @@ from .facebook import ServerFacebook
 
 
 @Singleton
-class Dispatcher(Thread, Observer):
+class Dispatcher(Thread, NotificationObserver):
 
     def __init__(self):
         super().__init__()
         self.__running = True
-        self.__station: ID = None
+        self.__station: Optional[ID] = None
         # self.apns: ApplePushNotificationService = None
         self.__push_service = PushMessageService()
         self.__neighbors: List[ID] = []     # ID list
@@ -277,7 +278,7 @@ class Dispatcher(Thread, Observer):
             return None
         return sid
 
-    def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int=0) -> bool:
+    def __push_notification(self, sender: ID, receiver: ID, group: ID, msg_type: int = 0) -> bool:
         if msg_type == 0:
             something = 'a message'
         elif msg_type == ContentType.TEXT:
@@ -368,6 +369,7 @@ class Dispatcher(Thread, Observer):
                 self.__run_unsafe()
             except Exception as error:
                 self.error('dispatcher error: %s' % error)
+                traceback.print_exc()
             finally:
                 # sleep for next loop
                 time.sleep(0.1)

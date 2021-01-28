@@ -117,10 +117,10 @@ class SessionServer:
     def __init__(self):
         super().__init__()
         # memory cache
-        self.__client_addresses: Dict[ID, Set[tuple]] = {}             # {identifier, [client_address]}
-        self.__sessions: Dict[tuple, Session] = WeakValueDictionary()  # {client_address, session}
+        self.__client_addresses: Dict[ID, Set[tuple]] = {}  # {identifier, [client_address]}
+        self.__sessions = WeakValueDictionary()             # {client_address, session}
 
-    def get_session(self, client_address: tuple, handler: Optional[Session.Handler]=None) -> Session:
+    def get_session(self, client_address: tuple, handler: Optional[Session.Handler] = None) -> Session:
         """ Session factory """
         session = self.__sessions.get(client_address)
         if session is None and handler is not None:

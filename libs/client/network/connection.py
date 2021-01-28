@@ -47,7 +47,7 @@ class Connection(threading.Thread):
 
     def __init__(self):
         super().__init__()
-        self.__messenger: weakref.ReferenceType = None
+        self.__messenger: Optional[weakref.ReferenceType] = None
         # current station
         self.__host = None
         self.__port = 9394
@@ -143,7 +143,7 @@ class Connection(threading.Thread):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, host: str, port: int=9394) -> Optional[socket.error]:
+    def connect(self, host: str, port: int = 9394) -> Optional[socket.error]:
         # connect to new socket (host:port)
         sock = socket.socket()
         try:
@@ -184,7 +184,7 @@ class Connection(threading.Thread):
     #
     #   Socket IO
     #
-    def __receive(self, data: bytes=b'') -> Optional[bytes]:
+    def __receive(self, data: bytes = b'') -> Optional[bytes]:
         while True:
             if self.__sock is None:
                 self.disconnect()
@@ -229,7 +229,7 @@ class Connection(threading.Thread):
         # send OK, record the current time
         self.__last_time = int(time.time())
 
-    def receive(self, last: bytes=b'') -> bytes:
+    def receive(self, last: bytes = b'') -> bytes:
         data = self.__receive(data=last)
         if data is None:
             # connection lost, try to reconnect
