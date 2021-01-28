@@ -34,7 +34,7 @@ from abc import abstractmethod
 from typing import Optional, Union, List
 
 from dimp import ID, SymmetricKey
-from dimp import InstantMessage, ReliableMessage
+from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
@@ -114,6 +114,12 @@ class CommonMessenger(Messenger):
 
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
+        try:
+            return super().deserialize_content(data=data, key=key, msg=msg)
+        except UnicodeDecodeError as error:
+            self.error('failed to deserialize content: %s, %s' % (error, data))
 
     #
     #   Reuse message key

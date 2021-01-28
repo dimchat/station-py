@@ -402,7 +402,11 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
 
     def receive(self, data: bytes = b'') -> bytes:
         while not self.is_closed:
-            part = self.request.recv(1024)
+            try:
+                part = self.request.recv(1024)
+            except ConnectionError as error:
+                self.error('connection error: %s' % error)
+                part = None
             if part is None:
                 self.error('failed to receive data: %s %s' % (self.remote_user, self.client_address))
                 break
@@ -416,7 +420,10 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         count = 0
         while count < length and not self.is_closed:
             self.request.settimeout(20)  # socket timeout for sending data
-            count = self.request.send(data)
+            try:
+                count = self.request.send(data)
+            except ConnectionError as error:
+                self.error('connection error: %s' % error)
             self.request.settimeout(self.timeout)
             if count == 0:
                 self.error('failed to send data: %s %s' % (self.remote_user, self.client_address))
