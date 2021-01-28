@@ -42,8 +42,8 @@ from dimsdk import Station
 #
 from libs.utils import Log
 from libs.common import AddressNameServer
-from libs.common import Storage, Database
-from libs.server import ServerFacebook, ServerMessenger
+from libs.common import Storage, Database, KeyStore
+from libs.server import ServerFacebook
 from libs.server import Dispatcher
 
 #
@@ -65,6 +65,15 @@ Log.info("local storage directory: %s" % base_dir)
 Storage.root = base_dir
 
 g_database = Database()
+
+
+"""
+    Key Store
+    ~~~~~~~~~
+
+    Memory cache for reused passwords (symmetric key)
+"""
+g_keystore = KeyStore()
 
 
 """
@@ -109,13 +118,6 @@ g_monitor = Monitor()
     A message scanner for new guests who have just come in.
 """
 g_receptionist = Receptionist()
-
-
-"""
-    Messenger for Local Station
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = ServerMessenger()
 
 
 """
@@ -218,7 +220,7 @@ Log.info('current station(%s): %s' % (station_name, current_station))
 g_facebook.local_users = local_servers
 g_facebook.current_user = current_station
 # set current station for key store
-g_messenger.key_store.user = current_station
+g_keystore.user = current_station
 # set current station for dispatcher
 g_dispatcher.station = current_station
 # set current station for receptionist

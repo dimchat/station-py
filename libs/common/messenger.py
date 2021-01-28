@@ -68,13 +68,9 @@ class CommonMessenger(Messenger):
 
                 Memory cache for reused passwords (symmetric key)
             """
-            delegate = self.key_store
+            delegate = KeyStore()
             Messenger.key_cache.__set__(self, delegate)
         return delegate
-
-    @property
-    def key_store(self) -> KeyStore:
-        return KeyStore()
 
     @property
     def data_source(self) -> MessengerDataSource:

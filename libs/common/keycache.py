@@ -141,7 +141,7 @@ class KeyCache(CipherKeyDelegate):
     #
 
     # TODO: override to check whether key expired for sending message
-    def cipher_key(self, sender: ID, receiver: ID, generate: bool=False) -> Optional[SymmetricKey]:
+    def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
         if receiver.is_broadcast:
             return plain_key
         # get key from cache

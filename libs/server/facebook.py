@@ -49,7 +49,7 @@ class ServerFacebook(CommonFacebook):
             pass
         return info
 
-    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         info = super().document(identifier=identifier, doc_type=doc_type)
         if info is None or self.is_expired_document(document=info):
             # DISCUSS: broadcast document to every stations when user upload it,
