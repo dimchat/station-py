@@ -37,27 +37,18 @@ from dimp import Meta
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from ...common import SearchCommand
 from ...common import Database
 from ..session import SessionServer
-from ..messenger import ServerMessenger
+
+
+g_session_server = SessionServer()
+g_database = Database()
 
 
 class SearchCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
@@ -67,29 +58,17 @@ class SearchCommandProcessor(CommandProcessor):
             return TextContent(text='Search command error')
         keywords = keywords.split(' ')
         # search in database
-        results = self.database.search(keywords=keywords)
+        results = g_database.search(keywords=keywords)
         users = list(results.keys())
         return SearchCommand(users=users, results=results)
 
 
 class UsersCommandProcessor(CommandProcessor):
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        CommandProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def session_server(self) -> SessionServer:
-        return self.messenger.session_server
-
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, Command), 'command error: %s' % cmd
         facebook = self.facebook
-        users = self.session_server.random_users()
+        users = g_session_server.random_users()
         results = {}
         for item in users:
             meta = facebook.meta(identifier=item)

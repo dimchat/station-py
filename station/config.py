@@ -45,12 +45,10 @@ from libs.common import AddressNameServer
 from libs.common import Storage, Database
 from libs.server import ServerFacebook, ServerMessenger
 from libs.server import Dispatcher
-from libs.server import ApplePushNotificationService
 
 #
 #  Configurations
 #
-from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_admins import administrators
 from etc.cfg_gsp import all_stations, local_servers
@@ -84,18 +82,6 @@ g_ans = AddressNameServer()
     Barrack for cache entities
 """
 g_facebook = ServerFacebook()
-
-
-"""
-    Apple Push Notification service (APNs)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    A service for pushing notification to offline device
-"""
-g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=apns_use_sandbox)
-g_apns.topic = apns_topic
-g_apns.delegate = g_database
-Log.info('APNs credentials: %s' % apns_credentials)
 
 
 """

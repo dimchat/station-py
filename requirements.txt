@@ -1,13 +1,12 @@
 pycryptodome>=3.7.3
 base58>=1.0.3
 ecdsa>=0.16.1
-apns2
 Flask
 xmltodict
 mkm
 dkd
 dimp
-dimsdk>=0.5.8
+dimsdk>=0.5.9
 udp
 dmtp>=0.3.0
 pika

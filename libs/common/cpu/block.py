@@ -32,58 +32,40 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, BlockCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from ..database import Database
-from ..messenger import CommonMessenger
+
+
+g_database = Database()
 
 
 class BlockCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: CommonMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
-
-    def __get(self, sender: ID) -> Content:
-        stored: Command = self.database.block_command(identifier=sender)
-        if stored is not None:
-            # response the stored block command directly
-            return stored
-        else:
-            # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
-            # TODO: here should response an empty HistoryCommand: 'block'
-            res = Command(command=BlockCommand.BLOCK)
-            res['list'] = []
-            return res
-
-    def __put(self, cmd: BlockCommand, sender: ID) -> Content:
-        # receive block command, save it
-        if self.database.save_block_command(cmd=cmd, sender=sender):
-            return ReceiptCommand(message='Block command of %s received!' % sender)
-        else:
-            return TextContent(text='Sorry, block-list not stored: %s!' % cmd)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, BlockCommand), 'block command error: %s' % cmd
         if 'list' in cmd:
             # upload block-list, save it
-            return self.__put(cmd=cmd, sender=msg.sender)
+            if g_database.save_block_command(cmd=cmd, sender=msg.sender):
+                return ReceiptCommand(message='Block command of %s received!' % msg.sender)
+            else:
+                return TextContent(text='Sorry, block-list not stored: %s!' % cmd)
         else:
             # query block-list, load it
-            return self.__get(sender=msg.sender)
+            stored: Command = g_database.block_command(identifier=msg.sender)
+            if stored is not None:
+                # response the stored block command directly
+                return stored
+            else:
+                # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
+                # TODO: here should response an empty HistoryCommand: 'block'
+                res = Command(command=BlockCommand.BLOCK)
+                res['list'] = []
+                return res
 
 
 # register

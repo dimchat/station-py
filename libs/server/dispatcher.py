@@ -36,7 +36,7 @@ import traceback
 from threading import Thread
 from typing import Optional, Union, List, Set
 
-from dimp import ID, NetworkType
+from dimp import ID, NetworkType, Entity
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
@@ -52,52 +52,35 @@ from .session import Session, SessionServer
 from .facebook import ServerFacebook
 
 
+g_session_server = SessionServer()
+g_facebook = ServerFacebook()
+g_database = Database()
+g_push_service = PushMessageService()
+
+
 @Singleton
-class Dispatcher(Thread, NotificationObserver):
+class Dispatcher(NotificationObserver):
 
     def __init__(self):
         super().__init__()
-        self.__running = True
-        self.__station: Optional[ID] = None
-        # self.apns: ApplePushNotificationService = None
-        self.__push_service = PushMessageService()
-        self.__neighbors: List[ID] = []     # ID list
-        self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
-        self.__waiting_list_lock = threading.Lock()
+        self.__worker = Worker()
+        # Notifications
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.DISCONNECTED)
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
 
     def __del__(self):
+        self.__worker.stop()
+        self.__worker = None
         nc = NotificationCenter()
         nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+    def start(self):
+        self.__worker.start()
 
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
-
-    @property
-    def station(self) -> ID:
-        return self.__station
-
-    @station.setter
-    def station(self, server: Union[ID, Station]):
-        if isinstance(server, Station):
-            server = server.identifier
-        self.__station = server
-
-    def push(self, sender: ID, receiver: ID, message: str) -> bool:
-        self.__push_service.push(sender=sender, receiver=receiver, message=message)
-        return True
+    def stop(self):
+        self.__worker.stop()
 
     #
     #    Notification Observer
@@ -117,97 +100,139 @@ class Dispatcher(Thread, NotificationObserver):
                 self.add_neighbor(station=identifier)
 
     @property
-    def session_server(self) -> SessionServer:
-        return SessionServer()
+    def station(self) -> ID:
+        return self.__worker.station
 
-    @property
-    def facebook(self) -> ServerFacebook:
-        return ServerFacebook()
-
-    @property
-    def database(self) -> Database:
-        return self.facebook.database
+    @station.setter
+    def station(self, server: Union[ID, Station]):
+        self.__worker.station = entity_id(server)
 
     def add_neighbor(self, station: Union[Station, ID]) -> bool:
-        if isinstance(station, Station):
-            station = station.identifier
-        else:
-            assert isinstance(station, ID), 'station ID error: %s' % station
-        if station == self.station:
-            return False
-        # FIXME: thread safe
-        if station in self.__neighbors:
-            return False
-        self.__neighbors.append(station)
-        return True
+        return self.__worker.add_neighbor(station=entity_id(station))
 
     def remove_neighbor(self, station: Union[Station, ID]):
-        if isinstance(station, Station):
-            station = station.identifier
-        else:
-            assert isinstance(station, ID), 'station ID error: %s' % station
-        # FIXME: thread safe
-        if station in self.__neighbors:
-            self.__neighbors.remove(station)
+        self.__worker.remove_neighbor(station=entity_id(station))
 
-    def __add_msg(self, msg: ReliableMessage):
-        with self.__waiting_list_lock:
-            self.__waiting_list.append(msg)
+    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+        return self.__worker.deliver(msg=msg)
 
-    def __pop_msg(self) -> Optional[ReliableMessage]:
-        with self.__waiting_list_lock:
-            if len(self.__waiting_list) > 0:
-                return self.__waiting_list.pop(0)
+
+def entity_id(entity: Union[Entity, ID]) -> ID:
+    if isinstance(entity, Entity):
+        return entity.identifier
+    elif isinstance(entity, ID):
+        return entity
+    raise TypeError('failed to get ID: %s' % entity)
+
+
+def any_assistant(group: ID) -> ID:
+    assistants = g_facebook.assistants(identifier=group)
+    if assistants is None or len(assistants) == 0:
+        raise LookupError('failed to get assistant for group: %s' % group)
+    return assistants[0]
+
+
+def msg_receipt(msg: ReliableMessage, text: str) -> Content:
+    cmd = ReceiptCommand(message=text)
+    for key in ['sender', 'receiver', 'time', 'group', 'signature']:
+        value = msg.get(key)
+        if value is not None:
+            cmd[key] = value
+    return cmd
+
+
+def msg_traced(msg: ReliableMessage, station: ID) -> bool:
+    traces = msg.get('traces')
+    if traces is None:
+        # broadcast message starts from here
+        msg['traces'] = [str(station)]
+    else:
+        for node in traces:
+            if isinstance(node, str):
+                if station == node:
+                    return True
+            elif isinstance(node, dict):
+                if station == node.get('ID'):
+                    return True
+            else:
+                Log.error('Dispatcher > traces node error: %s' % node)
+        # broadcast message go through here
+        traces.append(str(station))
+    return False
+
+
+class Worker(Thread):
+
+    def __init__(self):
+        super().__init__()
+        self.__running = True
+        self.__station: Optional[ID] = None
+        self.__neighbors: Set[ID] = set()                # station ID list
+        self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
+        self.__lock = threading.Lock()
+
+    @staticmethod
+    def debug(msg: str):
+        Log.debug('Dispatcher >\t%s' % msg)
+
+    @staticmethod
+    def info(msg: str):
+        Log.info('Dispatcher >\t%s' % msg)
+
+    @staticmethod
+    def warning(msg: str):
+        Log.warning('Dispatcher >\t%s' % msg)
+
+    @staticmethod
+    def error(msg: str):
+        Log.error('Dispatcher >\t%s' % msg)
+
+    @property
+    def station(self) -> ID:
+        return self.__station
+
+    @station.setter
+    def station(self, server: ID):
+        self.__station = server
+
+    def add_neighbor(self, station: ID) -> bool:
+        assert self.station is not None, 'set station ID first'
+        if station == self.station:
+            return False
+        with self.__lock:
+            self.__neighbors.add(station)
+            return True
+
+    def remove_neighbor(self, station: ID):
+        with self.__lock:
+            self.__neighbors.discard(station)
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         self.__add_msg(msg=msg)
-        # response
-        return self.__receipt(message='Message delivering', msg=msg)
+        return msg_receipt(msg=msg, text='Message delivering')
 
-    @staticmethod
-    def __receipt(message: str, msg: ReliableMessage) -> Content:
-        receipt = ReceiptCommand(message=message)
-        for key in ['sender', 'receiver', 'time', 'group', 'signature']:
-            value = msg.get(key)
-            if value is not None:
-                receipt[key] = value
-        return receipt
+    def __add_msg(self, msg: ReliableMessage):
+        with self.__lock:
+            self.__waiting_list.append(msg)
 
-    def __traced(self, msg: ReliableMessage, station: ID) -> bool:
-        traces = msg.get('traces')
-        if traces is None:
-            # broadcast message starts from here
-            traces = [station]
-        else:
-            for node in traces:
-                if isinstance(node, str):
-                    if station == node:
-                        return True
-                elif isinstance(node, dict):
-                    if station == node.get('ID'):
-                        return True
-                else:
-                    self.error('traces node error: %s' % node)
-            # broadcast message go through here
-            traces.append(station)
-        msg['traces'] = ID.revert(members=traces)
-        return False
+    def __pop_msg(self) -> Optional[ReliableMessage]:
+        with self.__lock:
+            if len(self.__waiting_list) > 0:
+                return self.__waiting_list.pop(0)
 
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
         self.debug('broadcasting message from: %s' % msg.sender)
-        if self.__traced(msg=msg, station=self.station):
+        if msg_traced(msg=msg, station=self.station):
             self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
             return None
-        session_server = self.session_server
         # push to all neighbors connected th current station
         neighbors = self.__neighbors.copy()
         sent_neighbors = []
         success = 0
         for sid in neighbors:
-            if sid == self.station:
-                continue
-            sessions = session_server.active_sessions(identifier=sid)
+            assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
+            sessions = g_session_server.active_sessions(identifier=sid)
             if len(sessions) == 0:
                 self.warning('remote station (%s) not connected, try later.' % sid)
                 continue
@@ -216,7 +241,7 @@ class Dispatcher(Thread, NotificationObserver):
                 success += 1
         # push to the bridge (octopus) of current station
         sid = self.station
-        sessions = session_server.active_sessions(identifier=sid)
+        sessions = g_session_server.active_sessions(identifier=sid)
         if len(sessions) > 0:
             # tell the bridge ignore this neighbor stations
             sent_neighbors.append(sid)
@@ -239,16 +264,16 @@ class Dispatcher(Thread, NotificationObserver):
             else:
                 self.error('failed to push message via connection (%s, %s)' % sess.client_address)
         if success > 0:
-            self.debug('message for user %s pushed to %d sessions' % (receiver, success))
+            self.debug('message for %s pushed to %d sessions' % (receiver, success))
             return True
 
     def __redirect_message(self, msg: ReliableMessage, receiver: ID, neighbor: ID) -> bool:
         self.debug('%s is roaming, try to redirect: %s' % (receiver, neighbor))
-        sessions = self.session_server.active_sessions(identifier=neighbor)
+        sessions = g_session_server.active_sessions(identifier=neighbor)
         if len(sessions) == 0:
             self.debug('remote station (%s) not connected, trying bridge...' % neighbor)
             neighbor = self.station
-            sessions = self.session_server.active_sessions(identifier=neighbor)
+            sessions = g_session_server.active_sessions(identifier=neighbor)
             if len(sessions) == 0:
                 self.error('station bridge (%s) not connected, cannot redirect.' % neighbor)
                 return False
@@ -257,7 +282,7 @@ class Dispatcher(Thread, NotificationObserver):
             return True
 
     def __roaming(self, receiver: ID) -> Optional[ID]:
-        login = self.database.login_command(identifier=receiver)
+        login = g_database.login_command(identifier=receiver)
         if login is None:
             return None
         station = login.station
@@ -294,17 +319,17 @@ class Dispatcher(Thread, NotificationObserver):
         else:
             self.debug('ignore msg type: %d' % msg_type)
             return False
-        from_name = self.facebook.name(identifier=sender)
-        to_name = self.facebook.name(identifier=receiver)
+        from_name = g_facebook.name(identifier=sender)
+        to_name = g_facebook.name(identifier=receiver)
         text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
         # check group
         if group is not None:
             # group message
-            text += ' in group [%s]' % self.facebook.name(identifier=group)
+            text += ' in group [%s]' % g_facebook.name(identifier=group)
         # push it
         self.info('APNs message: %s' % text)
         # return self.apns.push(identifier=receiver, message=text)
-        return self.push(sender=sender, receiver=receiver, message=text)
+        return g_push_service.push(sender=sender, receiver=receiver, message=text)
 
     def __deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # check receiver
@@ -317,29 +342,25 @@ class Dispatcher(Thread, NotificationObserver):
                 return self.__broadcast_message(msg=msg)
             else:
                 # let the assistant to process this group message
-                assistants = self.facebook.assistants(receiver)
-                if assistants is None or len(assistants) == 0:
-                    raise LookupError('failed to get assistant for group: %s' % receiver)
-                receiver = assistants[0]
+                receiver = any_assistant(group=receiver)
         # check online sessions
-        sessions = self.session_server.active_sessions(identifier=receiver)
+        sessions = g_session_server.active_sessions(identifier=receiver)
         if len(sessions) == 0:
             # check roaming station
             neighbor = self.__roaming(receiver=receiver)
             if neighbor is not None:
                 # redirect message to the roaming station
                 if self.__redirect_message(msg=msg, receiver=receiver, neighbor=neighbor):
-                    return self.__receipt(message='Message redirected', msg=msg)
+                    return msg_receipt(msg=msg, text='Message redirected')
         elif self.__push_message(msg=msg, receiver=receiver, sessions=sessions):
-            return self.__receipt(message='Message sent', msg=msg)
+            return msg_receipt(msg=msg, text='Message sent')
         # store in local cache file
         sender = msg.sender
         group = msg.group
-
         self.debug('%s is offline, store message from: %s' % (receiver, sender))
-        self.database.store_message(msg)
+        g_database.store_message(msg)
         # check mute-list
-        if self.database.is_muted(sender=sender, receiver=receiver, group=group):
+        if g_database.is_muted(sender=sender, receiver=receiver, group=group):
             self.info('this sender/group is muted: %s' % msg)
         else:
             # push notification
@@ -351,22 +372,19 @@ class Dispatcher(Thread, NotificationObserver):
     #
     #   Run Loop
     #
-    def __run_unsafe(self):
-        while True:
-            msg = self.__pop_msg()
-            if msg is None:
-                break
-            res = self.__deliver(msg=msg)
-            if res is not None:
-                # TODO: respond the deliver result to the sender
-                pass
-
     def run(self):
         self.info('dispatcher starting...')
         while self.__running:
             # noinspection PyBroadException
             try:
-                self.__run_unsafe()
+                while self.__running:
+                    msg = self.__pop_msg()
+                    if msg is None:
+                        break
+                    res = self.__deliver(msg=msg)
+                    if res is not None:
+                        # TODO: respond the delivering result to the sender
+                        pass
             except Exception as error:
                 self.error('dispatcher error: %s' % error)
                 traceback.print_exc()

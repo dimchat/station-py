@@ -32,61 +32,39 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, StorageCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from ..database import Database
-from ..messenger import CommonMessenger
+
+
+g_database = Database()
 
 
 class StorageCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: CommonMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
-
-    def __get_contacts(self, sender: ID) -> Content:
-        # query encrypted contacts, load it
-        stored = self.database.contacts_command(identifier=sender)
-        # response
-        if stored is None:
-            return TextContent(text='Sorry, contacts of %s not found.' % sender)
-        else:
-            # response the stored contacts command directly
-            return stored
-
-    def __put_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
-        # receive encrypted contacts, save it
-        if self.database.save_contacts_command(cmd=cmd, sender=sender):
-            return ReceiptCommand(message='Contacts of %s received!' % sender)
-        else:
-            return TextContent(text='Contacts not stored %s!' % cmd)
-
-    def __process_contacts(self, cmd: StorageCommand, sender: ID) -> Content:
-        if cmd.data is None and 'contacts' not in cmd:
-            # query contacts, load it
-            return self.__get_contacts(sender=sender)
-        else:
-            # upload contacts, save it
-            return self.__put_contacts(cmd=cmd, sender=sender)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, StorageCommand), 'command error: %s' % cmd
         title = cmd.title
         if title == StorageCommand.CONTACTS:
-            return self.__process_contacts(cmd=cmd, sender=msg.sender)
+            if cmd.data is None and 'contacts' not in cmd:
+                # query contacts, load it
+                stored = g_database.contacts_command(identifier=msg.sender)
+                # response
+                if stored is None:
+                    return TextContent(text='Sorry, contacts of %s not found.' % msg.sender)
+                else:
+                    # response the stored contacts command directly
+                    return stored
+            else:
+                # upload contacts, save it
+                if g_database.save_contacts_command(cmd=cmd, sender=msg.sender):
+                    return ReceiptCommand(message='Contacts of %s received!' % msg.sender)
+                else:
+                    return TextContent(text='Contacts not stored %s!' % cmd)
         # error
         return TextContent(text='Storage command (title: %s) not support yet!' % title)
 

@@ -49,7 +49,7 @@ class TextContentProcessor(ContentProcessor):
 
     def __init__(self):
         super().__init__()
-        self.__dialog: Dialog = None
+        self.__dialog: Optional[Dialog] = None
 
     @property
     def messenger(self) -> CommonMessenger:

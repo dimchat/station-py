@@ -48,6 +48,9 @@ from ..session import Session
 from ..messenger import ServerMessenger
 
 
+g_database = Database()
+
+
 class ReportCommandProcessor(CommandProcessor):
 
     @property
@@ -57,10 +60,6 @@ class ReportCommandProcessor(CommandProcessor):
     @messenger.setter
     def messenger(self, transceiver: ServerMessenger):
         CommandProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
 
     def __process_old_report(self, cmd: ReportCommand, sender: ID) -> Optional[Content]:
         # compatible with v1.0
@@ -115,7 +114,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
         # submit device token for APNs
         token = cmd.get('device_token')
         if token is not None:
-            self.database.save_device_token(token=token, identifier=msg.sender)
+            g_database.save_device_token(token=token, identifier=msg.sender)
             return ReceiptCommand(message='Token received')
 
 

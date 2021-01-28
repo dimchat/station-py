@@ -73,7 +73,7 @@ class Dialog:
         # try each chat robots
         user = str(sender.address)
         if len(user) > 32:
-            user = user[32:]
+            user = user[-32:]
         index = 0
         for robot in self.__bots:
             answer = robot.ask(question=question, user=user)

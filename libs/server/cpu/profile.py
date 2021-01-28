@@ -36,26 +36,17 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimp import ForwardContent, Command, DocumentCommand
 
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...common import Database
 from ..messenger import ServerMessenger
 
 
+g_database = Database()
+
+
 class DocumentCommandProcessor(SuperCommandProcessor):
-
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
 
     def __check_login(self, cmd: DocumentCommand, sender: ID) -> bool:
         profile = cmd.document
@@ -64,13 +55,14 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             return False
         # respond login message when querying profile
         identifier = cmd.identifier
-        msg = self.database.login_message(identifier=identifier)
+        msg = g_database.login_message(identifier=identifier)
         if msg is None:
             # login message not found
             return False
         cmd = ForwardContent(message=msg)
-        assert isinstance(self.messenger, ServerMessenger), 'messenger error: %s' % self.messenger
-        return self.messenger.send_content(sender=None, receiver=sender, content=cmd)
+        messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        return messenger.send_content(sender=None, receiver=sender, content=cmd)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd

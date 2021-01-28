@@ -31,7 +31,7 @@
 """
 
 import time
-from typing import List
+from typing import List, Optional
 
 from dimp import ID, EVERYWHERE, User
 from dimp import Envelope, InstantMessage
@@ -49,14 +49,18 @@ from .filter import Filter
 from .facebook import ServerFacebook
 
 
+g_session_server = SessionServer()
+g_dispatcher = Dispatcher()
+
+
 class ServerMessenger(CommonMessenger):
 
     EXPIRES = 3600  # query expires (1 hour)
 
     def __init__(self):
         super().__init__()
-        self.__filter: Filter = None
-        self.__session: Session = None
+        self.__filter: Optional[Filter] = None
+        self.__session: Optional[Session] = None
         # for checking duplicated queries
         self.__meta_queries = {}     # ID -> time
         self.__profile_queries = {}  # ID -> time
@@ -72,10 +76,6 @@ class ServerMessenger(CommonMessenger):
     def _create_transmitter(self) -> MessageTransmitter:
         from .transmitter import ServerTransmitter
         return ServerTransmitter(messenger=self)
-
-    @property
-    def dispatcher(self) -> Dispatcher:
-        return Dispatcher()
 
     @property
     def filter(self) -> Filter:
@@ -112,7 +112,7 @@ class ServerMessenger(CommonMessenger):
         # get new session with identifier
         address = self.remote_address
         assert address is not None, 'client address not found: %s' % identifier
-        session = self.session_server.get_session(client_address=address)
+        session = g_session_server.get_session(client_address=address)
         self.__session = session
         return session
 
@@ -169,7 +169,7 @@ class ServerMessenger(CommonMessenger):
         r_msg = self.sign_message(msg=s_msg)
         assert r_msg is not None, 'failed to sign message: %s' % s_msg
         r_msg.delegate = self
-        self.dispatcher.deliver(msg=r_msg)
+        g_dispatcher.deliver(msg=r_msg)
         return True
 
     def query_meta(self, identifier: ID) -> bool:

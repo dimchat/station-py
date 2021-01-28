@@ -55,6 +55,22 @@ from robots.config import g_station, g_released
 from robots.config import load_station, dims_connect, all_stations
 
 
+g_database = Database()
+
+
+def roaming_station(cmd: LoginCommand, sender: ID) -> Optional[ID]:
+    # check time expires
+    old = g_database.login_command(identifier=sender)
+    if old is not None:
+        if cmd.time < old.time:
+            return None
+    # get station ID
+    assert cmd.station is not None, 'login command error: %s' % cmd
+    sid = ID.parse(identifier=cmd.station.get('ID'))
+    if sid != g_station.identifier:
+        return sid
+
+
 class LoginCommandProcessor(CommandProcessor):
 
     def info(self, msg: str):
@@ -63,37 +79,16 @@ class LoginCommandProcessor(CommandProcessor):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    @property
-    def messenger(self) -> ClientMessenger:
-        return super().messenger
-
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
-
-    def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
-        # check time expires
-        old = self.database.login_command(identifier=sender)
-        if old is not None:
-            if cmd.time < old.time:
-                return None
-        # get station ID
-        assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = ID.parse(identifier=cmd.station.get('ID'))
-        if sid == g_station.identifier:
-            return None
-        return sid
-
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         sender = msg.sender
         # check roaming
-        sid = self.__roaming(cmd=cmd, sender=sender)
+        sid = roaming_station(cmd=cmd, sender=sender)
         if sid is not None:
             self.info('%s is roamer to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
         # update login info
-        if not self.database.save_login(cmd=cmd, msg=msg):
+        if not g_database.save_login(cmd=cmd, msg=msg):
             return None
         # respond nothing
         return None
@@ -292,12 +287,11 @@ class Octopus:
         return self.__pack_message(content=res, receiver=sender)
 
     def roaming(self, roamer: ID, station: ID) -> int:
-        db = Database()
         sent_count = 0
         while True:
             # 1. scan offline messages
             self.debug('%s is roaming, scanning messages for it' % roamer)
-            batch = db.load_message_batch(roamer)
+            batch = g_database.load_message_batch(roamer)
             if batch is None:
                 self.debug('no message for this roamer: %s' % roamer)
                 return sent_count
@@ -320,7 +314,7 @@ class Octopus:
             # 3. remove messages after success
             total_count = len(messages)
             self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, roamer))
-            db.remove_message_batch(batch, removed_count=count)
+            g_database.remove_message_batch(batch, removed_count=count)
             sent_count += count
             if count < total_count:
                 self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, roamer))

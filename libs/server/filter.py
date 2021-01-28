@@ -40,6 +40,9 @@ from ..common import Database, CommonFacebook
 from .session import Session
 
 
+g_database = Database()
+
+
 class Filter:
 
     def __init__(self, messenger):
@@ -55,10 +58,6 @@ class Filter:
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    @property
-    def database(self) -> Database:
-        return self.facebook.database
-
     #
     #   check
     #
@@ -67,7 +66,7 @@ class Filter:
         receiver = envelope.receiver
         group = envelope.group
         # check block-list
-        if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
+        if g_database.is_blocked(sender=sender, receiver=receiver, group=group):
             nickname = self.facebook.name(identifier=receiver)
             if group is None:
                 text = 'Message is blocked by %s' % nickname

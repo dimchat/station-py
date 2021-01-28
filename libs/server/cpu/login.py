@@ -45,6 +45,9 @@ from libs.common import Database
 from ..messenger import ServerMessenger
 
 
+g_database = Database()
+
+
 class LoginCommandProcessor(CommandProcessor):
 
     @property
@@ -55,13 +58,9 @@ class LoginCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: ServerMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
-
     def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
         # check time expires
-        old = self.database.login_command(identifier=sender)
+        old = g_database.login_command(identifier=sender)
         if old is not None:
             if cmd.time < old.time:
                 return None
@@ -86,7 +85,7 @@ class LoginCommandProcessor(CommandProcessor):
                 'station': sid,
             })
         # update login info
-        if not self.database.save_login(cmd=cmd, msg=msg):
+        if not g_database.save_login(cmd=cmd, msg=msg):
             return None
         # response
         return ReceiptCommand(message='Login received')

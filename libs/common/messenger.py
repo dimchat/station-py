@@ -41,7 +41,6 @@ from dimsdk import Messenger, MessengerDataSource
 from libs.utils import Log
 from libs.utils import Singleton
 
-from .database import Database
 from .keystore import KeyStore
 from .facebook import CommonFacebook
 
@@ -58,10 +57,6 @@ class CommonMessenger(Messenger):
 
     def get_context(self, key: str):
         return self.__context.get(key)
-
-    @property
-    def database(self) -> Database:
-        return Database()
 
     @property
     def key_cache(self) -> CipherKeyDelegate:

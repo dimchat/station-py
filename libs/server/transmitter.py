@@ -27,6 +27,7 @@
     Server extensions for MessageTransmitter
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
+
 from typing import Optional
 
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -35,6 +36,9 @@ from dimsdk import MessageTransmitter
 from libs.common import CommonFacebook
 from .dispatcher import Dispatcher
 from .messenger import ServerMessenger
+
+
+g_dispatcher = Dispatcher()
 
 
 class ServerTransmitter(MessageTransmitter):
@@ -49,10 +53,6 @@ class ServerTransmitter(MessageTransmitter):
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    @property
-    def dispatcher(self) -> Dispatcher:
-        return self.messenger.dispatcher
-
     def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
         s_msg = self.messenger.verify_message(msg=msg)
@@ -63,7 +63,7 @@ class ServerTransmitter(MessageTransmitter):
         res = None  # self.filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
-            res = self.dispatcher.deliver(msg=msg)
+            res = g_dispatcher.deliver(msg=msg)
         # pack response
         if res is not None:
             user = self.facebook.current_user

@@ -55,6 +55,9 @@ from robots.nlp import chat_bots
 from station.config import current_station
 
 
+g_session_server = SessionServer()
+
+
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
 
     def __init__(self, request, client_address, server):
@@ -95,10 +98,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         return self.__messenger
 
     @property
-    def session_server(self) -> SessionServer:
-        return self.messenger.session_server
-
-    @property
     def remote_user(self) -> Optional[User]:
         if self.__messenger is not None:
             return self.__messenger.remote_user
@@ -113,7 +112,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
             self.timeout = 300
         else:
             self.timeout = timeout
-        self.__session = self.session_server.get_session(client_address=self.client_address, handler=self)
+        self.__session = g_session_server.get_session(client_address=self.client_address, handler=self)
         NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             'session': self.__session,
         })
@@ -124,7 +123,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
             'session': self.__session,
         })
-        self.session_server.remove_session(session=self.__session)
+        g_session_server.remove_session(session=self.__session)
         self.__session = None
         self.__messenger = None
         super().finish()

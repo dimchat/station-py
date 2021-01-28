@@ -32,7 +32,6 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
@@ -41,6 +40,9 @@ from dimsdk import ContentProcessor, CommandProcessor
 
 from ..database import Database
 from ..messenger import CommonMessenger
+
+
+g_database = Database()
 
 
 class MuteCommandProcessor(CommandProcessor):
@@ -53,37 +55,26 @@ class MuteCommandProcessor(CommandProcessor):
     def messenger(self, transceiver: CommonMessenger):
         ContentProcessor.messenger.__set__(self, transceiver)
 
-    @property
-    def database(self) -> Database:
-        return self.messenger.database
-
-    def __get(self, sender: ID) -> Content:
-        stored: Command = self.database.mute_command(identifier=sender)
-        if stored is not None:
-            # response the stored mute command directly
-            return stored
-        else:
-            # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
-            # TODO: here should response an empty HistoryCommand: 'mute'
-            res = Command(command=MuteCommand.MUTE)
-            res['list'] = []
-            return res
-
-    def __put(self, cmd: MuteCommand, sender: ID) -> Content:
-        # receive mute command, save it
-        if self.database.save_mute_command(cmd=cmd, sender=sender):
-            return ReceiptCommand(message='Mute command of %s received!' % sender)
-        else:
-            return TextContent(text='Sorry, mute-list not stored %s!' % cmd)
-
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, MuteCommand), 'command error: %s' % cmd
         if 'list' in cmd:
             # upload mute-list, save it
-            return self.__put(cmd=cmd, sender=msg.sender)
+            if g_database.save_mute_command(cmd=cmd, sender=msg.sender):
+                return ReceiptCommand(message='Mute command of %s received!' % msg.sender)
+            else:
+                return TextContent(text='Sorry, mute-list not stored %s!' % cmd)
         else:
             # query mute-list, load it
-            return self.__get(sender=msg.sender)
+            stored: Command = g_database.mute_command(identifier=msg.sender)
+            if stored is not None:
+                # response the stored mute command directly
+                return stored
+            else:
+                # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
+                # TODO: here should response an empty HistoryCommand: 'mute'
+                res = Command(command=MuteCommand.MUTE)
+                res['list'] = []
+                return res
 
 
 # register

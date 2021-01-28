@@ -48,6 +48,11 @@ from libs.server import SessionServer
 from libs.server import ServerFacebook
 
 
+g_facebook = ServerFacebook()
+g_database = Database()
+g_session_server = SessionServer()
+
+
 def save_freshman(identifier: ID) -> bool:
     """ Save freshman ID in a text file for the robot
 
@@ -111,10 +116,6 @@ class Receptionist(Thread, NotificationObserver):
             server = server.identifier
         self.__station = server
 
-    @property
-    def session_server(self) -> SessionServer:
-        return SessionServer()
-
     #
     #    Notification Observer
     #
@@ -133,14 +134,6 @@ class Receptionist(Thread, NotificationObserver):
                 self.add_guest(identifier=user)
             else:
                 self.add_roamer(identifier=user)
-
-    @property
-    def facebook(self) -> ServerFacebook:
-        return ServerFacebook()
-
-    @property
-    def database(self) -> Database:
-        return self.facebook.database
 
     def add_guest(self, identifier: ID):
         # FIXME: thread safe
@@ -167,7 +160,7 @@ class Receptionist(Thread, NotificationObserver):
     def __push_message(self, msg: ReliableMessage, receiver: ID) -> int:
         # get all sessions of the receiver
         self.debug('checking session for new guest %s' % receiver)
-        sessions = self.session_server.active_sessions(identifier=receiver)
+        sessions = g_session_server.active_sessions(identifier=receiver)
         if len(sessions) == 0:
             self.warning('session not found for guest: %s' % receiver)
             return 0
@@ -181,14 +174,13 @@ class Receptionist(Thread, NotificationObserver):
         return success
 
     def __process_guests(self, guests: List[ID]):
-        database = self.database
         for identifier in guests:
             if identifier is None:
                 # FIXME: while empty ID added?
                 continue
             # 1. scan offline messages
             self.debug('%s is connected, scanning messages for it' % identifier)
-            batch = database.load_message_batch(identifier)
+            batch = g_database.load_message_batch(identifier)
             if batch is None:
                 self.debug('no message for this guest, remove it: %s' % identifier)
                 self.remove_guest(identifier)
@@ -216,7 +208,7 @@ class Receptionist(Thread, NotificationObserver):
             # 3. remove messages after success
             total_count = len(messages)
             self.debug('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-            database.remove_message_batch(batch, removed_count=count)
+            g_database.remove_message_batch(batch, removed_count=count)
             if count < total_count:
                 # remove the guest on failed
                 self.error('pushing message failed(%d/%d) for: %s' % (count, total_count, identifier))
@@ -227,7 +219,7 @@ class Receptionist(Thread, NotificationObserver):
     #
 
     def __login_station(self, identifier: ID) -> Optional[Station]:
-        login = self.database.login_command(identifier=identifier)
+        login = g_database.login_command(identifier=identifier)
         if login is None:
             self.error('login info not found: %s' % identifier)
             return None
@@ -239,14 +231,13 @@ class Receptionist(Thread, NotificationObserver):
         if sid is None:
             self.error('login station error: %s -> %s' % (identifier, login))
             return None
-        facebook = self.facebook
         sid = ID.parse(identifier=sid)
         assert sid.type == NetworkType.STATION, 'station ID error: %s' % station
         if sid == self.station:
             self.debug('login station is current station: %s -> %s' % (identifier, sid))
             return None
         # anything else?
-        return facebook.user(identifier=sid)
+        return g_facebook.user(identifier=sid)
 
     def __redirect_message(self, msg: ReliableMessage, receiver: ID) -> int:
         # get station of the roamer
@@ -259,7 +250,7 @@ class Receptionist(Thread, NotificationObserver):
         sid = station.identifier
         self.debug('checking session for station %s' % sid)
         # get all sessions of the receiver
-        sessions = self.session_server.active_sessions(identifier=sid)
+        sessions = g_session_server.active_sessions(identifier=sid)
         if len(sessions) == 0:
             self.debug('session not found for guest: %s' % sid)
             return 0
@@ -273,11 +264,10 @@ class Receptionist(Thread, NotificationObserver):
         return success
 
     def __process_roamers(self, roamers: List[ID]):
-        database = self.database
         for identifier in roamers:
             # 1. scan offline messages
             self.debug('%s is roaming, scanning messages for it' % identifier)
-            batch = database.load_message_batch(identifier)
+            batch = g_database.load_message_batch(identifier)
             if batch is None:
                 self.debug('no message for this roamer, remove it: %s' % identifier)
                 self.remove_roamer(identifier)
@@ -301,7 +291,7 @@ class Receptionist(Thread, NotificationObserver):
             # 3. remove messages after success
             total_count = len(messages)
             self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
-            database.remove_message_batch(batch, removed_count=count)
+            g_database.remove_message_batch(batch, removed_count=count)
             if count < total_count:
                 # remove the roamer on failed
                 self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, identifier))

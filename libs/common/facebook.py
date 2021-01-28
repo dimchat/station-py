@@ -52,10 +52,7 @@ class CommonFacebook(Facebook):
         self.__immortals = Immortals()
         self.__database: Optional[Database] = None
         self.__local_users: Optional[List[User]] = None
-
-    @property
-    def database(self) -> Database:
-        return Database()
+        self.__db = Database()
 
     #
     #   Local Users
@@ -92,21 +89,21 @@ class CommonFacebook(Facebook):
     #
 
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
-        return self.database.save_contacts(contacts=contacts, user=identifier)
+        return self.__db.save_contacts(contacts=contacts, user=identifier)
 
     #
     #   Private Keys
     #
 
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.database.save_private_key(key=key, identifier=identifier, key_type=key_type)
+        return self.__db.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     #
     #   Meta
     #
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.database.save_meta(meta=meta, identifier=identifier)
+        return self.__db.save_meta(meta=meta, identifier=identifier)
 
     #
     #   Document
@@ -116,7 +113,7 @@ class CommonFacebook(Facebook):
         meta = self.meta(identifier=document.identifier)
         if meta is None or not document.verify(public_key=meta.key):
             return False
-        return self.database.save_document(document=document)
+        return self.__db.save_document(document=document)
 
     EXPIRES = 3600  # profile expires (1 hour)
     EXPIRES_KEY = 'expires'
@@ -140,7 +137,7 @@ class CommonFacebook(Facebook):
     #
 
     def save_members(self, members: List[ID], identifier: ID) -> bool:
-        return self.database.save_members(members=members, group=identifier)
+        return self.__db.save_members(members=members, group=identifier)
 
     def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
         pass
@@ -190,7 +187,7 @@ class CommonFacebook(Facebook):
             # broadcast ID has no meta
             return None
         # try from database
-        info = self.database.meta(identifier=identifier)
+        info = self.__db.meta(identifier=identifier)
         if info is None and identifier.type == NetworkType.MAIN:
             # try from immortals
             info = self.__immortals.meta(identifier=identifier)
@@ -201,7 +198,7 @@ class CommonFacebook(Facebook):
             # broadcast ID has no document
             return None
         # try from database
-        info = self.database.document(identifier=identifier, doc_type=doc_type)
+        info = self.__db.document(identifier=identifier, doc_type=doc_type)
         if info is None and identifier.type == NetworkType.MAIN:
             # try from immortals
             info = self.__immortals.document(identifier=identifier, doc_type=doc_type)
@@ -212,13 +209,13 @@ class CommonFacebook(Facebook):
     #
 
     def contacts(self, identifier: ID) -> Optional[List[ID]]:
-        array = self.database.contacts(user=identifier)
+        array = self.__db.contacts(user=identifier)
         if array is None or len(array) == 0:
             array = self.__immortals.contacts(identifier=identifier)
         return array
 
     def private_keys_for_decryption(self, identifier: ID) -> Optional[List[DecryptKey]]:
-        keys = self.database.private_keys_for_decryption(identifier=identifier)
+        keys = self.__db.private_keys_for_decryption(identifier=identifier)
         if keys is None or len(keys) == 0:
             keys = self.__immortals.private_keys_for_decryption(identifier=identifier)
             if keys is None or len(keys) == 0:
@@ -230,13 +227,13 @@ class CommonFacebook(Facebook):
         return keys
 
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        key = self.database.private_key_for_signature(identifier=identifier)
+        key = self.__db.private_key_for_signature(identifier=identifier)
         if key is None:
             key = self.__immortals.private_key_for_signature(identifier=identifier)
         return key
 
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        key = self.database.private_key_for_visa_signature(identifier=identifier)
+        key = self.__db.private_key_for_visa_signature(identifier=identifier)
         if key is None:
             key = self.__immortals.private_key_for_visa_signature(identifier=identifier)
         return key
@@ -247,20 +244,20 @@ class CommonFacebook(Facebook):
 
     def founder(self, identifier: ID) -> ID:
         # get from database
-        user = self.database.founder(group=identifier)
+        user = self.__db.founder(group=identifier)
         if user is not None:
             return user
         return super().founder(identifier=identifier)
 
     def owner(self, identifier: ID) -> ID:
         # get from database
-        user = self.database.owner(group=identifier)
+        user = self.__db.owner(group=identifier)
         if user is not None:
             return user
         return super().owner(identifier=identifier)
 
     def members(self, identifier: ID) -> Optional[List[ID]]:
-        array = self.database.members(group=identifier)
+        array = self.__db.members(group=identifier)
         if array is not None and len(array) > 0:
             return array
         return super().members(identifier=identifier)

@@ -44,6 +44,13 @@ from libs.common import Database
 from libs.server import ServerMessenger
 from libs.server import SessionServer, Session
 from libs.server import ServerFacebook
+from libs.server.push_message_service import PushMessageService
+
+
+g_session_server = SessionServer()
+g_facebook = ServerFacebook()
+g_database = Database()
+g_push_service = PushMessageService()
 
 
 @Singleton
@@ -78,10 +85,6 @@ class Monitor(NotificationObserver):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    @property
-    def session_server(self) -> SessionServer:
-        return SessionServer()
-
     #
     #    Notification Observer
     #
@@ -92,18 +95,18 @@ class Monitor(NotificationObserver):
             session = info.get('session')
             assert isinstance(session, Session), 'session error: %s' % session
             address = session.client_address
-            station_name = self.facebook.name(identifier=self.sender)
+            station_name = g_facebook.name(identifier=self.sender)
             self.report(message='Client connected %s [%s]' % (address, station_name))
         elif name == NotificationNames.DISCONNECTED:
             session = info.get('session')
             assert isinstance(session, Session), 'session error: %s' % session
             user = session.identifier
             address = session.client_address
-            station_name = self.facebook.name(identifier=self.sender)
+            station_name = g_facebook.name(identifier=self.sender)
             if user is None:
                 self.report(message='Client disconnected %s [%s]' % (address, station_name))
             else:
-                nickname = self.facebook.name(identifier=user)
+                nickname = g_facebook.name(identifier=user)
                 self.report(message='User %s logged out %s [%s]' % (nickname, address, station_name))
         elif name == NotificationNames.USER_LOGIN:
             sender = info.get('ID')
@@ -114,17 +117,9 @@ class Monitor(NotificationObserver):
     def messenger(self) -> ServerMessenger:
         if self.__messenger is None:
             m = ServerMessenger()
-            m.barrack = self.facebook
+            m.barrack = g_facebook
             self.__messenger = m
         return self.__messenger
-
-    @property
-    def facebook(self) -> ServerFacebook:
-        return ServerFacebook()
-
-    @property
-    def database(self) -> Database:
-        return self.facebook.database
 
     def report(self, message: str) -> int:
         success = 0
@@ -147,7 +142,7 @@ class Monitor(NotificationObserver):
         if r_msg.delegate is None:
             r_msg.delegate = self.messenger
         # try for online user
-        sessions = self.session_server.active_sessions(identifier=receiver)
+        sessions = g_session_server.active_sessions(identifier=receiver)
         if len(sessions) > 0:
             self.debug('%s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
             success = 0
@@ -161,7 +156,6 @@ class Monitor(NotificationObserver):
                 return True
         # store in local cache file
         self.debug('%s is offline, store report: %s' % (receiver, text))
-        self.database.store_message(r_msg)
+        g_database.store_message(r_msg)
         # push notification
-        dispatcher = self.messenger.dispatcher
-        return dispatcher.push(sender=self.sender, receiver=receiver, message=text)
+        return g_push_service.push(sender=self.sender, receiver=receiver, message=text)

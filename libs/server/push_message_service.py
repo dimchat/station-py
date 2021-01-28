@@ -3,7 +3,10 @@ import pika
 import json
 from dimp import ID
 
+from libs.utils import Singleton
 
+
+@Singleton
 class PushMessageService:
 
     queue_key = "dim_push_message"
@@ -26,7 +29,8 @@ class PushMessageService:
             print("Now publish to rabbitmq {}".format(json_str))
             channel.basic_publish(exchange='', routing_key=self.queue_key, body=json_str)
 
-        except:
+        except Exception as error:
+            print('Push exception: %s' % error)
 
             exception_str = traceback.format_exc()
             print("Push exception happen {}".format(exception_str))
