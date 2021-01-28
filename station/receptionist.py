@@ -183,6 +183,9 @@ class Receptionist(Thread, NotificationObserver):
     def __process_guests(self, guests: List[ID]):
         database = self.database
         for identifier in guests:
+            if identifier is None:
+                # FIXME: while empty ID added?
+                continue
             # 1. scan offline messages
             self.debug('%s is connected, scanning messages for it' % identifier)
             batch = database.load_message_batch(identifier)
