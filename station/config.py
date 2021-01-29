@@ -30,8 +30,6 @@
     Configuration for DIM network server node
 """
 
-from typing import List
-
 from dimp import ID
 
 from dimsdk.ans import keywords as ans_keywords
@@ -128,34 +126,6 @@ g_receptionist = Receptionist()
 """
 
 
-def neighbor_stations(identifier: ID) -> List[Station]:
-    """ Get neighbor stations for broadcast """
-    count = len(all_stations)
-    if count <= 1:
-        # only 1 station, no neighbors
-        return []
-    # current station's position
-    pos = 0
-    for station in all_stations:
-        if station.identifier == identifier:
-            # got it
-            break
-        pos = pos + 1
-    assert pos < count, 'current station not found: %s, %s' % (identifier, all_stations)
-    array = []
-    # get left node
-    left = all_stations[pos - 1]
-    assert left.identifier != identifier, 'stations error: %s' % all_stations
-    array.append(left)
-    if count > 2:
-        # get right node
-        right = all_stations[(pos + 1) % count]
-        assert right.identifier != identifier, 'stations error: %s' % all_stations
-        assert right.identifier != left.identifier, 'stations error: %s' % all_stations
-        array.append(right)
-    return array
-
-
 def create_server(identifier: str, host: str, port: int = 9394) -> Station:
     """ Create Local Server """
     identifier = ID.parse(identifier=identifier)
@@ -229,9 +199,11 @@ g_receptionist.station = current_station
 g_monitor.sender = current_station.identifier
 
 # load neighbour station for delivering message
-neighbors = neighbor_stations(identifier=current_station.identifier)
-Log.info('-------- Loading neighbor stations: %d' % len(neighbors))
-for node in neighbors:
+Log.info('-------- Loading neighbor stations: %d' % len(all_stations))
+for node in all_stations:
+    if node.identifier == current_station.identifier:
+        Log.info('current node: %s' % node)
+        continue
     Log.info('add node: %s' % node)
     g_dispatcher.add_neighbor(station=node)
 
