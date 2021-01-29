@@ -53,9 +53,9 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
         super().__init__()
         self.__terminal: Optional[weakref.ReferenceType] = None
         # for checking duplicated queries
-        self.__meta_queries = {}     # ID -> time
-        self.__profile_queries = {}  # ID -> time
-        self.__group_queries = {}    # ID -> time
+        self.__meta_queries = {}      # ID -> time
+        self.__document_queries = {}  # ID -> time
+        self.__group_queries = {}     # ID -> time
 
     def _create_facebook(self) -> ClientFacebook:
         return ClientFacebook()
@@ -97,16 +97,18 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
             return False
         self.__meta_queries[identifier] = now
         # query from DIM network
+        self.info('querying meta for %s' % identifier)
         cmd = MetaCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 
-    def query_profile(self, identifier: ID) -> bool:
+    def query_document(self, identifier: ID) -> bool:
         now = time.time()
-        last = self.__profile_queries.get(identifier, 0)
+        last = self.__document_queries.get(identifier, 0)
         if (now - last) < self.EXPIRES:
             return False
-        self.__profile_queries[identifier] = now
+        self.__document_queries[identifier] = now
         # query from DIM network
+        self.info('querying document for %s' % identifier)
         cmd = DocumentCommand(identifier=identifier)
         return self.__send_command(cmd=cmd)
 

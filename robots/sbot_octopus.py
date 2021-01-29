@@ -109,6 +109,7 @@ class InnerMessenger(ClientMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        self.info('outgo message to %s' % msg.receiver)
         if self.__accepted:
             if msg.delegate is None:
                 msg.delegate = self
@@ -131,6 +132,7 @@ class OuterMessenger(ClientMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        self.info('income message from %s' % msg.sender)
         if self.__accepted:
             if msg.delegate is None:
                 msg.delegate = self

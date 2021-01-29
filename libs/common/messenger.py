@@ -106,6 +106,18 @@ class CommonMessenger(Messenger):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]) -> bool:
+        if isinstance(msg, ReliableMessage):
+            sender = msg.sender
+            meta = self.facebook.meta(identifier=sender)
+            if meta is None:
+                self.query_meta(identifier=sender)
+            else:
+                doc = self.facebook.document(identifier=sender)
+                if doc is None:
+                    self.query_document(identifier=sender)
+        return super().suspend_message(msg=msg)
+
     def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
         try:
             return super().deserialize_content(data=data, key=key, msg=msg)
@@ -137,7 +149,7 @@ class CommonMessenger(Messenger):
         raise NotImplemented
 
     @abstractmethod
-    def query_profile(self, identifier: ID) -> bool:
+    def query_document(self, identifier: ID) -> bool:
         raise NotImplemented
 
     @abstractmethod
