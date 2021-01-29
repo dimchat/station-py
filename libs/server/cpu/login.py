@@ -32,17 +32,15 @@
 
 from typing import Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
-
-from ..messenger import ServerMessenger
+from libs.common import roaming_station
 
 
 g_database = Database()
@@ -50,43 +48,17 @@ g_database = Database()
 
 class LoginCommandProcessor(CommandProcessor):
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
-    def __roaming(self, cmd: LoginCommand, sender: ID) -> Optional[ID]:
-        # check time expires
-        old = g_database.login_command(identifier=sender)
-        if old is not None:
-            if cmd.time < old.time:
-                return None
-        station = self.messenger.get_context(key='station')
-        assert station is not None, 'current station not in the context'
-        # get station ID
-        assert cmd.station is not None, 'login command error: %s' % cmd
-        sid = ID.parse(identifier=cmd.station.get('ID'))
-        if sid == station.identifier:
-            return None
-        return sid
-
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         sender = msg.sender
         # check roaming
-        sid = self.__roaming(cmd=cmd, sender=sender)
+        sid = roaming_station(g_database, sender, cmd=cmd, msg=msg)
         if sid is not None:
             # post notification: USER_ONLINE
             NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
                 'ID': sender,
                 'station': sid,
             })
-        # update login info
-        if not g_database.save_login(cmd=cmd, msg=msg):
-            return None
         # response
         return ReceiptCommand(message='Login received')
 

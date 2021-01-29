@@ -55,8 +55,16 @@ class LoginTable(Storage):
         assert identifier == msg.sender, 'login ID not match: %s, %s' % (cmd, msg)
         # check last login time
         old = self.login_command(identifier=identifier)
-        if old is not None and cmd.time <= old.time:
-            return False
+        if old is not None:
+            old_time = old.time
+            if old_time is None:
+                old_time = 0
+            new_time = cmd.time
+            if new_time is None:
+                new_time = 0
+            if new_time <= old_time:
+                # expired command, drop it
+                return False
         # store into memory cache
         self.__commands[identifier] = cmd
         self.__messages[identifier] = msg

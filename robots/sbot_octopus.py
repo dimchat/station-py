@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Log
 from libs.common import Database
-from libs.common import msg_traced
+from libs.common import msg_traced, roaming_station
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -58,19 +58,6 @@ from robots.config import load_station, dims_connect, all_stations
 
 g_facebook = ClientFacebook()
 g_database = Database()
-
-
-def roaming_station(cmd: LoginCommand, sender: ID) -> Optional[ID]:
-    # check time expires
-    old = g_database.login_command(identifier=sender)
-    if old is not None:
-        if cmd.time < old.time:
-            return None
-    # get station ID
-    assert cmd.station is not None, 'login command error: %s' % cmd
-    sid = ID.parse(identifier=cmd.station.get('ID'))
-    if sid != g_station.identifier:
-        return sid
 
 
 class LoginCommandProcessor(CommandProcessor):
@@ -85,13 +72,10 @@ class LoginCommandProcessor(CommandProcessor):
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         sender = msg.sender
         # check roaming
-        sid = roaming_station(cmd=cmd, sender=sender)
-        if sid is not None:
+        sid = roaming_station(g_database, sender, cmd=cmd, msg=msg)
+        if sid is not None and sid != g_station.identifier:
             self.info('%s is roamer to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
-        # update login info
-        if not g_database.save_login(cmd=cmd, msg=msg):
-            return None
         # respond nothing
         return None
 
@@ -109,7 +93,7 @@ class InnerMessenger(ClientMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        self.info('outgo message to %s' % msg.receiver)
+        self.info('outgoing message: %s -> %s' % (msg.sender, msg.receiver))
         if self.__accepted:
             if msg.delegate is None:
                 msg.delegate = self
@@ -132,7 +116,7 @@ class OuterMessenger(ClientMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        self.info('income message from %s' % msg.sender)
+        self.info('incoming message: %s -> %s' % (msg.sender, msg.receiver))
         if self.__accepted:
             if msg.delegate is None:
                 msg.delegate = self

@@ -46,7 +46,7 @@ from libs.utils import Log, Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
-from libs.common import msg_receipt, msg_traced
+from libs.common import msg_receipt, msg_traced, roaming_station
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer
@@ -163,18 +163,6 @@ def any_assistant(group: ID) -> ID:
     return assistants[0]
 
 
-def roaming_station(receiver: ID) -> Optional[ID]:
-    """ get last roaming station """
-    login = g_database.login_command(identifier=receiver)
-    if login is not None:
-        station = login.station
-        last_time = login.time
-        if station is not None and last_time is not None:
-            # check time expires
-            if (time.time() - last_time) < (3600 * 24 * 7):
-                return ID.parse(identifier=station.get('ID'))
-
-
 def push_message_to_sessions(msg: ReliableMessage, sessions: Set[Session]) -> int:
     """ push message to active sessions """
     success = 0
@@ -211,7 +199,7 @@ def deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional
     elif cnt == 1:
         return msg_receipt(msg=msg, text='Message sent')
     # 2. check roaming station
-    neighbor = roaming_station(receiver=receiver)
+    neighbor = roaming_station(g_database, receiver)
     if neighbor is not None and neighbor != station:
         # redirect message to the roaming station
         cnt = redirect_message(msg=msg, neighbor=neighbor, bridge=station)
