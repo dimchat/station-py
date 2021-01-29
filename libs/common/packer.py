@@ -110,3 +110,11 @@ class CommonPacker(MessagePacker):
             key['reused'] = True
         # TODO: reuse personal message key?
         return s_msg
+
+    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+        key = self.facebook.public_key_for_encryption(identifier=msg.sender)
+        if key is None:
+            # sender's meta/visa not ready
+            self.messenger.suspend_message(msg=msg)
+            return None
+        return super().verify_message(msg=msg)
