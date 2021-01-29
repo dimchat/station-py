@@ -48,6 +48,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Log
 from libs.common import Database
+from libs.common import msg_traced
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -258,22 +259,10 @@ class Octopus:
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 
-    def __traced(self, msg: ReliableMessage, station: Station) -> bool:
-        sid = station.identifier
-        traces = msg.get('traces')
-        if traces is not None:
-            for node in traces:
-                if isinstance(node, str):
-                    return sid == node
-                elif isinstance(node, dict):
-                    return sid == node.get('ID')
-                else:
-                    self.error('traces node error: %s' % node)
-
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check message delegate
         sid = g_station.identifier
-        if self.__traced(msg=msg, station=g_station):
+        if msg_traced(msg=msg, node=sid):
             self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
             return None
         if not self.__deliver_message(msg=msg, neighbor=sid):

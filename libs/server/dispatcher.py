@@ -40,12 +40,12 @@ from dimp import ID, NetworkType, Entity
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
-from dimsdk import ReceiptCommand
 
 from libs.utils import Log, Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
+from libs.common import msg_receipt, msg_traced
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer
@@ -132,35 +132,6 @@ def any_assistant(group: ID) -> ID:
     return assistants[0]
 
 
-def msg_receipt(msg: ReliableMessage, text: str) -> Content:
-    cmd = ReceiptCommand(message=text)
-    for key in ['sender', 'receiver', 'time', 'group', 'signature']:
-        value = msg.get(key)
-        if value is not None:
-            cmd[key] = value
-    return cmd
-
-
-def msg_traced(msg: ReliableMessage, station: ID) -> bool:
-    traces = msg.get('traces')
-    if traces is None:
-        # broadcast message starts from here
-        msg['traces'] = [str(station)]
-    else:
-        for node in traces:
-            if isinstance(node, str):
-                if station == node:
-                    return True
-            elif isinstance(node, dict):
-                if station == node.get('ID'):
-                    return True
-            else:
-                Log.error('Dispatcher > traces node error: %s' % node)
-        # broadcast message go through here
-        traces.append(str(station))
-    return False
-
-
 class Worker(Thread):
 
     def __init__(self):
@@ -223,7 +194,7 @@ class Worker(Thread):
     def __broadcast_message(self, msg: ReliableMessage) -> Optional[Content]:
         """ Deliver message to everyone@everywhere, including all neighbours """
         self.debug('broadcasting message from: %s' % msg.sender)
-        if msg_traced(msg=msg, station=self.station):
+        if msg_traced(msg=msg, node=self.station, append=True):
             self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
             return None
         # push to all neighbors connected th current station
@@ -231,6 +202,9 @@ class Worker(Thread):
         sent_neighbors = []
         success = 0
         for sid in neighbors:
+            if msg_traced(msg=msg, node=sid, append=False):
+                self.warning('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
+                continue
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             sessions = g_session_server.active_sessions(identifier=sid)
             if len(sessions) == 0:

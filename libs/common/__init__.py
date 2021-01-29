@@ -30,6 +30,9 @@
     Common libs for Server or Client
 """
 
+from dimp import ID, Content, ReliableMessage
+from dimsdk import ReceiptCommand
+
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
 from .network import NetMsgHead, NetMsg
@@ -44,6 +47,50 @@ from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 from .packer import CommonPacker
 from .processor import CommonProcessor
+
+
+def msg_receipt(msg: ReliableMessage, text: str) -> Content:
+    """
+    Create receipt for received message
+
+    :param msg:  message received
+    :param text: response
+    :return: ReceiptCommand
+    """
+    cmd = ReceiptCommand(message=text)
+    for key in ['sender', 'receiver', 'time', 'group', 'signature']:
+        value = msg.get(key)
+        if value is not None:
+            cmd[key] = value
+    return cmd
+
+
+def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
+    """
+    Check whether station node already traced
+
+    :param msg: network message
+    :param node:
+    :param append: whether append this station node
+    :return: message already traced
+    """
+    traces = msg.get('traces')
+    if traces is None:
+        # broadcast message starts from here
+        traces = []
+        msg['traces'] = traces
+    else:
+        for station in traces:
+            if isinstance(station, str):
+                if node == station:
+                    return True
+            elif isinstance(station, dict):
+                if node == station.get('ID'):
+                    return True
+            else:
+                raise TypeError('traces node error: %s' % station)
+    if append:
+        traces.append(str(node))
 
 
 __all__ = [
@@ -78,4 +125,6 @@ __all__ = [
 
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
+
+    'msg_receipt', 'msg_traced',
 ]
