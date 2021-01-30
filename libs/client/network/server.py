@@ -39,7 +39,7 @@ from dimp import Envelope, InstantMessage
 from dimsdk import HandshakeCommand
 from dimsdk import Station, MessengerDelegate, CompletionHandler
 
-from libs.utils import Log
+from ...utils import Log
 
 from .connection import Connection
 

@@ -33,15 +33,21 @@ from typing import Optional
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import MessageTransmitter
 
-from libs.common import CommonFacebook
 from .dispatcher import Dispatcher
+from .facebook import ServerFacebook
 from .messenger import ServerMessenger
+from .filter import Filter
 
 
+g_facebook = ServerFacebook()
 g_dispatcher = Dispatcher()
 
 
 class ServerTransmitter(MessageTransmitter):
+
+    def __init__(self, messenger: ServerMessenger):
+        super().__init__(messenger=messenger)
+        self.__filter = Filter(messenger=messenger)
 
     @property
     def messenger(self) -> ServerMessenger:
@@ -50,20 +56,24 @@ class ServerTransmitter(MessageTransmitter):
         return transceiver
 
     @property
-    def facebook(self) -> CommonFacebook:
-        return self.messenger.facebook
+    def filter(self) -> Filter:
+        return self.__filter
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return g_facebook
+
+    @property
+    def dispatcher(self) -> Dispatcher:
+        return g_dispatcher
 
     def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
-        s_msg = self.messenger.verify_message(msg=msg)
-        if s_msg is None:
-            # signature error?
-            return None
         # FIXME: check deliver permission
-        res = None  # self.filter.check_deliver(msg=msg)
+        res = self.filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
-            res = g_dispatcher.deliver(msg=msg)
+            res = self.dispatcher.deliver(msg=msg)
         # pack response
         if res is not None:
             user = self.facebook.current_user

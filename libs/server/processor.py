@@ -32,7 +32,7 @@ from typing import Optional
 
 from dimp import ReliableMessage
 
-from libs.common import CommonProcessor
+from ..common import CommonProcessor
 
 from .messenger import ServerMessenger
 from .transmitter import ServerTransmitter
@@ -52,11 +52,13 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self.transceiver
         receiver = msg.receiver
         if receiver.is_group:
+            # verify signature
+            s_msg = self.messenger.verify_message(msg=msg)
+            if s_msg is None:
+                # signature error?
+                return None
             # deliver group message
             res = self.transmitter.deliver_message(msg=msg)
             if receiver.is_broadcast:
@@ -64,7 +66,7 @@ class ServerProcessor(CommonProcessor):
                 # and continue to process it with the station.
                 # because this station is also a recipient too.
                 if res is not None:
-                    self.messenger.send_message(msg=res, callback=None)
+                    self.messenger.send_message(msg=res)
             else:
                 # or, this is is an ordinary group message,
                 # just deliver it to the group assistant

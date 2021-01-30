@@ -34,7 +34,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimp import Envelope, Content
 from dimsdk import HandshakeCommand
 
-from libs.common import CommonProcessor
+from ..common import CommonProcessor
 
 from .messenger import ClientMessenger
 

@@ -39,7 +39,7 @@ from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Transceiver
 from dimsdk import LoginCommand, Station
 
-from libs.common import CommonMessenger
+from ..common import CommonMessenger
 
 from .network import Terminal, Server, ServerDelegate
 from .facebook import ClientFacebook

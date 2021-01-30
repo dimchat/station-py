@@ -45,7 +45,7 @@ from dimp import hex_encode
 from dimp import ID, ReliableMessage
 from dimsdk.plugins.aes import random_bytes
 
-from libs.utils import Singleton
+from ..utils import Singleton
 
 
 def generate_session_key() -> str:

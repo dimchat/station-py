@@ -37,7 +37,7 @@ from dimp import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 from dimsdk import ContentProcessor
 
-from libs.utils import Log
+from ..utils import Log
 
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger

@@ -39,8 +39,9 @@ import os
 from typing import Optional
 
 from dimp import User
-from libs.utils import JSONFile
-from libs.utils import Singleton
+
+from ..utils import JSONFile
+from ..utils import Singleton
 
 from .keycache import KeyCache
 

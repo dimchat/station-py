@@ -37,7 +37,7 @@ from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import NetworkType, ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
-from libs.utils.immortals import Immortals
+from ..utils.immortals import Immortals
 
 from .database import Database
 

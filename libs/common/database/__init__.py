@@ -37,7 +37,7 @@ from dimp import Command
 from dimp import ReliableMessage
 from dimsdk import LoginCommand
 
-from libs.utils import Singleton
+from ...utils import Singleton
 
 from .storage import Storage
 from .private_table import PrivateKeyTable
@@ -85,7 +85,7 @@ class Database:
 
         file path: '.dim/private/{ADDRESS}/secret.js'
     """
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M'):
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M'):
         return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
@@ -127,7 +127,7 @@ class Database:
                 return False
         return self.__document_table.save_document(document=document)
 
-    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Document:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Document:
         return self.__document_table.document(identifier=identifier, doc_type=doc_type)
 
     """
@@ -166,7 +166,7 @@ class Database:
     def block_command(self, identifier: ID) -> Command:
         return self.__user_table.block_command(identifier=identifier)
 
-    def is_blocked(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+    def is_blocked(self, receiver: ID, sender: ID, group: ID = None) -> bool:
         cmd = self.block_command(identifier=receiver)
         if cmd is None:
             return False
@@ -192,7 +192,7 @@ class Database:
     def mute_command(self, identifier: ID) -> Command:
         return self.__user_table.mute_command(identifier=identifier)
 
-    def is_muted(self, receiver: ID, sender: ID, group: ID=None) -> bool:
+    def is_muted(self, receiver: ID, sender: ID, group: ID = None) -> bool:
         cmd = self.mute_command(identifier=receiver)
         if cmd is None:
             return False

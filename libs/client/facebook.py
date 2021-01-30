@@ -33,8 +33,8 @@ from typing import Optional
 
 from dimp import ID, Meta, Document
 
-from libs.utils import Singleton
-from libs.common import CommonFacebook, CommonMessenger
+from ..utils import Singleton
+from ..common import CommonFacebook, CommonMessenger
 
 
 @Singleton

@@ -37,10 +37,10 @@ from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import CommandProcessor
 
-from libs.utils import NotificationCenter
-from libs.common import NotificationNames
-from libs.common import Database
-from libs.common import roaming_station
+from ...utils import NotificationCenter
+from ...common import NotificationNames
+from ...common import Database
+from ...common import roaming_station
 
 
 g_database = Database()

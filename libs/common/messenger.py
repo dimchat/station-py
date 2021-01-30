@@ -38,8 +38,8 @@ from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
-from libs.utils import Log
-from libs.utils import Singleton
+from ..utils import Log
+from ..utils import Singleton
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook

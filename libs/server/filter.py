@@ -30,33 +30,41 @@
     Filter for delivering message
 """
 
+import weakref
 from typing import Optional
 
 from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
-from ..common import Database, CommonFacebook
+from ..common import Database
+
 from .session import Session
+from .facebook import ServerFacebook
+from .messenger import ServerMessenger
 
 
+g_facebook = ServerFacebook()
 g_database = Database()
 
 
 class Filter:
 
-    def __init__(self, messenger):
+    def __init__(self, messenger: ServerMessenger):
         super().__init__()
-        # messenger
-        self.__messenger = messenger
+        self.__messenger = weakref.ref(messenger)
 
     @property
-    def messenger(self):  # -> ServerMessenger:
-        return self.__messenger
+    def messenger(self) -> ServerMessenger:
+        return self.__messenger()
 
     @property
-    def facebook(self) -> CommonFacebook:
-        return self.messenger.facebook
+    def facebook(self) -> ServerFacebook:
+        return g_facebook
+
+    @property
+    def database(self) -> Database:
+        return g_database
 
     #
     #   check
@@ -66,7 +74,7 @@ class Filter:
         receiver = envelope.receiver
         group = envelope.group
         # check block-list
-        if g_database.is_blocked(sender=sender, receiver=receiver, group=group):
+        if self.database.is_blocked(sender=sender, receiver=receiver, group=group):
             nickname = self.facebook.name(identifier=receiver)
             if group is None:
                 text = 'Message is blocked by %s' % nickname

@@ -39,7 +39,7 @@ from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
-from libs.common import SearchCommand
+from ...common import SearchCommand
 
 
 class SearchCommandProcessor(CommandProcessor):

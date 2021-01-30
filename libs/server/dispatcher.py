@@ -41,11 +41,11 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 
-from libs.utils import Singleton, Log, Logging
-from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.common import NotificationNames
-from libs.common import Database
-from libs.common import msg_receipt, msg_traced, roaming_station
+from ..utils import Singleton, Log, Logging
+from ..utils import Notification, NotificationObserver, NotificationCenter
+from ..common import NotificationNames
+from ..common import Database
+from ..common import msg_receipt, msg_traced, roaming_station
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer

@@ -30,13 +30,13 @@
     This is for sending group message, or managing group members
 """
 
-from typing import List
+from typing import Optional, List
 
 from dimp import ID
 from dimp import Content, Command, GroupCommand
 from dimp import MetaCommand, DocumentCommand
 
-from libs.common import CommonFacebook
+from ...common import CommonFacebook
 
 from ..messenger import ClientMessenger
 
@@ -46,7 +46,7 @@ class GroupManager:
     def __init__(self, identifier: ID):
         super().__init__()
         self.group: ID = identifier
-        self.__messenger: ClientMessenger = None
+        self.__messenger: Optional[ClientMessenger] = None
 
     @property
     def messenger(self) -> ClientMessenger:

@@ -39,8 +39,8 @@ from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
-from libs.utils import Log
-from libs.utils.nlp import Dialog
+from ...utils import Log
+from ...utils.nlp import Dialog
 
 from ..messenger import CommonMessenger
 

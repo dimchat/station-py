@@ -3,7 +3,7 @@ import pika
 import json
 from dimp import ID
 
-from libs.utils import Singleton
+from ..utils import Singleton
 
 
 @Singleton

@@ -33,7 +33,7 @@ from dimp import base64_encode, sha256
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 
-from libs.utils.mtp import MTPUtils
+from ..utils.mtp import MTPUtils
 
 from .messenger import CommonMessenger
 

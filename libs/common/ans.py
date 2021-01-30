@@ -35,7 +35,7 @@ from typing import Optional, Union
 from dimp import ID, Address
 from dimsdk import AddressNameService
 
-from libs.utils import Singleton
+from ..utils import Singleton
 
 
 """
@@ -65,7 +65,7 @@ class IDFactory(ID.Factory):
         super().__init__()
         self.__ids = {}
 
-    def create_identifier(self, address: Address, name: Optional[str]=None, terminal: Optional[str]=None) -> ID:
+    def create_identifier(self, address: Address, name: Optional[str] = None, terminal: Optional[str] = None) -> ID:
         return s_id_factory.create_identifier(address=address, name=name, terminal=terminal)
 
     def parse_identifier(self, identifier: Union[ID, str, None]) -> Optional[ID]:

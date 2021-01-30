@@ -35,7 +35,7 @@ from typing import Optional
 from dimp import ID, EVERYONE
 from dimp import Content, Command
 
-from libs.common import CommonMessenger, CommonFacebook
+from ...common import CommonMessenger, CommonFacebook
 
 from .server import Server
 

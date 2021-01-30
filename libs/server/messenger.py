@@ -39,18 +39,18 @@ from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Processor
 from dimsdk import MessageTransmitter
 
-from libs.utils import NotificationCenter
-from libs.common import NotificationNames
-from libs.common import CommonMessenger
+from ..utils import NotificationCenter
+from ..common import NotificationNames
+from ..common import CommonMessenger
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
-from .filter import Filter
 from .facebook import ServerFacebook
 
 
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
+g_facebook = ServerFacebook()
 
 
 class ServerMessenger(CommonMessenger):
@@ -59,15 +59,18 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
-        self.__filter: Optional[Filter] = None
         self.__session: Optional[Session] = None
         # for checking duplicated queries
         self.__meta_queries = {}      # ID -> time
         self.__document_queries = {}  # ID -> time
         self.__group_queries = {}     # ID -> time
 
+    @property
+    def facebook(self) -> ServerFacebook:
+        return g_facebook
+
     def _create_facebook(self) -> ServerFacebook:
-        return ServerFacebook()
+        return g_facebook
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
@@ -78,21 +81,15 @@ class ServerMessenger(CommonMessenger):
         return ServerTransmitter(messenger=self)
 
     @property
-    def filter(self) -> Filter:
-        if self.__filter is None:
-            self.__filter = Filter(messenger=self)
-        return self.__filter
-
-    @filter.setter
-    def filter(self, value: Filter):
-        self.__filter = value
+    def dispatcher(self) -> Dispatcher:
+        return g_dispatcher
 
     #
     #   Session
     #
     @property
     def session_server(self) -> SessionServer:
-        return SessionServer()
+        return g_session_server
 
     def current_session(self, identifier: ID) -> Session:
         session = self.__session
@@ -112,7 +109,7 @@ class ServerMessenger(CommonMessenger):
         # get new session with identifier
         address = self.remote_address
         assert address is not None, 'client address not found: %s' % identifier
-        session = g_session_server.get_session(client_address=address)
+        session = self.session_server.get_session(client_address=address)
         self.__session = session
         return session
 
@@ -169,7 +166,7 @@ class ServerMessenger(CommonMessenger):
         r_msg = self.sign_message(msg=s_msg)
         assert r_msg is not None, 'failed to sign message: %s' % s_msg
         r_msg.delegate = self
-        g_dispatcher.deliver(msg=r_msg)
+        self.dispatcher.deliver(msg=r_msg)
         return True
 
     def query_meta(self, identifier: ID) -> bool:

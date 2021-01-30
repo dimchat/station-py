@@ -39,10 +39,10 @@ from dimp import Command
 from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
-from libs.utils import NotificationCenter
-from libs.common import NotificationNames
-from libs.common import ReportCommand
-from libs.common import Database
+from ...utils import NotificationCenter
+from ...common import NotificationNames
+from ...common import ReportCommand
+from ...common import Database
 
 from ..session import Session
 from ..messenger import ServerMessenger

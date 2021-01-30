@@ -37,7 +37,7 @@ import traceback
 import weakref
 from typing import Optional
 
-from libs.utils import Logging
+from ...utils import Logging
 
 
 class Connection(threading.Thread, Logging):
