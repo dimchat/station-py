@@ -217,7 +217,6 @@ class Recorder(threading.Thread, Logging):
                 self.error('failed to process: %s, %s' % (event, error))
                 traceback.print_exc()
             finally:
-                self.debug('nothing to do, sleeping')
                 time.sleep(0.5)
 
     def stop(self):

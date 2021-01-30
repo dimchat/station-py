@@ -53,6 +53,3 @@ chatroom_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
 #
 
 group_naruto = 'Group-Naruto@7ThVZeDuQAdG3eSDF6NeFjMDPjKN5SbrnM'
-
-freshmen_file = '/data/.dim/freshmen.txt'
-# freshmen_file = '/tmp/freshmen.txt'  # test
