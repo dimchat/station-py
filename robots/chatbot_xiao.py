@@ -84,7 +84,7 @@ def stat_record(columns: List[str]) -> str:
         return '[%s]\n' \
                '\t%d login record(s),\n' \
                '\t%d msg(s) sent,\n' \
-               '\t(%d group msgs).' \
+               '\t(%d group msgs).\n' \
                % (rec_time, login_cnt, msg_cnt + g_msg_cnt, g_msg_cnt)
     return '\t'.join(columns)
 

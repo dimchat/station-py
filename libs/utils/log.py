@@ -36,32 +36,42 @@ def current_time() -> str:
     return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
 
 
+DEBUG_FLAG = 0x01
+INFO_FLAG = 0x02
+WARNING_FLAG = 0x04
+ERROR_FLAG = 0x08
+
+
 class Log:
 
-    DEBUG = 0
-    DEVELOP = 1
-    RELEASE = 2
+    DEBUG = 0xFF
+    DEVELOP = 0xFE
+    RELEASE = 0xFC
 
     LEVEL = DEVELOP
 
     @classmethod
     def debug(cls, msg: str):
-        if cls.LEVEL > cls.DEBUG:
+        if cls.LEVEL & DEBUG_FLAG == 0:
             return None
         print('[%s] DEBUG - %s' % (current_time(), msg))
 
     @classmethod
     def info(cls, msg: str):
-        if cls.LEVEL > cls.DEVELOP:
+        if cls.LEVEL & INFO_FLAG == 0:
             return None
         print('[%s] %s' % (current_time(), msg))
 
     @classmethod
     def warning(cls, msg: str):
+        if cls.LEVEL & WARNING_FLAG == 0:
+            return None
         print('[%s] %s' % (current_time(), msg))
 
     @classmethod
     def error(cls, msg: str):
+        if cls.LEVEL & ERROR_FLAG == 0:
+            return None
         print('[%s] ERROR - %s' % (current_time(), msg))
 
 
