@@ -34,7 +34,6 @@ import time
 import threading
 import traceback
 from abc import abstractmethod
-from threading import Thread
 from typing import Optional, Union, List, Set
 
 from dimp import ID, NetworkType, Entity
@@ -134,6 +133,9 @@ class Dispatcher(NotificationObserver):
         self.__broadcast_worker.remove_neighbor(station=sid)
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+        # post notification for monitor
+        NotificationCenter().post(name=NotificationNames.DELIVER_MESSAGE, sender=self, info=msg.dictionary)
+        # dispatch task to the worker
         receiver = msg.receiver
         if receiver.is_broadcast:
             self.__broadcast_worker.add_msg(msg=msg)
@@ -245,7 +247,7 @@ def push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) ->
     return g_push_service.push(sender=sender, receiver=receiver, message=text)
 
 
-class Worker(Thread, Logging):
+class Worker(threading.Thread, Logging):
 
     def __init__(self):
         super().__init__()

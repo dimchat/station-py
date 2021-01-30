@@ -33,13 +33,15 @@
 
 class NotificationNames:
 
-    CONNECTED = 'connected'        # request handler setup
-    DISCONNECTED = 'disconnected'  # request handler finished
+    CONNECTED = 'connected'              # request handler setup
+    DISCONNECTED = 'disconnected'        # request handler finished
 
-    USER_LOGIN = 'user_login'      # handshake accepted
-    USER_LOGOUT = 'user_logout'    # disconnected
+    USER_LOGIN = 'user_login'            # handshake accepted
+    USER_LOGOUT = 'user_logout'          # disconnected
 
-    USER_ONLINE = 'user_online'    # foreground
-    USER_OFFLINE = 'user_offline'  # background
+    USER_ONLINE = 'user_online'          # foreground
+    USER_OFFLINE = 'user_offline'        # background
 
-    INBOX_EMPTY = 'inbox_empty'    # new message not found
+    DELIVER_MESSAGE = 'deliver_message'  # delivering message
+
+    INBOX_EMPTY = 'inbox_empty'          # new message not found

@@ -44,11 +44,12 @@ from libs.utils import Log
 from libs.utils.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
-from station.config import g_receptionist, g_dispatcher, current_station
+from station.config import g_monitor, g_receptionist, g_dispatcher, current_station
 
 
 if __name__ == '__main__':
 
+    g_monitor.start()
     g_receptionist.start()
     g_dispatcher.start()
 
@@ -69,4 +70,5 @@ if __name__ == '__main__':
     finally:
         g_dispatcher.stop()
         g_receptionist.stop()
+        g_monitor.stop()
         Log.info('======== station shutdown!')

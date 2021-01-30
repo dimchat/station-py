@@ -30,20 +30,19 @@
     A message scanner for new guests who have just come in.
 """
 
-import os
+import threading
 import time
 import traceback
 from json import JSONDecodeError
-from threading import Thread
 from typing import Optional, List, Union
 
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
-from libs.utils import Singleton, Log, Logging
+from libs.utils import Singleton, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
-from libs.common import Storage, Database
+from libs.common import Database
 from libs.server import SessionServer
 from libs.server import ServerFacebook
 
@@ -53,34 +52,13 @@ g_database = Database()
 g_session_server = SessionServer()
 
 
-def save_freshman(identifier: ID) -> bool:
-    """ Save freshman ID in a text file for the robot
-
-        file path: '.dim/freshmen.txt'
-    """
-    path = os.path.join(Storage.root, 'freshmen.txt')
-    # check
-    text = Storage.read_text(path=path)
-    if text is None:
-        lines = []
-    else:
-        lines = text.splitlines()
-    for item in lines:
-        if item == identifier:
-            # already exists
-            return False
-    # append
-    line = str(identifier) + '\n'
-    Log.info('Saving freshman: %s' % identifier)
-    return Storage.append_text(text=line, path=path)
-
-
 @Singleton
-class Receptionist(Thread, NotificationObserver, Logging):
+class Receptionist(threading.Thread, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
         self.__running = True
+        self.__lock = threading.Lock()
         # current station and guests
         self.__station: Optional[ID] = None
         self.__guests = []
@@ -104,6 +82,32 @@ class Receptionist(Thread, NotificationObserver, Logging):
             server = server.identifier
         self.__station = server
 
+    @property
+    def guests(self) -> List[ID]:
+        with self.__lock:
+            return self.__guests.copy()
+
+    def add_guest(self, identifier: ID):
+        with self.__lock:
+            self.__guests.append(identifier)
+
+    def remove_guest(self, identifier: ID):
+        with self.__lock:
+            self.__guests.remove(identifier)
+
+    @property
+    def roamers(self) -> List[ID]:
+        with self.__lock:
+            return self.__roamers.copy()
+
+    def add_roamer(self, identifier: ID):
+        with self.__lock:
+            self.__roamers.append(identifier)
+
+    def remove_roamer(self, identifier: ID):
+        with self.__lock:
+            self.__roamers.remove(identifier)
+
     #
     #    Notification Observer
     #
@@ -122,24 +126,6 @@ class Receptionist(Thread, NotificationObserver, Logging):
                 self.add_guest(identifier=user)
             else:
                 self.add_roamer(identifier=user)
-
-    def add_guest(self, identifier: ID):
-        # FIXME: thread safe
-        self.__guests.append(identifier)
-        # check freshman
-        save_freshman(identifier=identifier)
-
-    def remove_guest(self, identifier: ID):
-        # FIXME: thread safe
-        self.__guests.remove(identifier)
-
-    def add_roamer(self, identifier: ID):
-        # FIXME: thread safe
-        self.__roamers.append(identifier)
-
-    def remove_roamer(self, identifier: ID):
-        # FIXME: thread safe
-        self.__roamers.remove(identifier)
 
     #
     #   Guests login this station
@@ -291,7 +277,7 @@ class Receptionist(Thread, NotificationObserver, Logging):
     def __run_unsafe(self):
         # process guests
         try:
-            self.__process_guests(guests=self.__guests.copy())
+            self.__process_guests(guests=self.guests)
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
@@ -306,7 +292,7 @@ class Receptionist(Thread, NotificationObserver, Logging):
             time.sleep(0.1)
         # process roamers
         try:
-            self.__process_roamers(roamers=self.__roamers.copy())
+            self.__process_roamers(roamers=self.roamers)
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:

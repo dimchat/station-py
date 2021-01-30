@@ -48,7 +48,6 @@ from libs.server import Dispatcher
 #  Configurations
 #
 from etc.cfg_db import base_dir, ans_reserved_records
-from etc.cfg_admins import administrators
 from etc.cfg_gsp import all_stations, local_servers
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import group_assistants
@@ -195,8 +194,6 @@ g_keystore.user = current_station
 g_dispatcher.station = current_station
 # set current station for receptionist
 g_receptionist.station = current_station
-# set current station as the report sender
-g_monitor.sender = current_station.identifier
 
 # load neighbour station for delivering message
 Log.info('-------- Loading neighbor stations: %d' % len(all_stations))
@@ -206,12 +203,5 @@ for node in all_stations:
         continue
     Log.info('add node: %s' % node)
     g_dispatcher.add_neighbor(station=node)
-
-# load admins for receiving system reports
-Log.info('-------- Loading administrators: %d' % len(administrators))
-administrators = [ID.parse(identifier=item) for item in administrators]
-for admin in administrators:
-    Log.info('add admin: %s' % admin)
-    g_monitor.admins.add(admin)
 
 Log.info('======== configuration OK!')
