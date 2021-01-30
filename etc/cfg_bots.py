@@ -39,6 +39,7 @@ tokentalkteam_id = 'TokenTalkTeam@2PraD3pKpPg77N4AdaeSHRy1jwYfP16vBRH'
 
 group_assistants = [
     'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq',
+    # 'assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS',
 ]
 
 #

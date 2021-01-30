@@ -75,6 +75,20 @@ def load_statistics(prefix: str) -> List[str]:
     return results
 
 
+def stat_record(columns: List[str]) -> str:
+    if len(columns) == 4:
+        rec_time = columns[0]
+        login_cnt = int(columns[1])
+        msg_cnt = int(columns[2])
+        g_msg_cnt = int(columns[3])
+        return '[%s]\n' \
+               '\t%d login record(s),\n' \
+               '\t%d msg(s) sent,\n' \
+               '\t(%d group msgs).' \
+               % (rec_time, login_cnt, msg_cnt + g_msg_cnt, g_msg_cnt)
+    return '\t'.join(columns)
+
+
 #
 #   Text Content Processor
 #
@@ -87,7 +101,9 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
         if count > 32:
             results = results[-32:]
         if count > 0:
-            text = '\n'.join(results)
+            text = 'Statistics:  "%s"\n\n' % condition
+            for item in results:
+                text += stat_record(columns=item.split('\t'))
         else:
             text = 'No record'
         return TextContent(text=text)
