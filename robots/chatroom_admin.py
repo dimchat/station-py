@@ -47,7 +47,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log
+from libs.utils import Logging
 from libs.utils import JSONFile
 from libs.common import Storage
 from libs.common import SearchCommand
@@ -277,7 +277,7 @@ class History:
         return self.__pool.copy()
 
 
-class ChatRoom:
+class ChatRoom(Logging):
 
     EXPIRES = 600  # 10 minutes
 
@@ -288,18 +288,6 @@ class ChatRoom:
         self.__times: dict = {}  # ID -> time
         self.__statistic = Statistic()
         self.__history = History()
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def messenger(self) -> ClientMessenger:

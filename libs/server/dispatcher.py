@@ -42,7 +42,7 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 from dimsdk import Station
 
-from libs.utils import Log, Singleton
+from libs.utils import Singleton, Log, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
@@ -245,7 +245,7 @@ def push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) ->
     return g_push_service.push(sender=sender, receiver=receiver, message=text)
 
 
-class Worker(Thread):
+class Worker(Thread, Logging):
 
     def __init__(self):
         super().__init__()
@@ -254,18 +254,6 @@ class Worker(Thread):
         self.__neighbors: Set[ID] = set()                # station ID list
         self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
         self.__lock = threading.Lock()
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def station(self) -> ID:

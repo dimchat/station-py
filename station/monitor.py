@@ -37,7 +37,7 @@ from dimp import ID
 from dimp import TextContent
 from dimp import Envelope, InstantMessage
 
-from libs.utils import Log, Singleton
+from libs.utils import Logging, Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Database
@@ -54,7 +54,7 @@ g_push_service = PushMessageService()
 
 
 @Singleton
-class Monitor(NotificationObserver):
+class Monitor(NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
@@ -72,18 +72,6 @@ class Monitor(NotificationObserver):
         nc.remove(observer=self, name=NotificationNames.CONNECTED)
         nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     #
     #    Notification Observer

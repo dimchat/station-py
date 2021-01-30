@@ -40,7 +40,7 @@ from typing import Optional, List, Union
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
-from libs.utils import Log, Singleton
+from libs.utils import Singleton, Log, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import Storage, Database
@@ -76,7 +76,7 @@ def save_freshman(identifier: ID) -> bool:
 
 
 @Singleton
-class Receptionist(Thread, NotificationObserver):
+class Receptionist(Thread, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
@@ -93,18 +93,6 @@ class Receptionist(Thread, NotificationObserver):
         nc = NotificationCenter()
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
         nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def station(self) -> ID:

@@ -63,3 +63,18 @@ class Log:
     @classmethod
     def error(cls, msg: str):
         print('[%s] ERROR - %s' % (current_time(), msg))
+
+
+class Logging:
+
+    def debug(self, msg: str):
+        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def info(self, msg: str):
+        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def warning(self, msg: str):
+        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
+
+    def error(self, msg: str):
+        Log.error('%s >\t%s' % (self.__class__.__name__, msg))

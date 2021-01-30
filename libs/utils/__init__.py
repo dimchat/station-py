@@ -33,7 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from .log import Log
+from .log import Log, Logging
 from .singleton import Singleton
 
 from .notification import Notification, NotificationObserver, NotificationCenter
@@ -43,7 +43,7 @@ from .dos import File, TextFile, JSONFile
 
 __all__ = [
 
-    'Log',
+    'Log', 'Logging',
     'Singleton',
 
     'Notification', 'NotificationObserver', 'NotificationCenter',

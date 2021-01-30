@@ -45,7 +45,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log
+from libs.utils import Log, Logging
 from libs.common import Storage, CommonFacebook
 from libs.client import Terminal, ClientMessenger
 from libs.client import GroupManager
@@ -86,7 +86,7 @@ def load_freshmen() -> List[ID]:
     return freshmen
 
 
-class FreshmenScanner(threading.Thread):
+class FreshmenScanner(threading.Thread, Logging):
 
     def __init__(self, messenger: ClientMessenger):
         super().__init__()
@@ -95,18 +95,6 @@ class FreshmenScanner(threading.Thread):
         # group
         gid = ID.parse(identifier=group_naruto)
         self.__group = messenger.facebook.group(gid)
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def facebook(self) -> CommonFacebook:

@@ -40,7 +40,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
 
-from libs.utils import Log
+from libs.utils import Logging
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
 from libs.common import NetMsgHead, NetMsg
@@ -58,7 +58,7 @@ from station.config import current_station
 g_session_server = SessionServer()
 
 
-class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
+class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler, Logging):
 
     def __init__(self, request, client_address, server):
         # messenger
@@ -69,21 +69,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Session.Handler):
         self.__push_data = None
         # init
         super().__init__(request=request, client_address=client_address, server=server)
-
-    # def __del__(self):
-    #     Log.info('request handler deleted: %s' % str(self.client_address))
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def messenger(self) -> ServerMessenger:

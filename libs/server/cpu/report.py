@@ -66,15 +66,12 @@ class ReportCommandProcessor(CommandProcessor):
         state = cmd.get('state')
         if state is not None:
             session = self.messenger.current_session(identifier=sender)
-            if 'background' == state:
-                session.active = False
-            elif 'foreground' == state:
-                # welcome back!
-                session.active = True
-            else:
-                session.active = True
-            # post notification
-            post_notification(session=session, sender=self)
+            if isinstance(session, Session):
+                if 'background' == state:
+                    session.active = False
+                else:  # 'foreground'
+                    session.active = True
+                post_notification(session=session, sender=self)
             return ReceiptCommand(message='Client state received')
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
@@ -126,9 +123,8 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = True
-        # post notification
-        post_notification(session=session, sender=self)
-        # TODO: notification for pushing offline message(s) from 'last_time'
+            post_notification(session=session, sender=self)
+            # TODO: notification for pushing offline message(s) from 'last_time'
         return ReceiptCommand(message='Client online received')
 
 
@@ -140,8 +136,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = False
-        # post notification
-        post_notification(session=session, sender=self)
+            post_notification(session=session, sender=self)
         return ReceiptCommand(message='Client offline received')
 
 

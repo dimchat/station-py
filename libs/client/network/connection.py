@@ -37,10 +37,10 @@ import traceback
 import weakref
 from typing import Optional
 
-from libs.utils import Log
+from libs.utils import Logging
 
 
-class Connection(threading.Thread):
+class Connection(threading.Thread, Logging):
 
     # boundary for packages
     BOUNDARY = b'\n'
@@ -57,18 +57,6 @@ class Connection(threading.Thread):
         self.__sock = None
         self.__thread_heartbeat = None
         self.__last_time: int = 0
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def messenger(self):  # -> ClientMessenger:

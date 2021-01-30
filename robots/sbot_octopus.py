@@ -46,7 +46,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log
+from libs.utils import Logging
 from libs.common import Database
 from libs.common import msg_traced, roaming_station
 
@@ -60,13 +60,7 @@ g_facebook = ClientFacebook()
 g_database = Database()
 
 
-class LoginCommandProcessor(CommandProcessor):
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+class LoginCommandProcessor(CommandProcessor, Logging):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
@@ -130,24 +124,12 @@ class OuterMessenger(ClientMessenger):
         self.__accepted = True
 
 
-class Octopus:
+class Octopus(Logging):
 
     def __init__(self):
         super().__init__()
         self.__neighbors: Set[ID] = set()        # station ID list
         self.__clients: Dict[ID, Terminal] = {}  # ID -> Terminal
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def add_neighbor(self, station: Union[Station, ID]) -> bool:
         if isinstance(station, Station):
