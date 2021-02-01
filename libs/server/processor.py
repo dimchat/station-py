@@ -35,7 +35,6 @@ from dimp import ReliableMessage
 from ..common import CommonProcessor
 
 from .messenger import ServerMessenger
-from .transmitter import ServerTransmitter
 
 
 class ServerProcessor(CommonProcessor):
@@ -45,10 +44,6 @@ class ServerProcessor(CommonProcessor):
         transceiver = super().messenger
         assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
         return transceiver
-
-    @property
-    def transmitter(self) -> ServerTransmitter:
-        return self.messenger.transmitter
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
@@ -60,7 +55,7 @@ class ServerProcessor(CommonProcessor):
                 # signature error?
                 return None
             # deliver group message
-            res = self.transmitter.deliver_message(msg=msg)
+            res = self.messenger.deliver_message(msg=msg)
             if receiver.is_broadcast:
                 # if this is a broadcast, deliver it, send back the response
                 # and continue to process it with the station.
@@ -78,6 +73,6 @@ class ServerProcessor(CommonProcessor):
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
-                return self.transmitter.deliver_message(msg=msg)
+                return self.messenger.deliver_message(msg=msg)
             else:
                 raise error

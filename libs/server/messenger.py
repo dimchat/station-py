@@ -34,10 +34,9 @@ import time
 from typing import List, Optional
 
 from dimp import ID, EVERYWHERE, User
-from dimp import Envelope, InstantMessage
+from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Processor
-from dimsdk import MessageTransmitter
 
 from ..utils import NotificationCenter
 from ..common import NotificationNames
@@ -59,6 +58,8 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
+        from .filter import Filter
+        self.__filter = Filter(messenger=self)
         self.__session: Optional[Session] = None
         # for checking duplicated queries
         self.__meta_queries = {}      # ID -> time
@@ -76,13 +77,26 @@ class ServerMessenger(CommonMessenger):
         from .processor import ServerProcessor
         return ServerProcessor(messenger=self)
 
-    def _create_transmitter(self) -> MessageTransmitter:
-        from .transmitter import ServerTransmitter
-        return ServerTransmitter(messenger=self)
-
     @property
     def dispatcher(self) -> Dispatcher:
         return g_dispatcher
+
+    def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        """ Deliver message to the receiver, or broadcast to neighbours """
+        # FIXME: check deliver permission
+        res = self.__filter.check_deliver(msg=msg)
+        if res is None:
+            # delivering is allowed, call dispatcher to deliver this message
+            res = self.dispatcher.deliver(msg=msg)
+        # pack response
+        if res is not None:
+            user = self.facebook.current_user
+            env = Envelope.create(sender=user.identifier, receiver=msg.sender)
+            i_msg = InstantMessage.create(head=env, body=res)
+            s_msg = self.encrypt_message(msg=i_msg)
+            if s_msg is None:
+                raise AssertionError('failed to respond to: %s' % msg.sender)
+            return self.sign_message(msg=s_msg)
 
     #
     #   Session

@@ -35,7 +35,6 @@ from .session import Session, SessionServer
 from .facebook import ServerFacebook
 from .messenger import ServerMessenger
 from .processor import ServerProcessor
-from .transmitter import ServerTransmitter
 from .dispatcher import Dispatcher
 from .filter import Filter
 
@@ -43,6 +42,6 @@ from .filter import Filter
 __all__ = [
 
     'Session', 'SessionServer',
-    'ServerFacebook', 'ServerMessenger', 'ServerProcessor', 'ServerTransmitter',
+    'ServerFacebook', 'ServerMessenger', 'ServerProcessor',
     'Dispatcher', 'Filter',
 ]
