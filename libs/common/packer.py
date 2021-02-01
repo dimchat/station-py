@@ -112,9 +112,10 @@ class CommonPacker(MessagePacker):
         return s_msg
 
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        key = self.facebook.public_key_for_encryption(identifier=msg.sender)
-        if key is None:
-            # sender's meta/visa not ready
-            self.messenger.suspend_message(msg=msg)
-            return None
-        return super().verify_message(msg=msg)
+        s_msg = super().verify_message(msg=msg)
+        if s_msg is None:
+            key = self.facebook.public_key_for_encryption(identifier=msg.sender)
+            if key is None:
+                # sender's meta/visa not ready
+                self.messenger.suspend_message(msg=msg)
+        return s_msg
