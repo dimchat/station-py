@@ -66,9 +66,9 @@ class CommonPacker(MessagePacker):
         group = msg.group
         if group is None:
             receiver = msg.receiver
-            key = self.key_cache.cipher_key(sender=sender, receiver=receiver)
+            key = self.messenger.cipher_key(sender=sender, receiver=receiver)
         else:
-            key = self.key_cache.cipher_key(sender=sender, receiver=group)
+            key = self.messenger.cipher_key(sender=sender, receiver=group)
         # get key data
         data = key.data
         if data is None or len(data) < 6:
@@ -106,7 +106,7 @@ class CommonPacker(MessagePacker):
         receiver = msg.receiver
         if receiver.is_group:
             # reuse group message keys
-            key = self.key_cache.cipher_key(sender=msg.sender, receiver=receiver)
+            key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
             key['reused'] = True
         # TODO: reuse personal message key?
         return s_msg
