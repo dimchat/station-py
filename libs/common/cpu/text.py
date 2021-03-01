@@ -74,7 +74,7 @@ class TextContentProcessor(ContentProcessor):
             self.__dialog = d
         return self.__dialog
 
-    def __query(self, content: Content, sender: ID) -> TextContent:
+    def _query(self, content: Content, sender: ID) -> TextContent:
         dialog = self.dialog
         try:
             return dialog.query(content=content, sender=sender)
@@ -119,7 +119,7 @@ class TextContentProcessor(ContentProcessor):
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
         Log.debug('Received text message from %s: %s' % (nickname, content))
-        response = self.__query(content=content, sender=sender)
+        response = self._query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
             question = content.text

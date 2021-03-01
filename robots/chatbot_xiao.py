@@ -35,7 +35,8 @@ import sys
 import os
 from typing import Optional, List
 
-from dimp import ContentType, Content, TextContent, ReliableMessage
+from dimp import ID
+from dimp import ContentType, Content, TextContent
 from dimsdk import ContentProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -94,8 +95,8 @@ def stat_record(columns: List[str]) -> str:
 #
 class ChatTextContentProcessor(TextContentProcessor, Logging):
 
-    def __stat(self, condition: str) -> Optional[Content]:
-        results = load_statistics(prefix=condition)
+    def __stat(self, condition: str) -> Optional[TextContent]:
+        results = load_statistics(prefix=condition.strip())
         count = len(results)
         self.info('got %d record(s) matched: %s' % (count, condition))
         if count > 32:
@@ -108,15 +109,12 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
             text = 'No record'
         return TextContent(text=text)
 
-    #
-    #   main
-    #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def _query(self, content: Content, sender: ID) -> TextContent:
         assert isinstance(content, TextContent), 'content error: %s' % content
         text = content.text
         if text.startswith('stat') or text.startswith('Stat'):
             return self.__stat(condition=text[5:])
-        return super().process(content=content, msg=msg)
+        return super()._query(content=content, sender=sender)
 
 
 # register
