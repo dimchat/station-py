@@ -103,7 +103,7 @@ class TextContentProcessor(ContentProcessor):
         receiver = msg.receiver
         at = '@%s' % self.facebook.name(identifier=receiver)
         if text.find(at) < 0:
-            Log.info('ignore group message that not querying me: %s' % text)
+            Log.info('ignore group message that not querying me(%s): %s' % (at, text))
             return True
         # TODO: remove all '@nickname'
         text = text.replace(at, '')
@@ -128,6 +128,7 @@ class TextContentProcessor(ContentProcessor):
             if group is None:
                 # personal message
                 Log.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+                return response
             else:
                 # group message
                 Log.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
@@ -137,7 +138,6 @@ class TextContentProcessor(ContentProcessor):
                 else:
                     text = 'Group message respond failed'
                     return ReceiptCommand(message=text)
-            return response
 
 
 # register

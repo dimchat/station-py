@@ -95,7 +95,7 @@ def stat_record(columns: List[str]) -> str:
 #
 class ChatTextContentProcessor(TextContentProcessor, Logging):
 
-    def __stat(self, condition: str) -> Optional[TextContent]:
+    def __stat(self, condition: str, group: Optional[ID]) -> Optional[TextContent]:
         results = load_statistics(prefix=condition.strip())
         count = len(results)
         self.info('got %d record(s) matched: %s' % (count, condition))
@@ -107,13 +107,16 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
                 text += stat_record(columns=item.split('\t'))
         else:
             text = 'No record'
-        return TextContent(text=text)
+        res = TextContent(text=text)
+        if group is not None:
+            res.group = group
+        return res
 
     def _query(self, content: Content, sender: ID) -> TextContent:
         assert isinstance(content, TextContent), 'content error: %s' % content
         text = content.text
         if text.startswith('stat') or text.startswith('Stat'):
-            return self.__stat(condition=text[5:])
+            return self.__stat(condition=text[5:], group=content.group)
         return super()._query(content=content, sender=sender)
 
 

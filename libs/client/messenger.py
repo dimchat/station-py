@@ -58,7 +58,9 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
         self.__group_queries = {}     # ID -> time
 
     def _create_facebook(self) -> ClientFacebook:
-        return ClientFacebook()
+        facebook = ClientFacebook()
+        facebook.messenger = self
+        return facebook
 
     def _create_processor(self) -> Transceiver.Processor:
         from .processor import ClientProcessor
