@@ -4,7 +4,7 @@ ecdsa>=0.16.1
 Flask
 xmltodict
 mkm
-dkd
+dkd>=0.10.13
 dimp
 dimsdk>=0.5.10
 udp

@@ -95,6 +95,7 @@ class PrivateKeyTable(Storage):
             self.__meta_private_keys[identifier] = key
         if key is not self.__empty:
             return key
+        self.error('private key not found: %s' % identifier)
 
     def __message_keys(self, identifier: ID) -> List[PrivateKey]:
         # 1. try from memory cache
