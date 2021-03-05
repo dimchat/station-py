@@ -69,24 +69,12 @@ def show_help(path):
           '\n        generate                Generate account.'
           '\n        modify                  Modify account info.'
           '\n        help                    Show help for commands.'
-          '\n'
-          '\n    Options:'
-          '\n        -h, --help              Show this information'
           '\n\n' % path)
 
 
 def do_help(path: str, args):
     if len(args) == 1:
         cmd = args[0]
-        if cmd == 'help':
-            print('\n'
-                  '\n    Usage:'
-                  '\n        %s help <command>'
-                  '\n'
-                  '\n    Description:'
-                  '\n        Show help for commands'
-                  '\n\n' % path)
-            return
         if cmd == 'generate':
             print('\n'
                   '\n    Usages:'
@@ -100,7 +88,7 @@ def do_help(path: str, args):
                   '\n        --founder <ID>                  Generate group meta with founder ID.'
                   '\n\n' % path)
             return
-        if cmd == 'modify':
+        elif cmd == 'modify':
             print('\n'
                   '\n    Usages:'
                   '\n        %s modify <ID> [options]'
@@ -113,9 +101,20 @@ def do_help(path: str, args):
                   '\n        --avatar <URL>                  Change avatar URL for user.'
                   '\n        --host <IP>                     Change IP for station.'
                   '\n        --port <number>                 Change port for station.'
+                  '\n        --owner <ID>                    Change group info with owner ID.'
                   '\n\n' % path)
             return
-    return show_help(path)
+    print('\n'
+          '\n    Usage:'
+          '\n        %s help <command>'
+          '\n'
+          '\n    Description:'
+          '\n        Show help for commands'
+          '\n'
+          '\n    Commands:'
+          '\n        generate'
+          '\n        modify'
+          '\n\n' % path)
 
 
 def do_generate(path: str, args):
@@ -149,12 +148,14 @@ def do_generate(path: str, args):
         if network_type is not None:
             # 1. generate private key
             if network_is_group(network=network_type):
+                # get private key from founder of group
                 founder = ID.parse(get_opt(args=args, key='--founder'))
                 if not isinstance(founder, ID):
                     return do_help(path=path, args=['generate'])
                 pri_key = g_facebook.private_key_for_visa_signature(identifier=founder)
-                assert isinstance(pri_key, PrivateKey), 'failed to get private key: %s' % founder
+                assert isinstance(pri_key, PrivateKey), 'failed to get private key for founder: %s' % founder
             else:
+                # generate private key for user
                 pri_key = PrivateKey.generate(algorithm=PrivateKey.ECC)
                 assert isinstance(pri_key, PrivateKey), 'failed to generate ECC key'
             # 2. generate meta
@@ -183,6 +184,7 @@ def do_modify(path: str, args):
             name = g_facebook.name(identifier=identifier)
         doc = g_facebook.document(identifier=identifier)
         if identifier.type == NetworkType.STATION:
+            # modify station profile
             if doc is None:
                 doc = Document.create(doc_type=Document.PROFILE, identifier=identifier)
             host = get_opt(args=args, key='--host')
@@ -206,6 +208,7 @@ def do_modify(path: str, args):
                   '\n        port=%d'
                   '\n\n' % (identifier, name, host, port))
         elif identifier.is_user:
+            # modify user visa
             if doc is None:
                 doc = Document.create(doc_type=Document.VISA, identifier=identifier)
             assert isinstance(doc, Visa), 'user document error: %s -> %s' % (identifier, doc)
@@ -221,6 +224,7 @@ def do_modify(path: str, args):
                   '\n        avatar="%s"'
                   '\n\n' % (identifier, name, avatar))
         elif identifier.is_group:
+            # modify group bulletin
             if doc is None:
                 doc = Document.create(doc_type=Document.VISA, identifier=identifier)
             print('\n'
@@ -233,7 +237,17 @@ def do_modify(path: str, args):
             if 'expires' in doc:
                 del doc['expires']
             # sign document
-            sign_key = g_facebook.private_key_for_visa_signature(identifier=identifier)
+            if network_is_group(network=identifier.type):
+                # get private key from founder of group
+                owner = ID.parse(get_opt(args=args, key='--owner'))
+                if not isinstance(owner, ID):
+                    return do_help(path=path, args=['modify'])
+                sign_key = g_facebook.private_key_for_visa_signature(identifier=owner)
+                assert isinstance(sign_key, PrivateKey), 'failed to get private key for owner: %s' % owner
+            else:
+                # get private key from user
+                sign_key = g_facebook.private_key_for_visa_signature(identifier=identifier)
+                assert isinstance(sign_key, PrivateKey), 'failed to get private key: %s' % identifier
             doc.sign(private_key=sign_key)
             g_facebook.save_document(document=doc)
             return
@@ -242,19 +256,15 @@ def do_modify(path: str, args):
 
 def parse_command(argv: list):
     path = argv[0]
-    if len(argv) == 1:
-        return show_help(path=path)
-    for item in argv:
-        if item in ['-h', '--help']:
-            return show_help(path=path)
-    # check command
-    cmd = argv[1]
-    if cmd == 'generate':
-        return do_generate(path=path, args=argv[2:])
-    if cmd == 'modify':
-        return do_modify(path=path, args=argv[2:])
-    if cmd == 'help':
-        return do_help(path=path, args=argv[2:])
+    if len(argv) > 1:
+        cmd = argv[1]
+        # check command
+        if cmd == 'generate':
+            return do_generate(path=path, args=argv[2:])
+        if cmd == 'modify':
+            return do_modify(path=path, args=argv[2:])
+        if cmd == 'help':
+            return do_help(path=path, args=argv[2:])
     # command error
     return show_help(path=path)
 
