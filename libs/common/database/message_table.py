@@ -25,7 +25,7 @@
 
 import os
 import time
-from typing import List
+from typing import List, Optional
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
@@ -35,6 +35,8 @@ from .storage import Storage
 
 
 class MessageTable(Storage):
+
+    MESSAGE_EXPIRES = 3600 * 24 * 7  # only relay cached messages within 7 days
 
     def __init__(self):
         super().__init__()
@@ -65,6 +67,7 @@ class MessageTable(Storage):
         text = self.read_text(path=path)
         lines = text.splitlines()
         self.debug('read %d line(s) from %s' % (len(lines), path))
+        expires = time.time() - self.MESSAGE_EXPIRES
         messages = []
         for line in lines:
             msg = line.strip()
@@ -74,9 +77,14 @@ class MessageTable(Storage):
             try:
                 msg = json_decode(data=utf8_encode(string=msg))
                 msg = ReliableMessage.parse(msg=msg)
-                messages.append(msg)
             except Exception as error:
                 self.error('message package error %s, %s' % (error, line))
+                continue
+            if isinstance(msg, ReliableMessage):
+                if msg.time < expires:
+                    self.warning('drop expired msg: %s' % msg.envelope)
+                else:
+                    messages.append(msg)
         return messages
 
     def __message_exists(self, msg: ReliableMessage, path: str) -> bool:
@@ -104,7 +112,7 @@ class MessageTable(Storage):
         data = data + '\n'
         return self.append_text(text=data, path=path)
 
-    def load_message_batch(self, receiver: ID) -> dict:
+    def load_message_batch(self, receiver: ID) -> Optional[dict]:
         # message directory
         directory = self.__directory(receiver)
         # get all files in messages directory and sort by filename

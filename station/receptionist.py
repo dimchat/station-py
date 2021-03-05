@@ -150,7 +150,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     def __process_guests(self, guests: List[ID]):
         for identifier in guests:
             if identifier is None:
-                # FIXME: while empty ID added?
+                # FIXME: why empty ID added?
                 continue
             # 1. scan offline messages
             self.debug('%s is connected, scanning messages for it' % identifier)
@@ -165,7 +165,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 continue
             messages = batch.get('messages')
             if messages is None or len(messages) == 0:
-                self.error('message batch error: %s' % batch)
+                self.warning('message batch empty: %s' % batch)
                 # raise AssertionError('message batch error: %s' % batch)
                 continue
             self.debug('got %d message(s) for %s' % (len(messages), identifier))
