@@ -154,6 +154,10 @@ def do_generate(path: str, args):
                     return do_help(path=path, args=['generate'])
                 pri_key = g_facebook.private_key_for_visa_signature(identifier=founder)
                 assert isinstance(pri_key, PrivateKey), 'failed to get private key for founder: %s' % founder
+            elif network_type in [NetworkType.STATION, NetworkType.ROBOT]:
+                # generate private key for station/robot
+                pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
+                assert isinstance(pri_key, PrivateKey), 'failed to generate RSA key'
             else:
                 # generate private key for user
                 pri_key = PrivateKey.generate(algorithm=PrivateKey.ECC)

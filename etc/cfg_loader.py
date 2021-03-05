@@ -58,28 +58,30 @@ def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Statio
         elif not facebook.save_private_key(key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
     # check profile
-    profile = load_station_info(identifier=identifier, filename='profile.js')
+    profile = facebook.document(identifier=identifier)
     if profile is None:
-        raise LookupError('failed to get profile for station: %s' % identifier)
-    Log.info('station profile: %s' % profile)
-    name = profile.get('name')
-    host = profile.get('host')
-    port = profile.get('port')
-    # create station
-    if private_key is None:
-        # remote station
-        station = Station(identifier=identifier, host=host, port=port)
+        # create station profile from 'etc/xxx/profile.js'
+        profile = load_station_info(identifier=identifier, filename='profile.js')
+        if profile is None:
+            raise LookupError('failed to get profile for station: %s' % identifier)
+        Log.info('station profile: %s' % profile)
+        name = profile.get('name')
+        host = profile.get('host')
+        port = profile.get('port')
+        if private_key is not None:
+            # create profile
+            profile = Document.create(doc_type=Document.PROFILE, identifier=identifier)
+            profile.set_property('name', name)
+            profile.set_property('host', host)
+            profile.set_property('port', port)
+            profile.sign(private_key=private_key)
+            if not facebook.save_document(document=profile):
+                raise AssertionError('failed to save profile: %s' % profile)
     else:
-        # create profile
-        profile = Document.create(doc_type=Document.PROFILE, identifier=identifier)
-        profile.set_property('name', name)
-        profile.set_property('host', host)
-        profile.set_property('port', port)
-        profile.sign(private_key=private_key)
-        if not facebook.save_document(document=profile):
-            raise AssertionError('failed to save profile: %s' % profile)
-        # local station
-        station = Station(identifier=identifier, host=host, port=port)
+        host = profile.get_property('host')
+        port = profile.get_property('port')
+    # create station
+    station = Station(identifier=identifier, host=host, port=port)
     facebook.cache_user(user=station)
     Log.info('station loaded: %s' % station)
     return station
@@ -117,18 +119,21 @@ def load_user(identifier: str, facebook: CommonFacebook) -> User:
         elif not facebook.save_private_key(key=private_key, identifier=identifier):
             raise AssertionError('failed to save private key for ID: %s, %s' % (identifier, private_key))
     # check profile
-    profile = load_robot_info(identifier=identifier, filename='profile.js')
+    profile = facebook.document(identifier=identifier)
     if profile is None:
-        raise LookupError('failed to get profile for robot: %s' % identifier)
-    Log.info('robot profile: %s' % profile)
-    name = profile.get('name')
-    avatar = profile.get('avatar')
-    # create profile
-    profile = Document.create(doc_type=Document.VISA, identifier=identifier)
-    profile.set_property('name', name)
-    profile.set_property('avatar', avatar)
-    profile.sign(private_key=private_key)
-    if not facebook.save_document(document=profile):
-        raise AssertionError('failed to save profile: %s' % profile)
+        # create robot visa from 'etc/xxx/profile.js'
+        profile = load_robot_info(identifier=identifier, filename='profile.js')
+        if profile is None:
+            raise LookupError('failed to get profile for robot: %s' % identifier)
+        Log.info('robot profile: %s' % profile)
+        name = profile.get('name')
+        avatar = profile.get('avatar')
+        # create profile
+        profile = Document.create(doc_type=Document.VISA, identifier=identifier)
+        profile.set_property('name', name)
+        profile.set_property('avatar', avatar)
+        profile.sign(private_key=private_key)
+        if not facebook.save_document(document=profile):
+            raise AssertionError('failed to save profile: %s' % profile)
     # create local user
     return facebook.user(identifier=identifier)
