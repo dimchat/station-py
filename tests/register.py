@@ -36,7 +36,7 @@ import random
 import sys
 import os
 
-from dimp import PrivateKey
+from dimp import PrivateKey, EncryptKey
 from dimp import NetworkType, ID, MetaType, Meta, Document, Visa
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -249,6 +249,16 @@ def do_modify(path: str, args):
                 sign_key = g_facebook.private_key_for_visa_signature(identifier=owner)
                 assert isinstance(sign_key, PrivateKey), 'failed to get private key for owner: %s' % owner
             else:
+                # check visa key for user
+                dec_key = g_facebook.private_keys_for_decryption(identifier=identifier)
+                if dec_key is None:
+                    dec_key: PrivateKey = PrivateKey.generate(algorithm=PrivateKey.RSA)
+                    ok = g_facebook.save_private_key(key=dec_key, identifier=identifier, key_type='V')
+                    assert ok, 'failed to save private message key: %s' % identifier
+                    enc_key = dec_key.public_key
+                    assert isinstance(enc_key, EncryptKey), 'failed to get visa.key: %s' % identifier
+                    assert isinstance(doc, Visa), 'user document error: %s' % doc
+                    doc.key = enc_key
                 # get private key from user
                 sign_key = g_facebook.private_key_for_visa_signature(identifier=identifier)
                 assert isinstance(sign_key, PrivateKey), 'failed to get private key: %s' % identifier

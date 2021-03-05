@@ -43,7 +43,7 @@ class PrivateKeyTable(Storage):
         self.__visa_private_keys: Dict[ID, List[PrivateKey]] = {}
         self.__empty = {'desc': 'just to avoid loading non-exists file again'}
 
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str='M'):
+    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M'):
         if key_type == 'M':
             return self.__save_identify_key(key=key, identifier=identifier)
         else:
