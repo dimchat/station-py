@@ -84,8 +84,8 @@ def do_help(path: str, args):
                   '\n        Generate account with type, e.g. "USER", "GROUP", "STATION", "ROBOT".'
                   '\n'
                   '\n    Generate Options:'
-                  '\n        --seed <username>               Generate meta with seed string.'
-                  '\n        --founder <ID>                  Generate group meta with founder ID.'
+                  '\n        --seed <username>       Generate meta with seed string.'
+                  '\n        --founder <ID>          Generate group meta with founder ID.'
                   '\n\n' % path)
             return
         elif cmd == 'modify':
@@ -97,11 +97,11 @@ def do_help(path: str, args):
                   '\n        Modify account document with ID.'
                   '\n'
                   '\n    Modify Options:'
-                  '\n        --name <name>                   Change name for user/group.'
-                  '\n        --avatar <URL>                  Change avatar URL for user.'
-                  '\n        --host <IP>                     Change IP for station.'
-                  '\n        --port <number>                 Change port for station.'
-                  '\n        --owner <ID>                    Change group info with owner ID.'
+                  '\n        --name <name>           Change name for user/group.'
+                  '\n        --avatar <URL>          Change avatar URL for user.'
+                  '\n        --host <IP>             Change IP for station.'
+                  '\n        --port <number>         Change port for station.'
+                  '\n        --owner <ID>            Change group info with owner ID.'
                   '\n\n' % path)
             return
     print('\n'

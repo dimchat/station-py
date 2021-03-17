@@ -35,6 +35,8 @@
     for login user
 """
 
+import threading
+import time
 import weakref
 from abc import abstractmethod
 from weakref import WeakValueDictionary
@@ -46,13 +48,14 @@ from dimp import ID, ReliableMessage
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
+from ..common import Database
 
 
 def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
 
-class Session:
+class Session(threading.Thread):
 
     class Handler:
         """ Session handler """
@@ -66,13 +69,22 @@ class Session:
         self.__address = client_address
         self.__handler = weakref.ref(handler)
         self.__identifier = None
-        self.__active = True
+        self.__active = False
+        self.__waiting_messages = []  # List[ReliableMessage]
+        self.__lock = threading.Lock()
 
     def __str__(self):
         clazz = self.__class__.__name__
         return '<%s:%s %s|%s active=%d />' % (clazz, self.__key,
                                               self.__address, self.__identifier,
                                               self.__active)
+
+    def __del__(self):
+        if len(self.__waiting_messages) > 0:
+            # store stranded messages
+            db = Database()
+            for msg in self.__waiting_messages:
+                db.store_message(msg=msg)
 
     @property
     def key(self) -> str:
@@ -103,12 +115,33 @@ class Session:
 
     @active.setter
     def active(self, value: bool):
-        self.__active = value
+        with self.__lock:
+            if value != self.__active:
+                self.__active = value
+                if value:
+                    self.start()
+
+    def run(self):
+        while self.__active:
+            # get next message
+            msg = self.__next_message()
+            if msg is None:
+                time.sleep(0.5)
+            else:
+                self.handler.push_message(msg=msg)
+                time.sleep(0.1)
+
+    def __next_message(self) -> Optional[ReliableMessage]:
+        with self.__lock:
+            if len(self.__waiting_messages) > 0:
+                return self.__waiting_messages.pop(0)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
-        if self.__active:
-            return self.handler.push_message(msg=msg)
+        with self.__lock:
+            if self.__active:
+                self.__waiting_messages.append(msg)
+            return self.__active
 
 
 @Singleton
