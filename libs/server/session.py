@@ -127,9 +127,14 @@ class Session(threading.Thread):
             msg = self.__next_message()
             if msg is None:
                 time.sleep(0.5)
-            else:
-                self.handler.push_message(msg=msg)
+            elif self.handler.push_message(msg=msg):
                 time.sleep(0.1)
+            else:
+                # failed to push message
+                with self.__lock:
+                    self.__waiting_messages.insert(0, msg)
+                    # self.__active = False
+                time.sleep(2)
 
     def __next_message(self) -> Optional[ReliableMessage]:
         with self.__lock:
