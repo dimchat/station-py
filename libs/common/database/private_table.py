@@ -69,9 +69,10 @@ class PrivateKeyTable(Storage):
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         
         1. Identify Key - paired to meta.key, CONSTANT
+            file path: '.dim/private/{ADDRESS}/secret.js'
+        
         2. Message Key  - paired to visa.key, VOLATILE
-
-        file path: '.dim/private/{ADDRESS}/secret.js'
+            file path: '.dim/private/{ADDRESS}/secret_keys.js'
     """
     def __identity_key_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'private', str(identifier.address), 'secret.js')

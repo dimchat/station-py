@@ -90,12 +90,14 @@ class ServerMessenger(CommonMessenger):
             res = self.dispatcher.deliver(msg=msg)
         # pack response
         if res is not None:
+            if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
+                self.info('waiting visa key for: %s' % msg.sender)
+                return None
             user = self.facebook.current_user
             env = Envelope.create(sender=user.identifier, receiver=msg.sender)
             i_msg = InstantMessage.create(head=env, body=res)
             s_msg = self.encrypt_message(msg=i_msg)
-            if s_msg is None:
-                raise AssertionError('failed to respond to: %s' % msg.sender)
+            assert s_msg is not None, 'failed to respond to: %s' % msg.sender
             return self.sign_message(msg=s_msg)
 
     #

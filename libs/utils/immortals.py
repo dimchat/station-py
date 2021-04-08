@@ -155,7 +155,7 @@ class Immortals(UserDataSource):
     def meta(self, identifier: ID) -> Optional[Meta]:
         return self.__metas.get(identifier)
 
-    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         return self.__profiles.get(identifier)
 
     #

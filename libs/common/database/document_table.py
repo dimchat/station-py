@@ -62,7 +62,7 @@ class DocumentTable(Storage):
         self.info('Saving document into: %s' % path)
         return self.write_json(container=document.dictionary, path=path)
 
-    def document(self, identifier: ID, doc_type: Optional[str]='*') -> Optional[Document]:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         # 1. try from memory cache
         info = self.__caches.get(identifier)
         if info is None:

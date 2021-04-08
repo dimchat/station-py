@@ -30,10 +30,9 @@
 
 from typing import Optional
 
-from dimp import ReliableMessage
+from dimp import SecureMessage, ReliableMessage
 
 from ..common import CommonProcessor
-
 from .messenger import ServerMessenger
 
 
@@ -67,12 +66,16 @@ class ServerProcessor(CommonProcessor):
                 # just deliver it to the group assistant
                 # and return the response to the sender.
                 return res
-        # try to decrypt and process message
+        # call super to process message
+        return super().process_reliable_message(msg=msg)
+
+    # Override
+    def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> Optional[SecureMessage]:
         try:
-            return super().process_reliable_message(msg=msg)
+            return super().process_secure_message(msg=msg, r_msg=r_msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
-                return self.messenger.deliver_message(msg=msg)
+                return self.messenger.deliver_message(msg=r_msg)
             else:
                 raise error
