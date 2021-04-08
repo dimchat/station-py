@@ -30,12 +30,11 @@
     Transform and send message
 """
 
-import time
-from typing import List, Optional
+from typing import Optional
 
 from dimp import ID, EVERYWHERE, User
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimp import Command
 from dimp import Processor
 
 from ..utils import NotificationCenter
@@ -54,17 +53,11 @@ g_facebook = ServerFacebook()
 
 class ServerMessenger(CommonMessenger):
 
-    EXPIRES = 3600  # query expires (1 hour)
-
     def __init__(self):
         super().__init__()
         from .filter import Filter
         self.__filter = Filter(messenger=self)
         self.__session: Optional[Session] = None
-        # for checking duplicated queries
-        self.__meta_queries = {}      # ID -> time
-        self.__document_queries = {}  # ID -> time
-        self.__group_queries = {}     # ID -> time
 
     @property
     def facebook(self) -> ServerFacebook:
@@ -141,6 +134,32 @@ class ServerMessenger(CommonMessenger):
         return self.get_context(key='remote_address')
 
     #
+    #   Sending command
+    #
+    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+        if receiver is None:
+            receiver = ID.create(name='station', address=EVERYWHERE)
+        station = self.get_context(key='station')
+        if station is None:
+            user = self.facebook.current_user
+            if user is None:
+                return False
+            sender = user.identifier
+        else:
+            sender = station.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=cmd)
+        s_msg = self.encrypt_message(msg=i_msg)
+        if s_msg is None:
+            # failed to encrypt message
+            return False
+        r_msg = self.sign_message(msg=s_msg)
+        assert r_msg is not None, 'failed to sign message: %s' % s_msg
+        r_msg.delegate = self
+        self.dispatcher.deliver(msg=r_msg)
+        return True
+
+    #
     #   HandshakeDelegate
     #
     def handshake_accepted(self, session: Session):
@@ -156,70 +175,3 @@ class ServerMessenger(CommonMessenger):
             'ID': sender,
             'client_address': client_address,
         })
-
-    #
-    #   Command
-    #
-    def __send_command(self, cmd: Command) -> bool:
-        everyone = ID.create(name='station', address=EVERYWHERE)
-        return self.__send_content(content=cmd, receiver=everyone)
-
-    def __send_content(self, content: Content, receiver: ID) -> bool:
-        station = self.get_context(key='station')
-        if station is None:
-            user = self.facebook.current_user
-            if user is None:
-                return False
-            sender = user.identifier
-        else:
-            sender = station.identifier
-        env = Envelope.create(sender=sender, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=content)
-        s_msg = self.encrypt_message(msg=i_msg)
-        if s_msg is None:
-            # failed to encrypt message
-            return False
-        r_msg = self.sign_message(msg=s_msg)
-        assert r_msg is not None, 'failed to sign message: %s' % s_msg
-        r_msg.delegate = self
-        self.dispatcher.deliver(msg=r_msg)
-        return True
-
-    def query_meta(self, identifier: ID) -> bool:
-        now = time.time()
-        last = self.__meta_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        self.__meta_queries[identifier] = now
-        # query from DIM network
-        self.info('querying meta for %s' % identifier)
-        cmd = MetaCommand(identifier=identifier)
-        return self.__send_command(cmd=cmd)
-
-    def query_document(self, identifier: ID) -> bool:
-        now = time.time()
-        last = self.__document_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        self.__document_queries[identifier] = now
-        # query from DIM network
-        self.info('querying document for %s' % identifier)
-        cmd = DocumentCommand(identifier=identifier)
-        return self.__send_command(cmd=cmd)
-
-    # FIXME: separate checking for querying each user
-    def query_group(self, group: ID, users: List[ID]) -> bool:
-        now = time.time()
-        last = self.__group_queries.get(group, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        if len(users) == 0:
-            return False
-        self.__group_queries[group] = now
-        # query from users
-        cmd = GroupCommand.query(group=group)
-        checking = False
-        for item in users:
-            if self.__send_content(content=cmd, receiver=item):
-                checking = True
-        return checking

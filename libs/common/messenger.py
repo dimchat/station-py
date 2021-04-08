@@ -30,11 +30,13 @@
     Transform and send message
 """
 
+import time
 from abc import abstractmethod
 from typing import Optional, Union, List
 
 from dimp import ID, SymmetricKey
-from dimp import Content, InstantMessage, SecureMessage, ReliableMessage
+from dimp import InstantMessage, SecureMessage, ReliableMessage
+from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
@@ -47,9 +49,15 @@ from .facebook import CommonFacebook
 
 class CommonMessenger(Messenger):
 
+    EXPIRES = 3600  # query expires (1 hour)
+
     def __init__(self):
         super().__init__()
         self.__context = {}
+        # for checking duplicated queries
+        self.__meta_queries = {}      # ID -> time
+        self.__document_queries = {}  # ID -> time
+        self.__group_queries = {}     # ID -> time
 
     @property
     def context(self) -> dict:
@@ -145,16 +153,47 @@ class CommonMessenger(Messenger):
     #   Interfaces for Sending Commands
     #
     @abstractmethod
+    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+        raise NotImplemented
+
     def query_meta(self, identifier: ID) -> bool:
-        raise NotImplemented
+        now = time.time()
+        last = self.__meta_queries.get(identifier, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        self.__meta_queries[identifier] = now
+        # query from DIM network
+        self.info('querying meta for %s' % identifier)
+        cmd = MetaCommand(identifier=identifier)
+        return self._send_command(cmd=cmd)
 
-    @abstractmethod
     def query_document(self, identifier: ID) -> bool:
-        raise NotImplemented
+        now = time.time()
+        last = self.__document_queries.get(identifier, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        self.__document_queries[identifier] = now
+        # query from DIM network
+        self.info('querying document for %s' % identifier)
+        cmd = DocumentCommand(identifier=identifier)
+        return self._send_command(cmd=cmd)
 
-    @abstractmethod
+    # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: List[ID]) -> bool:
-        raise NotImplemented
+        now = time.time()
+        last = self.__group_queries.get(group, 0)
+        if (now - last) < self.EXPIRES:
+            return False
+        if len(users) == 0:
+            return False
+        self.__group_queries[group] = now
+        # query from users
+        cmd = GroupCommand.query(group=group)
+        checking = False
+        for item in users:
+            if self._send_command(cmd=cmd, receiver=item):
+                checking = True
+        return checking
 
 
 @Singleton

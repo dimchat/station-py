@@ -41,7 +41,7 @@ from dimsdk import Station
 from libs.utils import Log
 from libs.common import AddressNameServer
 from libs.common import Storage, Database, KeyStore
-from libs.server import ServerFacebook
+from libs.server import ServerFacebook, ServerMessenger
 from libs.server import Dispatcher
 
 #
@@ -88,6 +88,7 @@ g_ans = AddressNameServer()
     Barrack for cache entities
 """
 g_facebook = ServerFacebook()
+g_facebook.messenger = ServerMessenger()
 
 
 """

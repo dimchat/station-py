@@ -30,12 +30,11 @@
     Transform and send message
 """
 
-import time
 import weakref
-from typing import List, Optional
+from typing import Optional
 
 from dimp import ID, EVERYONE
-from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimp import Command
 from dimp import Transceiver
 from dimsdk import LoginCommand, Station
 
@@ -79,57 +78,18 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     def server(self) -> Server:
         return self.terminal.server
 
-    def broadcast_content(self, content: Content) -> bool:
-        return self.send_content(sender=None, receiver=EVERYONE, content=content)
-
     #
-    #   Command
+    #   Sending command
     #
-    def __send_command(self, cmd: Command) -> bool:
-        station = self.server
-        if station is None:
-            # raise ValueError('current station not set')
-            return False
-        return self.send_content(sender=None, receiver=station.identifier, content=cmd)
-
-    def query_meta(self, identifier: ID) -> bool:
-        now = time.time()
-        last = self.__meta_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        self.__meta_queries[identifier] = now
-        # query from DIM network
-        self.info('querying meta for %s' % identifier)
-        cmd = MetaCommand(identifier=identifier)
-        return self.__send_command(cmd=cmd)
-
-    def query_document(self, identifier: ID) -> bool:
-        now = time.time()
-        last = self.__document_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        self.__document_queries[identifier] = now
-        # query from DIM network
-        self.info('querying document for %s' % identifier)
-        cmd = DocumentCommand(identifier=identifier)
-        return self.__send_command(cmd=cmd)
-
-    # FIXME: separate checking for querying each user
-    def query_group(self, group: ID, users: List[ID]) -> bool:
-        now = time.time()
-        last = self.__group_queries.get(group, 0)
-        if (now - last) < self.EXPIRES:
-            return False
-        if len(users) == 0:
-            return False
-        self.__group_queries[group] = now
-        # query from users
-        cmd = GroupCommand.query(group=group)
-        checking = False
-        for item in users:
-            if self.send_content(sender=None, receiver=item, content=cmd):
-                checking = True
-        return checking
+    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+        if receiver is None:
+            station = self.server
+            if station is None:
+                # raise ValueError('current station not set')
+                return False
+            else:
+                receiver = station.identifier
+        return self.send_content(sender=None, receiver=receiver, content=cmd)
 
     #
     #   Server Delegate
@@ -144,5 +104,4 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
         login = LoginCommand(identifier=user.identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
         login.station = self.server
-        # self.messenger.broadcast_content(content=login)
         return self.send_content(sender=user.identifier, receiver=EVERYONE, content=login)
