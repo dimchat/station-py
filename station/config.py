@@ -88,7 +88,9 @@ g_ans = AddressNameServer()
     Barrack for cache entities
 """
 g_facebook = ServerFacebook()
-g_facebook.messenger = ServerMessenger()
+
+g_messenger = ServerMessenger()
+g_facebook.messenger = g_messenger
 
 
 """
