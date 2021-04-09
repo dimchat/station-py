@@ -34,8 +34,8 @@ import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from dimp import ID
-from dimp import Envelope, InstantMessage
+from dimp import ID, User
+from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
 from dimsdk import Station, MessengerDelegate, CompletionHandler
 
@@ -91,16 +91,17 @@ class Server(Station, MessengerDelegate):
     #
     def handshake(self, session: Optional[str] = None):
         user = self.facebook.current_user
-        assert user is not None, 'current user not set yet'
+        assert isinstance(user, User), 'current user not set yet'
         cmd = HandshakeCommand.start(session=session)
         env = Envelope.create(sender=user.identifier, receiver=self.identifier)
         i_msg = InstantMessage.create(head=env, body=cmd)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
         assert s_msg is not None, 'failed to handshake with server: %s' % self.identifier
         r_msg = self.messenger.sign_message(msg=s_msg)
-        assert r_msg is not None, 'failed to sign message as user: %s' % user.identifier
-        # carry meta for first handshake
+        assert isinstance(r_msg, ReliableMessage), 'failed to sign message as user: %s' % user.identifier
+        # carry meta, visa for first handshaking
         r_msg.meta = user.meta
+        r_msg.visa = user.visa
         data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
         self.messenger.send_package(data=data, handler=None)

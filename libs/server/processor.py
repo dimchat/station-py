@@ -67,7 +67,17 @@ class ServerProcessor(CommonProcessor):
                 # and return the response to the sender.
                 return res
         # call super to process message
-        return super().process_reliable_message(msg=msg)
+        res = super().process_reliable_message(msg=msg)
+        if res is not None:
+            group = msg.group
+            if (receiver.is_broadcast and receiver.is_user) or (group is not None and group.is_broadcast):
+                # if this message sent to 'station@anywhere', or with group ID 'station@everywhere',
+                # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
+                # so respond them as message attachments.
+                user = self.facebook.user(identifier=res.sender)
+                res.meta = user.meta
+                res.visa = user.visa
+            return res
 
     # Override
     def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> Optional[SecureMessage]:

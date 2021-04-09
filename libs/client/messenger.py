@@ -46,8 +46,6 @@ from .facebook import ClientFacebook
 
 class ClientMessenger(CommonMessenger, ServerDelegate):
 
-    EXPIRES = 600  # query expires (10 minutes)
-
     def __init__(self):
         super().__init__()
         self.__terminal: Optional[weakref.ReferenceType] = None

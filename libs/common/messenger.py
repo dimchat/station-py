@@ -49,7 +49,7 @@ from .facebook import CommonFacebook
 
 class CommonMessenger(Messenger):
 
-    EXPIRES = 3600  # query expires (1 hour)
+    EXPIRES = 120  # query expires (2 minutes)
 
     def __init__(self):
         super().__init__()
