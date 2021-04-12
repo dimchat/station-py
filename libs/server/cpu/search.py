@@ -33,12 +33,14 @@
 
 from typing import Optional
 
-from dimp import Meta
+from dimp import ID, Meta
 from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import CommandProcessor
 
+from ...utils import NotificationCenter
+from ...common import NotificationNames
 from ...common import SearchCommand
 from ...common import Database
 
@@ -51,8 +53,8 @@ g_database = Database()
 
 class SearchCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
+    @staticmethod
+    def __search(cmd: SearchCommand) -> Optional[Content]:
         # keywords
         keywords = cmd.get('keywords')
         if keywords is None:
@@ -61,21 +63,86 @@ class SearchCommandProcessor(CommandProcessor):
         # search in database
         results = g_database.search(keywords=keywords)
         users = list(results.keys())
-        return SearchCommand(users=users, results=results)
+        return _new_search_command(cmd=cmd, users=users, results=results)
+
+    def __process(self, cmd: SearchCommand) -> Optional[Content]:
+        # save meta for users
+        _save_metas(cmd=cmd, facebook=self.facebook)
+        # TODO: show users?
+        return None
+
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
+        users = cmd.users
+        if users is None:
+            return self.__search(cmd=cmd)
+        else:
+            return self.__process(cmd=cmd)
+
+
+def _new_search_command(cmd: SearchCommand, users: list, results: dict) -> SearchCommand:
+    info = cmd.copy_dictionary(False)
+    info.pop('sn', None)
+    info.pop('time', None)
+    cmd = SearchCommand(cmd=info)
+    cmd.users = users
+    cmd.results = results
+    return cmd
+
+
+def _get_int(cmd: SearchCommand, key: str, default: int = 0) -> int:
+    value = cmd.get(key)
+    if value is None:
+        return default
+    else:
+        return int(value)
+
+
+def _save_metas(cmd: SearchCommand, facebook):
+    results = cmd.results
+    for key, value in results.items():
+        identifier = ID.parse(identifier=key)
+        meta = Meta.parse(meta=value)
+        if identifier is not None and meta is not None:
+            # assert meta.match_identifier(identifier=identifier), 'meta error'
+            facebook.save_meta(meta=meta, identifier=identifier)
 
 
 class UsersCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(cmd, Command), 'command error: %s' % cmd
+    def __search(self, cmd: SearchCommand) -> Optional[Content]:
         facebook = self.facebook
-        users = g_session_server.random_users()
+        start = _get_int(cmd=cmd, key='start', default=0)
+        count = _get_int(cmd=cmd, key='count', default=20)
+        # get active users
+        users = g_session_server.active_users(start=start, count=count)
         results = {}
         for item in users:
             meta = facebook.meta(identifier=item)
             if isinstance(meta, Meta):
                 results[str(item)] = meta.dictionary
-        return SearchCommand(users=list(users), results=results)
+        return _new_search_command(cmd=cmd, users=list(users), results=results)
+
+    def __process(self, cmd: SearchCommand) -> Optional[Content]:
+        # save meta for users
+        _save_metas(cmd=cmd, facebook=self.facebook)
+        # post roamers
+        nc = NotificationCenter()
+        users = cmd.users
+        for item in users:
+            # post notification: USER_ROAMING
+            nc.post(name=NotificationNames.USER_ROAMING, sender=self, info={
+                'ID': item
+            })
+        return None
+
+    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
+        users = cmd.users
+        if users is None:
+            return self.__search(cmd=cmd)
+        else:
+            return self.__process(cmd=cmd)
 
 
 # register

@@ -41,7 +41,6 @@ import weakref
 from abc import abstractmethod
 from weakref import WeakValueDictionary
 from typing import Optional, Dict, Set
-import random
 
 from dimp import hex_encode
 from dimp import ID, ReliableMessage
@@ -245,22 +244,20 @@ class SessionServer:
             if item.active:
                 return True
 
-    def active_users(self) -> Set[ID]:
+    def active_users(self, start: int, count: int) -> Set[ID]:
         """ Get active users """
         users = set()
         array = self.all_users()
+        if count > 0:
+            end = start + count
+        else:
+            end = 1024
+        index = -1
         for item in array:
             if self.is_active(identifier=item):
-                users.add(item)
+                index += 1
+                if index >= end:
+                    break
+                if index >= start:
+                    users.add(item)
         return users
-
-    def random_users(self, max_count=20) -> Set[ID]:
-        array = self.active_users()
-        count = len(array)
-        if count > 1:
-            # limit the response
-            if count > max_count:
-                count = max_count
-            some = random.sample(array, count)
-            array = set(some)
-        return array

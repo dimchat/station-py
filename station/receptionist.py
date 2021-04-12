@@ -66,11 +66,13 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.add(observer=self, name=NotificationNames.USER_ROAMING)
 
     def __del__(self):
         nc = NotificationCenter()
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
         nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.remove(observer=self, name=NotificationNames.USER_ROAMING)
 
     @property
     def station(self) -> ID:
@@ -125,7 +127,12 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 # add the new guest for checking offline messages
                 self.add_guest(identifier=user)
             else:
+                # add the new roamer for checking cached messages
                 self.add_roamer(identifier=user)
+        elif name == NotificationNames.USER_ROAMING:
+            user = info.get('ID')
+            # add the new roamer for checking cached messages
+            self.add_roamer(identifier=user)
 
     #
     #   Guests login this station
