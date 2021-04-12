@@ -157,29 +157,14 @@ def entity_id(entity: Union[Entity, ID]) -> ID:
     raise TypeError('failed to get ID: %s' % entity)
 
 
-def any_assistant(group: ID) -> ID:
-    """ get assistant ID of group """
-    assistants = g_facebook.assistants(identifier=group)
-    if assistants is None or len(assistants) == 0:
-        raise LookupError('failed to get assistant for group: %s' % group)
-    return assistants[0]
-
-
-def push_message_to_sessions(msg: ReliableMessage, sessions: Set[Session]) -> int:
-    """ push message to active sessions """
+def push_message(msg: ReliableMessage, receiver: ID) -> int:
+    """ push message to user """
     success = 0
+    sessions = g_session_server.active_sessions(identifier=receiver)
     for sess in sessions:
         if sess.push_message(msg):
             success += 1
     return success
-
-
-def push_message(msg: ReliableMessage, receiver: ID) -> int:
-    """ push message to user """
-    sessions = g_session_server.active_sessions(identifier=receiver)
-    if len(sessions) == 0:
-        return 0
-    return push_message_to_sessions(msg=msg, sessions=sessions)
 
 
 def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
@@ -187,6 +172,7 @@ def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
     cnt = push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
         Log.warning('remote station (%s) not connected, trying bridge...' % bridge)
+        msg['target'] = neighbor
         cnt = push_message(msg=msg, receiver=bridge)
         if cnt == 0:
             Log.error('station bridge (%s) not connected, cannot redirect.' % bridge)
@@ -332,9 +318,10 @@ class GroupDispatcher(Worker):
     """ let the assistant to process this group message """
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        assistant = any_assistant(group=msg.receiver)
-        assert assistant is not None, 'group assistants not exists: %s' % msg.receiver
-        return deliver_message(msg=msg, receiver=assistant, station=self.station)
+        assistants = g_facebook.assistants(identifier=msg.receiver)
+        if assistants is None or len(assistants) == 0:
+            raise LookupError('failed to get assistant for group: %s' % msg.receiver)
+        return deliver_message(msg=msg, receiver=assistants[0], station=self.station)
 
 
 class BroadcastDispatcher(Worker):
@@ -362,11 +349,11 @@ class BroadcastDispatcher(Worker):
             if cnt == 0:
                 self.warning('remote station (%s) not connected, try later.' % sid)
                 continue
-            sent_neighbors.append(sid)
+            sent_neighbors.append(str(sid))
             success += 1
         # 2. push to the bridge (octopus) of current station
-        sent_neighbors.append(self.station)
-        msg['sent_neighbors'] = ID.revert(sent_neighbors)  # tell the bridge ignore this neighbor stations
+        sent_neighbors.append(str(self.station))
+        msg['sent_neighbors'] = sent_neighbors  # tell the bridge ignore this neighbor stations
         cnt = push_message(msg=msg, receiver=self.station)
         if cnt == 0:
             # FIXME: what about the failures

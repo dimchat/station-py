@@ -68,7 +68,7 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         # check roaming
         sid = roaming_station(g_database, sender, cmd=cmd, msg=msg)
         if sid is not None and sid != g_station.identifier:
-            self.info('%s is roamer to: %s' % (sender, sid))
+            self.info('%s is roaming to: %s' % (sender, sid))
             octopus.roaming(roamer=sender, station=sid)
         # respond nothing
         return None
@@ -196,22 +196,34 @@ class Octopus(Logging):
     def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = msg.receiver
         if receiver == g_station.identifier:
-            self.debug('msg for %s will be stopped here' % receiver)
+            self.warning('msg for %s will be stopped here' % receiver)
             return None
-        sent_neighbors = msg.get('sent_neighbors')
-        if sent_neighbors is None:
-            sent_neighbors = []
-        else:
-            msg.pop('sent_neighbors')
-        neighbors = self.__neighbors.copy()
         success = 0
-        for sid in neighbors:
-            if sid in sent_neighbors:
-                self.debug('station %s in sent list, ignore this neighbor' % sid)
-                continue
-            if self.__deliver_message(msg=msg, neighbor=sid):
-                success += 1
-        # FIXME: what about the failures
+        target = msg.get('target')
+        if target is None:
+            # broadcast to all neighbors
+            all_neighbors = self.__neighbors.copy()
+            sent_neighbors = msg.get('sent_neighbors')
+            if sent_neighbors is None:
+                sent_neighbors = []
+            else:
+                msg.pop('sent_neighbors')
+            for sid in all_neighbors:
+                if str(sid) in sent_neighbors:
+                    self.debug('station %s in sent list, ignore this neighbor' % sid)
+                    continue
+                if self.__deliver_message(msg=msg, neighbor=sid):
+                    success += 1
+                else:
+                    self.error('broadcast message failed: %s' % sid)
+        else:
+            # redirect to single neighbor
+            msg.pop('target')
+            if self.__deliver_message(msg=msg, neighbor=target):
+                success = 1
+            else:
+                # save roaming message
+                g_database.store_message(msg=msg)
         if g_released:
             # FIXME: how to let the client knows where the message reached
             return None
@@ -221,7 +233,10 @@ class Octopus(Logging):
         if meta is None:
             # waiting for meta
             return None
-        text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
+        if success is 0:
+            text = 'Message cached'
+        else:
+            text = 'Message forwarded'
         self.debug('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
         res = TextContent(text=text)
         res.group = msg.group
@@ -235,6 +250,7 @@ class Octopus(Logging):
             return None
         if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to send income message: %s' % msg)
+            g_database.store_message(msg=msg)
             return None
         if g_released:
             # FIXME: how to let the client knows where the message reached
@@ -265,8 +281,7 @@ class Octopus(Logging):
             # 2. redirect offline messages one by one
             count = 0
             for msg in messages:
-                success = self.__deliver_message(msg=msg, neighbor=station)
-                if success > 0:
+                if self.__deliver_message(msg=msg, neighbor=station):
                     # redirect message success (at least one)
                     count = count + 1
                 else:
