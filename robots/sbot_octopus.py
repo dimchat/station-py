@@ -138,6 +138,7 @@ class Worker(threading.Thread, Logging):
         self.client.server.disconnect()
         time.sleep(2)
         self.client.server.connect()
+        self.client.server.handshake()
         # try again
         return self.client.messenger.send_message(msg=msg)
 
@@ -150,8 +151,9 @@ class Worker(threading.Thread, Logging):
                         # waiting queue empty
                         break
                     if not self.__send(msg=msg):
-                        # failed to send message, store it
+                        self.error('failed to send message, store it: %s' % msg)
                         g_database.store_message(msg=msg)
+                        time.sleep(5)
                         break
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
