@@ -56,7 +56,7 @@ class ReportCommand(Command):
     ONLINE = 'online'
     OFFLINE = 'offline'
 
-    def __init__(self, cmd: Optional[dict]=None, title: Optional[str]=None):
+    def __init__(self, cmd: Optional[dict] = None, title: Optional[str] = None):
         if cmd is None:
             super().__init__(command=ReportCommand.REPORT)
         else:

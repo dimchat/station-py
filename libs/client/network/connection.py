@@ -53,13 +53,13 @@ class Connection(threading.Thread, Logging):
     # boundary for packages
     BOUNDARY = b'\n'
 
-    def __init__(self):
+    def __init__(self, host: str, port: int = 9394):
         super().__init__()
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
         # current station
-        self.__host = None
-        self.__port = 9394
+        self.__host = host
+        self.__port = port
         self.__connected = False
         self.__running = False
         # socket
@@ -152,7 +152,9 @@ class Connection(threading.Thread, Logging):
             self.__sock.close()
             self.__sock = None
 
-    def connect(self, host: str, port: int = 9394) -> Optional[socket.error]:
+    def connect(self) -> Optional[socket.error]:
+        host = self.__host
+        port = self.__port
         # connect to new socket (host:port)
         sock = socket.socket()
         try:
@@ -162,8 +164,6 @@ class Connection(threading.Thread, Logging):
         except socket.error as error:
             self.error('failed to connect (%s:%d): %s' % (host, port, error))
             return error
-        self.__host = host
-        self.__port = port
         self.__sock = sock
         self.__connected = True
         # start threads
@@ -176,7 +176,7 @@ class Connection(threading.Thread, Logging):
 
     def __reconnect(self) -> Optional[socket.error]:
         # connect to same station
-        error = self.connect(host=self.__host, port=self.__port)
+        error = self.connect()
         if error is None:
             self.delegate.connection_reconnected(connection=self)
         else:

@@ -244,20 +244,25 @@ class SessionServer:
             if item.active:
                 return True
 
-    def active_users(self, start: int, count: int) -> Set[ID]:
+    def active_users(self, start: int, limit: int) -> Set[ID]:
         """ Get active users """
         users = set()
         array = self.all_users()
-        if count > 0:
-            end = start + count
+        if limit > 0:
+            end = start + limit
         else:
             end = 1024
         index = -1
         for item in array:
             if self.is_active(identifier=item):
                 index += 1
-                if index >= end:
-                    break
-                if index >= start:
+                if index < start:
+                    # skip
+                    continue
+                elif index < end:
+                    # OK
                     users.add(item)
+                else:
+                    # finished
+                    break
         return users

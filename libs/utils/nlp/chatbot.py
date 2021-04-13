@@ -41,7 +41,7 @@ from abc import ABC, abstractmethod
 class ChatBot(ABC):
 
     @abstractmethod
-    def ask(self, question: str, user: str=None) -> str:
+    def ask(self, question: str, user: str = None) -> str:
         """Talking with the chat bot
 
             :param question - text message string

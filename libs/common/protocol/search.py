@@ -47,6 +47,9 @@ class SearchCommand(Command):
 
             command  : "search",        // or "users"
 
+            start    : 0,
+            limit    : 20,
+
             keywords : "keywords",      // keyword string
             users    : ["ID",],         // user ID list
             results  : {"ID": {meta}, } // user's meta map
@@ -77,6 +80,30 @@ class SearchCommand(Command):
         if results is not None:
             self['results'] = results
         self.__results = results
+
+    @property
+    def start(self) -> int:
+        value = self.get('start')
+        if value is None:
+            return 0
+        else:
+            return int(value)
+
+    @start.setter
+    def start(self, value: int):
+        self['start'] = value
+
+    @property
+    def limit(self) -> int:
+        value = self.get('limit')
+        if value is None:
+            return 20
+        else:
+            return int(value)
+
+    @limit.setter
+    def limit(self, value: int):
+        self['limit'] = value
 
     #
     #   User ID list

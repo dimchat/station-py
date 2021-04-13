@@ -92,9 +92,10 @@ class MetaTable(Storage):
         Search accounts by the 'Search Number'
     """
 
-    def search(self, keywords: List[str]) -> dict:
+    def search(self, keywords: List[str], start: int = 0, limit: int = 20) -> dict:
         results = {}
-        max_count = 20
+        index = -1
+        end = start + limit
         array = self.scan_ids()
         array = random.sample(array, len(array))
         for identifier in array:
@@ -111,14 +112,21 @@ class MetaTable(Storage):
                     break
             if not match:
                 continue
-            # got it
             meta = self.meta(identifier)
-            if meta:
+            if meta is None:
+                # meta not found
+                continue
+            # got it
+            index += 1
+            if index < start:
+                # skip
+                continue
+            elif index < end:
+                # OK
                 results[str(identifier)] = meta.dictionary
-                # force to stop
-                max_count = max_count - 1
-                if max_count <= 0:
-                    break
+            else:
+                # finished
+                break
         self.info('Got %d account(s) matched %s' % (len(results), keywords))
         return results
 

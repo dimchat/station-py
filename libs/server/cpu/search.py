@@ -60,8 +60,10 @@ class SearchCommandProcessor(CommandProcessor):
         if keywords is None:
             return TextContent(text='Search command error')
         keywords = keywords.split(' ')
+        start = cmd.start
+        limit = cmd.limit
         # search in database
-        results = g_database.search(keywords=keywords)
+        results = g_database.search(keywords=keywords, start=start, limit=limit)
         users = list(results.keys())
         return _new_search_command(cmd=cmd, users=users, results=results)
 
@@ -90,14 +92,6 @@ def _new_search_command(cmd: SearchCommand, users: list, results: dict) -> Searc
     return cmd
 
 
-def _get_int(cmd: SearchCommand, key: str, default: int = 0) -> int:
-    value = cmd.get(key)
-    if value is None:
-        return default
-    else:
-        return int(value)
-
-
 def _save_metas(cmd: SearchCommand, facebook):
     results = cmd.results
     for key, value in results.items():
@@ -112,10 +106,10 @@ class UsersCommandProcessor(CommandProcessor):
 
     def __search(self, cmd: SearchCommand) -> Optional[Content]:
         facebook = self.facebook
-        start = _get_int(cmd=cmd, key='start', default=0)
-        count = _get_int(cmd=cmd, key='count', default=20)
+        start = cmd.start
+        limit = cmd.limit
         # get active users
-        users = g_session_server.active_users(start=start, count=count)
+        users = g_session_server.active_users(start=start, limit=limit)
         results = {}
         for item in users:
             meta = facebook.meta(identifier=item)

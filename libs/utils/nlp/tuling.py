@@ -100,7 +100,7 @@ class Tuling(ChatBot):
             if values is not None:
                 return values.get('text')
 
-    def ask(self, question: str, user: str=None) -> str:
+    def ask(self, question: str, user: str = None) -> str:
         if user is not None:
             self.user_id = user
         response = self.__post(text=question)

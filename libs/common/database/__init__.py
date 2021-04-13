@@ -260,8 +260,8 @@ class Database:
 
         Search accounts by the 'Search Number'
     """
-    def search(self, keywords: List[str]) -> dict:
-        return self.__meta_table.search(keywords=keywords)
+    def search(self, keywords: List[str], start: int = 0, limit: int = 20) -> dict:
+        return self.__meta_table.search(keywords=keywords, start=start, limit=limit)
 
     def scan_ids(self):
         return self.__meta_table.scan_ids()

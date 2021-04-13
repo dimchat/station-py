@@ -25,7 +25,7 @@ class MTPUtils:
         return Package.parse(data=Data(data=data))
 
     @classmethod
-    def create_package(cls, body, data_type: DataType=None, sn: TransactionID=None) -> Package:
+    def create_package(cls, body, data_type: DataType = None, sn: TransactionID = None) -> Package:
         if data_type is None:
             data_type = MessageDataType
         if sn is None:

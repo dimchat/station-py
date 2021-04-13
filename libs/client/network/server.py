@@ -71,10 +71,10 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
 
     def connect(self):
         if self.__conn is None:
-            conn = Connection()
+            conn = Connection(host=self.host, port=self.port)
             conn.delegate = self
             conn.messenger = self.messenger
-            conn.connect(host=self.host, port=self.port)
+            conn.connect()
             self.__conn = conn
 
     def disconnect(self):

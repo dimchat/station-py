@@ -48,6 +48,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
+from libs.common import SearchCommand
 from libs.common import Database
 from libs.common import msg_traced
 
@@ -115,6 +116,10 @@ class OuterMessenger(OctopusMessenger):
         super().handshake_accepted(server=server)
         self.info('start bridge for: %s' % self.server)
         self.accepted = True
+        # query online users from neighbor station
+        cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
+        cmd.limit = -1
+        self._send_command(cmd=cmd, receiver=server.identifier)
 
 
 class Worker(threading.Thread, Logging):
@@ -188,7 +193,7 @@ class Octopus(Logging):
 
     def __init__(self):
         super().__init__()
-        self.__home: Worker = None
+        self.__home: Optional[Worker] = None
         self.__neighbors: Dict[ID, Worker] = {}  # ID -> Worker
 
     def start(self):

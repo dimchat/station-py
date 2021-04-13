@@ -176,7 +176,7 @@ def download(identifier: str, filename: str) -> str:
 @app.route('/avatar/<string:identifier>/<path:filename>', methods=['GET'])
 @app.route('/avatar/<string:identifier>.<string:ext>', methods=['GET'])
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
-def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
+def avatar(identifier: str, filename: str = None, ext: str = None) -> str:
     """ response avatar file as attachment """
     identifier = dimp.ID.parse(identifier=identifier)
     if filename is not None:

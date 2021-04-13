@@ -208,7 +208,7 @@ class Contact:
                     self.__locations.pop(pos)
 
     @classmethod
-    def is_expired(cls, location: LocationValue, peer: Peer=None) -> bool:
+    def is_expired(cls, location: LocationValue, peer: Peer = None) -> bool:
         """
         Check connection for client node; check timestamp for server node
 
