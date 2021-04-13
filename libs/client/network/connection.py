@@ -165,8 +165,8 @@ class Connection(threading.Thread, Logging):
             time.sleep(1)
             now = int(time.time())
             delta = now - self.__last_time
-            if delta > 28:
-                # heartbeat after 5 minutes
+            if delta > 8:
+                # heartbeat after 8 seconds
                 self.send(data=b'\n')
 
     #

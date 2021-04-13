@@ -37,10 +37,8 @@ from typing import Optional, Union, Set, Dict
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, TextContent, Command
+from dimp import Content, TextContent
 from dimsdk import Station
-from dimsdk import LoginCommand
-from dimsdk import CommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -48,7 +46,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.common import Database
-from libs.common import msg_traced, roaming_station
+from libs.common import msg_traced
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -58,24 +56,6 @@ from robots.config import load_station, dims_connect, all_stations
 
 g_facebook = ClientFacebook()
 g_database = Database()
-
-
-class LoginCommandProcessor(CommandProcessor, Logging):
-
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
-        sender = msg.sender
-        # check roaming
-        sid = roaming_station(g_database, sender, cmd=cmd, msg=msg)
-        if sid is not None and sid != g_station.identifier:
-            self.info('%s is roaming to: %s' % (sender, sid))
-            octopus.roaming(roamer=sender, station=sid)
-        # respond nothing
-        return None
-
-
-# register
-CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())
 
 
 class InnerMessenger(ClientMessenger):
@@ -262,39 +242,6 @@ class Octopus(Logging):
         res = TextContent(text=text)
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
-
-    def roaming(self, roamer: ID, station: ID) -> int:
-        sent_count = 0
-        while True:
-            # 1. scan offline messages
-            self.debug('%s is roaming, scanning messages for it' % roamer)
-            batch = g_database.load_message_batch(roamer)
-            if batch is None:
-                self.debug('no message for this roamer: %s' % roamer)
-                return sent_count
-            messages = batch.get('messages')
-            if messages is None or len(messages) == 0:
-                self.error('message batch error: %s' % batch)
-                # raise AssertionError('message batch error: %s' % batch)
-                continue
-            self.debug('got %d message(s) for %s' % (len(messages), roamer))
-            # 2. redirect offline messages one by one
-            count = 0
-            for msg in messages:
-                if self.__deliver_message(msg=msg, neighbor=station):
-                    # redirect message success (at least one)
-                    count = count + 1
-                else:
-                    # redirect message failed, remove session here?
-                    break
-            # 3. remove messages after success
-            total_count = len(messages)
-            self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, roamer))
-            g_database.remove_message_batch(batch, removed_count=count)
-            sent_count += count
-            if count < total_count:
-                self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, roamer))
-                return sent_count
 
     def connect(self):
         #

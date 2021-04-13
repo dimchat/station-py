@@ -102,7 +102,7 @@ class MetaTable(Storage):
             if network not in [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]:
                 # ignore
                 continue
-            string = identifier.lower()
+            string = str(identifier).lower()
             match = True
             for kw in keywords:
                 if string.find(kw.lower()) < 0:

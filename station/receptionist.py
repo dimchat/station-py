@@ -227,14 +227,20 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         if station is None:
             self.debug('station not found for roamer: %s' % receiver)
             return 0
-        # try to redirect message to this station
-        sid = station.identifier
-        self.debug('checking session for station %s' % sid)
-        # get all sessions of the receiver
-        sessions = g_session_server.active_sessions(identifier=sid)
-        if len(sessions) == 0:
-            self.debug('session not found for guest: %s' % sid)
+        station = station.identifier
+        if station == self.station:
+            self.error('user not roaming: %s -> %s' % (receiver, station))
             return 0
+        # try to redirect message to the roaming station
+        self.debug('checking session for station %s' % station)
+        # get all sessions of the receiver
+        sessions = g_session_server.active_sessions(identifier=station)
+        if len(sessions) == 0:
+            self.debug('session not found for station: %s, try bridge' % station)
+            sessions = g_session_server.active_sessions(identifier=self.station)
+            if len(sessions) == 0:
+                self.warning('bridge not built: %s' % self.station)
+                return 0
         # push this message to all sessions one by one
         success = 0
         for sess in sessions:
