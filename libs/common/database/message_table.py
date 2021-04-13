@@ -65,7 +65,10 @@ class MessageTable(Storage):
 
     def __load_messages(self, path: str) -> List[ReliableMessage]:
         text = self.read_text(path=path)
-        lines = text.splitlines()
+        if text is None:
+            lines = []
+        else:
+            lines = text.splitlines()
         self.debug('read %d line(s) from %s' % (len(lines), path))
         expires = time.time() - self.MESSAGE_EXPIRES
         messages = []

@@ -118,6 +118,7 @@ class Session(threading.Thread):
             if value != self.__active:
                 self.__active = value
                 if value:
+                    time.sleep(8)  # waiting for last run loop exit
                     self.start()
 
     def run(self):

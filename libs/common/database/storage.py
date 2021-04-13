@@ -45,27 +45,45 @@ class Storage:
 
     @classmethod
     def read_text(cls, path: str) -> Optional[str]:
-        return TextFile(path=path).read()
+        try:
+            return TextFile(path=path).read()
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     @classmethod
     def read_json(cls, path: str) -> Union[dict, list, None]:
-        return JSONFile(path=path).read()
+        try:
+            return JSONFile(path=path).read()
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     @classmethod
     def write_text(cls, text: str, path: str) -> bool:
-        return TextFile(path=path).write(text=text)
+        try:
+            return TextFile(path=path).write(text=text)
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     @classmethod
     def write_json(cls, container: Union[dict, list], path: str) -> bool:
-        return JSONFile(path=path).write(container=container)
+        try:
+            return JSONFile(path=path).write(container=container)
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     @classmethod
     def append_text(cls, text: str, path: str) -> bool:
-        return TextFile(path=path).append(text=text)
+        try:
+            return TextFile(path=path).append(text=text)
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     @classmethod
     def remove(cls, path: str) -> bool:
-        return File(path=path).remove()
+        try:
+            return File(path=path).remove()
+        except Exception as error:
+            Log.error('Storage >\t%s' % error)
 
     #
     #  Log
