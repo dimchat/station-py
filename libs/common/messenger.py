@@ -59,6 +59,9 @@ class CommonMessenger(Messenger):
         self.__document_queries = {}  # ID -> time
         self.__group_queries = {}     # ID -> time
 
+    def reconnected(self):
+        pass
+
     @property
     def context(self) -> dict:
         return self.__context

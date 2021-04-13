@@ -35,9 +35,17 @@ import threading
 import time
 import traceback
 import weakref
+from abc import abstractmethod
 from typing import Optional
 
 from ...utils import Logging
+
+
+class ConnectionDelegate:
+
+    @abstractmethod
+    def connection_reconnected(self, connection):
+        pass
 
 
 class Connection(threading.Thread, Logging):
@@ -47,6 +55,7 @@ class Connection(threading.Thread, Logging):
 
     def __init__(self):
         super().__init__()
+        self.__delegate: Optional[weakref.ReferenceType] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
         # current station
         self.__host = None
@@ -57,6 +66,15 @@ class Connection(threading.Thread, Logging):
         self.__sock = None
         self.__thread_heartbeat = None
         self.__last_time: int = 0
+
+    @property
+    def delegate(self) -> Optional[ConnectionDelegate]:
+        if self.__delegate:
+            return self.__delegate()
+
+    @delegate.setter
+    def delegate(self, handler: ConnectionDelegate):
+        self.__delegate = weakref.ref(handler)
 
     @property
     def messenger(self):  # -> ClientMessenger:
@@ -84,7 +102,10 @@ class Connection(threading.Thread, Logging):
         while self.__running:
             if not self.__connected:
                 time.sleep(0.5)
-                continue
+                if self.__reconnect() is not None:
+                    # failed to reconnect, try later
+                    time.sleep(5)
+                    continue
             # receive all data
             remaining_length = len(data)
             data = self.receive(last=data)
@@ -151,14 +172,22 @@ class Connection(threading.Thread, Logging):
             self.__thread_heartbeat = threading.Thread(target=Connection.heartbeat, args=(self,))
             self.__thread_heartbeat.start()
         self.start()
+        return None
+
+    def __reconnect(self) -> Optional[socket.error]:
+        # connect to same station
+        error = self.connect(host=self.__host, port=self.__port)
+        if error is None:
+            self.delegate.connection_reconnected(connection=self)
+        else:
+            return error
 
     def reconnect(self) -> Optional[socket.error]:
         # disconnect
         if self.__connected:
             self.disconnect()
             time.sleep(2)
-        # connect to same station
-        return self.connect(host=self.__host, port=self.__port)
+        return self.__reconnect()
 
     def heartbeat(self):
         while self.__connected:
@@ -176,7 +205,7 @@ class Connection(threading.Thread, Logging):
         while True:
             if self.__sock is None:
                 self.disconnect()
-                break
+                return None
             try:
                 part = self.__sock.recv(1024)
             except socket.error as error:
@@ -207,7 +236,7 @@ class Connection(threading.Thread, Logging):
             if error is not None:
                 self.error('reconnect failed, cannot send data(%d) now: %s' % (len(data), error))
                 return error
-            # reconnect success, send message
+            # reconnect success, send again
             error = self.__send(data=data)
             if error is not None:
                 # failed
@@ -225,7 +254,7 @@ class Connection(threading.Thread, Logging):
             if error is not None:
                 self.error('reconnect failed, cannot receive data now: %s' % error)
                 return b''
-            # try again
+            # reconnect success, receive again
             data = self.__receive(data=last)
             if data is None:
                 # failed

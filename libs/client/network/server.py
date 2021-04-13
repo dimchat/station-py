@@ -40,11 +40,12 @@ from dimsdk import HandshakeCommand
 from dimsdk import Station, MessengerDelegate, CompletionHandler
 
 from ...utils import Log
+from ...common import CommonMessenger
 
-from .connection import Connection
+from .connection import Connection, ConnectionDelegate
 
 
-class Server(Station, MessengerDelegate):
+class Server(Station, MessengerDelegate, ConnectionDelegate):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -61,9 +62,17 @@ class Server(Station, MessengerDelegate):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
+    def connection_reconnected(self, connection):
+        self.info('connection reconnected: %s, %s:%d' % (self.identifier, self.host, self.port))
+        messenger = self.messenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        messenger.reconnected()
+        self.handshake()
+
     def connect(self):
         if self.__conn is None:
             conn = Connection()
+            conn.delegate = self
             conn.messenger = self.messenger
             conn.connect(host=self.host, port=self.port)
             self.__conn = conn

@@ -61,17 +61,31 @@ g_facebook = ClientFacebook()
 g_database = Database()
 
 
-class InnerMessenger(ClientMessenger):
-    """ Messenger for processing message from local station """
+class OctopusMessenger(ClientMessenger):
 
     def __init__(self):
         super().__init__()
         self.__accepted = False
 
+    @property
+    def accepted(self) -> bool:
+        return self.__accepted
+
+    @accepted.setter
+    def accepted(self, value: bool):
+        self.__accepted = value
+
+    def reconnected(self):
+        self.accepted = False
+
+
+class InnerMessenger(OctopusMessenger):
+    """ Messenger for processing message from local station """
+
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         self.info('outgoing message: %s -> %s' % (msg.sender, msg.receiver))
-        if self.__accepted:
+        if self.accepted or msg.receiver != g_station.identifier:
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.departure(msg=msg)
@@ -81,20 +95,16 @@ class InnerMessenger(ClientMessenger):
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
         self.info('start bridge for: %s' % self.server)
-        self.__accepted = True
+        self.accepted = True
 
 
-class OuterMessenger(ClientMessenger):
+class OuterMessenger(OctopusMessenger):
     """ Messenger for processing message from remote station """
-
-    def __init__(self):
-        super().__init__()
-        self.__accepted = False
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         self.info('incoming message: %s -> %s' % (msg.sender, msg.receiver))
-        if self.__accepted:
+        if self.accepted or msg.receiver != g_station.identifier:
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.arrival(msg=msg)
@@ -104,7 +114,7 @@ class OuterMessenger(ClientMessenger):
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
         self.info('start bridge for: %s' % self.server)
-        self.__accepted = True
+        self.accepted = True
 
 
 class Worker(threading.Thread, Logging):
@@ -131,16 +141,17 @@ class Worker(threading.Thread, Logging):
                 return self.__waiting_list.pop(0)
 
     def __send(self, msg: ReliableMessage) -> bool:
+        client = self.client
+        messenger = client.messenger
+        assert isinstance(messenger, OctopusMessenger), 'octopus messenger error: %s' % messenger
         # try to send via exist connection
-        if self.client.messenger.send_message(msg=msg):
+        if messenger.send_message(msg=msg):
             return True
-        # reconnect
-        self.client.server.disconnect()
-        time.sleep(2)
-        self.client.server.connect()
-        self.client.server.handshake()
+        # reconnecting
+        self.info('waiting for reconnect...')
+        time.sleep(32)
         # try again
-        return self.client.messenger.send_message(msg=msg)
+        return messenger.send_message(msg=msg)
 
     def run(self):
         while self.__running:
