@@ -172,7 +172,7 @@ def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
     cnt = push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
         Log.warning('remote station (%s) not connected, trying bridge...' % bridge)
-        msg['target'] = neighbor
+        msg['target'] = str(neighbor)
         cnt = push_message(msg=msg, receiver=bridge)
         if cnt == 0:
             Log.error('station bridge (%s) not connected, cannot redirect.' % bridge)

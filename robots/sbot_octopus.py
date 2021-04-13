@@ -179,7 +179,7 @@ class Octopus(Logging):
             self.warning('msg for %s will be stopped here' % receiver)
             return None
         success = 0
-        target = msg.get('target')
+        target = ID.parse(identifier=msg.get('target'))
         if target is None:
             # broadcast to all neighbors
             all_neighbors = self.__neighbors.copy()
