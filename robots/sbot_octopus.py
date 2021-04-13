@@ -33,7 +33,10 @@
 
 import sys
 import os
-from typing import Optional, Union, Set, Dict
+import threading
+import time
+import traceback
+from typing import Optional, Union, Dict, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -104,64 +107,124 @@ class OuterMessenger(ClientMessenger):
         self.__accepted = True
 
 
+class Worker(threading.Thread, Logging):
+    """ Client-Server connection keeper """
+
+    def __init__(self, client: Terminal, server: Server, messenger: ClientMessenger):
+        super().__init__()
+        self.__running = True
+        self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
+        self.__waiting_list: List[ReliableMessage] = []  # sending messages
+        self.__lock = threading.Lock()
+
+    @property
+    def client(self) -> Terminal:
+        return self.__client
+
+    def add_msg(self, msg: ReliableMessage):
+        with self.__lock:
+            self.__waiting_list.append(msg)
+
+    def pop_msg(self) -> Optional[ReliableMessage]:
+        with self.__lock:
+            if len(self.__waiting_list) > 0:
+                return self.__waiting_list.pop(0)
+
+    def __send(self, msg: ReliableMessage) -> bool:
+        # try to send via exist connection
+        if self.client.messenger.send_message(msg=msg):
+            return True
+        # reconnect
+        self.client.server.disconnect()
+        time.sleep(2)
+        self.client.server.connect()
+        # try again
+        return self.client.messenger.send_message(msg=msg)
+
+    def run(self):
+        while self.__running:
+            try:
+                while self.__running:
+                    msg = self.pop_msg()
+                    if msg is None:
+                        # waiting queue empty
+                        break
+                    if not self.__send(msg=msg):
+                        # failed to send message, store it
+                        g_database.store_message(msg=msg)
+                        break
+            except Exception as error:
+                self.error('octopus error: %s -> %s' % (self.client.server, error))
+                traceback.print_exc()
+            finally:
+                # sleep for next loop
+                time.sleep(0.1)
+        self.info('octopus exit: %s' % self.client.server)
+        while True:
+            msg = self.pop_msg()
+            if msg is None:
+                break
+            else:
+                g_database.store_message(msg=msg)
+
+    def stop(self):
+        self.__running = False
+
+
 class Octopus(Logging):
 
     def __init__(self):
         super().__init__()
-        self.__neighbors: Set[ID] = set()        # station ID list
-        self.__clients: Dict[ID, Terminal] = {}  # ID -> Terminal
+        self.__home: Worker = None
+        self.__neighbors: Dict[ID, Worker] = {}  # ID -> Worker
+
+    def start(self):
+        # local station
+        self.__home.start()
+        # remote station
+        neighbors = self.__neighbors.keys()
+        for sid in neighbors:
+            self.__neighbors[sid].start()
+
+    def stop(self):
+        # remote station
+        neighbors = self.__neighbors.keys()
+        for sid in neighbors:
+            self.__neighbors[sid].stop()
+        # local station
+        self.__home.stop()
 
     def add_neighbor(self, station: Union[Station, ID]) -> bool:
         if isinstance(station, Station):
             station = station.identifier
-        else:
-            assert isinstance(station, ID), 'station ID error: %s' % station
+        assert isinstance(station, ID), 'station ID error: %s' % station
         if station == g_station.identifier:
-            return False
-        if station in self.__neighbors:
-            return False
-        self.__neighbors.add(station)
-        return True
-
-    def __get_client(self, identifier: ID) -> Terminal:
-        client = self.__clients.get(identifier)
-        if client is None:
-            if identifier == g_station.identifier:
-                messenger = g_messenger
-                server = g_station
-            else:
-                messenger = OuterMessenger()
-                # client for remote station
-                server = load_station(identifier=identifier, facebook=g_facebook)
-                assert isinstance(server, Station), 'station error: %s' % identifier
+            if self.__home is None:
+                # worker for local station
+                self.__home = Worker(client=Terminal(), server=g_station, messenger=g_messenger)
+                return True
+        elif self.__neighbors.get(station) is None:
+            # create remote station
+            server = load_station(identifier=station, facebook=g_facebook)
+            assert isinstance(server, Station), 'station error: %s' % station
             if not isinstance(server, Server):
-                server = Server(identifier=identifier, host=server.host, port=server.port)
+                server = Server(identifier=station, host=server.host, port=server.port)
                 g_facebook.cache_user(user=server)
-            # create client for station with octopus and messenger
-            client = Terminal()
-            dims_connect(terminal=client, messenger=messenger, server=server)
-            self.__clients[identifier] = client
-        return client
-
-    def __remove_client(self, identifier: ID):
-        client = self.__clients.get(identifier)
-        if isinstance(client, Terminal):
-            client.messenger = None
-            client.stop()
-            self.__clients.pop(identifier)
+            # worker for remote station
+            self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=OuterMessenger())
+            return True
 
     def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:
-        client = self.__get_client(identifier=neighbor)
-        if client is None:
-            self.error('neighbor station %s not connected' % neighbor)
-            return False
-        if client.messenger.send_message(msg=msg):
-            # send message OK
-            return True
+        if neighbor == g_station.identifier:
+            worker = self.__home
         else:
-            self.error('failed to deliver message, remove the bridge: %s' % neighbor)
-            self.__remove_client(identifier=neighbor)
+            worker = self.__neighbors.get(neighbor)
+        if worker is None:
+            self.error('neighbor station %s not defined' % neighbor)
             return False
+        else:
+            worker.add_msg(msg=msg)
+            return True
 
     def __pack_message(self, content: Content, receiver: ID) -> Optional[ReliableMessage]:
         sender = g_station.identifier
@@ -243,18 +306,6 @@ class Octopus(Logging):
         res.group = msg.group
         return self.__pack_message(content=res, receiver=sender)
 
-    def connect(self):
-        #
-        #   Local Station
-        #
-        self.__get_client(identifier=g_station.identifier)
-        #
-        #   Remote Stations
-        #
-        neighbors = self.__neighbors.copy()
-        for sid in neighbors:
-            self.__get_client(identifier=sid)
-
 
 """
     Messenger for Local Station Bridge
@@ -269,7 +320,10 @@ if __name__ == '__main__':
     g_facebook.current_user = g_station
 
     octopus = Octopus()
+    # set local station
+    octopus.add_neighbor(g_station)
     # add neighbors
     for s in all_stations:
         octopus.add_neighbor(station=s)
-    octopus.connect()
+    # start all
+    octopus.start()
