@@ -57,7 +57,7 @@ class SearchCommand(Command):
 
     ONLINE_USERS = 'users'
 
-    def __init__(self, cmd: Optional[dict]=None, keywords: str=None, users: List[ID]=None, results: dict=None):
+    def __init__(self, cmd: Optional[dict] = None, keywords: str = None, users: List[ID] = None, results: dict = None):
         if cmd is None:
             if keywords == SearchCommand.ONLINE_USERS:
                 command = keywords
@@ -69,10 +69,14 @@ class SearchCommand(Command):
             super().__init__(cmd=cmd)
         if keywords is not None:
             self['keywords'] = keywords
+        # users
         if users is not None:
-            self.users = users
+            self['users'] = ID.revert(members=users)
+        self.__users = users
+        # results
         if results is not None:
-            self.results = results
+            self['results'] = results
+        self.__results = results
 
     #
     #   User ID list
