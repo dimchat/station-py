@@ -171,7 +171,7 @@ def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
     """ redirect message to neighbor station for roaming user """
     cnt = push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
-        Log.warning('remote station (%s) not connected, trying bridge...' % bridge)
+        Log.warning('remote station (%s) not connected, trying bridge (%s)...' % (neighbor, bridge))
         msg['target'] = str(neighbor)
         cnt = push_message(msg=msg, receiver=bridge)
         if cnt == 0:

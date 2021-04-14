@@ -282,9 +282,10 @@ class Octopus(Logging):
             msg.pop('target')
             if self.__deliver_message(msg=msg, neighbor=target):
                 success = 1
-            else:
-                # save roaming message
-                g_database.store_message(msg=msg)
+            # FIXME: when the roaming station is not my neighbor, this message will be dropped
+            # else:
+            #     # save roaming message
+            #     g_database.store_message(msg=msg)
         if g_released:
             # FIXME: how to let the client knows where the message reached
             return None
