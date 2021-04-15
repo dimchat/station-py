@@ -34,13 +34,13 @@ import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from dimp import ID, User
+from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
 from dimsdk import Station, MessengerDelegate, CompletionHandler
 
 from ...utils import Log
-from ...common import CommonMessenger
+from ...common import CommonMessenger, CommonFacebook
 
 from .connection import Connection, ConnectionDelegate
 
@@ -101,8 +101,14 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
     def handshake(self, session: Optional[str] = None):
         user = self.facebook.current_user
         assert isinstance(user, User), 'current user not set yet'
-        cmd = HandshakeCommand.start(session=session)
         env = Envelope.create(sender=user.identifier, receiver=self.identifier)
+        cmd = HandshakeCommand.start(session=session)
+        # allow connect server without meta.js
+        facebook = self.facebook
+        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        if facebook.public_key_for_encryption(identifier=self.identifier) is None:
+            cmd.group = EVERYONE
+        # pack message
         i_msg = InstantMessage.create(head=env, body=cmd)
         s_msg = self.messenger.encrypt_message(msg=i_msg)
         assert s_msg is not None, 'failed to handshake with server: %s' % self.identifier
