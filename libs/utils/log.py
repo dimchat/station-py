@@ -48,7 +48,7 @@ class Log:
     DEVELOP = 0xFE
     RELEASE = 0xFC
 
-    LEVEL = DEVELOP
+    LEVEL = RELEASE
 
     @classmethod
     def debug(cls, msg: str):

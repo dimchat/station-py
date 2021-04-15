@@ -117,7 +117,7 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
 
     def handshake_success(self):
         user = self.facebook.current_user
-        self.info('handshake success: %s' % user.identifier)
+        self.info('handshake success: %s, onto station: %s' % (user.identifier, self.identifier))
         from ..messenger import ClientMessenger
         messenger = self.messenger
         assert isinstance(messenger, ClientMessenger)

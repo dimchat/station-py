@@ -30,7 +30,7 @@
     Configuration for Robot
 """
 
-from dimp import Meta, ID
+from dimp import ID
 from dimsdk.ans import keywords as ans_keywords
 
 #
@@ -39,7 +39,8 @@ from dimsdk.ans import keywords as ans_keywords
 from libs.utils import Log
 from libs.common import AddressNameServer
 from libs.common import Storage
-from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
+from libs.client import ClientMessenger, ClientFacebook
+from libs.client import Server, Terminal, Connection
 
 #
 #  Configurations
@@ -47,15 +48,27 @@ from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
 from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_gsp import station_id, all_stations
 from etc.cfg_bots import group_assistants
-from etc.cfg_bots import group_naruto
-from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id, tokentalkteam_id
+from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id
 
-from etc.cfg_loader import load_robot_info, load_station
+from etc.cfg_loader import load_station
 
-g_released = True
 
+# log level
+Log.LEVEL = Log.DEBUG
+# Log.LEVEL = Log.DEVELOP
+# Log.LEVEL = Log.RELEASE
+
+
+# data directory
 Log.info("local storage directory: %s" % base_dir)
 Storage.root = base_dir
+
+"""
+    Connection
+    ~~~~~~~~~~
+    time interval for maintaining connection
+"""
+Connection.HEARTBEAT_INTERVAL = 8
 
 
 """
@@ -65,7 +78,7 @@ Storage.root = base_dir
 station_id = ID.parse(identifier=station_id)
 
 station_host = '127.0.0.1'
-# station_host = '134.175.87.98'  # dimchat-gz
+# station_host = '106.52.25.169'  # dimchat-gz
 # station_host = '124.156.108.150'  # dimchat-hk
 station_port = 9394
 
@@ -100,21 +113,6 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
 
 
 """
-    Shodai Hokage
-    ~~~~~~~~~~~~~
-    
-    A group contains all freshmen
-"""
-
-
-def load_naruto():
-    gid = ID.parse(identifier=group_naruto)
-    Log.info('naruto group: %s' % gid)
-    meta = Meta.parse(meta=load_robot_info(gid, 'meta.js'))
-    g_facebook.save_meta(identifier=gid, meta=meta)
-
-
-"""
     Loading info
     ~~~~~~~~~~~~
 """
@@ -139,10 +137,6 @@ for key, value in ans_reserved_records.items():
 Log.info('-------- Loading stations: %d' % len(all_stations))
 all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
 
-# load group 'DIM Plaza'
-Log.info('-------- Loading group contains all users')
-load_naruto()
-
 # convert robot IDs
 Log.info('-------- robots')
 
@@ -153,11 +147,9 @@ g_facebook.group_assistants = group_assistants
 lingling_id = ID.parse(identifier=lingling_id)
 xiaoxiao_id = ID.parse(identifier=xiaoxiao_id)
 chatroom_id = ID.parse(identifier=chatroom_id)
-tokentalkteam_id = ID.parse(identifier=tokentalkteam_id)
 
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)
-Log.info('Chat bot: %s' % tokentalkteam_id)
 Log.info('Chatroom: %s' % chatroom_id)
 
 Log.info('======== configuration OK!')

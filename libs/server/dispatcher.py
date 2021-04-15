@@ -182,17 +182,15 @@ def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
 def deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional[Content]:
     # 1. try online sessions
     cnt = push_message(msg=msg, receiver=receiver)
-    if cnt > 1:
-        return msg_receipt(msg=msg, text='Message sent (%d sessions)' % cnt)
-    elif cnt == 1:
-        return msg_receipt(msg=msg, text='Message sent')
+    if cnt > 0:
+        return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
     # 2. check roaming station
     neighbor = roaming_station(g_database, receiver)
     if neighbor is not None and neighbor != station:
-        # redirect message to the roaming station
+        # 2.1. redirect message to the roaming station
         cnt = redirect_message(msg=msg, neighbor=neighbor, bridge=station)
         if cnt > 0:
-            return msg_receipt(msg=msg, text='Message redirected')
+            return msg_receipt(msg=msg, text='Message redirected to neighbor station: %s' % neighbor)
     # 3. store in local cache file
     g_database.store_message(msg)
     # check mute-list
@@ -329,6 +327,7 @@ class BroadcastDispatcher(Worker):
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # FIXME: now only broadcast message to all stations
+        #        what about robots?
         self.debug('broadcasting message from: %s' % msg.sender)
         # 0. check traces
         if msg_traced(msg=msg, node=self.station, append=True):
@@ -346,18 +345,19 @@ class BroadcastDispatcher(Worker):
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             # push to neighbor station
             cnt = push_message(msg=msg, receiver=sid)
-            if cnt == 0:
-                self.warning('remote station (%s) not connected, try later.' % sid)
-                continue
-            sent_neighbors.append(str(sid))
-            success += 1
+            if cnt > 0:
+                sent_neighbors.append(str(sid))
+                success += 1
+            else:
+                self.warning('failed to push message to remote station: %s' % sid)
         # 2. push to the bridge (octopus) of current station
         sent_neighbors.append(str(self.station))
-        msg['sent_neighbors'] = sent_neighbors  # tell the bridge ignore this neighbor stations
+        msg['sent_neighbors'] = sent_neighbors
+        self.info('push to the bridge (%s) ignoring sent stations: %s' % (self.station, sent_neighbors))
         cnt = push_message(msg=msg, receiver=self.station)
         if cnt == 0:
             # FIXME: what about the failures
-            self.warning('station bridge not connected: %s' % self.station)
+            self.error('failed to push message to station bridge: %s' % self.station)
         # response
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
         res = TextContent(text=text)

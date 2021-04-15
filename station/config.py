@@ -58,6 +58,13 @@ from station.receptionist import Receptionist
 from station.monitor import Monitor
 
 
+# log level
+Log.LEVEL = Log.DEBUG
+# Log.LEVEL = Log.DEVELOP
+# Log.LEVEL = Log.RELEASE
+
+
+# data directory
 Log.info("local storage directory: %s" % base_dir)
 Storage.root = base_dir
 

@@ -38,9 +38,7 @@ import time
 import traceback
 from typing import Optional, Union, Dict, List
 
-from dimp import ID
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, TextContent
+from dimp import ID, ReliableMessage
 from dimsdk import Station
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -54,7 +52,7 @@ from libs.common import msg_traced
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
-from robots.config import g_station, g_released
+from robots.config import g_station
 from robots.config import load_station, dims_connect, all_stations
 
 
@@ -85,8 +83,8 @@ class InnerMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        self.info('outgoing message: %s -> %s' % (msg.sender, msg.receiver))
         if self.accepted or msg.receiver != g_station.identifier:
+            self.info('outgoing message: %s -> %s' % (msg.sender, msg.receiver))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.departure(msg=msg)
@@ -104,8 +102,8 @@ class OuterMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        self.info('incoming message: %s -> %s' % (msg.sender, msg.receiver))
         if self.accepted or msg.receiver != g_station.identifier:
+            self.info('incoming message: %s -> %s' % (msg.sender, msg.receiver))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.arrival(msg=msg)
@@ -244,22 +242,11 @@ class Octopus(Logging):
             worker.add_msg(msg=msg)
             return True
 
-    def __pack_message(self, content: Content, receiver: ID) -> Optional[ReliableMessage]:
-        sender = g_station.identifier
-        env = Envelope.create(sender=sender, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=content)
-        s_msg = g_messenger.encrypt_message(msg=i_msg)
-        if s_msg is None:
-            self.error('failed to encrypt msg: %s' % i_msg)
-            return None
-        return g_messenger.sign_message(msg=s_msg)
-
     def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         receiver = msg.receiver
         if receiver == g_station.identifier:
             self.warning('msg for %s will be stopped here' % receiver)
             return None
-        success = 0
         target = ID.parse(identifier=msg.get('target'))
         if target is None:
             # broadcast to all neighbors
@@ -272,57 +259,27 @@ class Octopus(Logging):
             for sid in all_neighbors:
                 if str(sid) in sent_neighbors:
                     self.debug('station %s in sent list, ignore this neighbor' % sid)
-                    continue
-                if self.__deliver_message(msg=msg, neighbor=sid):
-                    success += 1
-                else:
-                    self.error('broadcast message failed: %s' % sid)
+                elif msg_traced(msg=msg, node=sid, append=False):
+                    self.debug('station %s in traced list, ignore this neighbor' % sid)
+                elif not self.__deliver_message(msg=msg, neighbor=sid):
+                    self.error('failed to broadcast message to: %s' % sid)
         else:
             # redirect to single neighbor
             msg.pop('target')
-            if self.__deliver_message(msg=msg, neighbor=target):
-                success = 1
-            else:
-                # save roaming message
+            if not self.__deliver_message(msg=msg, neighbor=target):
+                self.error('failed to deliver message to: %s, save roaming message' % target)
                 g_database.store_message(msg=msg)
-        if g_released:
-            # FIXME: how to let the client knows where the message reached
-            return None
-        # response
-        sender = msg.sender
-        meta = g_facebook.meta(identifier=sender)
-        if meta is None:
-            # waiting for meta
-            return None
-        if success is 0:
-            text = 'Message cached'
-        else:
-            text = 'Message forwarded'
-        self.debug('outgo: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
-        res = TextContent(text=text)
-        res.group = msg.group
-        return self.__pack_message(content=res, receiver=sender)
 
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # check message delegate
         sid = g_station.identifier
-        if msg_traced(msg=msg, node=sid):
+        if msg_traced(msg=msg, node=sid, append=False):
             self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
-            return None
-        if not self.__deliver_message(msg=msg, neighbor=sid):
-            self.error('failed to send income message: %s' % msg)
+        elif self.__deliver_message(msg=msg, neighbor=sid):
+            self.info('income msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
+        else:
+            self.error('failed to deliver income message: %s' % msg)
             g_database.store_message(msg=msg)
-            return None
-        if g_released:
-            # FIXME: how to let the client knows where the message reached
-            return None
-        # response
-        sender = msg.sender
-        text = 'Message reached station: %s' % g_station
-        self.debug('income: %s, %s | %s | %s' % (text, msg['signature'][:8], sender.name, msg.receiver))
-        res = TextContent(text=text)
-        res.group = msg.group
-        return self.__pack_message(content=res, receiver=sender)
+        return None
 
 
 """

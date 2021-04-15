@@ -79,11 +79,10 @@ class Session(threading.Thread):
                                               self.__active)
 
     def __del__(self):
-        if len(self.__waiting_messages) > 0:
-            # store stranded messages
-            db = Database()
-            for msg in self.__waiting_messages:
-                db.store_message(msg=msg)
+        # store stranded messages
+        db = Database()
+        for msg in self.__waiting_messages:
+            db.store_message(msg=msg)
 
     @property
     def key(self) -> str:
@@ -131,9 +130,8 @@ class Session(threading.Thread):
                 time.sleep(0.1)
             else:
                 # failed to push message
-                with self.__lock:
-                    self.__waiting_messages.insert(0, msg)
-                    # self.__active = False
+                self.__insert_message(msg=msg)
+                # self.active = False
                 time.sleep(2)
 
     def __next_message(self) -> Optional[ReliableMessage]:
@@ -141,12 +139,19 @@ class Session(threading.Thread):
             if len(self.__waiting_messages) > 0:
                 return self.__waiting_messages.pop(0)
 
+    def __insert_message(self, msg: ReliableMessage):
+        with self.__lock:
+            self.__waiting_messages.insert(0, msg)
+
+    def __append_message(self, msg: ReliableMessage):
+        with self.__lock:
+            self.__waiting_messages.append(msg)
+
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
-        with self.__lock:
-            if self.__active:
-                self.__waiting_messages.append(msg)
-            return self.__active
+        if self.__active:
+            self.__append_message(msg=msg)
+            return True
 
 
 @Singleton

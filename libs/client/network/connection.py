@@ -50,6 +50,9 @@ class ConnectionDelegate:
 
 class Connection(threading.Thread, Logging):
 
+    # time interval for maintaining connection
+    HEARTBEAT_INTERVAL = 28  # second(s)
+
     # boundary for packages
     BOUNDARY = b'\n'
 
@@ -194,7 +197,7 @@ class Connection(threading.Thread, Logging):
             time.sleep(1)
             now = int(time.time())
             delta = now - self.__last_time
-            if delta > 8:
+            if delta > self.HEARTBEAT_INTERVAL:
                 # heartbeat after 8 seconds
                 self.send(data=b'\n')
 

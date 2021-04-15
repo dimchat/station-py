@@ -73,10 +73,11 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
     Check whether station node already traced
 
     :param msg: network message
-    :param node:
+    :param node: station ID
     :param append: whether append this station node
     :return: message already traced
     """
+    is_traced = False
     traces = msg.get('traces')
     if traces is None:
         # broadcast message starts from here
@@ -86,14 +87,24 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
         for station in traces:
             if isinstance(station, str):
                 if node == station:
-                    return True
+                    is_traced = True
+                    break
             elif isinstance(station, dict):
                 if node == station.get('ID'):
-                    return True
+                    is_traced = True
+                    break
             else:
                 raise TypeError('traces node error: %s' % station)
     if append:
-        traces.append(str(node))
+        group = msg.group
+        if msg.receiver.is_broadcast or (group is not None and group.is_broadcast):
+            # only append once for broadcast message
+            if not is_traced:
+                traces.append(str(node))
+        else:
+            # just append
+            traces.append(str(node))
+    return is_traced
 
 
 def roaming_station(db: Database, user: ID, cmd: LoginCommand = None, msg: ReliableMessage = None) -> Optional[ID]:
