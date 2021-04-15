@@ -84,7 +84,7 @@ class InnerMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('outgoing message: %s -> %s' % (msg.sender, msg.receiver))
+            self.info('outgoing msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.departure(msg=msg)
@@ -103,7 +103,7 @@ class OuterMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('incoming message: %s -> %s' % (msg.sender, msg.receiver))
+            self.info('incoming msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.arrival(msg=msg)
@@ -274,9 +274,7 @@ class Octopus(Logging):
         sid = g_station.identifier
         if msg_traced(msg=msg, node=sid, append=False):
             self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
-        elif self.__deliver_message(msg=msg, neighbor=sid):
-            self.info('income msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
-        else:
+        elif not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to deliver income message: %s' % msg)
             g_database.store_message(msg=msg)
         return None

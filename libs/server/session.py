@@ -69,6 +69,7 @@ class Session(threading.Thread):
         self.__handler = weakref.ref(handler)
         self.__identifier = None
         self.__active = False
+        self.__running = False
         self.__waiting_messages = []  # List[ReliableMessage]
         self.__lock = threading.Lock()
 
@@ -117,10 +118,16 @@ class Session(threading.Thread):
             if value != self.__active:
                 self.__active = value
                 if value:
-                    time.sleep(8)  # waiting for last run loop exit
                     self.start()
 
+    def start(self):
+        while self.__running:
+            # waiting for last run loop exit
+            time.sleep(0.5)
+        super().start()
+
     def run(self):
+        self.__running = True
         while self.__active:
             # get next message
             msg = self.__next_message()
@@ -133,6 +140,7 @@ class Session(threading.Thread):
                 self.__insert_message(msg=msg)
                 # self.active = False
                 time.sleep(2)
+        self.__running = False
 
     def __next_message(self) -> Optional[ReliableMessage]:
         with self.__lock:
