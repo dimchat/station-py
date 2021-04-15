@@ -25,11 +25,11 @@
 
 import os
 import time
-from typing import List, Optional
+from typing import List
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
-from dimp import Message, ReliableMessage
+from dimp import ReliableMessage
 
 from .storage import Storage
 
@@ -50,7 +50,7 @@ class MessageTable(Storage):
         file path: '.dim/dkd/{ADDRESS}/messages/*.msg'
         file path: '.dim/public/{ADDRESS}/messages/*.msg'
     """
-    def __directory(self, identifier: ID) -> str:
+    def __message_directory(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'messages')
 
     def __message_path(self, msg: ReliableMessage) -> str:
@@ -59,11 +59,12 @@ class MessageTable(Storage):
         filename = time.strftime("%Y%m%d", time.localtime(timestamp))
         filename = filename + '.msg'
         # message directory
-        directory = self.__directory(msg.receiver)
+        directory = self.__message_directory(msg.receiver)
         # message file path
         return os.path.join(directory, filename)
 
     def __load_messages(self, path: str) -> List[ReliableMessage]:
+        messages = []
         text = self.read_text(path=path)
         if text is None:
             lines = []
@@ -71,7 +72,6 @@ class MessageTable(Storage):
             lines = text.splitlines()
         self.debug('read %d line(s) from %s' % (len(lines), path))
         expires = time.time() - self.MESSAGE_EXPIRES
-        messages = []
         for line in lines:
             msg = line.strip()
             if len(msg) == 0:
@@ -115,62 +115,24 @@ class MessageTable(Storage):
         data = data + '\n'
         return self.append_text(text=data, path=path)
 
-    def load_message_batch(self, receiver: ID) -> Optional[dict]:
+    def fetch_all_messages(self, receiver: ID) -> List[ReliableMessage]:
+        all_messages = []
         # message directory
-        directory = self.__directory(receiver)
+        directory = self.__message_directory(receiver)
         # get all files in messages directory and sort by filename
         if self.exists(path=directory):
             files = sorted(os.listdir(directory))
         else:
             files = []
         for filename in files:
-            # read ONE .msg file for each receiver and remove the file immediately
-            if filename[-4:] == '.msg':
-                # load messages from file path
-                path = os.path.join(directory, filename)
-                messages = self.__load_messages(path=path)
-                self.debug('got %d message(s) for %s' % (len(messages), receiver))
-                if len(messages) == 0:
-                    self.debug('remove empty message file %s' % path)
-                    self.remove(path)
-                return {'ID': receiver, 'filename': filename, 'path': path, 'messages': messages}
-
-    def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
-        if removed_count <= 0:
-            self.warning('message count to removed error: %d' % removed_count)
-            return False
-        # 0. get message file path
-        path = batch.get('path')
-        if path is None:
-            receiver = batch.get('ID')
-            filename = batch.get('filename')
-            if receiver and filename:
-                # message directory
-                directory = self.__directory(receiver)
-                # message file path
-                path = os.path.join(directory, filename)
-        if not self.exists(path):
-            self.warning('message file not exists: %s' % path)
-            return False
-        # 1. remove all message(s)
-        self.debug('remove message file: %s' % path)
-        self.remove(path)
-        # 2. store the rest messages back
-        messages = batch.get('messages')
-        if messages is None:
-            return False
-        total_count = len(messages)
-        if removed_count < total_count:
-            # remove message(s) partially
-            messages = messages[removed_count:]
+            if filename[-4:] != '.msg':
+                continue
+            # load messages from file path
+            path = os.path.join(directory, filename)
+            messages = self.__load_messages(path=path)
+            self.debug('got %d message(s) for %s in file: %s' % (len(messages), receiver, filename))
             for msg in messages:
-                # message data
-                if isinstance(msg, Message):
-                    dictionary = msg.dictionary
-                else:
-                    dictionary = msg
-                data = utf8_decode(data=json_encode(dictionary))
-                data = data + '\n'
-                self.append_text(text=data, path=path)
-            self.debug('the rest messages(%d) write back into file: %s' % path)
-        return True
+                all_messages.append(msg)
+            # remove message file
+            self.remove(path=path)
+        return all_messages

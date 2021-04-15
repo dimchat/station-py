@@ -248,11 +248,8 @@ class Database:
     def store_message(self, msg: ReliableMessage) -> bool:
         return self.__message_table.store_message(msg=msg)
 
-    def load_message_batch(self, receiver: ID) -> dict:
-        return self.__message_table.load_message_batch(receiver=receiver)
-
-    def remove_message_batch(self, batch: dict, removed_count: int) -> bool:
-        return self.__message_table.remove_message_batch(batch=batch, removed_count=removed_count)
+    def fetch_all_messages(self, receiver: ID) -> List[ReliableMessage]:
+        return self.__message_table.fetch_all_messages(receiver=receiver)
 
     """
         Search Engine

@@ -116,12 +116,14 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     def received_notification(self, notification: Notification):
         name = notification.name
         info = notification.info
+        user = ID.parse(identifier=info.get('ID'))
+        if user is None or user.type == NetworkType.STATION:
+            self.error('ignore notification: %s' % info)
+            return
         if name == NotificationNames.USER_LOGIN:
-            user = info.get('ID')
             # add the new guest for checking offline messages
             self.add_guest(identifier=user)
         elif name == NotificationNames.USER_ONLINE:
-            user = info.get('ID')
             sid = info.get('station')
             if sid is None or sid == self.station:
                 # add the new guest for checking offline messages
@@ -130,7 +132,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 # add the new roamer for checking cached messages
                 self.add_roamer(identifier=user)
         elif name == NotificationNames.USER_ROAMING:
-            user = info.get('ID')
             # add the new roamer for checking cached messages
             self.add_roamer(identifier=user)
 
@@ -153,47 +154,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             else:
                 self.error('failed to push message (%s, %s)' % sess.client_address)
         return success
-
-    def __process_guests(self, guests: List[ID]):
-        for identifier in guests:
-            if identifier is None:
-                # FIXME: why empty ID added?
-                continue
-            # 1. scan offline messages
-            self.debug('%s is connected, scanning messages for it' % identifier)
-            batch = g_database.load_message_batch(identifier)
-            if batch is None:
-                self.debug('no message for this guest, remove it: %s' % identifier)
-                self.remove_guest(identifier)
-                # post notification: INBOX_EMPTY
-                NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
-                    'ID': identifier,
-                })
-                continue
-            messages = batch.get('messages')
-            if messages is None or len(messages) == 0:
-                self.warning('message batch empty: %s' % batch)
-                # raise AssertionError('message batch error: %s' % batch)
-                continue
-            self.debug('got %d message(s) for %s' % (len(messages), identifier))
-            # 2. push offline messages one by one
-            count = 0
-            for msg in messages:
-                success = self.__push_message(msg=msg, receiver=identifier)
-                if success > 0:
-                    # push message success (at least one)
-                    count = count + 1
-                else:
-                    # push message failed, remove session here?
-                    break
-            # 3. remove messages after success
-            total_count = len(messages)
-            self.debug('a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-            g_database.remove_message_batch(batch, removed_count=count)
-            if count < total_count:
-                # remove the guest on failed
-                self.error('pushing message failed(%d/%d) for: %s' % (count, total_count, identifier))
-                self.remove_guest(identifier)
 
     #
     #   Roamers login another station
@@ -250,39 +210,63 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 self.error('failed to push message (%s, %s)' % sess.client_address)
         return success
 
-    def __process_roamers(self, roamers: List[ID]):
-        for identifier in roamers:
-            # 1. scan offline messages
-            self.debug('%s is roaming, scanning messages for it' % identifier)
-            batch = g_database.load_message_batch(identifier)
-            if batch is None:
-                self.debug('no message for this roamer, remove it: %s' % identifier)
-                self.remove_roamer(identifier)
+    #
+    #  Process guests/roamers
+    #
+
+    def __process_users(self, users: List[ID], is_roaming: bool):
+        # load cached messages
+        cached_messages = {}
+        for identifier in users:
+            messages = g_database.fetch_all_messages(receiver=identifier)
+            if len(messages) == 0:
                 continue
-            messages = batch.get('messages')
-            if messages is None or len(messages) == 0:
-                self.error('message batch error: %s' % batch)
-                # raise AssertionError('message batch error: %s' % batch)
-                continue
-            self.debug('got %d message(s) for %s' % (len(messages), identifier))
-            # 2. redirect offline messages one by one
-            count = 0
-            for msg in messages:
-                success = self.__redirect_message(msg=msg, receiver=identifier)
-                if success > 0:
-                    # redirect message success (at least one)
-                    count = count + 1
+            self.info('loaded %d message(s) for: %s' % (len(messages), identifier))
+            cached_messages[identifier] = messages
+        # process all cached messages for these users
+        while len(users) > 0:
+            current_users = users.copy()
+            for identifier in current_users:
+                if identifier is None:
+                    # FIXME: why empty ID added?
+                    continue
+                # 1. get cached messages
+                self.debug('scanning messages for: %s' % identifier)
+                messages = cached_messages.get(identifier)
+                if messages is None or len(messages) == 0:
+                    self.debug('no message for %s, remove it' % identifier)
+                    users.remove(identifier)
+                    if is_roaming:
+                        self.remove_roamer(identifier=identifier)
+                    else:
+                        self.remove_guest(identifier=identifier)
+                    # post notification: INBOX_EMPTY
+                    NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
+                        'ID': identifier,
+                    })
+                    continue
+                msg_cnt = len(messages)
+                self.debug('got %d message(s) for %s' % (msg_cnt, identifier))
+                # 2. sent messages one by one
+                msg = messages.pop(0)
+                if is_roaming:
+                    success = self.__redirect_message(msg=msg, receiver=identifier)
                 else:
-                    # redirect message failed, remove session here?
-                    break
-            # 3. remove messages after success
-            total_count = len(messages)
-            self.debug('a batch message(%d/%d) redirect for %s' % (count, total_count, identifier))
-            g_database.remove_message_batch(batch, removed_count=count)
-            if count < total_count:
-                # remove the roamer on failed
-                self.error('redirect message failed(%d/%d) for: %s' % (count, total_count, identifier))
-                self.remove_roamer(identifier)
+                    success = self.__push_message(msg=msg, receiver=identifier)
+                if success > 0:
+                    self.info('message forwarded to %d session(s) for: %s' % (success, identifier))
+                    continue
+                self.error('failed to forward message, store %d left for: %s' % (msg_cnt, identifier))
+                # 3. store message left
+                g_database.store_message(msg=msg)
+                for msg in messages:
+                    g_database.store_message(msg=msg)
+                # 4. remove
+                users.remove(identifier)
+                if is_roaming:
+                    self.remove_roamer(identifier=identifier)
+                else:
+                    self.remove_guest(identifier=identifier)
 
     #
     #   Run Loop
@@ -290,7 +274,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     def __run_unsafe(self):
         # process guests
         try:
-            self.__process_guests(guests=self.guests)
+            self.__process_users(users=self.guests, is_roaming=False)
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
@@ -305,7 +289,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             time.sleep(0.1)
         # process roamers
         try:
-            self.__process_roamers(roamers=self.roamers)
+            self.__process_users(users=self.roamers, is_roaming=True)
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
