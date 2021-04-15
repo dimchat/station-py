@@ -55,6 +55,11 @@ class DocumentTable(Storage):
             self.error('document not valid: %s' % document)
             return False
         identifier = document.identifier
+        # 0. check old record
+        old = self.document(identifier=identifier)
+        if old is not None and old.time > document.time > 0:
+            self.warning('document expired, drop it: %s' % document)
+            return False
         # 1. store into memory cache
         self.__caches[identifier] = document
         # 2. save into local storage

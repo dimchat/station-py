@@ -121,10 +121,16 @@ class Session(threading.Thread):
                     self.start()
 
     def start(self):
+        count = 0
         while self.__running:
             # waiting for last run loop exit
-            time.sleep(0.5)
-        super().start()
+            time.sleep(0.1)
+            count += 1
+            if count > 100:
+                # timeout (10 seconds)
+                break
+        if not self.__running:
+            super().start()
 
     def run(self):
         self.__running = True
