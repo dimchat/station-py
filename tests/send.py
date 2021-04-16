@@ -35,8 +35,36 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.client import Terminal, ClientMessenger
-from robots.config import dims_connect, g_station
+from libs.utils import Log
+from libs.common import Database
+from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
+from robots.config import dims_connect
+
+
+Log.LEVEL = Log.RELEASE
+
+
+"""
+    Current Station
+    ~~~~~~~~~~~~~~~
+"""
+# station_id = 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'
+# station_id = 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw'
+station_id = 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq'
+
+station_id = ID.parse(identifier=station_id)
+
+# station_host = '127.0.0.1'
+# station_host = '106.52.25.169'  # dimchat-gz
+# station_host = '124.156.108.150'  # dimchat-hk
+# station_host = '147.139.30.182'   # india
+station_host = '149.129.234.145'  # yjd
+station_port = 9394
+
+g_station = Server(identifier=station_id, host=station_host, port=station_port)
+
+g_facebook = ClientFacebook()
+g_facebook.cache_user(user=g_station)
 
 
 """
@@ -47,6 +75,7 @@ g_messenger = ClientMessenger()
 
 g_facebook = g_messenger.facebook
 
+g_database = Database()
 g_client = Terminal()
 
 
@@ -73,6 +102,7 @@ def show_help(path):
 
 
 def login(identifier: ID):
+    print('**** Login station: %s' % g_station)
     user = g_facebook.user(identifier=identifier)
     g_facebook.current_user = user
     dims_connect(terminal=g_client, messenger=g_messenger, server=g_station)
@@ -89,13 +119,15 @@ def send_text(text: str, receiver: ID):
 
 # TODO: write test code here
 def do_test(sender: ID, receiver: ID):
-    print('\n\n**** Sending message: %s -> %s\n' % (sender, receiver))
-    for x in range(2):
+    print('**** Sending message: %s -> %s\n' % (sender, receiver))
+    x = 0
+    while True:
+        x += 1
         for y in range(10):
-            text = 'Hello %d, %d' % (x, y)
-            print('**** Sending "%s" to %s\n' % (text, receiver))
+            text = 'Test %d, %d' % (x, y)
+            print('**** Sending "%s" to %s' % (text, receiver))
             send_text(text=text, receiver=receiver)
-        print('**** Sleeping...\n')
+        print('\n**** Sleeping...\n')
         time.sleep(5)
 
 
@@ -108,11 +140,15 @@ def parse_command(argv: list):
         show_help(path=argv[0])
     else:
         login(identifier=sender)
-        time.sleep(2)
+        # check receiver
+        cmd = g_database.login_command(identifier=receiver)
+        print('**** %s => %s' % (receiver, cmd))
+        time.sleep(5)
         do_test(sender=sender, receiver=receiver)
         time.sleep(5)
         logout()
 
 
 if __name__ == '__main__':
+    print('********************************')
     parse_command(argv=sys.argv)
