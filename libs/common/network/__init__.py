@@ -26,10 +26,18 @@
 from .mars import NetMsgHead, NetMsg
 from .ws import WebSocket
 
+from .connection import Connection, ConnectionDelegate
+from .handler import ConnectionHandler
+from .handler import JSONHandler, WebSocketHandler, MarsHandler, DMTPHandler
+
 
 __all__ = [
 
     # data packing
     'NetMsgHead', 'NetMsg',
     'WebSocket',
+
+    # connection
+    'Connection', 'ConnectionDelegate',
+    'ConnectionHandler', 'JSONHandler', 'WebSocketHandler', 'MarsHandler', 'DMTPHandler',
 ]

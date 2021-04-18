@@ -42,7 +42,7 @@ from dimsdk import Station, MessengerDelegate, CompletionHandler
 from ...utils import Log
 from ...common import CommonMessenger, CommonFacebook
 
-from .connection import Connection, ConnectionDelegate
+from .connection import ClientConnection, Connection, ConnectionDelegate
 
 
 class Server(Station, MessengerDelegate, ConnectionDelegate):
@@ -62,19 +62,13 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def connection_reconnected(self, connection):
-        self.info('connection reconnected: %s, %s:%d' % (self.identifier, self.host, self.port))
-        messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-        messenger.reconnected()
-        self.handshake()
-
     def connect(self):
         if self.__conn is None:
-            conn = Connection(host=self.host, port=self.port)
+            conn = ClientConnection(host=self.host, port=self.port)
             conn.delegate = self
             conn.messenger = self.messenger
             conn.connect()
+            conn.start()
             self.__conn = conn
 
     def disconnect(self):
@@ -130,20 +124,33 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         messenger.handshake_accepted(server=self)
 
     #
+    #   ConnectionDelegate
+    #
+    def connection_received(self, connection, data: bytes) -> Optional[bytes]:
+        # self.info('received data: %d byte(s)' % len(data))
+        return self.messenger.process_package(data=data)
+
+    def connection_reconnected(self, connection):
+        self.info('connection reconnected: %s, %s:%d' % (self.identifier, self.host, self.port))
+        messenger = self.messenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        messenger.reconnected()
+        self.handshake()
+
+    #
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         """ Send out a data package onto network """
-        # pack
-        pack = data + self.__conn.BOUNDARY
-        # send
-        error = self.__conn.send(data=pack)
-        if handler is not None:
-            if error is None:
+        if self.__conn.send_data(payload=data):
+            if handler is not None:
                 handler.success()
-            else:
+            return True
+        else:
+            if handler is not None:
+                error = IOError('Server error: failed to send data package')
                 handler.failed(error=error)
-        return error is None
+            return False
 
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:
         """ Upload encrypted data to CDN """

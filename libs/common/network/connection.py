@@ -66,27 +66,30 @@ class Connection(threading.Thread, Logging):
     def delegate(self, callback: ConnectionDelegate):
         self.__delegate = callback
 
-    def get_handler(self, data: bytes) -> ConnectionHandler:
+    def set_handler(self, handler: ConnectionHandler):
+        self.__handler = handler
+
+    def get_handler(self, data: Optional[bytes] = b'') -> ConnectionHandler:
         """
         Process received data stream
 
         :param data: data stream
         :return: data package, data remaining
         """
-        if self.__handler is None:
+        if self.__handler is None and len(data) > 0:
             # check data protocols
             if data.startswith(b'{"'):
                 # Protocol 0: raw data (JSON in line)?
-                self.__handler = JSONHandler()
+                self.set_handler(handler=JSONHandler())
             elif MarsHandler.parse_head(stream=data) is not None:
                 # Protocol 1: Tencent mars?
-                self.__handler = MarsHandler()
+                self.set_handler(handler=MarsHandler())
             elif DMTPHandler.parse_head(stream=data) is not None:
                 # Protocol 2: D-MTP?
-                self.__handler = DMTPHandler()
+                self.set_handler(handler=DMTPHandler())
             elif WebSocketHandler.is_handshake(stream=data):
                 # Protocol 3: Web Socket
-                self.__handler = WebSocketHandler()
+                self.set_handler(handler=WebSocketHandler())
             else:
                 # unknown protocol
                 self.error('data stream error: %s' % data)
@@ -99,6 +102,14 @@ class Connection(threading.Thread, Logging):
     def get_socket(self) -> socket.socket:
         """ get connected socket """
         raise NotImplemented
+
+    @property
+    def is_closed(self) -> bool:
+        sock = self.get_socket()
+        if sock is None:
+            return True
+        else:
+            return getattr(sock, '_closed', False)
 
     def receive(self) -> Optional[bytes]:
         with self.__receive_lock:
@@ -119,10 +130,10 @@ class Connection(threading.Thread, Logging):
                 sock.sendall(data)
                 return True
             except socket.error as error:
-                self.error('failed to receive data: %s' % error)
+                self.error('failed to send data: %s' % error)
 
     def send_data(self, payload: bytes) -> bool:
-        handler = self.__handler
+        handler = self.get_handler(data=payload)
         if handler is None:
             self.error('connection handler not ready')
         else:
@@ -155,20 +166,19 @@ class Connection(threading.Thread, Logging):
         self.__running = True
         # start running
         while self.__started:
-            if self.get_socket() is None:
-                # waiting to reconnect
-                time.sleep(0.5)
-                continue
             # receive all data
             data = self.receive()
-            if len(data) == 0:
-                self.debug('no more data')
+            if data is None:
+                self.info('no more data, exit')
                 break
             # process received data by connection handler
             handler = self.get_handler(data=data)
             if handler is not None:
                 left = handler.connection_process(self, stream=data)
-                cnt = 10
+                # NOTICE: the handler process one package one time,
+                #         so here must check whether more package(s) left,
+                #         if true, try to process them.
+                cnt = 16
                 while left and cnt > 0:
                     left = handler.connection_process(self, stream=b'')
                     cnt -= 1

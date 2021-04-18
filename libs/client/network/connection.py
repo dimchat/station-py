@@ -33,28 +33,16 @@
 import socket
 import threading
 import time
-import traceback
 import weakref
-from abc import abstractmethod
 from typing import Optional
 
-from ...utils import Logging
+from ...common import Connection, ConnectionDelegate
 
 
-class ConnectionDelegate:
-
-    @abstractmethod
-    def connection_reconnected(self, connection):
-        pass
-
-
-class Connection(threading.Thread, Logging):
+class ClientConnection(Connection):
 
     # time interval for maintaining connection
     HEARTBEAT_INTERVAL = 28  # second(s)
-
-    # boundary for packages
-    BOUNDARY = b'\n'
 
     def __init__(self, host: str, port: int = 9394):
         super().__init__()
@@ -100,51 +88,6 @@ class Connection(threading.Thread, Logging):
         if self.__running:
             self.__running = False
 
-    def run(self):
-        data = b''
-        while self.__running:
-            if not self.__connected:
-                time.sleep(0.5)
-                if self.__reconnect() is not None:
-                    # failed to reconnect, try later
-                    time.sleep(5)
-                    continue
-            # receive all data
-            remaining_length = len(data)
-            data = self.receive(last=data)
-            if len(data) == remaining_length:
-                self.debug('no more data, remaining=%d' % remaining_length)
-                time.sleep(0.5)
-                continue
-            # check whether contain incomplete message
-            pos = data.find(self.BOUNDARY)
-            while pos >= 0:
-                pack = data[:pos]
-                pos += len(self.BOUNDARY)
-                data = data[pos:]
-                # maybe more than one message in a time
-                self.__received_package(pack=pack)
-                pos = data.find(self.BOUNDARY)
-                # partially package? keep it for next loop
-
-    def __received_package(self, pack: bytes):
-        lines = pack.splitlines()
-        pack = b''
-        for line in lines:
-            line = line.strip()
-            if len(line) == 0:
-                # skip empty packages
-                continue
-            try:
-                res = self.messenger.process_package(data=line)
-                if res is not None:
-                    pack = pack + res + b'\n'
-            except Exception as error:
-                self.error('failed to process package (%s): %s' % (error, line))
-                traceback.print_exc()
-        if len(pack) > 0:
-            self.send(data=pack)
-
     def disconnect(self):
         self.__connected = False
         # cancel threads
@@ -172,7 +115,7 @@ class Connection(threading.Thread, Logging):
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
-            self.__thread_heartbeat = threading.Thread(target=Connection.heartbeat, args=(self,))
+            self.__thread_heartbeat = threading.Thread(target=ClientConnection.heartbeat, args=(self,))
             self.__thread_heartbeat.start()
         self.start()
         return None
@@ -199,58 +142,37 @@ class Connection(threading.Thread, Logging):
             delta = now - self.__last_time
             if delta > self.HEARTBEAT_INTERVAL:
                 # heartbeat after 8 seconds
-                self.send(data=b'\n')
+                self.sendall(data=b'\n')
 
     #
-    #   Socket IO
+    #   Socket
     #
-    def __receive(self, data: bytes = b'') -> Optional[bytes]:
-        while True:
-            if self.__sock is None:
-                self.disconnect()
-                return None
-            try:
-                part = self.__sock.recv(1024)
-            except socket.error as error:
-                self.error('failed to receive data: %s' % error)
-                return None
-            if part is None:
-                break
-            data += part
-            if len(part) < 1024:
-                break
-        return data
 
-    def __send(self, data: bytes) -> Optional[socket.error]:
+    def get_socket(self) -> socket.socket:
         if self.__sock is None:
-            self.disconnect()
-            return socket.error('socket not connect')
-        try:
-            self.__sock.sendall(data)
-        except socket.error as error:
-            self.error('failed to send data: %s' % error)
-            return error
+            self.reconnect()
+        return self.__sock
 
-    def send(self, data: bytes) -> socket.error:
-        error = self.__send(data=data)
-        if error is not None:
+    def sendall(self, data: bytes) -> bool:
+        ok = super().sendall(data=data)
+        if not ok:
             # connection lost, try to reconnect
             error = self.reconnect()
             if error is not None:
                 self.error('reconnect failed, cannot send data(%d) now: %s' % (len(data), error))
-                return error
+                return False
             # reconnect success, send again
-            error = self.__send(data=data)
-            if error is not None:
+            ok = super().sendall(data=data)
+            if not ok:
                 # failed
                 self.error('failed to send data again: %s' % error)
                 self.disconnect()
-                return error
         # send OK, record the current time
         self.__last_time = int(time.time())
+        return ok
 
-    def receive(self, last: bytes = b'') -> bytes:
-        data = self.__receive(data=last)
+    def receive(self) -> bytes:
+        data = super().receive()
         if data is None:
             # connection lost, try to reconnect
             error = self.reconnect()
@@ -258,13 +180,13 @@ class Connection(threading.Thread, Logging):
                 self.error('reconnect failed, cannot receive data now: %s' % error)
                 return b''
             # reconnect success, receive again
-            data = self.__receive(data=last)
+            data = super().receive()
             if data is None:
                 # failed
                 self.error('failed to receive data again')
                 self.disconnect()
                 return b''
-        if len(data) > len(last):
+        if data is not None and len(data) > 0:
             # receive OK, record the current time
             self.__last_time = int(time.time())
         return data

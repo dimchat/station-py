@@ -40,6 +40,8 @@ from .protocol import SearchCommand, ReportCommand
 from .cpu import *
 from .network import NetMsgHead, NetMsg
 from .network import WebSocket
+from .network import Connection, ConnectionDelegate
+from .network import ConnectionHandler, JSONHandler, WebSocketHandler, MarsHandler, DMTPHandler
 from .database import Storage, Database
 
 from .ans import AddressNameServer
@@ -152,6 +154,8 @@ __all__ = [
     #
     'NetMsgHead', 'NetMsg',
     'WebSocket',
+    'Connection', 'ConnectionDelegate',
+    'ConnectionHandler', 'JSONHandler', 'WebSocketHandler', 'MarsHandler', 'DMTPHandler',
 
     #
     #   Database module

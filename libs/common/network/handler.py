@@ -50,7 +50,7 @@ from .mars import NetMsgHead, NetMsg
 class ConnectionDelegate:
 
     @abstractmethod
-    def connection_received(self, connection, data: bytes) -> bytes:
+    def connection_received(self, connection, data: bytes) -> Optional[bytes]:
         """
         Callback for received data package
 
@@ -125,7 +125,7 @@ class JSONHandler(ConnectionHandler):
             res = delegate.connection_received(connection=connection, data=data)
             if res is not None and len(res) > 0:
                 pack = self.connection_pack(connection=connection, data=res)
-                connection.send(data=pack)
+                connection.sendall(data=pack)
         # check remaining
         return len(self._remaining) > 0
 
@@ -154,7 +154,7 @@ class WebSocketHandler(ConnectionHandler):
         if self.is_handshake(stream=stream):
             # respond handshake package
             data = self.__ws.handshake(stream=stream)
-            connection.send(data=data)
+            connection.sendall(data=data)
             # FIXME: what about sticky packages?
             self._remaining = b''
             return False
@@ -169,8 +169,8 @@ class WebSocketHandler(ConnectionHandler):
             delegate = self.connection_delegate(connection=connection)
             res = delegate.connection_received(connection=connection, data=data)
             if res is not None and len(res) > 0:
-                data = self.connection_pack(connection=connection, data=res)
-                connection.send(data=data)
+                pack = self.connection_pack(connection=connection, data=res)
+                connection.sendall(data=pack)
         # check remaining
         return len(self._remaining) > 0
 
@@ -199,16 +199,17 @@ class MarsHandler(ConnectionHandler, Logging):
     def parse_package(self, stream: bytes) -> (NetMsg, bytes):
         try:
             mars = NetMsg.parse(data=stream)
-            return mars, stream[mars.length:]
+            head = mars.head
+            if head.length + head.body_length <= len(stream):
+                return mars, stream[mars.length:]
         except ValueError:
             # mars package head error
-            pos = stream.find(b'\x00\x00\x00\xc8\x00\x00\x00', start=1)
+            pos = stream.find(b'\x00\x00\x00\xc8\x00\x00\x00', 1)
             if pos > 0:
                 self.error('sticky mars packages, cut the head: %s' % (stream[:pos]))
                 return b'', stream[pos:]
-            else:
-                # incomplete package?
-                return None, stream
+        # incomplete package?
+        return None, stream
 
     def connection_process(self, connection, stream: bytes = b'') -> bool:
         stream = self._remaining + stream
@@ -218,29 +219,32 @@ class MarsHandler(ConnectionHandler, Logging):
         if mars is None:
             # partially package? keep it for next received
             return False
-        if isinstance(mars, NetMsg):
-            # process data package and get response
-            head = mars.head
-            # check cmd
-            if head.cmd == head.SEND_MSG:
-                # TODO: handle SEND_MSG request
-                if head.body_length == 0:
-                    raise ValueError('mars body not found: %s' % stream)
-                delegate = self.connection_delegate(connection=connection)
-                res = delegate.connection_received(connection=connection, data=mars.body)
-                if res is not None:
-                    head = NetMsgHead.new(cmd=head.cmd, seq=head.seq, body_len=len(res))
-                    msg = NetMsg.new(head=head, body=res)
-                    connection.send(data=msg.body)
-            elif head.cmd == head.NOOP:
-                # TODO: handle NOOP request
-                self.debug('mars NOOP, cmd=%d, seq=%d: %s' % (head.cmd, head.seq, stream))
-            else:
-                # TODO: handle Unknown request
-                self.warning('mars unknown, cmd=%d, seq=%d: %s' % (head.cmd, head.seq, stream))
-                head = NetMsgHead.new(cmd=6, seq=0)
-                msg = NetMsg.new(head=head)
-                connection.send(data=msg.body)
+        if not isinstance(mars, NetMsg):
+            # sticky mars packages
+            return False
+        # process data package and get response
+        head = mars.head
+        # check cmd
+        if head.cmd == head.SEND_MSG:
+            # TODO: handle SEND_MSG request
+            if head.body_length == 0:
+                raise ValueError('mars body not found: %s' % stream)
+            delegate = self.connection_delegate(connection=connection)
+            res = delegate.connection_received(connection=connection, data=mars.body)
+            if res is None:
+                res = b''
+            head = NetMsgHead.new(cmd=head.cmd, seq=head.seq, body_len=len(res))
+            msg = NetMsg.new(head=head, body=res)
+        elif head.cmd == head.NOOP:
+            # TODO: handle NOOP request
+            self.debug('mars NOOP, cmd=%d, seq=%d: %s' % (head.cmd, head.seq, stream))
+            msg = mars
+        else:
+            # TODO: handle Unknown request
+            self.warning('mars unknown, cmd=%d, seq=%d: %s' % (head.cmd, head.seq, stream))
+            head = NetMsgHead.new(cmd=6, seq=0)
+            msg = NetMsg.new(head=head)
+        connection.sendall(data=msg.data)
         # check remaining
         return len(self._remaining) > 0
 
@@ -264,7 +268,7 @@ class DMTPHandler(ConnectionHandler, Logging):
     def parse_package(self, stream: bytes) -> (Package, bytes):
         mtp = MTPUtils.parse_package(data=stream)
         if mtp is None:
-            pos = stream.find(b'DIM', start=1)
+            pos = stream.find(b'DIM', 1)
             if pos > 0:
                 self.error('sticky D-MTP packages, cut the head: %s' % (stream[:pos]))
                 return b'', stream[pos:]
@@ -294,8 +298,9 @@ class DMTPHandler(ConnectionHandler, Logging):
             else:
                 delegate = self.connection_delegate(connection=connection)
                 res = delegate.connection_received(connection=connection, data=body.get_bytes())
-            pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
-            connection.send(data=pack.get_bytes())
+            if res is not None and len(res) > 0:
+                pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
+                connection.sendall(data=pack.get_bytes())
         # check remaining
         return len(self._remaining) > 0
 
