@@ -71,18 +71,23 @@ class ServerConnection(Connection):
     def get_socket(self) -> socket.socket:
         return self.__request
 
+    def disconnect(self):
+        if not self.is_closed:
+            self.__request.close()
+            self.__request = None
+
     def receive(self) -> Optional[bytes]:
         data = super().receive()
-        # if data is None:
-        #     # TODO: connection lost
-        #     self.__request = None
+        if data is None:
+            # connection lost
+            self.disconnect()
         return data
 
     def sendall(self, data: bytes) -> bool:
         ok = super().sendall(data=data)
-        # if not ok:
-        #     # TODO: connection lost
-        #     self.__request = None
+        if not ok:
+            # connection lost
+            self.disconnect()
         return ok
 
 

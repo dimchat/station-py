@@ -120,6 +120,7 @@ class Connection(threading.Thread, Logging):
                 return sock.recv(1024)
             except socket.error as error:
                 self.error('failed to receive data: %s' % error)
+                return None
 
     def sendall(self, data: bytes) -> bool:
         with self.__send_lock:
@@ -131,11 +132,13 @@ class Connection(threading.Thread, Logging):
                 return True
             except socket.error as error:
                 self.error('failed to send data: %s' % error)
+                return False
 
     def send_data(self, payload: bytes) -> bool:
         handler = self.get_handler(data=payload)
         if handler is None:
             self.error('connection handler not ready')
+            return False
         else:
             pack = handler.connection_pack(connection=self, data=payload)
             return self.sendall(data=pack)

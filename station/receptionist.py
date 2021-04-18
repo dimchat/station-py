@@ -36,7 +36,7 @@ import traceback
 from json import JSONDecodeError
 from typing import Optional, List, Union
 
-from dimp import ID, NetworkType, ReliableMessage
+from dimp import ID, NetworkType
 from dimsdk import Station
 
 from libs.utils import Singleton, Logging
@@ -45,11 +45,13 @@ from libs.common import NotificationNames
 from libs.common import Database
 from libs.server import SessionServer
 from libs.server import ServerFacebook
+from libs.server import Dispatcher
 
 
 g_facebook = ServerFacebook()
 g_database = Database()
 g_session_server = SessionServer()
+g_dispatcher = Dispatcher()
 
 
 @Singleton
@@ -136,81 +138,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             self.add_roamer(identifier=user)
 
     #
-    #   Guests login this station
-    #
-
-    def __push_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # get all sessions of the receiver
-        self.debug('checking session for new guest %s' % receiver)
-        sessions = g_session_server.active_sessions(identifier=receiver)
-        if len(sessions) == 0:
-            self.warning('session not found for guest: %s' % receiver)
-            return 0
-        # push this message to all sessions one by one
-        success = 0
-        for sess in sessions:
-            if sess.push_message(msg):
-                success = success + 1
-            else:
-                self.error('failed to push message (%s, %s)' % sess.client_address)
-        return success
-
-    #
-    #   Roamers login another station
-    #
-
-    def __login_station(self, identifier: ID) -> Optional[Station]:
-        login = g_database.login_command(identifier=identifier)
-        if login is None:
-            self.error('login info not found: %s' % identifier)
-            return None
-        station = login.station
-        if station is None:
-            self.error('login station not found: %s -> %s' % (identifier, login))
-            return None
-        sid = station.get('ID')
-        if sid is None:
-            self.error('login station error: %s -> %s' % (identifier, login))
-            return None
-        sid = ID.parse(identifier=sid)
-        assert sid.type == NetworkType.STATION, 'station ID error: %s' % station
-        if sid == self.station:
-            self.debug('login station is current station: %s -> %s' % (identifier, sid))
-            return None
-        # anything else?
-        return g_facebook.user(identifier=sid)
-
-    def __redirect_message(self, msg: ReliableMessage, receiver: ID) -> int:
-        # get station of the roamer
-        self.debug('checking station for new roamer %s' % receiver)
-        station = self.__login_station(identifier=receiver)
-        if station is None:
-            self.debug('station not found for roamer: %s' % receiver)
-            return 0
-        station = station.identifier
-        if station == self.station:
-            self.error('user not roaming: %s -> %s' % (receiver, station))
-            return 0
-        # try to redirect message to the roaming station
-        self.debug('checking session for station %s' % station)
-        # get all sessions of the receiver
-        sessions = g_session_server.active_sessions(identifier=station)
-        if len(sessions) == 0:
-            self.debug('session not found for station: %s, try bridge' % station)
-            sessions = g_session_server.active_sessions(identifier=self.station)
-            if len(sessions) == 0:
-                self.warning('bridge not built: %s' % self.station)
-                return 0
-        # push this message to all sessions one by one
-        success = 0
-        for sess in sessions:
-            if sess.push_message(msg):
-                success = success + 1
-            else:
-                self.error('failed to push message (%s, %s)' % sess.client_address)
-        return success
-
-    #
     #  Process guests/roamers
     #
 
@@ -244,29 +171,10 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                     NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
                         'ID': identifier,
                     })
-                    continue
-                msg_cnt = len(messages)
-                self.debug('got %d message(s) for %s' % (msg_cnt, identifier))
-                # 2. sent messages one by one
-                msg = messages.pop(0)
-                if is_roaming:
-                    success = self.__redirect_message(msg=msg, receiver=identifier)
                 else:
-                    success = self.__push_message(msg=msg, receiver=identifier)
-                if success > 0:
-                    self.info('message forwarded to %d session(s) for: %s' % (success, identifier))
-                    continue
-                self.error('failed to forward message, store %d left for: %s' % (msg_cnt, identifier))
-                # 3. store message left
-                g_database.store_message(msg=msg)
-                for msg in messages:
-                    g_database.store_message(msg=msg)
-                # 4. remove
-                users.remove(identifier)
-                if is_roaming:
-                    self.remove_roamer(identifier=identifier)
-                else:
-                    self.remove_guest(identifier=identifier)
+                    # 2. sent messages one by one
+                    msg = messages.pop(0)
+                    g_dispatcher.deliver(msg=msg)
 
     #
     #   Run Loop
