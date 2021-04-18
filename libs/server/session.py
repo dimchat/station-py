@@ -139,7 +139,7 @@ class Session(threading.Thread):
 
     def run(self):
         self.__running = True
-        while self.active:
+        while self.__active:
             # get next message
             msg = self.__next_message()
             if msg is None:
@@ -148,8 +148,10 @@ class Session(threading.Thread):
                 time.sleep(0.1)
             else:
                 # failed to push message
-                self.__insert_message(msg=msg)
-                self.active = False
+                with self.__lock:
+                    self.__waiting_messages.insert(0, msg)
+                    self.__active = False
+        # save unsent messages
         self.flush()
         self.__running = False
 
@@ -158,19 +160,12 @@ class Session(threading.Thread):
             if len(self.__waiting_messages) > 0:
                 return self.__waiting_messages.pop(0)
 
-    def __insert_message(self, msg: ReliableMessage):
-        with self.__lock:
-            self.__waiting_messages.insert(0, msg)
-
-    def __append_message(self, msg: ReliableMessage):
-        with self.__lock:
-            self.__waiting_messages.append(msg)
-
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
-        if self.active:
-            self.__append_message(msg=msg)
-            return True
+        with self.__lock:
+            if self.__active:
+                self.__waiting_messages.append(msg)
+                return True
 
 
 @Singleton
