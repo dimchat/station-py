@@ -81,9 +81,14 @@ class Session(threading.Thread):
 
     def __del__(self):
         # store stranded messages
+        self.flush()
+
+    def flush(self):
         db = Database()
-        for msg in self.__waiting_messages:
+        msg = self.__next_message()
+        while msg is not None:
             db.store_message(msg=msg)
+            msg = self.__next_message()
 
     @property
     def key(self) -> str:
@@ -134,7 +139,7 @@ class Session(threading.Thread):
 
     def run(self):
         self.__running = True
-        while self.__active:
+        while self.active:
             # get next message
             msg = self.__next_message()
             if msg is None:
@@ -144,8 +149,8 @@ class Session(threading.Thread):
             else:
                 # failed to push message
                 self.__insert_message(msg=msg)
-                # self.active = False
-                time.sleep(2)
+                self.active = False
+        self.flush()
         self.__running = False
 
     def __next_message(self) -> Optional[ReliableMessage]:
@@ -163,7 +168,7 @@ class Session(threading.Thread):
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
-        if self.__active:
+        if self.active:
             self.__append_message(msg=msg)
             return True
 
