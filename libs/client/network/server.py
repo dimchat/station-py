@@ -67,7 +67,6 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
             conn = ClientConnection(host=self.host, port=self.port)
             conn.delegate = self
             conn.messenger = self.messenger
-            conn.connect()
             conn.start()
             self.__conn = conn
 
@@ -130,8 +129,8 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         # self.info('received data: %d byte(s)' % len(data))
         return self.messenger.process_package(data=data)
 
-    def connection_reconnected(self, connection):
-        self.info('connection reconnected: %s, %s:%d' % (self.identifier, self.host, self.port))
+    def connection_connected(self, connection):
+        self.info('connection connected: %s, %s:%d' % (self.identifier, self.host, self.port))
         messenger = self.messenger
         assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
         messenger.reconnected()

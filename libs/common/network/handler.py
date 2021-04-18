@@ -61,7 +61,7 @@ class ConnectionDelegate:
         raise NotImplemented
 
     @abstractmethod
-    def connection_reconnected(self, connection):
+    def connection_connected(self, connection):
         pass
 
 

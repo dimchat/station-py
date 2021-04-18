@@ -173,8 +173,8 @@ class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate
             data = data[:-1]  # remove last '\n'
         return data
 
-    def connection_reconnected(self, connection):
-        self.warning('connection reconnected: %s' % connection)
+    def connection_connected(self, connection):
+        self.warning('connection connected: %s' % connection)
 
     #
     #   MessengerDelegate

@@ -45,7 +45,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Logging
+from libs.utils import Log, Logging
 from libs.common import SearchCommand
 from libs.common import Database
 from libs.common import msg_traced
@@ -126,9 +126,9 @@ class Worker(threading.Thread, Logging):
     def __init__(self, client: Terminal, server: Server, messenger: ClientMessenger):
         super().__init__()
         self.__running = True
-        self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
         self.__waiting_list: List[ReliableMessage] = []  # sending messages
         self.__lock = threading.Lock()
+        self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
 
     @property
     def client(self) -> Terminal:
@@ -144,8 +144,7 @@ class Worker(threading.Thread, Logging):
                 return self.__waiting_list.pop(0)
 
     def __send(self, msg: ReliableMessage) -> bool:
-        client = self.client
-        messenger = client.messenger
+        messenger = self.client.messenger
         assert isinstance(messenger, OctopusMessenger), 'octopus messenger error: %s' % messenger
         # try to send via exist connection
         if messenger.send_message(msg=msg):
@@ -236,7 +235,7 @@ class Octopus(Logging):
         else:
             worker = self.__neighbors.get(neighbor)
         if worker is None:
-            self.error('neighbor station %s not defined' % neighbor)
+            self.error('neighbor station not defined: %s' % neighbor)
             return False
         else:
             worker.add_msg(msg=msg)
@@ -250,7 +249,7 @@ class Octopus(Logging):
         target = ID.parse(identifier=msg.get('target'))
         if target is None:
             # broadcast to all neighbors
-            all_neighbors = self.__neighbors.copy()
+            all_neighbors = self.__neighbors.keys()
             sent_neighbors = msg.get('sent_neighbors')
             if sent_neighbors is None:
                 sent_neighbors = []
@@ -295,8 +294,12 @@ if __name__ == '__main__':
     octopus = Octopus()
     # set local station
     octopus.add_neighbor(g_station)
+    Log.info('bridge for local station: %s' % g_station)
     # add neighbors
     for s in all_stations:
+        if s == g_station:
+            continue
         octopus.add_neighbor(station=s)
+        Log.info('bridge for neighbor station: %s' % s)
     # start all
     octopus.start()

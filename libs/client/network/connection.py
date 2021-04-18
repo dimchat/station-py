@@ -52,9 +52,9 @@ class ClientConnection(Connection):
         self.__host = host
         self.__port = port
         self.__connected = False
-        self.__running = False
         # socket
         self.__sock = None
+        self.__sock_lock = threading.Lock()
         self.__thread_heartbeat = None
         self.__last_time: int = 0
 
@@ -79,61 +79,55 @@ class ClientConnection(Connection):
     def __del__(self):
         self.disconnect()
 
-    def start(self):
-        if not self.__running:
-            self.__running = True
-            super().start()
-
-    def stop(self):
-        if self.__running:
-            self.__running = False
-
     def disconnect(self):
         self.__connected = False
         # cancel threads
         if self.__thread_heartbeat is not None:
             self.__thread_heartbeat = None
         # disconnect the socket
-        if self.__sock is not None:
-            self.__sock.close()
-            self.__sock = None
+        with self.__sock_lock:
+            if self.__sock is not None:
+                self.__sock.close()
+                self.__sock = None
+
+    def __connect(self) -> Optional[socket.error]:
+        with self.__sock_lock:
+            if self.__sock is not None:
+                self.error('socket already connected: %s' % self.__sock)
+                return None
+            # connect to new socket (host:port)
+            host = self.__host
+            port = self.__port
+            try:
+                self.info('Connecting: (%s:%d) ...' % (host, port))
+                sock = socket.socket()
+                sock.connect((host, port))
+                self.__sock = sock
+                self.info('DIM Station (%s:%d) connected.' % (host, port))
+            except socket.error as error:
+                self.error('failed to connect (%s:%d): %s' % (host, port, error))
+                return error
 
     def connect(self) -> Optional[socket.error]:
-        host = self.__host
-        port = self.__port
-        # connect to new socket (host:port)
-        sock = socket.socket()
-        try:
-            self.info('Connecting: (%s:%d) ...' % (host, port))
-            sock.connect((host, port))
-            self.info('DIM Station (%s:%d) connected.' % (host, port))
-        except socket.error as error:
-            self.error('failed to connect (%s:%d): %s' % (host, port, error))
+        error = self.__connect()
+        if error is not None:
             return error
-        self.__sock = sock
         self.__connected = True
         # start threads
         self.__last_time = int(time.time())
         if self.__thread_heartbeat is None:
             self.__thread_heartbeat = threading.Thread(target=ClientConnection.heartbeat, args=(self,))
             self.__thread_heartbeat.start()
-        self.start()
-        return None
-
-    def __reconnect(self) -> Optional[socket.error]:
-        # connect to same station
-        error = self.connect()
-        if error is None:
-            self.delegate.connection_reconnected(connection=self)
-        else:
-            return error
+        # on connected
+        self.delegate.connection_connected(connection=self)
 
     def reconnect(self) -> Optional[socket.error]:
         # disconnect
         if self.__connected:
             self.disconnect()
             time.sleep(2)
-        return self.__reconnect()
+        # connect to same station
+        return self.connect()
 
     def heartbeat(self):
         while self.__connected:
@@ -143,6 +137,10 @@ class ClientConnection(Connection):
             if delta > self.HEARTBEAT_INTERVAL:
                 # heartbeat after 8 seconds
                 self.sendall(data=b'\n')
+
+    def run(self):
+        self.connect()
+        super().run()
 
     #
     #   Socket

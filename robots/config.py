@@ -108,7 +108,7 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
     # client
     terminal.messenger = messenger
     terminal.start(server=server)
-    server.handshake()
+    # server.handshake()
     return terminal
 
 
