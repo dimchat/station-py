@@ -45,7 +45,7 @@ from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..common import NotificationNames
 from ..common import Database
-from ..common import msg_receipt, msg_traced, roaming_station
+from ..common import msg_receipt, msg_traced
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer
@@ -157,6 +157,21 @@ def entity_id(entity: Union[Entity, ID]) -> ID:
     raise TypeError('failed to get ID: %s' % entity)
 
 
+def roaming_stations(user: ID) -> List[ID]:
+    stations = []
+    cmd = g_database.login_command(identifier=user)
+    if cmd is not None:
+        station = cmd.station
+        last_time = cmd.time
+        if isinstance(station, dict) and isinstance(last_time, int):
+            # check time expires
+            if (time.time() - last_time) < (3600 * 24 * 7):
+                sid = ID.parse(identifier=station.get('ID'))
+                if sid is not None:
+                    stations.append(sid)
+    return stations
+
+
 def push_message(msg: ReliableMessage, receiver: ID) -> int:
     """ push message to user """
     success = 0
@@ -182,15 +197,15 @@ def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
 def deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional[Content]:
     # 1. try online sessions
     cnt = push_message(msg=msg, receiver=receiver)
+    # 2. check roaming stations
+    neighbors = roaming_stations(receiver)
+    for sid in neighbors:
+        if sid == station:
+            continue
+        # 2.1. redirect message to the roaming station
+        cnt += redirect_message(msg=msg, neighbor=sid, bridge=station)
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
-    # 2. check roaming station
-    neighbor = roaming_station(g_database, receiver)
-    if neighbor is not None and neighbor != station:
-        # 2.1. redirect message to the roaming station
-        cnt = redirect_message(msg=msg, neighbor=neighbor, bridge=station)
-        if cnt > 0:
-            return msg_receipt(msg=msg, text='Message redirected to neighbor station: %s' % neighbor)
     # 3. store in local cache file
     g_database.store_message(msg)
     # check mute-list

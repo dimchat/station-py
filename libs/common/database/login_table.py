@@ -51,10 +51,12 @@ class LoginTable(Storage):
         return os.path.join(self.root, 'public', str(identifier.address), 'login.js')
 
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        identifier = cmd.identifier
-        assert identifier == msg.sender, 'login ID not match: %s, %s' % (cmd, msg)
+        sender = msg.sender
+        if cmd.identifier != sender:
+            self.error('sender error: %s, %s' % (sender, cmd))
+            return False
         # check last login time
-        old = self.login_command(identifier=identifier)
+        old = self.login_command(identifier=sender)
         if old is not None:
             old_time = old.time
             if old_time is None:
@@ -66,10 +68,10 @@ class LoginTable(Storage):
                 # expired command, drop it
                 return False
         # store into memory cache
-        self.__commands[identifier] = cmd
-        self.__messages[identifier] = msg
+        self.__commands[sender] = cmd
+        self.__messages[sender] = msg
         # store into local storage
-        path = self.__path(identifier=identifier)
+        path = self.__path(identifier=sender)
         self.info('Saving login into: %s' % path)
         dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
         return self.write_json(container=dictionary, path=path)

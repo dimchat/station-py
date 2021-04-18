@@ -30,11 +30,8 @@
     Common libs for Server or Client
 """
 
-import time
-from typing import Optional
-
 from dimp import ID, Content, ReliableMessage
-from dimsdk import ReceiptCommand, LoginCommand
+from dimsdk import ReceiptCommand
 
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
@@ -109,34 +106,6 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
     return is_traced
 
 
-def roaming_station(db: Database, user: ID, cmd: LoginCommand = None, msg: ReliableMessage = None) -> Optional[ID]:
-    old = db.login_command(identifier=user)
-    # 1. check time with stored command
-    if old is not None and cmd is not None:
-        old_time = old.time
-        if old_time is None:
-            old_time = 0
-        new_time = cmd.time
-        if new_time is None:
-            new_time = 0
-        if new_time <= old_time:
-            # expired command, drop it
-            cmd = None
-    # 2. store new command
-    if cmd is None:
-        cmd = old
-    else:
-        db.save_login(cmd=cmd, msg=msg)
-    # 3. get roaming station ID
-    if cmd is not None:
-        station = cmd.station
-        last_time = cmd.time
-        if isinstance(station, dict) and isinstance(last_time, int):
-            # check time expires
-            if (time.time() - last_time) < (3600 * 24 * 7):
-                return ID.parse(identifier=station.get('ID'))
-
-
 __all__ = [
 
     #
@@ -172,5 +141,5 @@ __all__ = [
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
 
-    'msg_receipt', 'msg_traced', 'roaming_station',
+    'msg_receipt', 'msg_traced',
 ]
