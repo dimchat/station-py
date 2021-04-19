@@ -84,7 +84,7 @@ class InnerMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('outgoing msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
+            self.info('outgoing msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['traces']))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.departure(msg=msg)
@@ -103,7 +103,7 @@ class OuterMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('incoming msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['signature']))
+            self.info('incoming msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['traces']))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.arrival(msg=msg)

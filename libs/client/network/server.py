@@ -95,6 +95,7 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         user = self.facebook.current_user
         assert isinstance(user, User), 'current user not set yet'
         env = Envelope.create(sender=user.identifier, receiver=self.identifier)
+        assert isinstance(env, Envelope), 'envelope error: %s' % env
         cmd = HandshakeCommand.start(session=session)
         # allow connect server without meta.js
         facebook = self.facebook
@@ -112,6 +113,7 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         r_msg.visa = user.visa
         data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
+        self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
         self.messenger.send_package(data=data, handler=None)
 
     def handshake_success(self):

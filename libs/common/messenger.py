@@ -203,9 +203,9 @@ class CommonMessenger(Messenger):
 class MessageDataSource(MessengerDataSource):
 
     def save_message(self, msg: InstantMessage) -> bool:
-        Log.info('TODO: saving message')
+        Log.info('TODO: saving msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['traces']))
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
-        Log.info('TODO: suspending message')
+        Log.info('TODO: suspending msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg['traces']))
         return True

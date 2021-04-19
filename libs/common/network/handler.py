@@ -268,7 +268,11 @@ class DMTPHandler(ConnectionHandler, Logging):
     def parse_package(self, stream: bytes) -> (Package, bytes):
         # 1. check received data
         data_len = len(stream)
-        head = MTPUtils.parse_head(data=stream)
+        try:
+            head = MTPUtils.parse_head(data=stream)
+        except Exception as error:
+            self.error('failed to parse MTP head: %s' % error)
+            head = None
         if head is None:
             # not a D-MTP package?
             if data_len < 20:

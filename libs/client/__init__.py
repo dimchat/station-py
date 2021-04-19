@@ -37,6 +37,7 @@ from .network import Connection, Terminal, Server, ServerDelegate
 
 from .facebook import ClientFacebook
 from .messenger import ClientMessenger
+from .processor import ClientProcessor
 
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
 
     'ClientFacebook',
     'ClientMessenger',
+    'ClientProcessor',
 ]

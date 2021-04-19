@@ -27,9 +27,11 @@
 import os
 import sys
 import time
+from typing import Optional
 
 from mkm import ID
-from dimp import TextContent
+from dimp import Content, TextContent
+from dimp import ReliableMessage
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -37,11 +39,11 @@ sys.path.append(rootPath)
 
 from libs.utils import Log
 from libs.common import Database
-from libs.client import Server, Terminal, ClientMessenger, ClientFacebook
+from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 from robots.config import dims_connect
 
 
-Log.LEVEL = Log.RELEASE
+Log.LEVEL = Log.DEBUG
 
 
 """
@@ -68,9 +70,18 @@ g_facebook.cache_user(user=g_station)
 
 
 """
-    Messenger for Chat Bot client
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Messenger for Test
+    ~~~~~~~~~~~~~~~~~~
 """
+
+
+class TestMessenger(ClientMessenger):
+
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
+        self.info('received content: %s -> %s' % (r_msg.sender, content))
+        return super().process_content(content=content, r_msg=r_msg)
+
+
 g_messenger = ClientMessenger()
 
 g_facebook = g_messenger.facebook
