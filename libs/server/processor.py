@@ -34,6 +34,7 @@ from dimp import SecureMessage, ReliableMessage
 
 from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
+
 from .messenger import ServerMessenger
 
 
@@ -48,25 +49,33 @@ class ServerProcessor(CommonProcessor):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         # check traces
-        station = self.messenger.dispatcher.station
-        if msg_traced(msg=msg, node=station, append=True) and is_broadcast_message(msg=msg):
-            self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+        messenger = self.messenger
+        station = messenger.dispatcher.station
+        if msg_traced(msg=msg, node=station, append=True):
+            if is_broadcast_message(msg=msg):
+                self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+            else:
+                self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
+                s_msg = messenger.verify_message(msg=msg)
+                if s_msg is not None:
+                    # FIXME: dead cycle?
+                    return messenger.deliver_message(msg=msg)
             return None
         receiver = msg.receiver
         if receiver.is_group:
             # verify signature
-            s_msg = self.messenger.verify_message(msg=msg)
+            s_msg = messenger.verify_message(msg=msg)
             if s_msg is None:
                 # signature error?
                 return None
             # deliver group message
-            res = self.messenger.deliver_message(msg=msg)
+            res = messenger.deliver_message(msg=msg)
             if receiver.is_broadcast:
                 # if this is a broadcast, deliver it, send back the response
                 # and continue to process it with the station.
                 # because this station is also a recipient too.
                 if res is not None:
-                    self.messenger.send_message(msg=res)
+                    messenger.send_message(msg=res)
             else:
                 # or, this is is an ordinary group message,
                 # just deliver it to the group assistant

@@ -266,17 +266,42 @@ class DMTPHandler(ConnectionHandler, Logging):
         return MTPUtils.parse_head(data=stream)
 
     def parse_package(self, stream: bytes) -> (Package, bytes):
-        mtp = MTPUtils.parse_package(data=stream)
-        if mtp is None:
+        # 1. check received data
+        data_len = len(stream)
+        head = MTPUtils.parse_head(data=stream)
+        if head is None:
+            # not a D-MTP package?
+            if data_len < 20:
+                # wait for more data
+                return None, stream
             pos = stream.find(b'DIM', 1)
             if pos > 0:
+                # found next head(starts with 'DIM'), skip data before it
                 self.error('sticky D-MTP packages, cut the head: %s' % (stream[:pos]))
                 return b'', stream[pos:]
             else:
-                # incomplete package?
-                return None, stream
+                # skip the whole data
+                self.error('D-MTP head error, drop it: %s' % stream)
+                return b'', b''
+        # 2. receive data with 'head.length + body.length'
+        head_len = head.length
+        body_len = head.body_length
+        if body_len < 0:
+            # should not happen
+            body_len = data_len - head_len
+        pack_len = head_len + body_len
+        if data_len < pack_len:
+            # wait for more data
+            return None, stream
+        # check for remaining data
+        if data_len == pack_len:
+            remaining = b''
         else:
-            return mtp, stream[mtp.length:]
+            remaining = stream[pack_len:]
+            stream = stream[:pack_len]
+        # return package & remaining data
+        mtp = MTPUtils.parse_package(data=stream)
+        return mtp, remaining
 
     def connection_process(self, connection, stream: bytes = b'') -> bool:
         stream = self._remaining + stream
