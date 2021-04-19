@@ -45,7 +45,7 @@ from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..common import NotificationNames
 from ..common import Database
-from ..common import msg_receipt, msg_traced
+from ..common import msg_receipt, msg_traced, is_broadcast_message
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer
@@ -344,17 +344,13 @@ class BroadcastDispatcher(Worker):
         # FIXME: now only broadcast message to all stations
         #        what about robots?
         self.debug('broadcasting message from: %s' % msg.sender)
-        # 0. check traces
-        if msg_traced(msg=msg, node=self.station, append=True):
-            self.error('ignore traced msg: %s in %s' % (self.station, msg.get('traces')))
-            return None
         # 1. push to all neighbors connected th current station
         neighbors = self.neighbors
         sent_neighbors = []
         success = 0
         for sid in neighbors:
             # check traces
-            if msg_traced(msg=msg, node=sid, append=False):
+            if msg_traced(msg=msg, node=sid) and is_broadcast_message(msg=msg):
                 self.warning('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
                 continue
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)

@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 from libs.utils import Log, Logging
 from libs.common import SearchCommand
 from libs.common import Database
-from libs.common import msg_traced
+from libs.common import msg_traced, is_broadcast_message
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -143,37 +143,26 @@ class Worker(threading.Thread, Logging):
             if len(self.__waiting_list) > 0:
                 return self.__waiting_list.pop(0)
 
-    def __send(self, msg: ReliableMessage) -> bool:
+    def run(self):
         messenger = self.client.messenger
         assert isinstance(messenger, OctopusMessenger), 'octopus messenger error: %s' % messenger
-        # try to send via exist connection
-        if messenger.send_message(msg=msg):
-            return True
-        # reconnecting
-        self.info('waiting for reconnect...')
-        time.sleep(32)
-        # try again
-        return messenger.send_message(msg=msg)
-
-    def run(self):
         while self.__running:
             try:
                 while self.__running:
                     msg = self.pop_msg()
                     if msg is None:
-                        # waiting queue empty
-                        break
-                    if not self.__send(msg=msg):
+                        # waiting queue empty, have a rest
+                        time.sleep(0.1)
+                    elif not messenger.send_message(msg=msg):
                         self.error('failed to send message, store it: %s' % msg)
                         g_database.store_message(msg=msg)
-                        time.sleep(5)
-                        break
+                        time.sleep(2)
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
                 traceback.print_exc()
             finally:
-                # sleep for next loop
-                time.sleep(0.1)
+                # restart next loop
+                time.sleep(1)
         self.info('octopus exit: %s' % self.client.server)
         while True:
             msg = self.pop_msg()
@@ -258,7 +247,7 @@ class Octopus(Logging):
             for sid in all_neighbors:
                 if str(sid) in sent_neighbors:
                     self.debug('station %s in sent list, ignore this neighbor' % sid)
-                elif msg_traced(msg=msg, node=sid, append=False):
+                elif msg_traced(msg=msg, node=sid) and is_broadcast_message(msg=msg):
                     self.debug('station %s in traced list, ignore this neighbor' % sid)
                 elif not self.__deliver_message(msg=msg, neighbor=sid):
                     self.error('failed to broadcast message to: %s' % sid)
@@ -271,9 +260,7 @@ class Octopus(Logging):
 
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         sid = g_station.identifier
-        if msg_traced(msg=msg, node=sid, append=False):
-            self.debug('current station %s in traces list, ignore this message: %s' % (sid, msg))
-        elif not self.__deliver_message(msg=msg, neighbor=sid):
+        if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to deliver income message: %s' % msg)
             g_database.store_message(msg=msg)
         return None

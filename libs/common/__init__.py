@@ -78,11 +78,7 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
     """
     is_traced = False
     traces = msg.get('traces')
-    if traces is None:
-        # broadcast message starts from here
-        traces = []
-        msg['traces'] = traces
-    else:
+    if traces is not None:
         for station in traces:
             if isinstance(station, str):
                 if node == station:
@@ -95,15 +91,25 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
             else:
                 raise TypeError('traces node error: %s' % station)
     if append:
-        group = msg.group
-        if msg.receiver.is_broadcast or (group is not None and group.is_broadcast):
+        if traces is None:
+            # start from here
+            traces = [str(node)]
+        elif is_broadcast_message(msg=msg):
             # only append once for broadcast message
             if not is_traced:
                 traces.append(str(node))
         else:
             # just append
             traces.append(str(node))
+        msg['traces'] = traces
     return is_traced
+
+
+def is_broadcast_message(msg: ReliableMessage):
+    if msg.receiver.is_broadcast:
+        return True
+    group = msg.group
+    return group is not None and group.is_broadcast
 
 
 __all__ = [
@@ -141,5 +147,5 @@ __all__ = [
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
 
-    'msg_receipt', 'msg_traced',
+    'msg_receipt', 'msg_traced', 'is_broadcast_message',
 ]

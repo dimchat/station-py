@@ -32,6 +32,7 @@ from typing import Optional
 
 from dimp import SecureMessage, ReliableMessage
 
+from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
 from .messenger import ServerMessenger
 
@@ -46,6 +47,11 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+        # check traces
+        station = self.messenger.dispatcher.station
+        if msg_traced(msg=msg, node=station, append=True) and is_broadcast_message(msg=msg):
+            self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+            return None
         receiver = msg.receiver
         if receiver.is_group:
             # verify signature

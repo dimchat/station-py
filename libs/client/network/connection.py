@@ -165,6 +165,7 @@ class ClientConnection(Connection):
                 # failed
                 self.error('failed to send data again: %s' % error)
                 self.disconnect()
+                return False
         # send OK, record the current time
         self.__last_time = int(time.time())
         return ok
@@ -184,7 +185,7 @@ class ClientConnection(Connection):
                 self.error('failed to receive data again')
                 self.disconnect()
                 return b''
-        if data is not None and len(data) > 0:
+        if len(data) > 0:
             # receive OK, record the current time
             self.__last_time = int(time.time())
         return data
