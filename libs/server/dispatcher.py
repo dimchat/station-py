@@ -45,7 +45,7 @@ from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..common import NotificationNames
 from ..common import Database
-from ..common import msg_receipt, msg_traced, is_broadcast_message
+from ..common import msg_receipt, msg_traced
 
 from .push_message_service import PushMessageService
 from .session import Session, SessionServer
@@ -115,19 +115,19 @@ class Dispatcher(NotificationObserver):
 
     @station.setter
     def station(self, server: Union[ID, Station]):
-        sid = entity_id(server)
+        sid = _entity_id(server)
         self.__single_worker.station = sid
         self.__group_worker.station = sid
         self.__broadcast_worker.station = sid
 
     def add_neighbor(self, station: Union[Station, ID]):
-        sid = entity_id(station)
+        sid = _entity_id(station)
         self.__single_worker.add_neighbor(station=sid)
         self.__group_worker.add_neighbor(station=sid)
         self.__broadcast_worker.add_neighbor(station=sid)
 
     def remove_neighbor(self, station: Union[Station, ID]):
-        sid = entity_id(station)
+        sid = _entity_id(station)
         self.__single_worker.remove_neighbor(station=sid)
         self.__group_worker.remove_neighbor(station=sid)
         self.__broadcast_worker.remove_neighbor(station=sid)
@@ -148,7 +148,7 @@ class Dispatcher(NotificationObserver):
             return msg_receipt(msg=msg, text='Message delivering')
 
 
-def entity_id(entity: Union[Entity, ID]) -> ID:
+def _entity_id(entity: Union[Entity, ID]) -> ID:
     """ get entity ID """
     if isinstance(entity, Entity):
         return entity.identifier
@@ -157,7 +157,7 @@ def entity_id(entity: Union[Entity, ID]) -> ID:
     raise TypeError('failed to get ID: %s' % entity)
 
 
-def roaming_stations(user: ID) -> List[ID]:
+def _roaming_stations(user: ID) -> List[ID]:
     stations = []
     cmd = g_database.login_command(identifier=user)
     if cmd is not None:
@@ -172,7 +172,7 @@ def roaming_stations(user: ID) -> List[ID]:
     return stations
 
 
-def push_message(msg: ReliableMessage, receiver: ID) -> int:
+def _push_message(msg: ReliableMessage, receiver: ID) -> int:
     """ push message to user """
     success = 0
     sessions = g_session_server.active_sessions(identifier=receiver)
@@ -182,28 +182,28 @@ def push_message(msg: ReliableMessage, receiver: ID) -> int:
     return success
 
 
-def redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
+def _redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
     """ redirect message to neighbor station for roaming user """
-    cnt = push_message(msg=msg, receiver=neighbor)
+    cnt = _push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
         Log.warning('remote station (%s) not connected, trying bridge (%s)...' % (neighbor, bridge))
         msg['target'] = str(neighbor)
-        cnt = push_message(msg=msg, receiver=bridge)
+        cnt = _push_message(msg=msg, receiver=bridge)
         if cnt == 0:
             Log.error('station bridge (%s) not connected, cannot redirect.' % bridge)
     return cnt
 
 
-def deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional[Content]:
+def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional[Content]:
     # 1. try online sessions
-    cnt = push_message(msg=msg, receiver=receiver)
+    cnt = _push_message(msg=msg, receiver=receiver)
     # 2. check roaming stations
-    neighbors = roaming_stations(receiver)
+    neighbors = _roaming_stations(receiver)
     for sid in neighbors:
         if sid == station:
             continue
         # 2.1. redirect message to the roaming station
-        cnt += redirect_message(msg=msg, neighbor=sid, bridge=station)
+        cnt += _redirect_message(msg=msg, neighbor=sid, bridge=station)
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
     # 3. store in local cache file
@@ -216,11 +216,11 @@ def deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optional
         msg_type = msg.type
         if msg_type is None:
             msg_type = 0
-        push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        _push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
     return msg_receipt(msg=msg, text='Message cached')
 
 
-def push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -> bool:
+def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -> bool:
     """ push notification service """
     if msg_type == 0:
         something = 'a message'
@@ -324,7 +324,7 @@ class SingleDispatcher(Worker):
     """ deliver personal message """
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        return deliver_message(msg=msg, receiver=msg.receiver, station=self.station)
+        return _deliver_message(msg=msg, receiver=msg.receiver, station=self.station)
 
 
 class GroupDispatcher(Worker):
@@ -334,7 +334,7 @@ class GroupDispatcher(Worker):
         assistants = g_facebook.assistants(identifier=msg.receiver)
         if assistants is None or len(assistants) == 0:
             raise LookupError('failed to get assistant for group: %s' % msg.receiver)
-        return deliver_message(msg=msg, receiver=assistants[0], station=self.station)
+        return _deliver_message(msg=msg, receiver=assistants[0], station=self.station)
 
 
 class BroadcastDispatcher(Worker):
@@ -350,12 +350,12 @@ class BroadcastDispatcher(Worker):
         success = 0
         for sid in neighbors:
             # check traces
-            if msg_traced(msg=msg, node=sid) and is_broadcast_message(msg=msg):
+            if msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
                 self.warning('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
                 continue
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             # push to neighbor station
-            cnt = push_message(msg=msg, receiver=sid)
+            cnt = _push_message(msg=msg, receiver=sid)
             if cnt > 0:
                 sent_neighbors.append(str(sid))
                 success += 1
@@ -365,7 +365,7 @@ class BroadcastDispatcher(Worker):
         sent_neighbors.append(str(self.station))
         msg['sent_neighbors'] = sent_neighbors
         self.info('push to the bridge (%s) ignoring sent stations: %s' % (self.station, sent_neighbors))
-        cnt = push_message(msg=msg, receiver=self.station)
+        cnt = _push_message(msg=msg, receiver=self.station)
         if cnt == 0:
             # FIXME: what about the failures
             self.error('failed to push message to station bridge: %s' % self.station)

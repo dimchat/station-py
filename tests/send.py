@@ -112,25 +112,6 @@ def logout():
     g_client.server.disconnect()
 
 
-def send_text(text: str, receiver: ID):
-    content = TextContent(text=text)
-    g_client.messenger.send_content(sender=None, receiver=receiver, content=content)
-
-
-# TODO: write test code here
-def do_test(sender: ID, receiver: ID):
-    print('**** Sending message: %s -> %s\n' % (sender, receiver))
-    x = 0
-    while True:
-        x += 1
-        for y in range(10):
-            text = 'Test %d, %d' % (x, y)
-            print('**** Sending "%s" to %s' % (text, receiver))
-            send_text(text=text, receiver=receiver)
-        print('\n**** Sleeping...\n')
-        time.sleep(5)
-
-
 def parse_command(argv: list):
     sender = get_opt(args=argv, key='--sender')
     receiver = get_opt(args=argv, key='--receiver')
@@ -147,6 +128,27 @@ def parse_command(argv: list):
         do_test(sender=sender, receiver=receiver)
         time.sleep(5)
         logout()
+
+
+def send_text(text: str, receiver: ID):
+    content = TextContent(text=text)
+    g_client.messenger.send_content(sender=None, receiver=receiver, content=content)
+
+
+# TODO: write test code here
+def do_test(sender: ID, receiver: ID):
+    print('**** Sending message: %s -> %s\n' % (sender, receiver))
+    time_array = time.localtime()
+    tag = time.strftime('%m-%d %H:%M:%S', time_array)
+    x = 0
+    while True:
+        x += 1
+        for y in range(10):
+            text = '[%s] Test %d, %d' % (tag, x, y)
+            print('**** Sending "%s" to %s' % (text, receiver))
+            send_text(text=text, receiver=receiver)
+        print('\n**** Sleeping...\n')
+        time.sleep(5)
 
 
 if __name__ == '__main__':

@@ -34,8 +34,12 @@ from dimp import SecureMessage, ReliableMessage
 
 from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
+from ..common import Database
 
 from .messenger import ServerMessenger
+
+
+g_database = Database()
 
 
 class ServerProcessor(CommonProcessor):
@@ -58,8 +62,9 @@ class ServerProcessor(CommonProcessor):
                 self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
                 s_msg = messenger.verify_message(msg=msg)
                 if s_msg is not None:
-                    # FIXME: dead cycle?
-                    return messenger.deliver_message(msg=msg)
+                    self.info('cycled msg stopped here: %s, %s -> %s' % (station, msg.sender, msg.receiver))
+                    g_database.store_message(msg=msg)
+                    # return messenger.deliver_message(msg=msg)
             return None
         receiver = msg.receiver
         if receiver.is_group:

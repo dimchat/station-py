@@ -38,7 +38,7 @@ from dimp import Content, Command
 from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import CommandProcessor
 
-from ...utils import NotificationCenter
+from ...utils import NotificationCenter, Logging
 from ...common import NotificationNames
 from ...common import Database
 
@@ -46,19 +46,20 @@ from ...common import Database
 g_database = Database()
 
 
-class LoginCommandProcessor(CommandProcessor):
+class LoginCommandProcessor(CommandProcessor, Logging):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         sender = msg.sender
         # check roaming
         if not g_database.save_login(cmd=cmd, msg=msg):
-            # expired?
+            self.error('login command expired: %s' % cmd)
             return None
         station = cmd.station
         if not isinstance(station, dict):
             raise ValueError('login command error: %s' % cmd)
         sid = ID.parse(identifier=station.get('ID'))
+        self.info('user login: %s -> %s' % (sender, sid))
         # post notification: USER_ONLINE
         NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
             'ID': sender,

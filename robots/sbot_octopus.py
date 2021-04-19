@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 from libs.utils import Log, Logging
 from libs.common import SearchCommand
 from libs.common import Database
-from libs.common import msg_traced, is_broadcast_message
+from libs.common import msg_traced
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -247,7 +247,7 @@ class Octopus(Logging):
             for sid in all_neighbors:
                 if str(sid) in sent_neighbors:
                     self.debug('station %s in sent list, ignore this neighbor' % sid)
-                elif msg_traced(msg=msg, node=sid) and is_broadcast_message(msg=msg):
+                elif msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
                     self.debug('station %s in traced list, ignore this neighbor' % sid)
                 elif not self.__deliver_message(msg=msg, neighbor=sid):
                     self.error('failed to broadcast message to: %s' % sid)
