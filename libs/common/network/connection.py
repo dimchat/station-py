@@ -157,7 +157,7 @@ class Connection(threading.Thread, Logging):
                 # timeout (10 seconds)
                 break
         # do start
-        if not self.__started:
+        if not self.__running:
             super().start()
 
     def stop(self):

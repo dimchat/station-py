@@ -86,10 +86,11 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             server = server.identifier
         self.__station = server
 
-    @property
-    def guests(self) -> List[ID]:
+    def get_guests(self) -> List[ID]:
         with self.__lock:
-            return self.__guests.copy()
+            guests = self.__guests.copy()
+            self.__guests.clear()
+            return guests
 
     def add_guest(self, identifier: ID):
         with self.__lock:
@@ -99,10 +100,11 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         with self.__lock:
             self.__guests.remove(identifier)
 
-    @property
-    def roamers(self) -> List[ID]:
+    def get_roamers(self) -> List[ID]:
         with self.__lock:
-            return self.__roamers.copy()
+            roamers = self.__roamers.copy()
+            self.__roamers.clear()
+            return roamers
 
     def add_roamer(self, identifier: ID):
         with self.__lock:
@@ -141,7 +143,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     #  Process guests/roamers
     #
 
-    def __process_users(self, users: List[ID], is_roaming: bool):
+    def __process_users(self, users: List[ID]):
         # load cached messages
         cached_messages = {}
         for identifier in users:
@@ -163,10 +165,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 if messages is None or len(messages) == 0:
                     self.debug('no message for %s, remove it' % identifier)
                     users.remove(identifier)
-                    if is_roaming:
-                        self.remove_roamer(identifier=identifier)
-                    else:
-                        self.remove_guest(identifier=identifier)
                     # post notification: INBOX_EMPTY
                     NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
                         'ID': identifier,
@@ -182,7 +180,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     def __run_unsafe(self):
         # process guests
         try:
-            self.__process_users(users=self.guests, is_roaming=False)
+            self.__process_users(users=self.get_guests())
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
@@ -197,7 +195,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             time.sleep(0.1)
         # process roamers
         try:
-            self.__process_users(users=self.roamers, is_roaming=True)
+            self.__process_users(users=self.get_roamers())
         except IOError as error:
             self.error('IO error %s' % error)
         except JSONDecodeError as error:
