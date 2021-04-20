@@ -45,5 +45,3 @@ class NotificationNames:
     USER_ROAMING = 'user_roaming'        # roaming
 
     DELIVER_MESSAGE = 'deliver_message'  # delivering message
-
-    INBOX_EMPTY = 'inbox_empty'          # new message not found

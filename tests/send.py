@@ -43,7 +43,7 @@ from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 from robots.config import dims_connect
 
 
-Log.LEVEL = Log.DEBUG
+Log.LEVEL = Log.DEVELOP
 
 
 """
@@ -82,7 +82,7 @@ class TestMessenger(ClientMessenger):
         return super().process_content(content=content, r_msg=r_msg)
 
 
-g_messenger = ClientMessenger()
+g_messenger = TestMessenger()
 
 g_facebook = g_messenger.facebook
 
@@ -135,9 +135,9 @@ def parse_command(argv: list):
         # check receiver
         cmd = g_database.login_command(identifier=receiver)
         print('**** %s => %s' % (receiver, cmd))
-        time.sleep(5)
+        time.sleep(16)
         do_test(sender=sender, receiver=receiver)
-        time.sleep(5)
+        time.sleep(8)
         logout()
 
 
@@ -154,7 +154,7 @@ def do_test(sender: ID, receiver: ID):
     x = 0
     while True:
         x += 1
-        for y in range(10):
+        for y in range(1):
             text = '[%s] Test %d, %d' % (tag, x, y)
             print('**** Sending "%s" to %s' % (text, receiver))
             send_text(text=text, receiver=receiver)

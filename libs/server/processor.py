@@ -36,9 +36,11 @@ from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
 from ..common import Database
 
+from .session import SessionServer
 from .messenger import ServerMessenger
 
 
+g_session_server = SessionServer()
 g_database = Database()
 
 
@@ -55,18 +57,24 @@ class ServerProcessor(CommonProcessor):
         # check traces
         messenger = self.messenger
         station = messenger.dispatcher.station
+        receiver = msg.receiver
         if msg_traced(msg=msg, node=station, append=True):
+            self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
             if is_broadcast_message(msg=msg):
                 self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+                return None
+            s_msg = messenger.verify_message(msg=msg)
+            if s_msg is None:
+                self.error('failed to verify message: %s' % msg)
+                return None
+            sessions = g_session_server.active_sessions(identifier=receiver)
+            if len(sessions) > 0:
+                self.info('deliver cycled msg: %s, %s -> %s' % (station, msg.sender, receiver))
+                return messenger.deliver_message(msg=msg)
             else:
-                self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
-                s_msg = messenger.verify_message(msg=msg)
-                if s_msg is not None:
-                    self.info('cycled msg stopped here: %s, %s -> %s' % (station, msg.sender, msg.receiver))
-                    g_database.store_message(msg=msg)
-                    # return messenger.deliver_message(msg=msg)
-            return None
-        receiver = msg.receiver
+                self.info('store cycled msg: %s, %s -> %s' % (station, msg.sender, receiver))
+                g_database.store_message(msg=msg)
+                return None
         if receiver.is_group:
             # verify signature
             s_msg = messenger.verify_message(msg=msg)

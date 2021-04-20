@@ -123,8 +123,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         user = ID.parse(identifier=info.get('ID'))
         if user is None or user.type == NetworkType.STATION:
             self.error('ignore notification: %s' % info)
-            return
-        if name == NotificationNames.USER_LOGIN:
+        elif name == NotificationNames.USER_LOGIN:
             # add the new guest for checking offline messages
             self.add_guest(identifier=user)
         elif name == NotificationNames.USER_ONLINE:
@@ -144,35 +143,14 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     #
 
     def __process_users(self, users: List[ID]):
-        # load cached messages
-        cached_messages = {}
         for identifier in users:
+            # 1. get cached messages
+            self.debug('scanning messages for: %s' % identifier)
             messages = g_database.fetch_all_messages(receiver=identifier)
-            if len(messages) == 0:
-                continue
+            # 2. sent messages one by one
             self.info('loaded %d message(s) for: %s' % (len(messages), identifier))
-            cached_messages[identifier] = messages
-        # process all cached messages for these users
-        while len(users) > 0:
-            current_users = users.copy()
-            for identifier in current_users:
-                if identifier is None:
-                    # FIXME: why empty ID added?
-                    continue
-                # 1. get cached messages
-                self.debug('scanning messages for: %s' % identifier)
-                messages = cached_messages.get(identifier)
-                if messages is None or len(messages) == 0:
-                    self.debug('no message for %s, remove it' % identifier)
-                    users.remove(identifier)
-                    # post notification: INBOX_EMPTY
-                    NotificationCenter().post(name=NotificationNames.INBOX_EMPTY, sender=self, info={
-                        'ID': identifier,
-                    })
-                else:
-                    # 2. sent messages one by one
-                    msg = messages.pop(0)
-                    g_dispatcher.deliver(msg=msg)
+            for msg in messages:
+                g_dispatcher.deliver(msg=msg)
 
     #
     #   Run Loop

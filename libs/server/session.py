@@ -50,6 +50,9 @@ from ..utils import Singleton
 from ..common import Database
 
 
+g_database = Database()
+
+
 def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
@@ -84,10 +87,9 @@ class Session(threading.Thread):
         self.flush()
 
     def flush(self):
-        db = Database()
         msg = self.__next_message()
         while msg is not None:
-            db.store_message(msg=msg)
+            g_database.store_message(msg=msg)
             msg = self.__next_message()
 
     @property
@@ -139,12 +141,19 @@ class Session(threading.Thread):
 
     def run(self):
         self.__running = True
+        last_time = int(time.time())
         while self.__active:
+            now = int(time.time())
             # get next message
             msg = self.__next_message()
             if msg is None:
                 time.sleep(0.5)
+                if (now - last_time) > 10:
+                    # load messages from local storage
+                    self.__load_messages()
+                    last_time = now
             elif self.handler.push_message(msg=msg):
+                last_time = now
                 time.sleep(0.1)
             else:
                 # failed to push message
@@ -154,6 +163,13 @@ class Session(threading.Thread):
         # save unsent messages
         self.flush()
         self.__running = False
+
+    # FIXME: what about multi-login roamers?
+    def __load_messages(self):
+        messages = g_database.fetch_all_messages(receiver=self.identifier)
+        for msg in messages:
+            with self.__lock:
+                self.__waiting_messages.append(msg)
 
     def __next_message(self) -> Optional[ReliableMessage]:
         with self.__lock:

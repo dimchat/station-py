@@ -63,12 +63,14 @@ class MessageTable(Storage):
         # message file path
         return os.path.join(directory, filename)
 
-    def __load_messages(self, path: str) -> List[ReliableMessage]:
+    def __load_messages(self, path: str, remove: bool = False) -> List[ReliableMessage]:
         messages = []
         text = self.read_text(path=path)
         if text is None:
             lines = []
         else:
+            if remove:
+                self.remove(path=path)
             lines = text.splitlines()
         self.debug('read %d line(s) from %s' % (len(lines), path))
         expires = time.time() - self.MESSAGE_EXPIRES
@@ -125,14 +127,13 @@ class MessageTable(Storage):
         else:
             files = []
         for filename in files:
-            if filename[-4:] != '.msg':
+            size = len(filename)
+            if size < 5 or filename[size-4:] != '.msg':
                 continue
             # load messages from file path
             path = os.path.join(directory, filename)
-            messages = self.__load_messages(path=path)
+            messages = self.__load_messages(path=path, remove=True)
             self.debug('got %d message(s) for %s in file: %s' % (len(messages), receiver, filename))
             for msg in messages:
                 all_messages.append(msg)
-            # remove message file
-            self.remove(path=path)
         return all_messages
