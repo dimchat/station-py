@@ -33,6 +33,7 @@
 import time
 import threading
 import traceback
+import weakref
 from abc import abstractmethod
 from typing import Optional, Union, List, Set
 
@@ -43,11 +44,11 @@ from dimsdk import Station
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
+from ..push import PushNotificationService
 from ..common import NotificationNames
 from ..common import Database
 from ..common import msg_receipt, msg_traced
 
-from .push_message_service import PushMessageService
 from .session import Session, SessionServer
 from .facebook import ServerFacebook
 
@@ -55,7 +56,6 @@ from .facebook import ServerFacebook
 g_session_server = SessionServer()
 g_facebook = ServerFacebook()
 g_database = Database()
-g_push_service = PushMessageService()
 
 
 @Singleton
@@ -67,6 +67,7 @@ class Dispatcher(NotificationObserver):
         self.__group_worker = GroupDispatcher()
         self.__broadcast_worker = BroadcastDispatcher()
         # Notifications
+        self.__push_service: Optional[weakref.ReferenceType] = None
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.DISCONNECTED)
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
@@ -81,6 +82,15 @@ class Dispatcher(NotificationObserver):
         nc = NotificationCenter()
         nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
+
+    @property
+    def push_service(self) -> Optional[PushNotificationService]:
+        if self.__push_service is not None:
+            return self.__push_service()
+
+    @push_service.setter
+    def push_service(self, service: PushNotificationService):
+        self.__push_service = weakref.ref(service)
 
     def start(self):
         self.__single_worker.start()
@@ -222,6 +232,10 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
 
 def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -> bool:
     """ push notification service """
+    service = Dispatcher().push_service
+    if service is None:
+        Log.error('push notification service not initialized')
+        return False
     if msg_type == 0:
         something = 'a message'
     elif msg_type == ContentType.TEXT:
@@ -243,7 +257,7 @@ def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -
     if group is not None:
         # group message
         text += ' in group [%s]' % g_facebook.name(identifier=group)
-    return g_push_service.push(sender=sender, receiver=receiver, message=text)
+    return service.push_notification(sender=sender, receiver=receiver, message=text)
 
 
 class Worker(threading.Thread, Logging):

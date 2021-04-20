@@ -64,8 +64,8 @@ class LoginTable(Storage):
             new_time = cmd.time
             if new_time is None:
                 new_time = 0
-            if new_time <= old_time:
-                # expired command, drop it
+            if new_time < old_time:
+                self.error('expired command, drop it: %s' % cmd)
                 return False
         # store into memory cache
         self.__commands[sender] = cmd

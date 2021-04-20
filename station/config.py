@@ -39,6 +39,7 @@ from dimsdk import Station
 #  Common Libs
 #
 from libs.utils import Log
+from libs.push import ApplePushNotificationService
 from libs.common import AddressNameServer
 from libs.common import Storage, Database, KeyStore
 from libs.server import ServerFacebook, ServerMessenger
@@ -48,6 +49,7 @@ from libs.server import Dispatcher
 #  Configurations
 #
 from etc.cfg_db import base_dir, ans_reserved_records
+from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from etc.cfg_gsp import all_stations, local_servers
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
 from etc.cfg_bots import group_assistants
@@ -58,8 +60,10 @@ from station.receptionist import Receptionist
 from station.monitor import Monitor
 
 
-# log level
-Log.LEVEL = Log.DEBUG
+#
+#  Log Level
+#
+# Log.LEVEL = Log.DEBUG
 # Log.LEVEL = Log.DEVELOP
 # Log.LEVEL = Log.RELEASE
 
@@ -108,6 +112,16 @@ g_facebook.messenger = g_messenger
 """
 g_dispatcher = Dispatcher()
 
+
+"""
+    Push Notification Service
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+if apns_credentials is not None:
+    g_push_service = ApplePushNotificationService(credentials=apns_credentials,
+                                                  use_sandbox=apns_use_sandbox)
+    g_push_service.topic = apns_topic
+    g_dispatcher.push_service = g_push_service
 
 """
     DIM Network Monitor

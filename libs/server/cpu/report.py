@@ -71,7 +71,7 @@ class ReportCommandProcessor(CommandProcessor):
                     session.active = False
                 else:  # 'foreground'
                     session.active = True
-                post_notification(session=session, sender=self)
+                _post_notification(session=session, sender=self)
             return ReceiptCommand(message='Client state received')
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
@@ -92,7 +92,7 @@ class ReportCommandProcessor(CommandProcessor):
         return cpu.execute(cmd=cmd, msg=msg)
 
 
-def post_notification(session: Session, sender):
+def _post_notification(session: Session, sender):
     if session.active:
         notification = NotificationNames.USER_ONLINE
     else:
@@ -123,7 +123,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = True
-            post_notification(session=session, sender=self)
+            _post_notification(session=session, sender=self)
             # TODO: notification for pushing offline message(s) from 'last_time'
         return ReceiptCommand(message='Client online received')
 
@@ -136,7 +136,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = self.messenger.current_session(identifier=msg.sender)
         if isinstance(session, Session):
             session.active = False
-            post_notification(session=session, sender=self)
+            _post_notification(session=session, sender=self)
         return ReceiptCommand(message='Client offline received')
 
 

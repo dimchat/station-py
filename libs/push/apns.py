@@ -34,9 +34,10 @@
 
     A service for pushing notification to offline device
 """
+
 import weakref
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
@@ -44,7 +45,7 @@ from apns2.payload import Payload
 
 from dimp import ID
 
-from libs.utils import Log
+from ..utils import Log
 
 
 class ApplePushNotificationService:
@@ -76,7 +77,7 @@ class ApplePushNotificationService:
         # topic
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
-        self.__delegate: weakref.ReferenceType = None  # APNs Delegate
+        self.__delegate: Optional[weakref.ReferenceType] = None  # APNs Delegate
         # counting offline messages
         self.badge_table = {}
 
@@ -145,18 +146,19 @@ class ApplePushNotificationService:
             self.error('failed to push notification: %s, error %s' % (notification, error))
             return -400  # Bad Request
 
-    def push(self, identifier: ID, message: str) -> bool:
+    # Override
+    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
         # 1. check
-        tokens = self.delegate.device_tokens(identifier=identifier)
+        tokens = self.delegate.device_tokens(identifier=receiver)
         if tokens is None:
-            self.error('cannot get device token for user %s' % identifier)
+            self.error('cannot get device token for user %s' % receiver)
             return False
         # 2. send
-        badge = self.badge(identifier)
+        badge = self.badge(receiver)
         payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:
-            self.debug('sending notification %s to user %s with token %s' % (message, identifier, token))
+            self.debug('sending notification %s -> %s (%s) with token: %s' % (sender, receiver, message, token))
             # first try
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable
@@ -171,5 +173,5 @@ class ApplePushNotificationService:
             if result == 200:  # OK
                 success = success + 1
         if success > 0:
-            self.info('sending notification success:%d badge=%d, %s' % (success, badge, identifier))
+            self.info('sending notification %s -> %s success:%d badge=%d' % (sender, receiver, success, badge))
             return True
