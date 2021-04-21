@@ -127,8 +127,7 @@ class MessageTable(Storage):
         else:
             files = []
         for filename in files:
-            size = len(filename)
-            if size < 5 or filename[size-4:] != '.msg':
+            if not filename.endswith('.msg'):
                 continue
             # load messages from file path
             path = os.path.join(directory, filename)

@@ -6,7 +6,7 @@ from typing import Optional
 from dmtp.mtp.tlv.utils import base64_encode, base64_decode
 from dmtp.mtp.tlv import Data, MutableData, VarIntData
 from dmtp.mtp import Header, Package
-from dmtp.mtp import TransactionID, DataType, Message as MessageDataType
+from dmtp.mtp import TransactionID
 
 from dmtp import Message
 from dmtp import StringValue, BinaryValue
@@ -25,13 +25,11 @@ class MTPUtils:
         return Package.parse(data=Data(data=data))
 
     @classmethod
-    def create_package(cls, body, data_type: DataType = None, sn: TransactionID = None) -> Package:
-        if data_type is None:
-            data_type = MessageDataType
-        if sn is None:
-            sn = TransactionID.ZERO
+    def create_package(cls, body, data_type, sn: TransactionID = None) -> Package:
         if not isinstance(body, Data):
             body = Data(data=body)
+        if sn is None:
+            sn = TransactionID.generate()
         return Package.new(data_type=data_type, sn=sn, body_length=body.length, body=body)
 
     @classmethod

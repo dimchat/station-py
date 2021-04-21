@@ -44,7 +44,7 @@ from dimsdk import MessengerDelegate
 from libs.utils import Logging
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
-from libs.common import Connection, ConnectionDelegate, ConnectionHandler, DMTPHandler
+from libs.common import Connection, ConnectionDelegate, ConnectionHandler, MTPHandler
 from libs.common import CommonPacker
 from libs.server import ServerMessenger, SessionServer, Session
 
@@ -63,7 +63,7 @@ class ServerConnection(Connection):
 
     def set_handler(self, handler: ConnectionHandler):
         super().set_handler(handler=handler)
-        if isinstance(handler, DMTPHandler):
+        if isinstance(handler, MTPHandler):
             packer = self.__handler.messenger.packer
             assert isinstance(packer, CommonPacker), 'packer error: %s' % packer
             packer.mtp_format = packer.MTP_DMTP

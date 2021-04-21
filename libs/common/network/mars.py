@@ -49,8 +49,11 @@ MIN_HEAD_LEN = 4 + 4 + 4 + 4 + 4
 
 class NetMsgHead:
 
+    SAY_HELLO = 1
+    CONV_LST = 2
     SEND_MSG = 3
     NOOP = 6
+    PUSH_MESSAGE = 10001
 
     """
         Message Packer for Tencent/mars

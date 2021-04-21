@@ -28,7 +28,7 @@ from .ws import WebSocket
 
 from .connection import Connection, ConnectionDelegate
 from .handler import ConnectionHandler
-from .handler import JSONHandler, WebSocketHandler, MarsHandler, DMTPHandler
+from .handler import JSONHandler, WebSocketHandler, MarsHandler, MTPHandler
 
 
 __all__ = [
@@ -39,5 +39,5 @@ __all__ = [
 
     # connection
     'Connection', 'ConnectionDelegate',
-    'ConnectionHandler', 'JSONHandler', 'WebSocketHandler', 'MarsHandler', 'DMTPHandler',
+    'ConnectionHandler', 'JSONHandler', 'WebSocketHandler', 'MarsHandler', 'MTPHandler',
 ]

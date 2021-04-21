@@ -38,7 +38,10 @@
 from abc import abstractmethod
 from typing import Optional
 
-from dmtp.mtp import Header, Package
+from dmtp.mtp import Header as MTPHeader, Package as MTPPackage
+from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
+from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
+from dmtp.mtp import MessageFragment as MTPMessageFragment
 
 from ...utils import Logging
 from ...utils.mtp import MTPUtils
@@ -242,7 +245,7 @@ class MarsHandler(ConnectionHandler, Logging):
         else:
             # TODO: handle Unknown request
             self.warning('mars unknown, cmd=%d, seq=%d: %s' % (head.cmd, head.seq, stream))
-            head = NetMsgHead.new(cmd=6, seq=0)
+            head = NetMsgHead.new(cmd=NetMsgHead.NOOP, seq=0)
             msg = NetMsg.new(head=head)
         connection.sendall(data=msg.data)
         # check remaining
@@ -251,21 +254,21 @@ class MarsHandler(ConnectionHandler, Logging):
     def connection_pack(self, connection, data: bytes) -> bytes:
         # kPushMessageCmdId = 10001
         # PUSH_DATA_TASK_ID = 0
-        head = NetMsgHead.new(cmd=10001, seq=0, body_len=len(data))
+        head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, seq=0, body_len=len(data))
         msg = NetMsg.new(head=head, body=data)
         return msg.data
 
 
 #
-#   D-MTP
+#   MTP
 #
-class DMTPHandler(ConnectionHandler, Logging):
+class MTPHandler(ConnectionHandler, Logging):
 
     @classmethod
-    def parse_head(cls, stream: bytes) -> Optional[Header]:
+    def parse_head(cls, stream: bytes) -> Optional[MTPHeader]:
         return MTPUtils.parse_head(data=stream)
 
-    def parse_package(self, stream: bytes) -> (Package, bytes):
+    def parse_package(self, stream: bytes) -> (MTPPackage, bytes):
         # 1. check received data
         data_len = len(stream)
         try:
@@ -274,18 +277,18 @@ class DMTPHandler(ConnectionHandler, Logging):
             self.error('failed to parse MTP head: %s' % error)
             head = None
         if head is None:
-            # not a D-MTP package?
+            # not a MTP package?
             if data_len < 20:
                 # wait for more data
                 return None, stream
             pos = stream.find(b'DIM', 1)
             if pos > 0:
                 # found next head(starts with 'DIM'), skip data before it
-                self.error('sticky D-MTP packages, cut the head: %s' % (stream[:pos]))
+                self.error('sticky MTP packages, cut the head: %s' % (stream[:pos]))
                 return b'', stream[pos:]
             else:
                 # skip the whole data
-                self.error('D-MTP head error, drop it: %s' % stream)
+                self.error('MTP head error, drop it: %s' % stream)
                 return b'', b''
         # 2. receive data with 'head.length + body.length'
         head_len = head.length
@@ -309,30 +312,51 @@ class DMTPHandler(ConnectionHandler, Logging):
 
     def connection_process(self, connection, stream: bytes = b'') -> bool:
         stream = self._remaining + stream
-        # try to get D-MTP package
+        # try to get MTP package
         mtp, stream = self.parse_package(stream=stream)
         self._remaining = stream
         if mtp is None:
             # partially package? keep it for next received
             return False
-        if isinstance(mtp, Package):
+        if isinstance(mtp, MTPPackage):
             # process data package and get response
             head = mtp.head
             body = mtp.body
-            body_len = body.length
-            if body_len == 0:
-                res = b'NOOP'
-            elif body_len == 4 and body == b'PING':
-                res = b'PONG'
+            # check data type
+            if head.data_type == MTPCommand:
+                # respond for Command
+                if body == b'PING':
+                    res = MTPUtils.create_package(body=b'PONG', data_type=MTPMessageRespond, sn=head.sn)
+                    connection.sendall(data=res.get_bytes())
+                return True
+            elif head.data_type == MTPCommandRespond:
+                # process Command Respond
+                return True
+            elif head.data_type == MTPMessageFragment:
+                # respond for Message Fragment
+                return True
+            elif head.data_type == MTPMessage:
+                # respond for Message
+                res = MTPUtils.create_package(body=b'OK', data_type=MTPMessageRespond, sn=head.sn)
+                connection.sendall(data=res.get_bytes())
             else:
-                delegate = self.connection_delegate(connection=connection)
-                res = delegate.connection_received(connection=connection, data=body.get_bytes())
+                assert head.data_type == MTPMessageRespond, 'data type error: %s' % head.data_type
+                # process Message Respond
+                if body == b'OK':
+                    # just ignore
+                    return True
+                elif body == b'AGAIN':
+                    # TODO: mission failed, send the message again
+                    return True
+            # process received package
+            delegate = self.connection_delegate(connection=connection)
+            res = delegate.connection_received(connection=connection, data=body.get_bytes())
             if res is not None and len(res) > 0:
-                pack = MTPUtils.create_package(body=res, data_type=head.data_type, sn=head.sn)
+                pack = MTPUtils.create_package(body=res, data_type=MTPMessage)
                 connection.sendall(data=pack.get_bytes())
         # check remaining
         return len(self._remaining) > 0
 
     def connection_pack(self, connection, data: bytes) -> bytes:
-        pack = MTPUtils.create_package(body=data)
+        pack = MTPUtils.create_package(body=data, data_type=MTPMessage)
         return pack.get_bytes()

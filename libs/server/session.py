@@ -121,11 +121,13 @@ class Session(threading.Thread):
 
     @active.setter
     def active(self, value: bool):
+        starting = False
         with self.__lock:
             if value != self.__active:
                 self.__active = value
-                if value:
-                    self.start()
+                starting = value
+        if starting:
+            self.start()
 
     def start(self):
         count = 0
@@ -141,19 +143,12 @@ class Session(threading.Thread):
 
     def run(self):
         self.__running = True
-        last_time = int(time.time())
         while self.__active:
-            now = int(time.time())
             # get next message
             msg = self.__next_message()
             if msg is None:
                 time.sleep(0.5)
-                if (now - last_time) > 10:
-                    # load messages from local storage
-                    self.__load_messages()
-                    last_time = now
             elif self.handler.push_message(msg=msg):
-                last_time = now
                 time.sleep(0.1)
             else:
                 # failed to push message
@@ -163,13 +158,6 @@ class Session(threading.Thread):
         # save unsent messages
         self.flush()
         self.__running = False
-
-    # FIXME: what about multi-login roamers?
-    def __load_messages(self):
-        messages = g_database.fetch_all_messages(receiver=self.identifier)
-        for msg in messages:
-            with self.__lock:
-                self.__waiting_messages.append(msg)
 
     def __next_message(self) -> Optional[ReliableMessage]:
         with self.__lock:

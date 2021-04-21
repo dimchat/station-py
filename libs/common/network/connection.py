@@ -43,7 +43,7 @@ from typing import Optional
 from ...utils import Logging
 
 from .handler import ConnectionHandler, ConnectionDelegate
-from .handler import JSONHandler, WebSocketHandler, MarsHandler, DMTPHandler
+from .handler import JSONHandler, WebSocketHandler, MarsHandler, MTPHandler
 
 
 class Connection(threading.Thread, Logging):
@@ -84,9 +84,9 @@ class Connection(threading.Thread, Logging):
             elif MarsHandler.parse_head(stream=data) is not None:
                 # Protocol 1: Tencent mars?
                 self.set_handler(handler=MarsHandler())
-            elif DMTPHandler.parse_head(stream=data) is not None:
-                # Protocol 2: D-MTP?
-                self.set_handler(handler=DMTPHandler())
+            elif MTPHandler.parse_head(stream=data) is not None:
+                # Protocol 2: MTP?
+                self.set_handler(handler=MTPHandler())
             elif WebSocketHandler.is_handshake(stream=data):
                 # Protocol 3: Web Socket
                 self.set_handler(handler=WebSocketHandler())
@@ -157,7 +157,7 @@ class Connection(threading.Thread, Logging):
                 # timeout (10 seconds)
                 break
         # do start
-        if not self.__running:
+        if not self.__started:
             super().start()
 
     def stop(self):
