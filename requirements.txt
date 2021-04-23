@@ -5,11 +5,12 @@ base58>=1.0.3
 ecdsa>=0.16.1
 Flask
 xmltodict
+pika
+jpush
+
 mkm>=0.10.15
 dkd>=0.10.15
 dimp>=0.10.16
 dimsdk>=0.5.13
-udp
+tcp>=0.1.0
 dmtp>=0.3.0
-pika
-jpush
