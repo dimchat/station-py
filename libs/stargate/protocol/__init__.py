@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Star Gate: Interfaces for network connection
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
 #
 #                                Written in 2021 by Moky <albert.moky@gmail.com>
 #

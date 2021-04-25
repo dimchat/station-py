@@ -224,15 +224,21 @@ class Worker:
     """ Star Worker for packages in Ships """
 
     @abstractmethod
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        """ Send data to remote peer """
+    def setup(self):
+        """ Set up connection """
         raise NotImplemented
 
     @abstractmethod
-    def process(self, counter: int) -> int:
+    def handle(self):
         """ Process incoming/outgoing Ships """
         raise NotImplemented
 
     @abstractmethod
-    def clean(self):
-        pass
+    def finish(self):
+        """ Do clean jobs """
+        raise NotImplemented
+
+    @abstractmethod
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+        """ Send data to remote peer """
+        raise NotImplemented

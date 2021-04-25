@@ -52,6 +52,7 @@ class NetMsgHead:
     MIN_HEAD_LEN = 4 + 4 + 4 + 4 + 4
 
     MAGIC_CODE = b'\x00\x00\x00\xc8\x00\x00\x00'  # version = 0xC8
+    MAGIC_CODE_OFFSET = 4
 
     # cmd
     SAY_HELLO = 1

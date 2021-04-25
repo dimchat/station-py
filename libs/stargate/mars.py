@@ -114,27 +114,28 @@ class MarsDocker(Docker):
         self.__heartbeat_expired = int(time.time())
 
     @classmethod
+    def parse_head(cls, buffer: bytes) -> Optional[NetMsgHead]:
+        head = NetMsgHead.parse(data=buffer)
+        if head is not None:
+            if head.version != 200:
+                return None
+            if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
+                return None
+            return head
+
+    @classmethod
     def check(cls, connection: Connection) -> bool:
         # 1. check received data
         buffer = connection.received()
         if buffer is not None:
-            head = NetMsgHead.parse(data=buffer)
-            return head is not None
-
-    @property
-    def delegate(self) -> Optional[GateDelegate]:
-        return self.gate.delegate
-
-    @property
-    def connection(self) -> Optional[Connection]:
-        return self.gate.connection
+            return cls.parse_head(buffer=buffer) is not None
 
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        head = NetMsgHead.new(cmd=NetMsgHead.SEND_MSG, body_len=len(payload))
-        pack = NetMsg.new(head=head, body=payload)
-        ship = MarsShip(package=pack, priority=priority, delegate=delegate)
-        return self.dock.put(ship=ship)
+        req_head = NetMsgHead.new(cmd=NetMsgHead.SEND_MSG, body_len=len(payload))
+        req_pack = NetMsg.new(head=req_head, body=payload)
+        req_ship = MarsShip(package=req_pack, priority=priority, delegate=delegate)
+        return self.dock.put(ship=req_ship)
 
     def __send_package(self, pack: NetMsg) -> int:
         conn = self.connection
@@ -154,16 +155,16 @@ class MarsDocker(Docker):
             # received nothing
             return None
         data_len = len(data)
-        head = NetMsgHead.parse(data=data)
+        head = self.parse_head(buffer=data)
         if head is None:
             # not a MTP package?
             if data_len < NetMsgHead.MIN_HEAD_LEN:
                 # wait for more data
                 return None
-            pos = data.find(NetMsgHead.MAGIC_CODE, 5)
-            if pos > 4:
+            pos = data.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
+            if pos > NetMsgHead.MAGIC_CODE:
                 # found next head, skip data before it
-                conn.receive(length=pos-4)
+                conn.receive(length=pos-NetMsgHead.MAGIC_CODE)
             else:
                 # skip the whole data
                 conn.receive(length=data_len)
@@ -186,7 +187,7 @@ class MarsDocker(Docker):
         return NetMsg(data=data, head=head, body=body)
 
     # Override
-    def _process_income(self) -> bool:
+    def _handle_income(self) -> bool:
         income = self.__receive_package()
         if income is None:
             # no more package now
@@ -201,16 +202,16 @@ class MarsDocker(Docker):
                 res = pong_body
                 res_head = NetMsgHead.new(cmd=NetMsgHead.NOOP, seq=head.seq, body_len=len(res))
                 res_pack = NetMsg.new(head=res_head, body=res)
-                ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
-                self.dock.put(ship=ship)
+                res_ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
+                self.dock.put(ship=res_ship)
             return True
         elif cmd == NetMsgHead.SEND_MSG:
             # respond for Message
             res = noop_body
             res_head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, seq=head.seq, body_len=len(res))
             res_pack = NetMsg.new(head=res_head, body=res)
-            ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
-            self.dock.put(ship=ship)
+            res_ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
+            self.dock.put(ship=res_ship)
         elif cmd == NetMsgHead.PUSH_MESSAGE:
             # process Message Respond
             sn = seq_to_sn(seq=head.seq)
@@ -226,7 +227,7 @@ class MarsDocker(Docker):
                 return True
         else:
             assert cmd in [NetMsgHead.SAY_HELLO, NetMsgHead.CONV_LST], 'Mars cmd error: %d' % cmd
-            return True
+            # TODO: process them
         # received data in the Message Respond
         if body is not None and len(body) > 0:
             delegate = self.delegate
@@ -240,7 +241,7 @@ class MarsDocker(Docker):
         return True
 
     # Override
-    def _process_outgo(self) -> bool:
+    def _handle_outgo(self) -> bool:
         # get next new task (time == 0)
         ship = self.dock.pop()
         if ship is None:
@@ -276,7 +277,7 @@ class MarsDocker(Docker):
         return True
 
     # Override
-    def _process_heartbeat(self):
+    def _handle_heartbeat(self):
         # check time for next heartbeat
         now = time.time()
         if now > self.__heartbeat_expired:

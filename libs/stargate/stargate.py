@@ -40,6 +40,7 @@ from .base import gate_status
 from .base import Gate, GateStatus, GateDelegate
 from .base import Worker
 
+from .ws import WSDocker
 from .mtp import MTPDocker
 from .mars import MarsDocker
 
@@ -67,14 +68,6 @@ class StarGate(Gate):
     @property
     def delegate(self) -> Optional[GateDelegate]:
         return self.__delegate()
-
-    @property
-    def worker(self) -> Optional[Worker]:
-        return self.__worker
-
-    @worker.setter
-    def worker(self, docker: Worker):
-        self.__worker = docker
 
     # Override
     @property
@@ -136,29 +129,30 @@ class StarGate(Gate):
     # Override
     def process(self):
         # 1. waiting for worker
-        self.setup()
-        try:
-            # 2. process by worker
-            self.handle()
-        finally:
-            # 3. clean up by worker
-            self.finished()
-
-    def setup(self):
-        while self.worker is None:
+        with self.__worker is None:
             time.sleep(0.1)
-            if MTPDocker.check(connection=self.connection):
-                self.worker = MTPDocker(gate=self)
-            elif MarsDocker.check(connection=self.connection):
-                self.worker = MarsDocker(gate=self)
+            self.__worker = self._create_worker()
+        try:
+            # 2. setup worker
+            self.__worker.setup()
+            # 3. process by worker
+            while self.status != GateStatus.Error:
+                self.__worker.handle()
+        finally:
+            # 4. clean up by worker
+            self.__worker.finish()
 
-    def handle(self):
-        count = 0
-        while self.status != GateStatus.Error:
-            count = self.worker.process(counter=count)
-
-    def finished(self):
-        self.worker.clean()
+    # override to customize Worker
+    def _create_worker(self) -> Optional[Worker]:
+        conn = self.connection
+        if conn is None:
+            return None
+        if MTPDocker.check(connection=self.connection):
+            return MTPDocker(gate=self)
+        if MarsDocker.check(connection=self.connection):
+            return MarsDocker(gate=self)
+        if WSDocker.check(connection=self.connection):
+            return WSDocker(gate=self)
 
     #
     #   ConnectionHandler

@@ -34,23 +34,24 @@ from typing import Optional
 
 from tcp import Connection
 
-from dmtp.mtp.tlv import Data
-from dmtp.mtp import Package, Header
-from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
-from dmtp.mtp import MessageFragment as MTPMessageFragment
-from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
+from .protocol import WebSocket
 
 from .base import Gate, GateDelegate
 from .base import OutgoShip
 from .dock import Docker
 
 
-class MTPShip(OutgoShip):
-    """ Star Ship with MTP Package """
+def seq_to_sn(seq: int) -> bytes:
+    return seq.to_bytes(length=4, byteorder='big')
 
-    def __init__(self, package: Package, priority: int = 0, delegate: Optional[GateDelegate] = None):
+
+class WSShip(OutgoShip):
+    """ Star Ship with WebSocket Package """
+
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None):
         super().__init__()
         self.__package = package
+        self.__payload = payload
         self.__priority = priority
         # retry
         self.__timestamp = 0
@@ -90,23 +91,23 @@ class MTPShip(OutgoShip):
         return self
 
     @property
-    def package(self) -> Package:
+    def package(self) -> bytes:
         """ Get request will be sent to remote star """
         return self.__package
 
     # Override
     @property
     def sn(self) -> bytes:
-        return self.package.head.sn.get_bytes()
+        return self.payload
 
     # Override
     @property
     def payload(self) -> bytes:
-        return self.package.body.get_bytes()
+        return self.__payload
 
 
-class MTPDocker(Docker):
-    """ Docker for MTP packages """
+class WSDocker(Docker):
+    """ Docker for WebSocket packages """
 
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
@@ -118,25 +119,32 @@ class MTPDocker(Docker):
         # 1. check received data
         buffer = connection.received()
         if buffer is not None:
-            data = Data(data=buffer)
-            head = Header.parse(data=data)
-            return head is not None
+            return WebSocket.is_handshake(stream=buffer)
+
+    # Override
+    def setup(self):
+        buffer = self.connection.received()
+        if buffer is not None:
+            # remove first handshake package
+            self.connection.receive(length=len(buffer))
+            # response for handshake
+            res = WebSocket.handshake(stream=buffer)
+            self.__send_package(pack=res)
 
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        req = Data(data=payload)
-        req_pack = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
-        req_ship = MTPShip(package=req_pack, priority=priority, delegate=delegate)
+        req_pack = WebSocket.pack(payload=payload)
+        req_ship = WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
         return self.dock.put(ship=req_ship)
 
-    def __send_package(self, pack: Package) -> int:
+    def __send_package(self, pack: bytes) -> int:
         conn = self.connection
         if conn is None:
             # connection lost
             return -1
-        return conn.send(data=pack.get_bytes())
+        return conn.send(data=pack)
 
-    def __receive_package(self) -> Optional[Package]:
+    def __receive_payload(self) -> Optional[bytes]:
         conn = self.connection
         if conn is None:
             # connection lost
@@ -146,93 +154,37 @@ class MTPDocker(Docker):
         if buffer is None:
             # received nothing
             return None
-        data = Data(data=buffer)
-        head = Header.parse(data=data)
-        if head is None:
-            # not a MTP package?
-            if data.length < 20:
-                # wait for more data
-                return None
-            pos = data.find(sub=Header.MAGIC_CODE, start=1)  # MAGIC_CODE_OFFSET = 0
-            if pos > 0:
-                # found next head(starts with 'DIM'), skip data before it
-                conn.receive(length=pos)
-            else:
-                # skip the whole data
-                conn.receive(length=data.length)
-            return None
-        # 2. receive data with 'head.length + body.length'
-        body_len = head.body_length
-        if body_len < 0:
-            # should not happen
-            body_len = data.length - head.length
-        pack_len = head.length + body_len
-        if pack_len > data.length:
-            # waiting for more data
-            return None
-        # receive package
-        buffer = conn.receive(length=pack_len)
-        data = Data(data=buffer)
-        body = data.slice(start=head.length)
-        return Package(data=data, head=head, body=body)
+        data, remaining = WebSocket.parse(stream=buffer)
+        old_len = len(buffer)
+        new_len = len(remaining)
+        if new_len < old_len:
+            # skip received package
+            conn.receive(length=old_len-new_len)
+        # return received payload
+        return data
 
     # Override
     def _handle_income(self) -> bool:
-        income = self.__receive_package()
+        income = self.__receive_payload()
         if income is None:
             # no more package now
             return False
-        head = income.head
-        body = income.body
-        # check data type
-        data_type = head.data_type
-        if data_type == MTPCommand:
-            # respond for Command
-            if body == ping_body:  # b'PING'
-                res = pong_body    # b'PONG'
-                res_pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                res_ship = MTPShip(package=res_pack, priority=OutgoShip.SLOWER)
-                self.dock.put(ship=res_ship)
+        elif income == ping_body:
+            # respond Command: 'PONG' -> 'PING'
+            self.send(payload=pong_body, priority=OutgoShip.SLOWER)
             return True
-        elif data_type == MTPCommandRespond:
+        elif income == pong_body:
             # just ignore
             return True
-        elif data_type == MTPMessageFragment:
+        elif income == noop_body:
             # just ignore
             return True
-        elif data_type == MTPMessage:
-            # respond for Message
-            res = ok_body
-            res_pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            res_ship = MTPShip(package=res_pack, priority=OutgoShip.NORMAL)
-            self.dock.put(ship=res_ship)
-        else:
-            assert data_type == MTPMessageRespond, 'data type error: %s' % data_type
-            # process Message Respond
-            sn = head.sn.get_bytes()
-            ship = self.dock.pop(sn=sn)
-            if ship is not None:
-                delegate = ship.delegate
-                if delegate is not None:
-                    # callback for the request data
-                    if body == again_body:
-                        error = ConnectionResetError('Send the message again')
-                    else:
-                        error = None
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
-            # check body
-            if body == ok_body:
-                # just ignore
-                return True
-            elif body == again_body:
-                # TODO: mission failed, send the message again
-                return True
-        # received data in the Message Respond
-        if body.length > 0:
+        elif len(income) > 0:
+            # process received payload
             delegate = self.delegate
             if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
-                if res is not None:
+                res = delegate.gate_received(gate=self.gate, payload=income)
+                if res is not None and len(res) > 0:
                     self.send(payload=res, priority=OutgoShip.NORMAL, delegate=delegate)
         # float control
         if Gate.INCOME_INTERVAL > 0:
@@ -256,15 +208,11 @@ class MTPDocker(Docker):
                     error = TimeoutError('Request timeout')
                     delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
                 return True
-        assert isinstance(ship, MTPShip), 'outgo ship error: %s' % ship
+        assert isinstance(ship, WSShip), 'outgo ship error: %s' % ship
         outgo = ship.package
-        # check data type
-        if outgo.head.data_type == MTPMessage:
-            # put back for response
-            self.dock.put(ship=ship)
         # send out request data
         res = self.__send_package(pack=outgo)
-        if res != outgo.length:
+        if res != len(outgo):
             # callback for sent failed
             delegate = ship.delegate
             if delegate is not None:
@@ -282,10 +230,7 @@ class MTPDocker(Docker):
         if now > self.__heartbeat_expired:
             conn = self.connection
             if conn.is_expired(now=now):
-                req = ping_body
-                pack = Package.new(data_type=MTPCommand, body_length=req.length, body=req)
-                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
-                self.dock.put(ship=ship)
+                self.send(payload=ping_body, priority=OutgoShip.SLOWER)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
         # idling
@@ -297,7 +242,6 @@ class MTPDocker(Docker):
 #  const
 #
 
-ping_body = Data(data='PING')
-pong_body = Data(data='PONG')
-again_body = Data(data='AGAIN')
-ok_body = Data(data='OK')
+ping_body = b'PING'
+pong_body = b'PONG'
+noop_body = b'NOOP'

@@ -34,7 +34,9 @@ import weakref
 from abc import abstractmethod
 from typing import Optional, List, Dict, overload
 
-from .base import Gate, OutgoShip, Worker
+from tcp import Connection
+
+from .base import Gate, GateDelegate, OutgoShip, Worker
 
 """
     Star Dock
@@ -141,6 +143,7 @@ class Docker(Worker):
         super().__init__()
         self.__dock = Dock()
         self.__gate = weakref.ref(gate)
+        self.__counter = 0
 
     @property
     def dock(self) -> Dock:
@@ -150,42 +153,59 @@ class Docker(Worker):
     def gate(self) -> Gate:
         return self.__gate()
 
+    @property
+    def delegate(self) -> Optional[GateDelegate]:
+        return self.gate.delegate
+
+    @property
+    def connection(self) -> Optional[Connection]:
+        return self.gate.connection
+
     # Override
-    def process(self, counter: int) -> int:
+    def setup(self):
+        pass
+
+    # Override
+    def finish(self):
+        # TODO: go through all outgo Ships parking in Dock and call 'sent failed' on their delegates
+        pass
+
+    # Override
+    def handle(self):
         # process incoming packages / outgoing tasks
         if Gate.MAX_INCOMES_PER_OUTGO > 0:
             # incoming priority
-            if counter < Gate.MAX_INCOMES_PER_OUTGO:
-                if self._process_income():
-                    return counter + 1
+            if self.__counter < Gate.MAX_INCOMES_PER_OUTGO:
+                if self._handle_income():
+                    self.__counter += 1
+                    return
             # keep a chance for outgoing packages
-            if self._process_outgo():
-                return 0
+            if self._handle_outgo():
+                self.__counter = 0
+                return
         else:
             # outgoing priority
             assert Gate.MAX_INCOMES_PER_OUTGO != 0, 'cannot set MAX_INCOMES_PER_OUTGO to 0'
-            if counter > Gate.MAX_INCOMES_PER_OUTGO:
-                if self._process_outgo():
-                    return counter - 1
+            if self.__counter > Gate.MAX_INCOMES_PER_OUTGO:
+                if self._handle_outgo():
+                    self.__counter -= 1
+                    return
             # keep a chance for incoming packages
-            if self._process_income():
-                return 0
+            if self._handle_income():
+                self.__counter = 0
+                return
         # no task now, send a HEARTBEAT package
-        self._process_heartbeat()
-        return 0
+        self._handle_heartbeat()
+        self.__counter = 0
+        return
 
     @abstractmethod
-    def _process_income(self) -> bool:
+    def _handle_income(self) -> bool:
         raise NotImplemented
 
     @abstractmethod
-    def _process_outgo(self) -> bool:
+    def _handle_outgo(self) -> bool:
         raise NotImplemented
 
-    @abstractmethod
-    def _process_heartbeat(self) -> bool:
-        raise NotImplemented
-
-    def clean(self):
-        # TODO: go through all outgo ships and call 'sent failed' on their delegates
+    def _handle_heartbeat(self) -> bool:
         pass
