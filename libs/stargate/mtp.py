@@ -27,7 +27,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ==============================================================================
+
 import time
+import weakref
 from typing import Optional
 
 from dmtp.mtp.tlv import Data
@@ -35,36 +37,114 @@ from dmtp.mtp import Package, Header
 from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
 from dmtp.mtp import MessageFragment as MTPMessageFragment
 from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
+from tcp import Connection
 
-from .base import Gate, GateDelegate, Worker
+from .base import Gate, GateDelegate
 from .base import OutgoShip
-from .docker import Docker
-from .starship import StarShip
+from .dock import Docker
 
 
-ping_body = Data(data='PING')
-pong_body = Data(data='PONG')
-again_body = Data(data='AGAIN')
-ok_body = Data(data='OK')
+class MTPShip(OutgoShip):
+    """ Star Ship with MTP Package """
+
+    def __init__(self, package: Package, priority: int = 0, delegate: Optional[GateDelegate] = None):
+        super().__init__()
+        self.__package = package
+        self.__priority = priority
+        # retry
+        self.__timestamp = 0
+        self.__retries = 0
+        # callback
+        if delegate is None:
+            self.__delegate = None
+        else:
+            self.__delegate = weakref.ref(delegate)
+
+    # Override
+    @property
+    def delegate(self) -> Optional[GateDelegate]:
+        """ Get request handler """
+        if self.__delegate is not None:
+            return self.__delegate()
+
+    # Override
+    @property
+    def priority(self) -> int:
+        return self.__priority
+
+    # Override
+    @property
+    def time(self) -> int:
+        return self.__timestamp
+
+    # Override
+    @property
+    def retries(self) -> int:
+        return self.__retries
+
+    # Override
+    def update(self):
+        self.__timestamp = int(time.time())
+        self.__retries += 1
+        return self
+
+    @property
+    def package(self) -> Package:
+        """ Get request will be sent to remote star """
+        return self.__package
+
+    # Override
+    @property
+    def sn(self) -> bytes:
+        return self.package.head.sn.get_bytes()
+
+    # Override
+    @property
+    def payload(self) -> bytes:
+        return self.package.body.get_bytes()
 
 
-class StarDocker(Docker):
+class MTPDocker(Docker):
     """ Docker for MTP packages """
 
-    def __init__(self, gate: Gate, delegate: GateDelegate):
-        super().__init__(gate=gate, delegate=delegate)
+    def __init__(self, gate: Gate):
+        super().__init__(gate=gate)
         # time for checking heartbeat
         self.__heartbeat_expired = int(time.time())
 
+    @classmethod
+    def check(cls, connection: Connection) -> bool:
+        # 1. check received data
+        buffer = connection.received()
+        if buffer is not None:
+            data = Data(data=buffer)
+            head = Header.parse(data=data)
+            return head is not None
+
+    @property
+    def delegate(self) -> Optional[GateDelegate]:
+        return self.gate.delegate
+
+    @property
+    def connection(self) -> Optional[Connection]:
+        return self.gate.connection
+
+    # Override
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+        req = Data(data=payload)
+        pack = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
+        ship = MTPShip(package=pack, priority=priority, delegate=delegate)
+        return self.dock.put(ship=ship)
+
     def __send_package(self, pack: Package) -> int:
-        conn = self.current_connection
+        conn = self.connection
         if conn is None:
             # connection lost
             return -1
         return conn.send(data=pack.get_bytes())
 
     def __receive_package(self) -> Optional[Package]:
-        conn = self.current_connection
+        conn = self.connection
         if conn is None:
             # connection lost
             return None
@@ -118,8 +198,8 @@ class StarDocker(Docker):
             if body == ping_body:
                 res = pong_body
                 pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                ship = StarShip(package=pack, priority=OutgoShip.SLOWER)
-                self.add_task(ship=ship)
+                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
+                self.dock.put(ship=ship)
             return True
         elif data_type == MTPCommandRespond:
             # just ignore
@@ -130,14 +210,14 @@ class StarDocker(Docker):
         elif data_type == MTPMessage:
             # respond for Message
             res = ok_body
-            pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-            ship = StarShip(package=pack, priority=OutgoShip.NORMAL)
-            self.add_task(ship=ship)
+            pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
+            ship = MTPShip(package=pack, priority=OutgoShip.NORMAL)
+            self.dock.put(ship=ship)
         else:
             assert data_type == MTPMessageRespond, 'data type error: %s' % data_type
             # process Message Respond
             sn = head.sn.get_bytes()
-            ship = self._pop_waiting(sn=sn)
+            ship = self.dock.pop(sn=sn)
             if ship is not None:
                 delegate = ship.delegate
                 if delegate is not None:
@@ -160,41 +240,44 @@ class StarDocker(Docker):
             if delegate is not None:
                 delegate.gate_received(gate=self.gate, payload=body.get_bytes())
         # float control
-        if Worker.INCOME_INTERVAL > 0:
-            time.sleep(Worker.INCOME_INTERVAL)
+        if Gate.INCOME_INTERVAL > 0:
+            time.sleep(Gate.INCOME_INTERVAL)
         return True
 
     # Override
     def _process_outgo(self) -> bool:
+        # get next new task (time == 0)
         ship = self.dock.pop()
         if ship is None:
-            # no more task now
-            ship = self._get_waiting()
+            # no more new task now, get any expired task
+            ship = self.dock.any()
             if ship is None:
                 # no task expired now
                 return False
-        assert isinstance(ship, StarShip), 'outgo ship error: %s' % ship
+            elif ship.expired:
+                # remove an expired task
+                delegate = ship.delegate
+                if delegate is not None:
+                    error = TimeoutError('Request timeout')
+                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                return True
+        assert isinstance(ship, MTPShip), 'outgo ship error: %s' % ship
         outgo = ship.package
-        head = outgo.head
         # check data type
-        data_type = head.data_type
-        if data_type == MTPMessage:
-            # set for callback when received response
-            sn = head.sn.get_bytes()
-            self._set_waiting(sn=sn, ship=ship)
+        if outgo.head.data_type == MTPMessage:
+            # put back for response
+            self.dock.put(ship=ship)
         # send out request data
         res = self.__send_package(pack=outgo)
         if res != outgo.length:
             # callback for sent failed
             delegate = ship.delegate
-            if delegate is None:
-                delegate = self.delegate
             if delegate is not None:
                 error = ConnectionError('Socket error')
                 delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
         # flow control
-        if Worker.OUTGO_INTERVAL > 0:
-            time.sleep(Worker.OUTGO_INTERVAL)
+        if Gate.OUTGO_INTERVAL > 0:
+            time.sleep(Gate.OUTGO_INTERVAL)
         return True
 
     # Override
@@ -202,14 +285,24 @@ class StarDocker(Docker):
         # check time for next heartbeat
         now = time.time()
         if now > self.__heartbeat_expired:
-            conn = self.current_connection
+            conn = self.connection
             if conn.is_expired(now=now):
                 req = ping_body
-                pack = Package.new(data_type=MTPCommandRespond, body_length=req.length, body=req)
-                ship = StarShip(package=pack, priority=OutgoShip.SLOWER)
-                self.add_task(ship=ship)
+                pack = Package.new(data_type=MTPCommand, body_length=req.length, body=req)
+                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
+                self.dock.put(ship=ship)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
         # idling
-        assert Worker.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
-        time.sleep(Worker.IDLE_INTERVAL)
+        assert Gate.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
+        time.sleep(Gate.IDLE_INTERVAL)
+
+
+#
+#  const
+#
+
+ping_body = Data(data='PING')
+pong_body = Data(data='PONG')
+again_body = Data(data='AGAIN')
+ok_body = Data(data='OK')

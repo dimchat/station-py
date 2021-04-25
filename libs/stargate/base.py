@@ -29,11 +29,20 @@
 # ==============================================================================
 
 import socket
+import time
 from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
 
-from tcp import ConnectionStatus, ConnectionHandler
+from tcp import Connection, ConnectionStatus, ConnectionHandler
+
+
+"""
+    Star Gate
+    ~~~~~~~~~
+    
+    Connected remote peer
+"""
 
 
 class GateStatus(IntEnum):
@@ -92,12 +101,70 @@ class GateDelegate:
         pass
 
 
+class Gate(ConnectionHandler):
+    """ Star Gate of remote peer """
+
+    # flow control
+    MAX_INCOMES_PER_OUTGO = 4
+    # seconds
+    INCOME_INTERVAL = 8.0 / 1000.0
+    OUTGO_INTERVAL = 32.0 / 1000.0
+    IDLE_INTERVAL = 256.0 / 1000.0
+
+    @property
+    def status(self) -> GateStatus:
+        """ Get connection status """
+        raise NotImplemented
+
+    @property
+    def delegate(self) -> Optional[GateDelegate]:
+        """ Get default Delegate """
+        yield None
+
+    @property
+    def connection(self) -> Optional[Connection]:
+        """ Get current Connection """
+        yield None
+
+    @abstractmethod
+    def open(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> Optional[Connection]:
+        """ Start connection """
+        raise NotImplemented
+
+    @abstractmethod
+    def close(self):
+        """ Close connection """
+        raise NotImplemented
+
+    @abstractmethod
+    def send(self, payload: bytes, priority: int, delegate: Optional[GateDelegate]) -> bool:
+        """ Send data to remote peer """
+        raise NotImplemented
+
+    @abstractmethod
+    def process(self):
+        raise NotImplemented
+
+
+"""
+    Star Ship
+    ~~~~~~~~~
+    
+    Container carrying data package
+"""
+
+
 class Ship:
     """ Star Ship for carrying data """
 
     @property
+    def sn(self) -> bytes:
+        """ Get ID for this Ship """
+        raise NotImplemented
+
+    @property
     def payload(self) -> bytes:
-        """ Get data in this Star Ship """
+        """ Get data in this Ship """
         raise NotImplemented
 
 
@@ -133,71 +200,38 @@ class OutgoShip(Ship):
         """ Get count of retries """
         raise NotImplemented
 
+    @property
+    def expired(self) -> bool:
+        """ Check whether retry too many times and no response """
+        delta = int(time.time()) - self.time
+        return delta > (self.EXPIRES * self.RETRIES * 2)
+
     def update(self):
         """ Update retries count and time """
         raise NotImplemented
 
 
+"""
+    Star Worker
+    ~~~~~~~~~~~
+    
+    Processor for Star Ships
+"""
+
+
 class Worker:
-    """ Star Worker for packages in Ships to the remote Star Gate """
+    """ Star Worker for packages in Ships """
 
-    # flow control
-    MAX_INCOMES_PER_OUTGO = 4
-    # seconds
-    INCOME_INTERVAL = 8.0 / 1000.0
-    OUTGO_INTERVAL = 32.0 / 1000.0
-    IDLE_INTERVAL = 256.0 / 1000.0
-
-    @property
-    def delegate(self) -> Optional[GateDelegate]:
-        """ Get default Gate handler """
-        yield None
-
-    @property
-    def status(self) -> ConnectionStatus:
-        """ Get Connection Status """
+    @abstractmethod
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+        """ Send data to remote peer """
         raise NotImplemented
 
     @abstractmethod
-    def connect(self, host: str, port: int, sock: Optional[socket.socket] = None) -> Optional[socket.error]:
-        """ Start connection """
-        raise NotImplemented
-
-    @abstractmethod
-    def disconnect(self):
-        """ Stop connection """
-        raise NotImplemented
-
-    @abstractmethod
-    def add_task(self, ship: OutgoShip):
-        """ Put this Ship in a queue for sending out """
-        raise NotImplemented
-
-    @abstractmethod
-    def process(self, count: int) -> int:
+    def process(self, counter: int) -> int:
         """ Process incoming/outgoing Ships """
         raise NotImplemented
 
-
-class Gate(ConnectionHandler):
-    """ Star Gate of remote peer """
-
-    @property
-    def status(self) -> GateStatus:
-        """ Get connection status """
-        raise NotImplemented
-
     @abstractmethod
-    def open(self, host: str, port: int, sock: Optional[socket.socket] = None) -> Optional[socket.error]:
-        """ Start connection """
-        raise NotImplemented
-
-    @abstractmethod
-    def close(self):
-        """ Close connection """
-        raise NotImplemented
-
-    @abstractmethod
-    def send(self, payload: bytes, priority: int, delegate: Optional[GateDelegate]):
-        """ Send data to remote peer """
-        raise NotImplemented
+    def clean(self):
+        pass

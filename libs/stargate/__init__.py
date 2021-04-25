@@ -31,11 +31,10 @@
 from .base import Gate, GateStatus, GateDelegate
 from .base import Ship, OutgoShip
 from .base import Worker
-from .docker import Docker
+from .dock import Docker
 
-from .stardocker import StarDocker
-from .starship import StarShip
 from .stargate import StarGate
+from .mtp import MTPShip, MTPDocker
 
 
 """
@@ -53,7 +52,7 @@ __all__ = [
     'Worker',
     'Docker',
 
-    'StarDocker',
-    'StarShip',
+    'MTPDocker',
+    'MTPShip',
     'StarGate',
 ]
