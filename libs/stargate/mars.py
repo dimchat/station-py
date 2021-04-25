@@ -34,21 +34,21 @@ from typing import Optional
 
 from tcp import Connection
 
-from dmtp.mtp.tlv import Data
-from dmtp.mtp import Package, Header
-from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
-from dmtp.mtp import MessageFragment as MTPMessageFragment
-from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
+from .protocol import NetMsg, NetMsgHead
 
 from .base import Gate, GateDelegate
 from .base import OutgoShip
 from .dock import Docker
 
 
-class MTPShip(OutgoShip):
-    """ Star Ship with MTP Package """
+def seq_to_sn(seq: int) -> bytes:
+    return seq.to_bytes(length=4, byteorder='big')
 
-    def __init__(self, package: Package, priority: int = 0, delegate: Optional[GateDelegate] = None):
+
+class MarsShip(OutgoShip):
+    """ Star Ship with Mars Package """
+
+    def __init__(self, package: NetMsg, priority: int = 0, delegate: Optional[GateDelegate] = None):
         super().__init__()
         self.__package = package
         self.__priority = priority
@@ -90,14 +90,14 @@ class MTPShip(OutgoShip):
         return self
 
     @property
-    def package(self) -> Package:
+    def package(self) -> NetMsg:
         """ Get request will be sent to remote star """
         return self.__package
 
     # Override
     @property
     def sn(self) -> bytes:
-        return self.package.head.sn.get_bytes()
+        return seq_to_sn(seq=self.package.head.seq)
 
     # Override
     @property
@@ -105,8 +105,8 @@ class MTPShip(OutgoShip):
         return self.package.body.get_bytes()
 
 
-class MTPDocker(Docker):
-    """ Docker for MTP packages """
+class MarsDocker(Docker):
+    """ Docker for Mars packages """
 
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
@@ -118,8 +118,7 @@ class MTPDocker(Docker):
         # 1. check received data
         buffer = connection.received()
         if buffer is not None:
-            data = Data(data=buffer)
-            head = Header.parse(data=data)
+            head = NetMsgHead.parse(data=buffer)
             return head is not None
 
     @property
@@ -132,57 +131,59 @@ class MTPDocker(Docker):
 
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        req = Data(data=payload)
-        pack = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
-        ship = MTPShip(package=pack, priority=priority, delegate=delegate)
+        head = NetMsgHead.new(cmd=NetMsgHead.SEND_MSG, body_len=len(payload))
+        pack = NetMsg.new(head=head, body=payload)
+        ship = MarsShip(package=pack, priority=priority, delegate=delegate)
         return self.dock.put(ship=ship)
 
-    def __send_package(self, pack: Package) -> int:
+    def __send_package(self, pack: NetMsg) -> int:
         conn = self.connection
         if conn is None:
             # connection lost
             return -1
-        return conn.send(data=pack.get_bytes())
+        return conn.send(data=pack.data)
 
-    def __receive_package(self) -> Optional[Package]:
+    def __receive_package(self) -> Optional[NetMsg]:
         conn = self.connection
         if conn is None:
             # connection lost
             return None
         # 1. check received data
-        buffer = conn.received()
-        if buffer is None:
+        data = conn.received()
+        if data is None:
             # received nothing
             return None
-        data = Data(data=buffer)
-        head = Header.parse(data=data)
+        data_len = len(data)
+        head = NetMsgHead.parse(data=data)
         if head is None:
             # not a MTP package?
-            if data.length < 20:
+            if data_len < NetMsgHead.MIN_HEAD_LEN:
                 # wait for more data
                 return None
-            pos = data.find(sub=Header.MAGIC_CODE, start=1)
-            if pos > 0:
-                # found next head(starts with 'DIM'), skip data before it
-                conn.receive(length=pos)
+            pos = data.find(NetMsgHead.MAGIC_CODE, 5)
+            if pos > 4:
+                # found next head, skip data before it
+                conn.receive(length=pos-4)
             else:
                 # skip the whole data
-                conn.receive(length=data.length)
+                conn.receive(length=data_len)
             return None
         # 2. receive data with 'head.length + body.length'
         body_len = head.body_length
         if body_len < 0:
             # should not happen
-            body_len = data.length - head.length
+            body_len = data_len - head.length
         pack_len = head.length + body_len
-        if pack_len > data.length:
+        if pack_len > data_len:
             # waiting for more data
             return None
         # receive package
-        buffer = conn.receive(length=pack_len)
-        data = Data(data=buffer)
-        body = data.slice(start=head.length)
-        return Package(data=data, head=head, body=body)
+        data = conn.receive(length=pack_len)
+        if body_len > 0:
+            body = data[head.length:]
+        else:
+            body = None
+        return NetMsg(data=data, head=head, body=body)
 
     # Override
     def _process_income(self) -> bool:
@@ -192,55 +193,46 @@ class MTPDocker(Docker):
             return False
         head = income.head
         body = income.body
-        # check data type
-        data_type = head.data_type
-        if data_type == MTPCommand:
+        # check data cmd
+        cmd = head.cmd
+        if cmd == NetMsgHead.NOOP:
             # respond for Command
             if body == ping_body:
                 res = pong_body
-                pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
+                res_head = NetMsgHead.new(cmd=NetMsgHead.NOOP, seq=head.seq, body_len=len(res))
+                res_pack = NetMsg.new(head=res_head, body=res)
+                ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
                 self.dock.put(ship=ship)
             return True
-        elif data_type == MTPCommandRespond:
-            # just ignore
-            return True
-        elif data_type == MTPMessageFragment:
-            # just ignore
-            return True
-        elif data_type == MTPMessage:
+        elif cmd == NetMsgHead.SEND_MSG:
             # respond for Message
-            res = ok_body
-            pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            ship = MTPShip(package=pack, priority=OutgoShip.NORMAL)
+            res = noop_body
+            res_head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, seq=head.seq, body_len=len(res))
+            res_pack = NetMsg.new(head=res_head, body=res)
+            ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
             self.dock.put(ship=ship)
-        else:
-            assert data_type == MTPMessageRespond, 'data type error: %s' % data_type
+        elif cmd == NetMsgHead.PUSH_MESSAGE:
             # process Message Respond
-            sn = head.sn.get_bytes()
+            sn = seq_to_sn(seq=head.seq)
             ship = self.dock.pop(sn=sn)
             if ship is not None:
                 delegate = ship.delegate
                 if delegate is not None:
                     # callback for the request data
-                    if body == again_body:
-                        error = ConnectionResetError('Send the message again')
-                    else:
-                        error = None
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                    delegate.gate_sent(gate=self.gate, payload=ship.payload)
             # check body
-            if body == ok_body:
+            if body == noop_body:
                 # just ignore
                 return True
-            elif body == again_body:
-                # TODO: mission failed, send the message again
-                return True
+        else:
+            assert cmd in [NetMsgHead.SAY_HELLO, NetMsgHead.CONV_LST], 'Mars cmd error: %d' % cmd
+            return True
         # received data in the Message Respond
-        if body.length > 0:
+        if body is not None and len(body) > 0:
             delegate = self.delegate
             if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
-                if res is not None:
+                res = delegate.gate_received(gate=self.gate, payload=body)
+                if res is not None and len(res) > 0:
                     self.send(payload=res, priority=OutgoShip.NORMAL, delegate=delegate)
         # float control
         if Gate.INCOME_INTERVAL > 0:
@@ -264,10 +256,10 @@ class MTPDocker(Docker):
                     error = TimeoutError('Request timeout')
                     delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
                 return True
-        assert isinstance(ship, MTPShip), 'outgo ship error: %s' % ship
+        assert isinstance(ship, MarsShip), 'outgo ship error: %s' % ship
         outgo = ship.package
         # check data type
-        if outgo.head.data_type == MTPMessage:
+        if outgo.head.cmd == NetMsgHead.SEND_MSG:
             # put back for response
             self.dock.put(ship=ship)
         # send out request data
@@ -291,8 +283,9 @@ class MTPDocker(Docker):
             conn = self.connection
             if conn.is_expired(now=now):
                 req = ping_body
-                pack = Package.new(data_type=MTPCommand, body_length=req.length, body=req)
-                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
+                res_head = NetMsgHead.new(cmd=NetMsgHead.NOOP, body_len=len(req))
+                res_pack = NetMsg.new(head=res_head, body=req)
+                ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
                 self.dock.put(ship=ship)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
@@ -305,7 +298,6 @@ class MTPDocker(Docker):
 #  const
 #
 
-ping_body = Data(data='PING')
-pong_body = Data(data='PONG')
-again_body = Data(data='AGAIN')
-ok_body = Data(data='OK')
+ping_body = b'PING'
+pong_body = b'PONG'
+noop_body = b'NOOP'

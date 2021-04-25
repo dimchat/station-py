@@ -39,7 +39,9 @@ from tcp import ConnectionStatus, Connection, ClientConnection, ServerConnection
 from .base import gate_status
 from .base import Gate, GateStatus, GateDelegate
 from .base import Worker
+
 from .mtp import MTPDocker
+from .mars import MarsDocker
 
 
 class StarGate(Gate):
@@ -147,6 +149,8 @@ class StarGate(Gate):
             time.sleep(0.1)
             if MTPDocker.check(connection=self.connection):
                 self.worker = MTPDocker(gate=self)
+            elif MarsDocker.check(connection=self.connection):
+                self.worker = MarsDocker(gate=self)
 
     def handle(self):
         count = 0

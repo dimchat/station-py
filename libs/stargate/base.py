@@ -80,17 +80,18 @@ class GateDelegate:
         pass
 
     @abstractmethod
-    def gate_received(self, gate, payload: bytes):
+    def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
         """
         Callback when new package received
 
         :param gate:       remote gate
         :param payload:    received data
+        :return response
         """
         raise NotImplemented
 
     # @abstractmethod
-    def gate_sent(self, gate, payload: bytes, error: Optional[OSError]):
+    def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
         """
         Callback when package sent
 

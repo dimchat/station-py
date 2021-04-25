@@ -28,38 +28,15 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .base import Gate, GateStatus, GateDelegate
-from .base import Ship, OutgoShip
-from .base import Worker
-from .dock import Docker
-
-from .stargate import StarGate
-
-from .mtp import MTPShip, MTPDocker
-from .mars import MarsShip, MarsDocker
-
-
-"""
-    Star Gate
-    ~~~~~~~~~
-    
-    Interfaces for network connection
-"""
+from .ws import WebSocket
+from .mars import NetMsg, NetMsgHead
 
 
 __all__ = [
 
-    # base
-    'Gate', 'GateStatus', 'GateDelegate',
-    'Ship', 'OutgoShip',
-    'Worker',
-    'Docker',
+    # Web Socket
+    'WebSocket',
 
-    'StarGate',
-
-    # MTP
-    'MTPShip', 'MTPDocker',
-
-    # Mars
-    'MarsShip', 'MarsDocker',
+    # Tencent Mars
+    'NetMsg', 'NetMsgHead',
 ]
