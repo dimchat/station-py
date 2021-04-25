@@ -38,15 +38,16 @@
 import threading
 import time
 import weakref
-from abc import abstractmethod
 from weakref import WeakValueDictionary
-from typing import Optional, Dict, Set
+from typing import Optional, Dict, Set, List
 
 from dimp import hex_encode
 from dimp import ID, ReliableMessage
+from dimsdk import Messenger, Callback
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
+from ..stargate import GateDelegate
 from ..common import Database
 
 
@@ -57,23 +58,63 @@ def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
 
+class MessageWrapper(GateDelegate, Callback):
+
+    EXPIRES = 600  # 10 minutes
+
+    def __init__(self, msg: ReliableMessage):
+        super().__init__()
+        self.__time = 0
+        self.__msg = msg
+
+    @property
+    def msg(self) -> Optional[ReliableMessage]:
+        return self.__msg
+
+    @property
+    def time(self) -> int:
+        """ Get last sent time """
+        return self.__time
+
+    @property
+    def expired(self) -> bool:
+        """ Check whether expired """
+        delta = int(time.time()) - self.__time
+        return delta > self.EXPIRES
+
+    #
+    #   GateDelegate
+    #
+    def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
+        if error is None:
+            # success, remove message
+            self.__msg = None
+        else:
+            # failed, force to expired
+            self.__time = -1
+
+    #
+    #   Callback
+    #
+    def finished(self, result, error=None):
+        if error is None:
+            # this message was assigned to the Worker of StarGate,
+            # update sent time
+            self.__time = int(time.time())
+
+
 class Session(threading.Thread):
 
-    class Handler:
-        """ Session handler """
-        @abstractmethod
-        def push_message(self, msg: ReliableMessage) -> bool:
-            raise NotImplemented
-
-    def __init__(self, client_address: tuple, handler: Handler):
+    def __init__(self, client_address: tuple, messenger: Messenger):
         super().__init__()
         self.__key = generate_session_key()
         self.__address = client_address
-        self.__handler = weakref.ref(handler)
+        self.__messenger = weakref.ref(messenger)
         self.__identifier = None
         self.__active = False
         self.__running = False
-        self.__waiting_messages = []  # List[ReliableMessage]
+        # message queue
+        self.__queue: List[MessageWrapper] = []
         self.__lock = threading.Lock()
 
     def __str__(self):
@@ -87,10 +128,13 @@ class Session(threading.Thread):
         self.flush()
 
     def flush(self):
-        msg = self.__next_message()
-        while msg is not None:
-            g_database.store_message(msg=msg)
-            msg = self.__next_message()
+        # store all message
+        wrapper = self.__pop()
+        while wrapper is not None:
+            msg = wrapper.msg
+            if msg is not None:
+                g_database.store_message(msg=msg)
+            wrapper = self.__pop()
 
     @property
     def key(self) -> str:
@@ -102,9 +146,9 @@ class Session(threading.Thread):
         return self.__address
 
     @property
-    def handler(self) -> Optional[Handler]:
-        """ Request handler """
-        return self.__handler()
+    def messenger(self) -> Optional[Messenger]:
+        """ Messenger for pushing message """
+        return self.__messenger()
 
     @property
     def identifier(self) -> Optional[ID]:
@@ -144,32 +188,56 @@ class Session(threading.Thread):
     def run(self):
         self.__running = True
         while self.__active:
+            self.__clean()
             # get next message
-            msg = self.__next_message()
-            if msg is None:
-                time.sleep(0.5)
-            elif self.handler.push_message(msg=msg):
+            wrapper = self.__next()
+            if wrapper is None:
+                # no more new message
                 time.sleep(0.1)
-            else:
-                # failed to push message
-                with self.__lock:
-                    self.__waiting_messages.insert(0, msg)
-                    self.__active = False
+                continue
+            msg = wrapper.msg
+            if msg is not None:
+                # try to push
+                if self.messenger.send_message(msg=wrapper.msg, callback=wrapper):
+                    time.sleep(0.01)
+                else:
+                    time.sleep(0.5)
         # save unsent messages
         self.flush()
         self.__running = False
-
-    def __next_message(self) -> Optional[ReliableMessage]:
-        with self.__lock:
-            if len(self.__waiting_messages) > 0:
-                return self.__waiting_messages.pop(0)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
         with self.__lock:
             if self.__active:
-                self.__waiting_messages.append(msg)
+                wrapper = MessageWrapper(msg=msg)
+                self.__queue.append(wrapper)
                 return True
+
+    def __pop(self) -> Optional[MessageWrapper]:
+        with self.__lock:
+            if len(self.__queue) > 0:
+                return self.__queue.pop(0)
+
+    def __next(self) -> Optional[MessageWrapper]:
+        with self.__lock:
+            for index, wrapper in enumerate(self.__queue):
+                if wrapper.time == 0:
+                    return wrapper
+
+    def __clean(self):
+        with self.__lock:
+            index = len(self.__queue) - 1
+            while index >= 0:
+                wrapper = self.__queue[index]
+                if wrapper.msg is None:
+                    # message sent
+                    self.__queue.pop(index)
+                if wrapper.time == -1:
+                    # task failed
+                    if g_database.store_message(wrapper.msg):
+                        self.__queue.pop(index)
+                index -= 1
 
 
 @Singleton
@@ -181,12 +249,12 @@ class SessionServer:
         self.__client_addresses: Dict[ID, Set[tuple]] = {}  # {identifier, [client_address]}
         self.__sessions = WeakValueDictionary()             # {client_address, session}
 
-    def get_session(self, client_address: tuple, handler: Optional[Session.Handler] = None) -> Session:
+    def get_session(self, client_address: tuple, messenger: Optional[Messenger] = None) -> Session:
         """ Session factory """
         session = self.__sessions.get(client_address)
-        if session is None and handler is not None:
+        if session is None and messenger is not None:
             # create a new session and cache it
-            session = Session(client_address=client_address, handler=handler)
+            session = Session(client_address=client_address, messenger=messenger)
             self.__sessions[client_address] = session
         return session
 

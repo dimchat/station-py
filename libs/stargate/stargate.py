@@ -118,7 +118,7 @@ class StarGate(Gate):
             self.__disconnect()
 
     # Override
-    def send(self, payload: bytes, priority: int, delegate: Optional[GateDelegate]) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
         if self.__worker is None:
             return False
         if self.status != GateStatus.Connected:
@@ -129,7 +129,7 @@ class StarGate(Gate):
     # Override
     def process(self):
         # 1. waiting for worker
-        with self.__worker is None:
+        while self.__worker is None:
             time.sleep(0.1)
             self.__worker = self._create_worker()
         try:

@@ -233,7 +233,7 @@ class MTPDocker(Docker):
             if delegate is not None:
                 res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
                 if res is not None:
-                    self.send(payload=res, priority=OutgoShip.NORMAL, delegate=delegate)
+                    self.send(payload=res, priority=OutgoShip.NORMAL)
         # float control
         if Gate.INCOME_INTERVAL > 0:
             time.sleep(Gate.INCOME_INTERVAL)
@@ -297,7 +297,7 @@ class MTPDocker(Docker):
 #  const
 #
 
-ping_body = Data(data='PING')
-pong_body = Data(data='PONG')
-again_body = Data(data='AGAIN')
-ok_body = Data(data='OK')
+ping_body = Data(data=b'PING')
+pong_body = Data(data=b'PONG')
+again_body = Data(data=b'AGAIN')
+ok_body = Data(data=b'OK')

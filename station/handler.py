@@ -30,22 +30,20 @@
     Handler for each connection
 """
 
-import socket
 import traceback
 from socketserver import StreamRequestHandler
 from typing import Optional
 
-from dimp import json_encode
 from dimp import User
-from dimp import InstantMessage, ReliableMessage
+from dimp import InstantMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
+from dimsdk.messenger import MessageCallback
 
 from libs.utils import Logging
 from libs.utils import NotificationCenter
+from libs.stargate import GateStatus, GateDelegate, StarGate
 from libs.common import NotificationNames
-from libs.common import Connection, ConnectionDelegate, ConnectionHandler, MTPHandler
-from libs.common import CommonPacker
 from libs.server import ServerMessenger, SessionServer, Session
 
 from robots.nlp import chat_bots
@@ -53,48 +51,10 @@ from robots.nlp import chat_bots
 from station.config import current_station
 
 
-class ServerConnection(Connection):
-
-    def __init__(self, request: socket.socket, handler):
-        super().__init__()
-        self.__request = request
-        self.__handler = handler
-        self.delegate = handler
-
-    def set_handler(self, handler: ConnectionHandler):
-        super().set_handler(handler=handler)
-        if isinstance(handler, MTPHandler):
-            packer = self.__handler.messenger.packer
-            assert isinstance(packer, CommonPacker), 'packer error: %s' % packer
-            packer.mtp_format = packer.MTP_DMTP
-
-    def get_socket(self) -> socket.socket:
-        return self.__request
-
-    def disconnect(self):
-        if not self.is_closed:
-            self.__request.close()
-            self.__request = None
-
-    def receive(self) -> Optional[bytes]:
-        data = super().receive()
-        if data is None:
-            # connection lost
-            self.disconnect()
-        return data
-
-    def sendall(self, data: bytes) -> bool:
-        ok = super().sendall(data=data)
-        if not ok:
-            # connection lost
-            self.disconnect()
-        return ok
-
-
-class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate, Session.Handler, Logging):
+class RequestHandler(StreamRequestHandler, GateDelegate, MessengerDelegate, Logging):
 
     def __init__(self, request, client_address, server):
-        self.__conn = ServerConnection(request=request, handler=self)
+        self.__gate = StarGate(delegate=self)
         # messenger
         self.__messenger: Optional[ServerMessenger] = None
         self.__session: Optional[Session] = None
@@ -123,7 +83,8 @@ class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate
     #
     def setup(self):
         super().setup()
-        self.__session = SessionServer().get_session(client_address=self.client_address, handler=self)
+        self.__gate.open(sock=self.request)
+        self.__session = SessionServer().get_session(client_address=self.client_address, messenger=self.messenger)
         NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             'session': self.__session,
         })
@@ -137,7 +98,7 @@ class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate
         SessionServer().remove_session(session=self.__session)
         self.__session = None
         self.__messenger = None
-        self.__conn.stop()
+        self.__gate.close()
         super().finish()
 
     """
@@ -146,22 +107,24 @@ class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate
 
     def handle(self):
         self.info('connection started: %s' % str(self.client_address))
-        self.__conn.run()
+        self.__gate.process()
         self.info('connection stopped: %s' % str(self.client_address))
 
-    def push_message(self, msg: ReliableMessage) -> bool:
-        body = json_encode(msg.dictionary)
-        return self.__conn.send_data(payload=body)
+    #
+    #   GateDelegate
+    #
+    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
+        self.warning('connection connected: %s' % gate.connection)
+        if new_status == GateStatus.Error:
+            # self.__session.flush()
+            pass
 
-    #
-    #   ConnectionDelegate
-    #
-    def connection_received(self, connection, data: bytes) -> Optional[bytes]:
-        if data.startswith(b'{'):
+    def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
+        if payload.startswith(b'{'):
             # JsON in lines
-            packages = data.splitlines()
+            packages = payload.splitlines()
         else:
-            packages = [data]
+            packages = [payload]
         data = b''
         for pack in packages:
             try:
@@ -178,14 +141,16 @@ class RequestHandler(StreamRequestHandler, ConnectionDelegate, MessengerDelegate
             data = data[:-1]  # remove last '\n'
         return data
 
-    def connection_connected(self, connection):
-        self.warning('connection connected: %s' % connection)
-
     #
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        if self.__conn.send_data(payload=data):
+        delegate = None
+        if isinstance(handler, MessageCallback):
+            callback = handler.callback
+            if isinstance(callback, GateDelegate):
+                delegate = callback
+        if self.__gate.send(payload=data, delegate=delegate):
             if handler is not None:
                 handler.success()
             return True

@@ -102,7 +102,7 @@ class MarsShip(OutgoShip):
     # Override
     @property
     def payload(self) -> bytes:
-        return self.package.body.get_bytes()
+        return self.package.body
 
 
 class MarsDocker(Docker):
@@ -132,7 +132,7 @@ class MarsDocker(Docker):
 
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        req_head = NetMsgHead.new(cmd=NetMsgHead.SEND_MSG, body_len=len(payload))
+        req_head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(payload))
         req_pack = NetMsg.new(head=req_head, body=payload)
         req_ship = MarsShip(package=req_pack, priority=priority, delegate=delegate)
         return self.dock.put(ship=req_ship)
@@ -198,43 +198,26 @@ class MarsDocker(Docker):
         cmd = head.cmd
         if cmd == NetMsgHead.NOOP:
             # respond for Command
-            if body == ping_body:
-                res = pong_body
-                res_head = NetMsgHead.new(cmd=NetMsgHead.NOOP, seq=head.seq, body_len=len(res))
-                res_pack = NetMsg.new(head=res_head, body=res)
-                res_ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
-                self.dock.put(ship=res_ship)
-            return True
-        elif cmd == NetMsgHead.SEND_MSG:
-            # respond for Message
-            res = noop_body
-            res_head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, seq=head.seq, body_len=len(res))
-            res_pack = NetMsg.new(head=res_head, body=res)
+            if body is None:
+                body = b''
+            elif body == ping_body:
+                body = pong_body
+            res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(body))
+            res_pack = NetMsg.new(head=res_head, body=body)
             res_ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
             self.dock.put(ship=res_ship)
-        elif cmd == NetMsgHead.PUSH_MESSAGE:
-            # process Message Respond
-            sn = seq_to_sn(seq=head.seq)
-            ship = self.dock.pop(sn=sn)
-            if ship is not None:
-                delegate = ship.delegate
-                if delegate is not None:
-                    # callback for the request data
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload)
-            # check body
-            if body == noop_body:
-                # just ignore
-                return True
+            return True
+        # process received data
+        delegate = self.delegate
+        if delegate is not None and body is not None and len(body) > 0:
+            res = delegate.gate_received(gate=self.gate, payload=body)
         else:
-            assert cmd in [NetMsgHead.SAY_HELLO, NetMsgHead.CONV_LST], 'Mars cmd error: %d' % cmd
-            # TODO: process them
-        # received data in the Message Respond
-        if body is not None and len(body) > 0:
-            delegate = self.delegate
-            if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=body)
-                if res is not None and len(res) > 0:
-                    self.send(payload=res, priority=OutgoShip.NORMAL, delegate=delegate)
+            res = b''
+        # respond with same cmd & seq
+        res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
+        res_pack = NetMsg.new(head=res_head, body=res)
+        res_ship = MarsShip(package=res_pack, priority=OutgoShip.NORMAL)
+        self.dock.put(ship=res_ship)
         # float control
         if Gate.INCOME_INTERVAL > 0:
             time.sleep(Gate.INCOME_INTERVAL)
@@ -260,7 +243,7 @@ class MarsDocker(Docker):
         assert isinstance(ship, MarsShip), 'outgo ship error: %s' % ship
         outgo = ship.package
         # check data type
-        if outgo.head.cmd == NetMsgHead.SEND_MSG:
+        if outgo.head.cmd == NetMsgHead.PUSH_MESSAGE:
             # put back for response
             self.dock.put(ship=ship)
         # send out request data
@@ -278,18 +261,6 @@ class MarsDocker(Docker):
 
     # Override
     def _handle_heartbeat(self):
-        # check time for next heartbeat
-        now = time.time()
-        if now > self.__heartbeat_expired:
-            conn = self.connection
-            if conn.is_expired(now=now):
-                req = ping_body
-                res_head = NetMsgHead.new(cmd=NetMsgHead.NOOP, body_len=len(req))
-                res_pack = NetMsg.new(head=res_head, body=req)
-                ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
-                self.dock.put(ship=ship)
-            # try heartbeat next 2 seconds
-            self.__heartbeat_expired = now + 2
         # idling
         assert Gate.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
         time.sleep(Gate.IDLE_INTERVAL)

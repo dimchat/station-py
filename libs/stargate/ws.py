@@ -185,7 +185,7 @@ class WSDocker(Docker):
             if delegate is not None:
                 res = delegate.gate_received(gate=self.gate, payload=income)
                 if res is not None and len(res) > 0:
-                    self.send(payload=res, priority=OutgoShip.NORMAL, delegate=delegate)
+                    self.send(payload=res, priority=OutgoShip.NORMAL)
         # float control
         if Gate.INCOME_INTERVAL > 0:
             time.sleep(Gate.INCOME_INTERVAL)

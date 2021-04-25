@@ -79,7 +79,7 @@ class GateDelegate:
         """
         pass
 
-    @abstractmethod
+    # @abstractmethod
     def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
         """
         Callback when new package received
@@ -88,7 +88,7 @@ class GateDelegate:
         :param payload:    received data
         :return response
         """
-        raise NotImplemented
+        pass
 
     # @abstractmethod
     def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
@@ -138,7 +138,7 @@ class Gate(ConnectionHandler):
         raise NotImplemented
 
     @abstractmethod
-    def send(self, payload: bytes, priority: int, delegate: Optional[GateDelegate]) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
         """ Send data to remote peer """
         raise NotImplemented
 

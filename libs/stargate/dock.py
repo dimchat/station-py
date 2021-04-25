@@ -103,6 +103,7 @@ class Dock:
                     for ship in fleet:
                         if ship.time == 0:
                             # got it
+                            ship.update()
                             fleet.remove(ship)
                             return ship
             else:
@@ -126,7 +127,7 @@ class Dock:
                     if ship.time > expired:
                         # not expired yet
                         continue
-                    if ship.retries < OutgoShip.RETRIES:
+                    if ship.retries <= OutgoShip.RETRIES:
                         # got it, update time and retry
                         ship.update()
                         return ship

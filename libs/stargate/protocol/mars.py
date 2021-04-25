@@ -125,10 +125,6 @@ class NetMsgHead:
 
     @classmethod
     def new(cls, version: int = 200, cmd: int = 0, seq: int = 0, options: bytes = None, body_len: int = 0):
-        # prepare seq
-        if seq == 0:
-            seq = NetMsgSeq.generate()
-        # prepare head_len (with options)
         if options:
             head_len = cls.MIN_HEAD_LEN + len(options)
         else:
