@@ -30,7 +30,6 @@
     Local station
 """
 
-import traceback
 import weakref
 from abc import abstractmethod
 from typing import Optional
@@ -45,10 +44,38 @@ from dimsdk.messenger import MessageCallback
 from ...utils import Log
 from ...stargate import GateStatus, GateDelegate
 from ...common import CommonMessenger, CommonFacebook
-from ...common import Session
+from ...common import Session as CommonSession
 
 
-class Server(Station, MessengerDelegate, GateDelegate):
+class Session(CommonSession):
+
+    def __init__(self, messenger: CommonMessenger, host: str, port: int):
+        super().__init__(messenger=messenger, address=(host, port))
+
+    def setup(self):
+        self.active = True
+        self.gate.setup()
+
+    def handle(self) -> bool:
+        if self.gate.status != GateStatus.Error:
+            return self.gate.handle()
+
+    def finish(self):
+        self.gate.finish()
+
+    #
+    #   GateDelegate
+    #
+
+    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
+        if new_status == GateStatus.Connected:
+            self.messenger.connected()
+            delegate = self.messenger.delegate
+            if isinstance(delegate, Server):
+                delegate.handshake()
+
+
+class Server(Station, MessengerDelegate):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -67,7 +94,7 @@ class Server(Station, MessengerDelegate, GateDelegate):
 
     def connect(self):
         if self.__session is None:
-            session = Session(messenger=self.messenger, address=(self.host, self.port))
+            session = Session(messenger=self.messenger, host=self.host, port=self.port)
             session.start()
             self.__session = session
 
@@ -124,38 +151,6 @@ class Server(Station, MessengerDelegate, GateDelegate):
         messenger = self.messenger
         assert isinstance(messenger, ClientMessenger)
         messenger.handshake_accepted(server=self)
-
-    #
-    #   GateDelegate
-    #
-    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
-        if new_status == GateStatus.Connected:
-            messenger = self.messenger
-            assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-            messenger.connected()
-            self.handshake()
-
-    def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
-        if payload.startswith(b'{'):
-            # JsON in lines
-            packages = payload.splitlines()
-        else:
-            packages = [payload]
-        data = b''
-        for pack in packages:
-            try:
-                res = self.messenger.process_package(data=pack)
-                if res is not None and len(res) > 0:
-                    data += res + b'\n'
-            except Exception as error:
-                self.error('parse message failed: %s' % error)
-                traceback.print_exc()
-                # from dimsdk import TextContent
-                # return TextContent.new(text='parse message failed: %s' % error)
-        # station MUST respond something to client request
-        if len(data) > 0:
-            data = data[:-1]  # remove last '\n'
-        return data
 
     #
     #   MessengerDelegate

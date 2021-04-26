@@ -227,6 +227,9 @@ class MTPDocker(Docker):
             elif body == again_body:
                 # TODO: mission failed, send the message again
                 return True
+            elif body == pong_body:
+                # FIXME: should not happen
+                return True
         # received data in the Message Respond
         if body.length > 0:
             delegate = self.delegate

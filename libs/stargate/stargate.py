@@ -29,12 +29,11 @@
 # ==============================================================================
 
 import socket
-import threading
 import time
 import weakref
 from typing import Optional
 
-from tcp import ConnectionStatus, Connection, ClientConnection, ServerConnection
+from tcp import ConnectionStatus, Connection
 
 from .base import gate_status
 from .base import Gate, GateStatus, GateDelegate
@@ -47,85 +46,50 @@ from .mars import MarsDocker
 
 class StarGate(Gate):
 
-    def __init__(self, delegate: GateDelegate):
+    def __init__(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
         super().__init__()
-        self.__delegate = weakref.ref(delegate)
-        self.__worker: Optional[Worker] = None
-        # socket connection
-        self.__connection: Optional[Connection] = None
-        self.__connection_lock = threading.Lock()
+        if sock is None:
+            # client gate
+            self.__connection = Connection(address=address)
+            self.__worker = MTPDocker(gate=self)
+        else:
+            # server gate
+            self.__connection = Connection(sock=sock)
+            self.__worker = None
+        # set StarGate as connection delegate
+        self.__connection.delegate = self
+        # StarGate delegate
+        self.__delegate: Optional[weakref.ReferenceType] = None
 
     # Override
     @property
     def status(self) -> GateStatus:
-        conn = self.__connection
-        if conn is None:
-            return GateStatus.Init
-        else:
-            return gate_status(status=conn.status)
+        return gate_status(status=self.connection.status)
 
     # Override
     @property
     def delegate(self) -> Optional[GateDelegate]:
-        return self.__delegate()
+        if self.__delegate is None:
+            return None
+        else:
+            return self.__delegate()
+
+    @delegate.setter
+    def delegate(self, handler: GateDelegate):
+        if handler is None:
+            self.__delegate = None
+        else:
+            self.__delegate = weakref.ref(handler)
 
     # Override
     @property
     def connection(self) -> Optional[Connection]:
         return self.__connection
 
-    # override for customized Connection
-    def _create_client_connection(self, address: tuple) -> Optional[Connection]:
-        conn = self.__connection
-        if conn is None or conn.address != address:
-            return ClientConnection(address=address)
-
-    # override for customized Connection
-    def _create_server_connection(self, sock: socket.socket) -> Optional[Connection]:
-        conn = self.__connection
-        if conn is None or conn.socket != sock:
-            return ServerConnection(sock=sock)
-
-    def __connect(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> Optional[Connection]:
-        if sock is not None:
-            conn = self._create_server_connection(sock=sock)
-        else:
-            assert isinstance(address, tuple), 'address error: %s' % str(address)
-            conn = self._create_client_connection(address=address)
-            # as a client, always use MTP docker for packing data
-            if not isinstance(self.__worker, MTPDocker):
-                self.__worker = MTPDocker(gate=self)
-        if conn is not None:
-            self.__disconnect()
-            conn.delegate = self
-            conn.start()
-            self.__connection = conn
-        return self.__connection
-
-    def __disconnect(self):
-        conn = self.connection
-        if conn is not None:
-            conn.stop()
-        self.__connection = None
-
-    # Override
-    def open(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> Optional[Connection]:
-        with self.__connection_lock:
-            return self.__connect(address=address, sock=sock)
-
-    # Override
-    def close(self):
-        with self.__connection_lock:
-            self.__disconnect()
-
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        if self.__worker is None:
-            return False
-        if self.status != GateStatus.Connected:
-            # not connect yet
-            return False
-        return self.__worker.send(payload=payload, priority=priority, delegate=delegate)
+        if self.__worker is not None and self.status == GateStatus.Connected:
+            return self.__worker.send(payload=payload, priority=priority, delegate=delegate)
 
     # Override
     def process(self):
@@ -137,18 +101,23 @@ class StarGate(Gate):
             self.finish()
 
     def setup(self):
-        # 1. waiting for worker
+        # 1. start connection
+        self.__connection.start()
+        # 2. waiting for worker
         while self.__worker is None:
             time.sleep(0.1)
             self.__worker = self._create_worker()
-        # 2. setup worker
+        # 3. setup worker
         self.__worker.setup()
 
     def handle(self) -> bool:
         return self.__worker.handle()
 
     def finish(self):
+        # 1. clean worker
         self.__worker.finish()
+        # 2. stop connection
+        self.__connection.stop()
 
     # override to customize Worker
     def _create_worker(self) -> Optional[Worker]:
@@ -163,22 +132,21 @@ class StarGate(Gate):
             return WSDocker(gate=self)
 
     #
-    #   ConnectionHandler
+    #   ConnectionDelegate
     #
-    def connection_status_changed(self, connection: Connection,
-                                  old_status: ConnectionStatus, new_status: ConnectionStatus):
+    def connection_changed(self, connection, old_status: ConnectionStatus, new_status: ConnectionStatus):
         delegate = self.delegate
         if delegate is not None:
             s1 = gate_status(status=old_status)
             s2 = gate_status(status=new_status)
             delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
 
-    def connection_received_data(self, connection: Connection):
+    def connection_received(self, connection, data: bytes):
         # received data will be processed in run loop (MTPDocker::processIncome),
         # do nothing here
         pass
 
-    def connection_overflowed(self, connection: Connection, ejected: bytes):
+    def connection_overflowed(self, connection, ejected: bytes):
         # TODO: connection cache pool is full,
         #       some received data will be ejected to here,
         #       the application should try to process them.

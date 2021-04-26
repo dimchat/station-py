@@ -35,20 +35,18 @@
     for login user
 """
 
-import threading
-import time
-import weakref
+import socket
 from weakref import WeakValueDictionary
-from typing import Optional, Dict, Set, List
+from typing import Optional, Dict, Set
 
 from dimp import hex_encode
-from dimp import ID, ReliableMessage
-from dimsdk import Messenger, Callback
+from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
-from ..stargate import GateDelegate
 from ..common import Database
+from ..common import Session as CommonSession
+from ..common import CommonMessenger
 
 
 g_database = Database()
@@ -58,103 +56,28 @@ def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
 
-class MessageWrapper(GateDelegate, Callback):
+class Session(CommonSession):
 
-    EXPIRES = 600  # 10 minutes
-
-    def __init__(self, msg: ReliableMessage):
-        super().__init__()
-        self.__time = 0
-        self.__msg = msg
-
-    @property
-    def msg(self) -> Optional[ReliableMessage]:
-        return self.__msg
-
-    def mark(self):
-        self.__time = 1
-
-    @property
-    def virgin(self) -> int:
-        return self.__time == 0
-
-    @property
-    def failed(self) -> bool:
-        if self.__time == -1:
-            return True
-        if self.__time > 1:
-            delta = int(time.time()) - self.__time
-            return delta > self.EXPIRES
-
-    #
-    #   GateDelegate
-    #
-    def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
-        if error is None:
-            # success, remove message
-            self.__msg = None
-        else:
-            # failed
-            self.__time = -1
-
-    #
-    #   Callback
-    #
-    def finished(self, result, error=None):
-        if error is None:
-            # this message was assigned to the Worker of StarGate,
-            # update sent time
-            self.__time = int(time.time())
-        else:
-            # failed
-            self.__time = -1
-
-
-class Session(threading.Thread):
-
-    def __init__(self, client_address: tuple, messenger: Messenger):
-        super().__init__()
+    def __init__(self, messenger: CommonMessenger, sock: socket.socket):
+        super().__init__(messenger=messenger, sock=sock)
+        self.__client_address = sock.getpeername()
         self.__key = generate_session_key()
-        self.__address = client_address
-        self.__messenger = weakref.ref(messenger)
         self.__identifier = None
-        self.__active = False
-        # message queue
-        self.__queue: List[MessageWrapper] = []
-        self.__lock = threading.Lock()
 
     def __str__(self):
         clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%d />' % (clazz, self.__key,
-                                              self.__address, self.__identifier,
-                                              self.__active)
-
-    def __del__(self):
-        # store stranded messages
-        self.flush()
-
-    def flush(self):
-        # store all message
-        wrapper = self.__pop()
-        while wrapper is not None:
-            msg = wrapper.msg
-            if msg is not None:
-                g_database.store_message(msg=msg)
-            wrapper = self.__pop()
-
-    @property
-    def key(self) -> str:
-        return self.__key
+        return '<%s:%s %s|%s active=%d />' % (clazz, self.key,
+                                              self.client_address, self.identifier,
+                                              self.active)
 
     @property
     def client_address(self) -> tuple:
         """ (IP, port) """
-        return self.__address
+        return self.__client_address
 
     @property
-    def messenger(self) -> Optional[Messenger]:
-        """ Messenger for pushing message """
-        return self.__messenger()
+    def key(self) -> str:
+        return self.__key
 
     @property
     def identifier(self) -> Optional[ID]:
@@ -163,90 +86,6 @@ class Session(threading.Thread):
     @identifier.setter
     def identifier(self, value: ID):
         self.__identifier = value
-
-    @property
-    def active(self) -> bool:
-        """ when the client entered background, it should be set to False """
-        return self.__active
-
-    @active.setter
-    def active(self, value: bool):
-        starting = False
-        with self.__lock:
-            if value != self.__active:
-                self.__active = value
-                starting = value
-        if starting:
-            self.start()
-
-    def start(self):
-        count = 0
-        while self.is_alive():
-            # waiting for last run loop exit
-            time.sleep(0.1)
-            count += 1
-            if count > 100:
-                # timeout (10 seconds)
-                break
-        if not self.is_alive():
-            super().start()
-
-    def run(self):
-        while self.__active:
-            self.__clean()
-            # get next message
-            wrapper = self.__next()
-            if wrapper is None:
-                # no more new message
-                time.sleep(0.1)
-                continue
-            msg = wrapper.msg
-            if msg is not None:
-                # try to push
-                if self.messenger.send_message(msg=wrapper.msg, callback=wrapper):
-                    time.sleep(0.01)
-                else:
-                    time.sleep(0.5)
-        # save unsent messages
-        self.flush()
-
-    def push_message(self, msg: ReliableMessage) -> bool:
-        """ Push message when session active """
-        with self.__lock:
-            if self.__active:
-                wrapper = MessageWrapper(msg=msg)
-                self.__queue.append(wrapper)
-                return True
-
-    def __pop(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
-
-    def __next(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            for index, wrapper in enumerate(self.__queue):
-                if wrapper.virgin:
-                    wrapper.mark()  # mark sent
-                    return wrapper
-
-    def __clean(self):
-        with self.__lock:
-            count = len(self.__queue)
-            index = 0
-            while index < count:
-                wrapper = self.__queue[index]
-                if wrapper.msg is None:
-                    # message sent
-                    self.__queue.pop(index)
-                    count -= 1
-                elif wrapper.failed:
-                    # task failed
-                    g_database.store_message(msg=wrapper.msg)
-                    self.__queue.pop(index)
-                    count -= 1
-                else:
-                    index += 1
 
 
 @Singleton
@@ -258,12 +97,14 @@ class SessionServer:
         self.__client_addresses: Dict[ID, Set[tuple]] = {}  # {identifier, [client_address]}
         self.__sessions = WeakValueDictionary()             # {client_address, session}
 
-    def get_session(self, client_address: tuple, messenger: Optional[Messenger] = None) -> Session:
+    def get_session(self, client_address: tuple,
+                    messenger: Optional[CommonMessenger] = None,
+                    sock: Optional[socket.socket] = None) -> Session:
         """ Session factory """
         session = self.__sessions.get(client_address)
         if session is None and messenger is not None:
             # create a new session and cache it
-            session = Session(client_address=client_address, messenger=messenger)
+            session = Session(messenger=messenger, sock=sock)
             self.__sessions[client_address] = session
         return session
 

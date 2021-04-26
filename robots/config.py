@@ -57,7 +57,7 @@ from etc.cfg_loader import load_station
 #  Log Level
 #
 # Log.LEVEL = Log.DEBUG
-# Log.LEVEL = Log.DEVELOP
+Log.LEVEL = Log.DEVELOP
 # Log.LEVEL = Log.RELEASE
 
 

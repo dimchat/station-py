@@ -28,13 +28,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import socket
 import time
 from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
 
-from tcp import Connection, ConnectionStatus, ConnectionHandler
+from tcp import Connection, ConnectionStatus, ConnectionDelegate
 
 
 """
@@ -102,7 +101,7 @@ class GateDelegate:
         pass
 
 
-class Gate(ConnectionHandler):
+class Gate(ConnectionDelegate):
     """ Star Gate of remote peer """
 
     # flow control
@@ -126,16 +125,6 @@ class Gate(ConnectionHandler):
     def connection(self) -> Optional[Connection]:
         """ Get current Connection """
         yield None
-
-    @abstractmethod
-    def open(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> Optional[Connection]:
-        """ Start connection """
-        raise NotImplemented
-
-    @abstractmethod
-    def close(self):
-        """ Close connection """
-        raise NotImplemented
 
     @abstractmethod
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:

@@ -60,8 +60,7 @@ class CommonMessenger(Messenger):
         self.__group_queries = {}     # ID -> time
 
     def connected(self):
-        delegate = self.delegate
-        delegate.handshake()
+        pass
 
     @property
     def context(self) -> dict:

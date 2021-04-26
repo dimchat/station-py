@@ -187,7 +187,7 @@ def _push_message(msg: ReliableMessage, receiver: ID) -> int:
     success = 0
     sessions = g_session_server.active_sessions(identifier=receiver)
     for sess in sessions:
-        if sess.push_message(msg):
+        if sess.push_message(msg=msg):
             success += 1
     return success
 

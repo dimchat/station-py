@@ -162,9 +162,9 @@ class MarsDocker(Docker):
                 # wait for more data
                 return None
             pos = data.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
-            if pos > NetMsgHead.MAGIC_CODE:
+            if pos > NetMsgHead.MAGIC_CODE_OFFSET:
                 # found next head, skip data before it
-                conn.receive(length=pos-NetMsgHead.MAGIC_CODE)
+                conn.receive(length=pos-NetMsgHead.MAGIC_CODE_OFFSET)
             else:
                 # skip the whole data
                 conn.receive(length=data_len)

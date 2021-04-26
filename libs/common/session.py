@@ -41,11 +41,13 @@ import traceback
 import weakref
 from typing import Optional, List
 
+from tcp import Connection
+
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
-from ..stargate import GateStatus, GateDelegate, StarGate
+from ..stargate import GateDelegate, StarGate
 
 from .database import Database
 from .messenger import CommonMessenger
@@ -113,8 +115,11 @@ class Session(threading.Thread, GateDelegate, Logging):
                  sock: Optional[socket.socket] = None):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
-        self.__gate = StarGate(delegate=self)
-        self.__gate.open(address=address, sock=sock)
+        self.__gate = StarGate(address=address, sock=sock)
+        self.__gate.delegate = self
+        # session status
+        self.__active = False
+        self.__running = False
         # message queue
         self.__queue: List[MessageWrapper] = []
         self.__lock = threading.Lock()
@@ -137,21 +142,51 @@ class Session(threading.Thread, GateDelegate, Logging):
         return self.__messenger()
 
     @property
+    def gate(self) -> StarGate:
+        return self.__gate
+
+    @property
+    def connection(self) -> Connection:
+        return self.gate.connection
+
+    @property
     def active(self) -> bool:
-        return self.__gate.status == GateStatus.Connected
+        return self.__active
+
+    @active.setter
+    def active(self, value: bool):
+        self.__active = value
 
     def stop(self):
-        self.__gate.close()
+        self.__running = False
+
+    def setup(self):
+        pass
+
+    def handle(self) -> bool:
+        pass
+
+    def finish(self):
+        pass
 
     def run(self):
-        self.__gate.setup()
-        while self.__gate.status != GateStatus.Error:
+        self.setup()
+        self.__running = True
+        while self.__running:
             self.__clean()
+            if not self.__active:
+                # inactive
+                if not self.handle():
+                    # have a rest ^_^
+                    time.sleep(0.1)
+                continue
             # get next message
             wrapper = self.__next()
             if wrapper is None:
                 # no more new message
-                self.__gate.handle()
+                if not self.handle():
+                    # have a rest ^_^
+                    time.sleep(0.1)
                 continue
             msg = wrapper.msg
             if msg is not None:
@@ -160,17 +195,18 @@ class Session(threading.Thread, GateDelegate, Logging):
                     time.sleep(0.01)
                 else:
                     time.sleep(0.5)
-        self.__gate.finish()
+        self.finish()
         # save unsent messages
         self.flush()
 
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        return self.__gate.send(payload=payload, priority=priority, delegate=delegate)
+        if self.__active:
+            return self.__gate.send(payload=payload, priority=priority, delegate=delegate)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
         with self.__lock:
-            if self.active:
+            if self.__active:
                 wrapper = MessageWrapper(msg=msg)
                 self.__queue.append(wrapper)
                 return True
@@ -208,9 +244,6 @@ class Session(threading.Thread, GateDelegate, Logging):
     #
     #   GateDelegate
     #
-    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
-        if new_status == GateStatus.Connected:
-            self.messenger.connected()
 
     # @abstractmethod
     def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
