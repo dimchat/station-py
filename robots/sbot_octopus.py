@@ -74,8 +74,9 @@ class OctopusMessenger(ClientMessenger):
     def accepted(self, value: bool):
         self.__accepted = value
 
-    def reconnected(self):
+    def connected(self):
         self.accepted = False
+        super().connected()
 
 
 class InnerMessenger(OctopusMessenger):

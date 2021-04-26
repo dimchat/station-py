@@ -172,33 +172,33 @@ class Docker(Worker):
         pass
 
     # Override
-    def handle(self):
+    def handle(self) -> bool:
         # process incoming packages / outgoing tasks
         if Gate.MAX_INCOMES_PER_OUTGO > 0:
             # incoming priority
             if self.__counter < Gate.MAX_INCOMES_PER_OUTGO:
                 if self._handle_income():
                     self.__counter += 1
-                    return
+                    return True
             # keep a chance for outgoing packages
             if self._handle_outgo():
                 self.__counter = 0
-                return
+                return True
         else:
             # outgoing priority
             assert Gate.MAX_INCOMES_PER_OUTGO != 0, 'cannot set MAX_INCOMES_PER_OUTGO to 0'
             if self.__counter > Gate.MAX_INCOMES_PER_OUTGO:
                 if self._handle_outgo():
                     self.__counter -= 1
-                    return
+                    return True
             # keep a chance for incoming packages
             if self._handle_income():
                 self.__counter = 0
-                return
+                return True
         # no task now, send a HEARTBEAT package
         self._handle_heartbeat()
         self.__counter = 0
-        return
+        return False
 
     @abstractmethod
     def _handle_income(self) -> bool:

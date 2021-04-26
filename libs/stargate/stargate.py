@@ -103,9 +103,10 @@ class StarGate(Gate):
         return self.__connection
 
     def __disconnect(self):
-        if self.__connection is not None:
-            self.__connection.stop()
-            self.__connection = None
+        conn = self.connection
+        if conn is not None:
+            conn.stop()
+        self.__connection = None
 
     # Override
     def open(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> Optional[Connection]:
@@ -128,19 +129,26 @@ class StarGate(Gate):
 
     # Override
     def process(self):
+        self.setup()
+        try:
+            while self.status != GateStatus.Error:
+                self.handle()
+        finally:
+            self.finish()
+
+    def setup(self):
         # 1. waiting for worker
         while self.__worker is None:
             time.sleep(0.1)
             self.__worker = self._create_worker()
-        try:
-            # 2. setup worker
-            self.__worker.setup()
-            # 3. process by worker
-            while self.status != GateStatus.Error:
-                self.__worker.handle()
-        finally:
-            # 4. clean up by worker
-            self.__worker.finish()
+        # 2. setup worker
+        self.__worker.setup()
+
+    def handle(self) -> bool:
+        return self.__worker.handle()
+
+    def finish(self):
+        self.__worker.finish()
 
     # override to customize Worker
     def _create_worker(self) -> Optional[Worker]:

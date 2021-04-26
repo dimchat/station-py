@@ -121,6 +121,7 @@ if apns_credentials is not None:
     g_push_service = ApplePushNotificationService(credentials=apns_credentials,
                                                   use_sandbox=apns_use_sandbox)
     g_push_service.topic = apns_topic
+    g_push_service.delegate = g_database
     g_dispatcher.push_service = g_push_service
 
 """

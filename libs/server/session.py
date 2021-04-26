@@ -71,16 +71,20 @@ class MessageWrapper(GateDelegate, Callback):
     def msg(self) -> Optional[ReliableMessage]:
         return self.__msg
 
-    @property
-    def time(self) -> int:
-        """ Get last sent time """
-        return self.__time
+    def mark(self):
+        self.__time = 1
 
     @property
-    def expired(self) -> bool:
-        """ Check whether expired """
-        delta = int(time.time()) - self.__time
-        return delta > self.EXPIRES
+    def virgin(self) -> int:
+        return self.__time == 0
+
+    @property
+    def failed(self) -> bool:
+        if self.__time == -1:
+            return True
+        if self.__time > 1:
+            delta = int(time.time()) - self.__time
+            return delta > self.EXPIRES
 
     #
     #   GateDelegate
@@ -90,7 +94,7 @@ class MessageWrapper(GateDelegate, Callback):
             # success, remove message
             self.__msg = None
         else:
-            # failed, force to expired
+            # failed
             self.__time = -1
 
     #
@@ -101,6 +105,9 @@ class MessageWrapper(GateDelegate, Callback):
             # this message was assigned to the Worker of StarGate,
             # update sent time
             self.__time = int(time.time())
+        else:
+            # failed
+            self.__time = -1
 
 
 class Session(threading.Thread):
@@ -112,7 +119,6 @@ class Session(threading.Thread):
         self.__messenger = weakref.ref(messenger)
         self.__identifier = None
         self.__active = False
-        self.__running = False
         # message queue
         self.__queue: List[MessageWrapper] = []
         self.__lock = threading.Lock()
@@ -175,18 +181,17 @@ class Session(threading.Thread):
 
     def start(self):
         count = 0
-        while self.__running:
+        while self.is_alive():
             # waiting for last run loop exit
             time.sleep(0.1)
             count += 1
             if count > 100:
                 # timeout (10 seconds)
                 break
-        if not self.__running:
+        if not self.is_alive():
             super().start()
 
     def run(self):
-        self.__running = True
         while self.__active:
             self.__clean()
             # get next message
@@ -204,7 +209,6 @@ class Session(threading.Thread):
                     time.sleep(0.5)
         # save unsent messages
         self.flush()
-        self.__running = False
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
@@ -222,22 +226,27 @@ class Session(threading.Thread):
     def __next(self) -> Optional[MessageWrapper]:
         with self.__lock:
             for index, wrapper in enumerate(self.__queue):
-                if wrapper.time == 0:
+                if wrapper.virgin:
+                    wrapper.mark()  # mark sent
                     return wrapper
 
     def __clean(self):
         with self.__lock:
-            index = len(self.__queue) - 1
-            while index >= 0:
+            count = len(self.__queue)
+            index = 0
+            while index < count:
                 wrapper = self.__queue[index]
                 if wrapper.msg is None:
                     # message sent
                     self.__queue.pop(index)
-                if wrapper.time == -1:
+                    count -= 1
+                elif wrapper.failed:
                     # task failed
-                    if g_database.store_message(wrapper.msg):
-                        self.__queue.pop(index)
-                index -= 1
+                    g_database.store_message(msg=wrapper.msg)
+                    self.__queue.pop(index)
+                    count -= 1
+                else:
+                    index += 1
 
 
 @Singleton

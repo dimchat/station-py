@@ -243,9 +243,9 @@ class MarsDocker(Docker):
         assert isinstance(ship, MarsShip), 'outgo ship error: %s' % ship
         outgo = ship.package
         # check data type
-        if outgo.head.cmd == NetMsgHead.PUSH_MESSAGE:
-            # put back for response
-            self.dock.put(ship=ship)
+        # if outgo.head.cmd == NetMsgHead.PUSH_MESSAGE:
+        #     # put back for response
+        #     self.dock.put(ship=ship)
         # send out request data
         res = self.__send_package(pack=outgo)
         if res != outgo.length:

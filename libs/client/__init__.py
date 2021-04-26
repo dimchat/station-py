@@ -33,7 +33,7 @@ from .cpu import *
 
 from .extension import GroupManager
 
-from .network import Connection, Terminal, Server, ServerDelegate
+from .network import Terminal, Server, ServerDelegate
 
 from .facebook import ClientFacebook
 from .messenger import ClientMessenger
@@ -44,7 +44,7 @@ __all__ = [
 
     'GroupManager',
 
-    'Connection', 'Terminal', 'Server', 'ServerDelegate',
+    'Terminal', 'Server', 'ServerDelegate',
 
     'ClientFacebook',
     'ClientMessenger',

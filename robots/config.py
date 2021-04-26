@@ -40,7 +40,7 @@ from libs.utils import Log
 from libs.common import AddressNameServer
 from libs.common import Storage
 from libs.client import ClientMessenger, ClientFacebook
-from libs.client import Server, Terminal, Connection
+from libs.client import Server, Terminal
 
 #
 #  Configurations
@@ -57,20 +57,13 @@ from etc.cfg_loader import load_station
 #  Log Level
 #
 # Log.LEVEL = Log.DEBUG
-Log.LEVEL = Log.DEVELOP
+# Log.LEVEL = Log.DEVELOP
 # Log.LEVEL = Log.RELEASE
 
 
 # data directory
 Log.info("local storage directory: %s" % base_dir)
 Storage.root = base_dir
-
-"""
-    Connection
-    ~~~~~~~~~~
-    time interval for maintaining connection
-"""
-Connection.HEARTBEAT_INTERVAL = 8
 
 
 """

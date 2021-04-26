@@ -30,6 +30,7 @@
     Local station
 """
 
+import traceback
 import weakref
 from abc import abstractmethod
 from typing import Optional
@@ -37,15 +38,17 @@ from typing import Optional
 from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
-from dimsdk import Station, MessengerDelegate, CompletionHandler
+from dimsdk import Station
+from dimsdk import MessengerDelegate, CompletionHandler
+from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
+from ...stargate import GateStatus, GateDelegate
 from ...common import CommonMessenger, CommonFacebook
+from ...common import Session
 
-from .connection import ClientConnection, Connection, ConnectionDelegate
 
-
-class Server(Station, MessengerDelegate, ConnectionDelegate):
+class Server(Station, MessengerDelegate, GateDelegate):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -53,7 +56,7 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
 
     def __init__(self, identifier: ID, host: str, port: int = 9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.__conn: Optional[Connection] = None
+        self.__session: Optional[Session] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
 
     def info(self, msg: str):
@@ -63,17 +66,15 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def connect(self):
-        if self.__conn is None:
-            conn = ClientConnection(host=self.host, port=self.port)
-            conn.delegate = self
-            conn.messenger = self.messenger
-            conn.start()
-            self.__conn = conn
+        if self.__session is None:
+            session = Session(messenger=self.messenger, address=(self.host, self.port))
+            session.start()
+            self.__session = session
 
     def disconnect(self):
-        if self.__conn is not None:
-            self.__conn.disconnect()
-            self.__conn = None
+        if self.__session is not None:
+            self.__session.stop()
+            self.__session = None
 
     @property
     def messenger(self):  # -> ClientMessenger:
@@ -125,25 +126,48 @@ class Server(Station, MessengerDelegate, ConnectionDelegate):
         messenger.handshake_accepted(server=self)
 
     #
-    #   ConnectionDelegate
+    #   GateDelegate
     #
-    def connection_received(self, connection, data: bytes) -> Optional[bytes]:
-        # self.info('received data: %d byte(s)' % len(data))
-        return self.messenger.process_package(data=data)
+    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
+        if new_status == GateStatus.Connected:
+            messenger = self.messenger
+            assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+            messenger.connected()
+            self.handshake()
 
-    def connection_connected(self, connection):
-        self.info('connection connected: %s, %s:%d' % (self.identifier, self.host, self.port))
-        messenger = self.messenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
-        messenger.reconnected()
-        self.handshake()
+    def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
+        if payload.startswith(b'{'):
+            # JsON in lines
+            packages = payload.splitlines()
+        else:
+            packages = [payload]
+        data = b''
+        for pack in packages:
+            try:
+                res = self.messenger.process_package(data=pack)
+                if res is not None and len(res) > 0:
+                    data += res + b'\n'
+            except Exception as error:
+                self.error('parse message failed: %s' % error)
+                traceback.print_exc()
+                # from dimsdk import TextContent
+                # return TextContent.new(text='parse message failed: %s' % error)
+        # station MUST respond something to client request
+        if len(data) > 0:
+            data = data[:-1]  # remove last '\n'
+        return data
 
     #
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         """ Send out a data package onto network """
-        if self.__conn.send_data(payload=data):
+        delegate = None
+        if isinstance(handler, MessageCallback):
+            callback = handler.callback
+            if isinstance(callback, GateDelegate):
+                delegate = callback
+        if self.__session.send(payload=data, delegate=delegate):
             if handler is not None:
                 handler.success()
             return True

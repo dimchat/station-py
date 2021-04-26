@@ -229,7 +229,7 @@ class Worker:
         raise NotImplemented
 
     @abstractmethod
-    def handle(self):
+    def handle(self) -> bool:
         """ Process incoming/outgoing Ships """
         raise NotImplemented
 

@@ -23,14 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .connection import Connection
 from .terminal import Terminal
 from .server import Server, ServerDelegate
 
 
 __all__ = [
 
-    'Connection',
     'Terminal',
     'Server', 'ServerDelegate',
 ]

@@ -35,14 +35,12 @@ from dimsdk import ReceiptCommand
 
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
-from .network import NetMsgHead, NetMsg
-from .network import WebSocket
-from .network import Connection, ConnectionDelegate
-from .network import ConnectionHandler, JSONHandler, WebSocketHandler, MarsHandler, MTPHandler
 from .database import Storage, Database
 
-from .ans import AddressNameServer
 from .notification import NotificationNames
+from .session import Session
+
+from .ans import AddressNameServer
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook
@@ -125,14 +123,6 @@ __all__ = [
     'TextContentProcessor',
 
     #
-    #   Network
-    #
-    'NetMsgHead', 'NetMsg',
-    'WebSocket',
-    'Connection', 'ConnectionDelegate',
-    'ConnectionHandler', 'JSONHandler', 'WebSocketHandler', 'MarsHandler', 'MTPHandler',
-
-    #
     #   Database module
     #
     'Storage',
@@ -141,8 +131,9 @@ __all__ = [
     #
     #   Common libs
     #
-    'AddressNameServer',
     'NotificationNames',
+    'Session',
+    'AddressNameServer',
 
     'KeyStore', 'CommonFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
