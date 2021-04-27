@@ -36,7 +36,7 @@ from typing import Optional
 from tcp import ConnectionStatus, Connection
 
 from .base import gate_status
-from .base import Gate, GateStatus, GateDelegate
+from .base import Gate, GateStatus, GateDelegate, ShipDelegate
 from .base import Worker
 
 from .ws import WSDocker
@@ -87,7 +87,7 @@ class StarGate(Gate):
         return self.__connection
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.__worker is not None and self.status == GateStatus.Connected:
             return self.__worker.send(payload=payload, priority=priority, delegate=delegate)
 

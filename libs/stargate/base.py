@@ -67,7 +67,7 @@ def gate_status(status: ConnectionStatus) -> GateStatus:
 class GateDelegate:
     """ Star Gate Delegate """
 
-    # @abstractmethod
+    @abstractmethod
     def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
         """
         Callback when connection status changed
@@ -76,9 +76,9 @@ class GateDelegate:
         :param old_status: last status
         :param new_status: current status
         """
-        pass
+        raise NotImplemented
 
-    # @abstractmethod
+    @abstractmethod
     def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
         """
         Callback when new package received
@@ -87,18 +87,22 @@ class GateDelegate:
         :param payload:    received data
         :return response
         """
-        pass
+        raise NotImplemented
 
-    # @abstractmethod
-    def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
+
+class ShipDelegate:
+    """ Star Ship Delegate """
+
+    @abstractmethod
+    def ship_sent(self, ship, payload: bytes, error: Optional[OSError] = None):
         """
         Callback when package sent
 
-        :param gate:       remote gate
+        :param ship:       package container
         :param payload:    request data
         :param error:      None on success
         """
-        pass
+        raise NotImplemented
 
 
 class Gate(ConnectionDelegate):
@@ -123,7 +127,7 @@ class Gate(ConnectionDelegate):
         yield None
 
     @abstractmethod
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         """ Send data to remote peer """
         raise NotImplemented
 
@@ -154,7 +158,7 @@ class Ship:
         raise NotImplemented
 
 
-class OutgoShip(Ship):
+class StarShip(Ship):
     """ Star Ship carrying package to remote Star Gate """
 
     # retry
@@ -167,7 +171,7 @@ class OutgoShip(Ship):
     SLOWER = 1
 
     @property
-    def delegate(self) -> Optional[GateDelegate]:
+    def delegate(self) -> Optional[ShipDelegate]:
         """ Get Gate handler for this Star Ship """
         yield None
 
@@ -224,6 +228,6 @@ class Worker:
         raise NotImplemented
 
     @abstractmethod
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         """ Send data to remote peer """
         raise NotImplemented

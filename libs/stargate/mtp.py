@@ -40,15 +40,14 @@ from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
 from dmtp.mtp import MessageFragment as MTPMessageFragment
 from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
 
-from .base import Gate, GateDelegate
-from .base import OutgoShip
+from .base import Gate, StarShip, ShipDelegate
 from .dock import Docker
 
 
-class MTPShip(OutgoShip):
+class MTPShip(StarShip):
     """ Star Ship with MTP Package """
 
-    def __init__(self, package: Package, priority: int = 0, delegate: Optional[GateDelegate] = None):
+    def __init__(self, package: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None):
         super().__init__()
         self.__package = package
         self.__priority = priority
@@ -63,7 +62,7 @@ class MTPShip(OutgoShip):
 
     # Override
     @property
-    def delegate(self) -> Optional[GateDelegate]:
+    def delegate(self) -> Optional[ShipDelegate]:
         """ Get request handler """
         if self.__delegate is not None:
             return self.__delegate()
@@ -123,7 +122,7 @@ class MTPDocker(Docker):
             return head is not None
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         req = Data(data=payload)
         req_pack = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
         req_ship = MTPShip(package=req_pack, priority=priority, delegate=delegate)
@@ -191,7 +190,7 @@ class MTPDocker(Docker):
             if body == ping_body:  # 'PING'
                 res = pong_body    # 'PONG'
                 res_pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                res_ship = MTPShip(package=res_pack, priority=OutgoShip.SLOWER)
+                res_ship = MTPShip(package=res_pack, priority=StarShip.SLOWER)
                 self.dock.put(ship=res_ship)
             return True
         elif data_type == MTPCommandRespond:
@@ -212,7 +211,7 @@ class MTPDocker(Docker):
                         error = ConnectionResetError('Send the message again')
                     else:
                         error = None
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
             # check body
             if body == ok_body:
                 # just ignore
@@ -237,11 +236,11 @@ class MTPDocker(Docker):
             # respond for Message
             res = Data(data=res)
             res_pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            res_ship = MTPShip(package=res_pack, priority=OutgoShip.NORMAL)
+            res_ship = MTPShip(package=res_pack, priority=StarShip.NORMAL)
             self.dock.put(ship=res_ship)
         else:
             # push as new Message
-            self.send(payload=res, priority=OutgoShip.NORMAL)
+            self.send(payload=res, priority=StarShip.NORMAL)
         return True
 
     # Override
@@ -259,7 +258,7 @@ class MTPDocker(Docker):
                 delegate = ship.delegate
                 if delegate is not None:
                     error = TimeoutError('Request timeout')
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
                 return True
         assert isinstance(ship, MTPShip), 'outgo ship error: %s' % ship
         outgo = ship.package
@@ -274,7 +273,7 @@ class MTPDocker(Docker):
             delegate = ship.delegate
             if delegate is not None:
                 error = ConnectionError('Socket error')
-                delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
         return True
 
     # Override
@@ -286,7 +285,7 @@ class MTPDocker(Docker):
             if conn.is_expired(now=now):
                 req = ping_body
                 pack = Package.new(data_type=MTPCommand, body_length=req.length, body=req)
-                ship = MTPShip(package=pack, priority=OutgoShip.SLOWER)
+                ship = MTPShip(package=pack, priority=StarShip.SLOWER)
                 self.dock.put(ship=ship)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2

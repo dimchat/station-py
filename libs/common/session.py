@@ -47,7 +47,7 @@ from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
-from ..stargate import GateStatus, GateDelegate, StarGate
+from ..stargate import GateStatus, GateDelegate, StarGate, ShipDelegate
 
 from .database import Database
 from .messenger import CommonMessenger
@@ -56,7 +56,7 @@ from .messenger import CommonMessenger
 g_database = Database()
 
 
-class MessageWrapper(GateDelegate, MessengerCallback):
+class MessageWrapper(ShipDelegate, MessengerCallback):
 
     EXPIRES = 600  # 10 minutes
 
@@ -88,9 +88,9 @@ class MessageWrapper(GateDelegate, MessengerCallback):
             return delta > self.EXPIRES
 
     #
-    #   GateDelegate
+    #   ShipDelegate
     #
-    def gate_sent(self, gate, payload: bytes, error: Optional[OSError] = None):
+    def ship_sent(self, ship, payload: bytes, error: Optional[OSError] = None):
         if error is None:
             # success, remove message
             self.__msg = None
@@ -196,13 +196,13 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                     time.sleep(0.1)
                 continue
             # try to push
-            if not self.messenger.send_message(msg=wrapper.msg, callback=wrapper):
+            if not self.messenger.send_message(msg=msg, callback=wrapper):
                 wrapper.fail()
         self.finish()
         # save unsent messages
         self.__flush()
 
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.__active:
             return self.__gate.send(payload=payload, priority=priority, delegate=delegate)
 
@@ -226,23 +226,21 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                     wrapper.mark()  # mark sent
                     return wrapper
 
-    def __clean(self):
+    def __eject(self) -> Optional[MessageWrapper]:
         with self.__lock:
-            count = len(self.__queue)
-            index = 0
-            while index < count:
-                wrapper = self.__queue[index]
-                if wrapper.msg is None:
-                    # message sent
-                    self.__queue.pop(index)
-                    count -= 1
-                elif wrapper.failed:
-                    # task failed
-                    g_database.store_message(msg=wrapper.msg)
-                    self.__queue.pop(index)
-                    count -= 1
-                else:
-                    index += 1
+            for wrapper in self.__queue:
+                if wrapper.msg is None or wrapper.failed:
+                    self.__queue.remove(wrapper)
+                    return wrapper
+
+    def __clean(self):
+        wrapper = self.__eject()
+        while wrapper is not None:
+            msg = wrapper.msg
+            if msg is not None:
+                # task failed
+                g_database.store_message(msg=msg)
+            wrapper = self.__eject()
 
     #
     #   GateDelegate

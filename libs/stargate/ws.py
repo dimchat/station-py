@@ -36,8 +36,7 @@ from tcp import Connection
 
 from .protocol import WebSocket
 
-from .base import Gate, GateDelegate
-from .base import OutgoShip
+from .base import Gate, StarShip, ShipDelegate
 from .dock import Docker
 
 
@@ -45,10 +44,10 @@ def seq_to_sn(seq: int) -> bytes:
     return seq.to_bytes(length=4, byteorder='big')
 
 
-class WSShip(OutgoShip):
+class WSShip(StarShip):
     """ Star Ship with WebSocket Package """
 
-    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None):
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None):
         super().__init__()
         self.__package = package
         self.__payload = payload
@@ -64,7 +63,7 @@ class WSShip(OutgoShip):
 
     # Override
     @property
-    def delegate(self) -> Optional[GateDelegate]:
+    def delegate(self) -> Optional[ShipDelegate]:
         """ Get request handler """
         if self.__delegate is not None:
             return self.__delegate()
@@ -132,7 +131,7 @@ class WSDocker(Docker):
             self.__send_package(pack=res)
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         req_pack = WebSocket.pack(payload=payload)
         req_ship = WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
         return self.dock.put(ship=req_ship)
@@ -171,7 +170,7 @@ class WSDocker(Docker):
             return False
         elif income == ping_body:
             # respond Command: 'PONG' -> 'PING'
-            self.send(payload=pong_body, priority=OutgoShip.SLOWER)
+            self.send(payload=pong_body, priority=StarShip.SLOWER)
             return True
         elif income == pong_body:
             # just ignore
@@ -185,7 +184,7 @@ class WSDocker(Docker):
             if delegate is not None:
                 res = delegate.gate_received(gate=self.gate, payload=income)
                 if res is not None and len(res) > 0:
-                    self.send(payload=res, priority=OutgoShip.NORMAL)
+                    self.send(payload=res, priority=StarShip.NORMAL)
         return True
 
     # Override
@@ -203,7 +202,7 @@ class WSDocker(Docker):
                 delegate = ship.delegate
                 if delegate is not None:
                     error = TimeoutError('Request timeout')
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
                 return True
         assert isinstance(ship, WSShip), 'outgo ship error: %s' % ship
         outgo = ship.package
@@ -214,7 +213,7 @@ class WSDocker(Docker):
             delegate = ship.delegate
             if delegate is not None:
                 error = ConnectionError('Socket error')
-                delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
         return True
 
     # Override
@@ -224,7 +223,7 @@ class WSDocker(Docker):
         if now > self.__heartbeat_expired:
             conn = self.connection
             if conn.is_expired(now=now):
-                self.send(payload=ping_body, priority=OutgoShip.SLOWER)
+                self.send(payload=ping_body, priority=StarShip.SLOWER)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
 

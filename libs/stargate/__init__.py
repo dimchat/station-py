@@ -28,15 +28,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .base import Gate, GateStatus, GateDelegate
-from .base import Ship, OutgoShip
+from .base import Gate, GateStatus, GateDelegate, ShipDelegate
 from .base import Worker
 from .dock import Docker
 
 from .stargate import StarGate
-
-from .mtp import MTPShip, MTPDocker
-from .mars import MarsShip, MarsDocker
 
 
 """
@@ -49,17 +45,8 @@ from .mars import MarsShip, MarsDocker
 
 __all__ = [
 
-    # base
-    'Gate', 'GateStatus', 'GateDelegate',
-    'Ship', 'OutgoShip',
-    'Worker',
-    'Docker',
+    'Gate', 'GateStatus', 'GateDelegate', 'ShipDelegate',
+    'Worker', 'Docker',
 
     'StarGate',
-
-    # MTP
-    'MTPShip', 'MTPDocker',
-
-    # Mars
-    'MarsShip', 'MarsDocker',
 ]

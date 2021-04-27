@@ -42,7 +42,7 @@ from dimsdk import MessengerDelegate, CompletionHandler
 from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
-from ...stargate import GateStatus, GateDelegate
+from ...stargate import GateStatus, ShipDelegate
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
@@ -160,7 +160,7 @@ class Server(Station, MessengerDelegate):
         delegate = None
         if isinstance(handler, MessageCallback):
             callback = handler.callback
-            if isinstance(callback, GateDelegate):
+            if isinstance(callback, ShipDelegate):
                 delegate = callback
         if self.__session.send(payload=data, delegate=delegate):
             if handler is not None:

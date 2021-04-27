@@ -36,8 +36,7 @@ from tcp import Connection
 
 from .protocol import NetMsg, NetMsgHead
 
-from .base import Gate, GateDelegate
-from .base import OutgoShip
+from .base import Gate, StarShip, ShipDelegate
 from .dock import Docker
 
 
@@ -45,10 +44,10 @@ def seq_to_sn(seq: int) -> bytes:
     return seq.to_bytes(length=4, byteorder='big')
 
 
-class MarsShip(OutgoShip):
+class MarsShip(StarShip):
     """ Star Ship with Mars Package """
 
-    def __init__(self, package: NetMsg, priority: int = 0, delegate: Optional[GateDelegate] = None):
+    def __init__(self, package: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
         super().__init__()
         self.__package = package
         self.__priority = priority
@@ -63,7 +62,7 @@ class MarsShip(OutgoShip):
 
     # Override
     @property
-    def delegate(self) -> Optional[GateDelegate]:
+    def delegate(self) -> Optional[ShipDelegate]:
         """ Get request handler """
         if self.__delegate is not None:
             return self.__delegate()
@@ -131,7 +130,7 @@ class MarsDocker(Docker):
             return cls.parse_head(buffer=buffer) is not None
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         req_head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(payload))
         req_pack = NetMsg.new(head=req_head, body=payload)
         req_ship = MarsShip(package=req_pack, priority=priority, delegate=delegate)
@@ -199,9 +198,9 @@ class MarsDocker(Docker):
         # check data cmd
         cmd = head.cmd
         if cmd == NetMsgHead.NOOP:
-            priority = OutgoShip.SLOWER
+            priority = StarShip.SLOWER
         else:
-            priority = OutgoShip.NORMAL
+            priority = StarShip.NORMAL
         # check body
         if body is None:
             res = b''
@@ -244,7 +243,7 @@ class MarsDocker(Docker):
                 delegate = ship.delegate
                 if delegate is not None:
                     error = TimeoutError('Request timeout')
-                    delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
                 return True
         assert isinstance(ship, MarsShip), 'outgo ship error: %s' % ship
         outgo = ship.package
@@ -259,7 +258,7 @@ class MarsDocker(Docker):
             delegate = ship.delegate
             if delegate is not None:
                 error = ConnectionError('Socket error')
-                delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
+                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
         return True
 
     # Override

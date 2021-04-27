@@ -32,11 +32,11 @@ import threading
 import time
 import weakref
 from abc import abstractmethod
-from typing import Optional, List, Dict, overload
+from typing import Optional, List, Dict
 
 from tcp import Connection
 
-from .base import Gate, GateDelegate, OutgoShip, Worker
+from .base import Gate, GateDelegate, StarShip, Worker
 
 """
     Star Dock
@@ -52,10 +52,10 @@ class Dock:
         super().__init__()
         # tasks for sending out
         self.__priorities: List[int] = []
-        self.__fleets: Dict[int, List[OutgoShip]] = {}
+        self.__fleets: Dict[int, List[StarShip]] = {}
         self.__lock = threading.Lock()
 
-    def put(self, ship: OutgoShip) -> bool:
+    def put(self, ship: StarShip) -> bool:
         """ Park this ship in the Dock for departure """
         with self.__lock:
             # 1. choose an array with priority
@@ -83,17 +83,17 @@ class Dock:
             fleet.append(ship)
             return True
 
-    @overload
-    def pop(self) -> Optional[OutgoShip]:
-        """ Get a new Ship(time == 0) and remove it from the Dock """
-        pass
+    # @overload
+    # def pop(self) -> Optional[StarShip]:
+    #     """ Get a new Ship(time == 0) and remove it from the Dock """
+    #     pass
+    #
+    # @overload
+    # def pop(self, sn: bytes) -> Optional[StarShip]:
+    #     """ Get a Ship(with SN as ID) and remove it from the Dock """
+    #     pass
 
-    @overload
-    def pop(self, sn: bytes) -> Optional[OutgoShip]:
-        """ Get a Ship(with SN as ID) and remove it from the Dock """
-        pass
-
-    def pop(self, sn: Optional[bytes] = None) -> Optional[OutgoShip]:
+    def pop(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
         # search in fleets ordered by priority
         with self.__lock:
             if sn is None:
@@ -116,10 +116,10 @@ class Dock:
                             fleet.remove(ship)
                             return ship
 
-    def any(self) -> Optional[OutgoShip]:
+    def any(self) -> Optional[StarShip]:
         """ Get any Ship timeout/expired """
         with self.__lock:
-            expired = int(time.time()) - OutgoShip.EXPIRES
+            expired = int(time.time()) - StarShip.EXPIRES
             for priority in self.__priorities:
                 # search in fleets ordered by priority
                 fleet = self.__fleets.get(priority, [])
@@ -127,7 +127,7 @@ class Dock:
                     if ship.time > expired:
                         # not expired yet
                         continue
-                    if ship.retries <= OutgoShip.RETRIES:
+                    if ship.retries <= StarShip.RETRIES:
                         # got it, update time and retry
                         ship.update()
                         return ship
