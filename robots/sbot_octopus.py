@@ -38,7 +38,7 @@ import time
 import traceback
 from typing import Optional, Union, Dict, List
 
-from dimp import ID, ReliableMessage
+from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -126,7 +126,7 @@ class Worker(threading.Thread, Logging):
 
     def __init__(self, client: Terminal, server: Server, messenger: ClientMessenger):
         super().__init__()
-        self.__running = True
+        self.__running = False
         self.__waiting_list: List[ReliableMessage] = []  # sending messages
         self.__lock = threading.Lock()
         self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
@@ -147,6 +147,7 @@ class Worker(threading.Thread, Logging):
     def run(self):
         messenger = self.client.messenger
         assert isinstance(messenger, OctopusMessenger), 'octopus messenger error: %s' % messenger
+        self.__running = True
         while self.__running:
             try:
                 while self.__running:
@@ -154,10 +155,17 @@ class Worker(threading.Thread, Logging):
                     if msg is None:
                         # waiting queue empty, have a rest
                         time.sleep(0.1)
-                    elif not messenger.send_message(msg=msg):
-                        self.error('failed to send message, store it: %s' % msg)
-                        g_database.store_message(msg=msg)
-                        # time.sleep(2)
+                        continue
+                    if messenger.send_message(msg=msg):
+                        # sent
+                        continue
+                    receiver = msg.receiver
+                    if receiver.is_broadcast or receiver.type == NetworkType.STATION:
+                        # ignore broadcast messages
+                        continue
+                    self.error('failed to send message, store it: %s' % msg)
+                    g_database.store_message(msg=msg)
+                    # time.sleep(2)
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
                 traceback.print_exc()
