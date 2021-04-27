@@ -95,7 +95,11 @@ class StarGate(Gate):
     def process(self):
         self.setup()
         try:
-            while self.status != GateStatus.Error:
+            # waiting for connection
+            while self.status in [GateStatus.Init, GateStatus.Connecting]:
+                time.sleep(0.1)
+            # run
+            while self.status == GateStatus.Connected:
                 self.handle()
         finally:
             self.finish()

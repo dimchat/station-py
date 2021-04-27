@@ -57,7 +57,7 @@ class Session(BaseSession):
         self.gate.setup()
 
     def handle(self) -> bool:
-        if self.gate.status != GateStatus.Error:
+        if self.gate.status == GateStatus.Connected:
             return self.gate.handle()
 
     def finish(self):

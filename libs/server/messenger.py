@@ -57,7 +57,6 @@ class ServerMessenger(CommonMessenger):
         super().__init__()
         from .filter import Filter
         self.__filter = Filter(messenger=self)
-        self.__session: Optional[Session] = None
 
     @property
     def facebook(self) -> ServerFacebook:
@@ -101,26 +100,12 @@ class ServerMessenger(CommonMessenger):
         return g_session_server
 
     def current_session(self, identifier: ID) -> Session:
-        session = self.__session
-        # if identifier is None:
-        #     user = self.remote_user
-        #     if user is None:
-        #         # FIXME: remote user not login?
-        #         return session
-        #     else:
-        #         identifier = user.identifier
-        if session is not None:
-            # check whether the current session's identifier matched
-            if session.identifier == identifier:
-                # current session belongs to the same user
-                return session
-            # TODO: user switched, clear session?
-        # get new session with identifier
         address = self.remote_address
         assert address is not None, 'client address not found: %s' % identifier
         session = self.session_server.get_session(client_address=address)
-        self.__session = session
-        return session
+        if session is not None:
+            if session.identifier is None or session.identifier == identifier:
+                return session
 
     #
     #   Remote user

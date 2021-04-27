@@ -61,7 +61,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         m.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
         m.context['remote_address'] = client_address
         self.__messenger = m
-        self.__session = Session(messenger=m, sock=request)
+        self.__session = SessionServer().get_session(client_address=client_address, messenger=m, sock=request)
         # init
         super().__init__(request=request, client_address=client_address, server=server)
 
@@ -79,8 +79,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #
     def setup(self):
         super().setup()
-        self.__session = SessionServer().get_session(client_address=self.client_address,
-                                                     messenger=self.messenger, sock=self.request)
         self.__session.start()
         NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
             'session': self.__session,
