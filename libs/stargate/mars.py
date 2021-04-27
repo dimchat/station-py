@@ -195,12 +195,6 @@ class MarsDocker(Docker):
             return False
         head = income.head
         body = income.body
-        # check data cmd
-        cmd = head.cmd
-        if cmd == NetMsgHead.NOOP:
-            priority = StarShip.SLOWER
-        else:
-            priority = StarShip.NORMAL
         # check body
         if body is None:
             res = b''
@@ -222,9 +216,9 @@ class MarsDocker(Docker):
             if res is None:
                 res = b''
         # respond with same cmd & seq
-        res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
+        res_head = NetMsgHead.new(cmd=head.cmd, seq=head.seq, body_len=len(res))
         res_pack = NetMsg.new(head=res_head, body=res)
-        res_ship = MarsShip(package=res_pack, priority=priority)
+        res_ship = MarsShip(package=res_pack, priority=StarShip.NORMAL)
         self.dock.put(ship=res_ship)
         return True
 
