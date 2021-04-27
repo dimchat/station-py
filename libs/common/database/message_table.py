@@ -28,7 +28,7 @@ import time
 from typing import List
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
-from dimp import ID
+from dimp import ID, NetworkType
 from dimp import ReliableMessage
 
 from .storage import Storage
@@ -107,6 +107,11 @@ class MessageTable(Storage):
         return self.__message_exists(msg=msg, path=path)
 
     def store_message(self, msg: ReliableMessage) -> bool:
+        sender = msg.sender
+        receiver = msg.receiver
+        if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+            self.info('ignore station message: %s -> %s' % (sender, receiver))
+            return False
         path = self.__message_path(msg=msg)
         if self.__message_exists(msg=msg, path=path):
             self.error('message duplicated: %s' % msg)
