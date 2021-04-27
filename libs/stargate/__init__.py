@@ -28,7 +28,8 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .base import Gate, GateStatus, GateDelegate, ShipDelegate
+from .base import Gate, GateStatus, GateDelegate
+from .base import StarShip, ShipDelegate
 from .base import Worker
 from .dock import Docker
 
@@ -45,7 +46,8 @@ from .stargate import StarGate
 
 __all__ = [
 
-    'Gate', 'GateStatus', 'GateDelegate', 'ShipDelegate',
+    'Gate', 'GateStatus', 'GateDelegate',
+    'StarShip', 'ShipDelegate',
     'Worker', 'Docker',
 
     'StarGate',

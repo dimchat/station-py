@@ -102,10 +102,7 @@ class ServerMessenger(CommonMessenger):
     def current_session(self, identifier: ID) -> Session:
         address = self.remote_address
         assert address is not None, 'client address not found: %s' % identifier
-        session = self.session_server.get_session(client_address=address)
-        if session is not None:
-            if session.identifier is None or session.identifier == identifier:
-                return session
+        return self.session_server.get_session(client_address=address)
 
     #
     #   Remote user

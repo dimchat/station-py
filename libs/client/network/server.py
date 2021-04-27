@@ -42,7 +42,7 @@ from dimsdk import MessengerDelegate, CompletionHandler
 from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
-from ...stargate import GateStatus, ShipDelegate
+from ...stargate import GateStatus, ShipDelegate, StarShip
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
@@ -142,7 +142,8 @@ class Server(Station, MessengerDelegate):
         data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
         self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
-        self.messenger.send_package(data=data, handler=None)
+        # Urgent Command
+        self.__session.send(payload=data, priority=StarShip.URGENT)
 
     def handshake_success(self):
         user = self.facebook.current_user

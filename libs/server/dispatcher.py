@@ -149,13 +149,17 @@ class Dispatcher(NotificationObserver):
         receiver = msg.receiver
         if receiver.is_broadcast:
             self.__broadcast_worker.add_msg(msg=msg)
-            return msg_receipt(msg=msg, text='Message broadcasting')
+            res = msg_receipt(msg=msg, text='Message broadcasting')
         elif receiver.is_group:
             self.__group_worker.add_msg(msg=msg)
-            return msg_receipt(msg=msg, text='Group Message delivering')
+            res = msg_receipt(msg=msg, text='Group Message delivering')
         else:
             self.__single_worker.add_msg(msg=msg)
-            return msg_receipt(msg=msg, text='Message delivering')
+            res = msg_receipt(msg=msg, text='Message delivering')
+        # only respond to my own users
+        stations = _roaming_stations(user=msg.sender)
+        if self.station in stations:
+            return res
 
 
 def _entity_id(entity: Union[Entity, ID]) -> ID:
@@ -208,7 +212,7 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
     # 1. try online sessions
     cnt = _push_message(msg=msg, receiver=receiver)
     # 2. check roaming stations
-    neighbors = _roaming_stations(receiver)
+    neighbors = _roaming_stations(user=receiver)
     for sid in neighbors:
         if sid == station:
             continue
@@ -312,7 +316,6 @@ class Worker(threading.Thread, Logging):
     def run(self):
         self.info('dispatcher starting...')
         while self.__running:
-            # noinspection PyBroadException
             try:
                 while self.__running:
                     msg = self.pop_msg()
