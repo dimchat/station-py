@@ -30,6 +30,7 @@
 
 from typing import Optional
 
+from dimp import NetworkType
 from dimp import SecureMessage, ReliableMessage
 
 from ..common import msg_traced, is_broadcast_message
@@ -57,9 +58,13 @@ class ServerProcessor(CommonProcessor):
         # check traces
         messenger = self.messenger
         station = messenger.dispatcher.station
+        sender = msg.sender
         receiver = msg.receiver
         if msg_traced(msg=msg, node=station, append=True):
             self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
+            if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+                self.info('ignore station msg: %s -> %s' % (sender, receiver))
+                return None
             if is_broadcast_message(msg=msg):
                 self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
                 return None
@@ -69,10 +74,10 @@ class ServerProcessor(CommonProcessor):
                 return None
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
-                self.info('deliver cycled msg: %s, %s -> %s' % (station, msg.sender, receiver))
+                self.info('deliver cycled msg: %s, %s -> %s' % (station, sender, receiver))
                 return messenger.deliver_message(msg=msg)
             else:
-                self.info('store cycled msg: %s, %s -> %s' % (station, msg.sender, receiver))
+                self.info('store cycled msg: %s, %s -> %s' % (station, sender, receiver))
                 g_database.store_message(msg=msg)
                 return None
         if receiver.is_group:
