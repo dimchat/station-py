@@ -38,7 +38,7 @@ from .cpu import *
 from .database import Storage, Database
 
 from .notification import NotificationNames
-from .session import Session
+from .session import BaseSession
 
 from .ans import AddressNameServer
 
@@ -132,7 +132,7 @@ __all__ = [
     #   Common libs
     #
     'NotificationNames',
-    'Session',
+    'BaseSession',
     'AddressNameServer',
 
     'KeyStore', 'CommonFacebook',

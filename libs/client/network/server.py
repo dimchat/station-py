@@ -44,10 +44,10 @@ from dimsdk.messenger import MessageCallback
 from ...utils import Log
 from ...stargate import GateStatus, GateDelegate
 from ...common import CommonMessenger, CommonFacebook
-from ...common import Session as CommonSession
+from ...common import BaseSession
 
 
-class Session(CommonSession):
+class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, host: str, port: int):
         super().__init__(messenger=messenger, address=(host, port))
@@ -68,8 +68,8 @@ class Session(CommonSession):
     #
 
     def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
+        super().gate_status_changed(gate=gate, old_status=old_status, new_status=new_status)
         if new_status == GateStatus.Connected:
-            self.messenger.connected()
             delegate = self.messenger.delegate
             if isinstance(delegate, Server):
                 delegate.handshake()

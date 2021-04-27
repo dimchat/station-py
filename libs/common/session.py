@@ -47,7 +47,7 @@ from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
-from ..stargate import GateDelegate, StarGate
+from ..stargate import GateStatus, GateDelegate, StarGate
 
 from .database import Database
 from .messenger import CommonMessenger
@@ -72,8 +72,11 @@ class MessageWrapper(GateDelegate, MessengerCallback):
     def mark(self):
         self.__time = 1
 
+    def fail(self):
+        self.__time = -1
+
     @property
-    def virgin(self) -> int:
+    def virgin(self) -> bool:
         return self.__time == 0
 
     @property
@@ -108,7 +111,7 @@ class MessageWrapper(GateDelegate, MessengerCallback):
             self.__time = -1
 
 
-class Session(threading.Thread, GateDelegate, Logging):
+class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __init__(self, messenger: CommonMessenger,
                  address: Optional[tuple] = None,
@@ -126,9 +129,9 @@ class Session(threading.Thread, GateDelegate, Logging):
 
     def __del__(self):
         # store stranded messages
-        self.flush()
+        self.__flush()
 
-    def flush(self):
+    def __flush(self):
         # store all message
         wrapper = self.__pop()
         while wrapper is not None:
@@ -183,21 +186,21 @@ class Session(threading.Thread, GateDelegate, Logging):
             # get next message
             wrapper = self.__next()
             if wrapper is None:
+                msg = None
+            else:
+                msg = wrapper.msg
+            if msg is None:
                 # no more new message
                 if not self.handle():
                     # have a rest ^_^
                     time.sleep(0.1)
                 continue
-            msg = wrapper.msg
-            if msg is not None:
-                # try to push
-                if self.messenger.send_message(msg=wrapper.msg, callback=wrapper):
-                    time.sleep(0.01)
-                else:
-                    time.sleep(0.5)
+            # try to push
+            if not self.messenger.send_message(msg=wrapper.msg, callback=wrapper):
+                wrapper.fail()
         self.finish()
         # save unsent messages
-        self.flush()
+        self.__flush()
 
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
         if self.__active:
@@ -218,7 +221,7 @@ class Session(threading.Thread, GateDelegate, Logging):
 
     def __next(self) -> Optional[MessageWrapper]:
         with self.__lock:
-            for index, wrapper in enumerate(self.__queue):
+            for wrapper in self.__queue:
                 if wrapper.virgin:
                     wrapper.mark()  # mark sent
                     return wrapper
@@ -245,7 +248,10 @@ class Session(threading.Thread, GateDelegate, Logging):
     #   GateDelegate
     #
 
-    # @abstractmethod
+    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
+        if new_status == GateStatus.Connected:
+            self.messenger.connected()
+
     def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
         if payload.startswith(b'{'):
             # JsON in lines

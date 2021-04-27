@@ -45,7 +45,7 @@ from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
 from ..common import Database
-from ..common import Session as CommonSession
+from ..common import BaseSession
 from ..common import CommonMessenger
 
 
@@ -56,7 +56,7 @@ def generate_session_key() -> str:
     return hex_encode(random_bytes(32))
 
 
-class Session(CommonSession):
+class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, sock: socket.socket):
         super().__init__(messenger=messenger, sock=sock)
