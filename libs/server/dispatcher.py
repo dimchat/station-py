@@ -317,6 +317,7 @@ class Worker(threading.Thread, Logging):
                 while self.__running:
                     msg = self.pop_msg()
                     if msg is None:
+                        time.sleep(0.1)
                         break
                     res = self.deliver(msg=msg)
                     if res is not None:

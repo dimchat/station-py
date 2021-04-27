@@ -186,9 +186,6 @@ class WSDocker(Docker):
                 res = delegate.gate_received(gate=self.gate, payload=income)
                 if res is not None and len(res) > 0:
                     self.send(payload=res, priority=OutgoShip.NORMAL)
-        # float control
-        if Gate.INCOME_INTERVAL > 0:
-            time.sleep(Gate.INCOME_INTERVAL)
         return True
 
     # Override
@@ -218,9 +215,6 @@ class WSDocker(Docker):
             if delegate is not None:
                 error = ConnectionError('Socket error')
                 delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
-        # flow control
-        if Gate.OUTGO_INTERVAL > 0:
-            time.sleep(Gate.OUTGO_INTERVAL)
         return True
 
     # Override
@@ -233,9 +227,6 @@ class WSDocker(Docker):
                 self.send(payload=ping_body, priority=OutgoShip.SLOWER)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
-        # idling
-        assert Gate.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
-        time.sleep(Gate.IDLE_INTERVAL)
 
 
 #

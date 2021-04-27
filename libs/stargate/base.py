@@ -105,11 +105,7 @@ class Gate(ConnectionDelegate):
     """ Star Gate of remote peer """
 
     # flow control
-    MAX_INCOMES_PER_OUTGO = 4
-    # seconds
-    INCOME_INTERVAL = 8.0 / 1000.0
-    OUTGO_INTERVAL = 32.0 / 1000.0
-    IDLE_INTERVAL = 256.0 / 1000.0
+    MAX_INCOMES_PER_OUTGO = 2
 
     @property
     def status(self) -> GateStatus:

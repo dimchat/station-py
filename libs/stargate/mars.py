@@ -168,7 +168,9 @@ class MarsDocker(Docker):
             else:
                 # skip the whole data
                 conn.receive(length=data_len)
-            return None
+            # take it as NOOP
+            head = NetMsgHead.new(cmd=NetMsgHead.NOOP)
+            return NetMsg.new(head=head)
         # 2. receive data with 'head.length + body.length'
         body_len = head.body_length
         if body_len < 0:
@@ -197,30 +199,34 @@ class MarsDocker(Docker):
         # check data cmd
         cmd = head.cmd
         if cmd == NetMsgHead.NOOP:
-            # respond for Command
-            if body is None:
-                body = b''
-            elif body == ping_body:
-                body = pong_body
-            res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(body))
-            res_pack = NetMsg.new(head=res_head, body=body)
-            res_ship = MarsShip(package=res_pack, priority=OutgoShip.SLOWER)
-            self.dock.put(ship=res_ship)
-            return True
-        # process received data
-        delegate = self.delegate
-        if delegate is not None and body is not None and len(body) > 0:
-            res = delegate.gate_received(gate=self.gate, payload=body)
+            priority = OutgoShip.SLOWER
         else:
+            priority = OutgoShip.NORMAL
+        # check body
+        if body is None:
             res = b''
+        elif body == ping_body:
+            # PING -> PONG
+            res = pong_body
+        elif body == pong_body:
+            # just ignore
+            return True
+        elif body == noop_body:
+            # NOOP -> NOOP
+            res = noop_body
+        else:
+            res = None
+            delegate = self.delegate
+            if delegate is not None and len(body) > 0:
+                # process received data
+                res = delegate.gate_received(gate=self.gate, payload=body)
+            if res is None:
+                res = b''
         # respond with same cmd & seq
         res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
         res_pack = NetMsg.new(head=res_head, body=res)
-        res_ship = MarsShip(package=res_pack, priority=OutgoShip.NORMAL)
+        res_ship = MarsShip(package=res_pack, priority=priority)
         self.dock.put(ship=res_ship)
-        # float control
-        if Gate.INCOME_INTERVAL > 0:
-            time.sleep(Gate.INCOME_INTERVAL)
         return True
 
     # Override
@@ -254,16 +260,11 @@ class MarsDocker(Docker):
             if delegate is not None:
                 error = ConnectionError('Socket error')
                 delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
-        # flow control
-        if Gate.OUTGO_INTERVAL > 0:
-            time.sleep(Gate.OUTGO_INTERVAL)
         return True
 
     # Override
     def _handle_heartbeat(self):
-        # idling
-        assert Gate.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
-        time.sleep(Gate.IDLE_INTERVAL)
+        pass
 
 
 #

@@ -157,7 +157,7 @@ class Worker(threading.Thread, Logging):
                     elif not messenger.send_message(msg=msg):
                         self.error('failed to send message, store it: %s' % msg)
                         g_database.store_message(msg=msg)
-                        time.sleep(2)
+                        # time.sleep(2)
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
                 traceback.print_exc()

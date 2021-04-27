@@ -188,8 +188,8 @@ class MTPDocker(Docker):
         data_type = head.data_type
         if data_type == MTPCommand:
             # respond for Command
-            if body == ping_body:  # b'PING'
-                res = pong_body    # b'PONG'
+            if body == ping_body:  # 'PING'
+                res = pong_body    # 'PONG'
                 res_pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
                 res_ship = MTPShip(package=res_pack, priority=OutgoShip.SLOWER)
                 self.dock.put(ship=res_ship)
@@ -200,14 +200,7 @@ class MTPDocker(Docker):
         elif data_type == MTPMessageFragment:
             # just ignore
             return True
-        elif data_type == MTPMessage:
-            # respond for Message
-            res = ok_body
-            res_pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            res_ship = MTPShip(package=res_pack, priority=OutgoShip.NORMAL)
-            self.dock.put(ship=res_ship)
-        else:
-            assert data_type == MTPMessageRespond, 'data type error: %s' % data_type
+        elif data_type == MTPMessageRespond:
             # process Message Respond
             sn = head.sn.get_bytes()
             ship = self.dock.pop(sn=sn)
@@ -227,19 +220,28 @@ class MTPDocker(Docker):
             elif body == again_body:
                 # TODO: mission failed, send the message again
                 return True
-            elif body == pong_body:
-                # FIXME: should not happen
-                return True
-        # received data in the Message Respond
+        # received data in the Message/Respond
+        res = None
         if body.length > 0:
             delegate = self.delegate
             if delegate is not None:
                 res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
-                if res is not None:
-                    self.send(payload=res, priority=OutgoShip.NORMAL)
-        # float control
-        if Gate.INCOME_INTERVAL > 0:
-            time.sleep(Gate.INCOME_INTERVAL)
+        if res is None:
+            if data_type == MTPMessage:
+                # respond for Message
+                res = ok_body.get_bytes()
+            else:
+                # just ignore
+                return True
+        if data_type == MTPMessage:
+            # respond for Message
+            res = Data(data=res)
+            res_pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
+            res_ship = MTPShip(package=res_pack, priority=OutgoShip.NORMAL)
+            self.dock.put(ship=res_ship)
+        else:
+            # push as new Message
+            self.send(payload=res, priority=OutgoShip.NORMAL)
         return True
 
     # Override
@@ -273,9 +275,6 @@ class MTPDocker(Docker):
             if delegate is not None:
                 error = ConnectionError('Socket error')
                 delegate.gate_sent(gate=self.gate, payload=ship.payload, error=error)
-        # flow control
-        if Gate.OUTGO_INTERVAL > 0:
-            time.sleep(Gate.OUTGO_INTERVAL)
         return True
 
     # Override
@@ -291,9 +290,6 @@ class MTPDocker(Docker):
                 self.dock.put(ship=ship)
             # try heartbeat next 2 seconds
             self.__heartbeat_expired = now + 2
-        # idling
-        assert Gate.IDLE_INTERVAL > 0, 'IDLE_INTERVAL error'
-        time.sleep(Gate.IDLE_INTERVAL)
 
 
 #
