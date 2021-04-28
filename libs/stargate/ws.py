@@ -28,8 +28,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-import weakref
 from typing import Optional
 
 from tcp import Connection
@@ -83,13 +81,13 @@ class WSDocker(Docker):
 
     # Override
     def setup(self):
-        buffer = self.connection.received()
+        buffer = self._received_buffer()
         if buffer is not None:
             # remove first handshake package
-            self.connection.receive(length=len(buffer))
+            self._receive_buffer(length=len(buffer))
             # response for handshake
             res = WebSocket.handshake(stream=buffer)
-            self.__send_package(pack=res)
+            self._send_buffer(data=res)
 
     # Override
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
@@ -97,20 +95,9 @@ class WSDocker(Docker):
         req_ship = WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
         return self.dock.put(ship=req_ship)
 
-    def __send_package(self, pack: bytes) -> int:
-        conn = self.connection
-        if conn is None:
-            # connection lost
-            return -1
-        return conn.send(data=pack)
-
     def __receive_package(self) -> (Optional[bytes], Optional[bytes]):
-        conn = self.connection
-        if conn is None:
-            # connection lost
-            return None, None
         # 1. check received data
-        buffer = conn.received()
+        buffer = self._received_buffer()
         if buffer is None:
             # received nothing
             return None, None
@@ -119,19 +106,19 @@ class WSDocker(Docker):
         new_len = len(remaining)
         if new_len < old_len:
             # skip received package
-            pack = conn.receive(length=old_len-new_len)
+            pack = self._receive_buffer(length=old_len-new_len)
             return pack, payload
         else:
             return None, None
 
     # Override
-    def _get_income(self) -> Optional[Ship]:
+    def _get_income_ship(self) -> Optional[Ship]:
         income, payload = self.__receive_package()
         if income is not None:
             return WSShip(package=income, payload=payload)
 
     # Override
-    def _handle(self, income: Ship) -> Optional[StarShip]:
+    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, WSShip), 'income ship error: %s' % income
         body = income.payload
         # 1. check command
@@ -161,11 +148,11 @@ class WSDocker(Docker):
         return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _send(self, outgo: StarShip) -> bool:
+    def _send_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # send out request data
-        return self.__send_package(pack=pack) == len(pack)
+        return self._send_buffer(data=pack) == len(pack)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

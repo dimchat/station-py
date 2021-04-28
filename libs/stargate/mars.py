@@ -95,20 +95,9 @@ class MarsDocker(Docker):
         req_ship = MarsShip(package=req_pack, priority=priority, delegate=delegate)
         return self.dock.put(ship=req_ship)
 
-    def __send_package(self, pack: NetMsg) -> int:
-        conn = self.connection
-        if conn is None:
-            # connection lost
-            return -1
-        return conn.send(data=pack.data)
-
     def __receive_package(self) -> Optional[NetMsg]:
-        conn = self.connection
-        if conn is None:
-            # connection lost
-            return None
         # 1. check received data
-        data = conn.received()
+        data = self._received_buffer()
         if data is None:
             # received nothing
             return None
@@ -122,10 +111,10 @@ class MarsDocker(Docker):
             pos = data.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
             if pos > NetMsgHead.MAGIC_CODE_OFFSET:
                 # found next head, skip data before it
-                conn.receive(length=pos-NetMsgHead.MAGIC_CODE_OFFSET)
+                self._receive_buffer(length=pos-NetMsgHead.MAGIC_CODE_OFFSET)
             else:
                 # skip the whole data
-                conn.receive(length=data_len)
+                self._receive_buffer(length=data_len)
             # take it as NOOP
             head = NetMsgHead.new(cmd=NetMsgHead.NOOP)
             return NetMsg.new(head=head)
@@ -139,7 +128,7 @@ class MarsDocker(Docker):
             # waiting for more data
             return None
         # receive package
-        data = conn.receive(length=pack_len)
+        data = self._receive_buffer(length=pack_len)
         if body_len > 0:
             body = data[head.length:]
         else:
@@ -147,13 +136,13 @@ class MarsDocker(Docker):
         return NetMsg(data=data, head=head, body=body)
 
     # Override
-    def _get_income(self) -> Optional[Ship]:
+    def _get_income_ship(self) -> Optional[Ship]:
         income = self.__receive_package()
         if income is not None:
             return MarsShip(package=income)
 
     # Override
-    def _handle(self, income: Ship) -> Optional[StarShip]:
+    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, MarsShip), 'income ship error: %s' % income
         pack = income.package
         head = pack.head
@@ -169,7 +158,7 @@ class MarsDocker(Docker):
                 return None
         # elif cmd == NetMsgHead.PUSH_MESSAGE:
         #     # remove linked outgo Ship
-        #     super()._handle(income=income)
+        #     super()._handle_ship(income=income)
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
             if len(body) == 0 or body == noop_body:
@@ -199,7 +188,7 @@ class MarsDocker(Docker):
             self.send(payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _send(self, outgo: StarShip) -> bool:
+    def _send_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # # check data type
@@ -207,7 +196,7 @@ class MarsDocker(Docker):
         #     # put back for response
         #     self.dock.put(ship=outgo)
         # send out request data
-        return self.__send_package(pack=pack) == pack.length
+        return self._send_buffer(data=pack.data) == pack.length
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

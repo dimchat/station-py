@@ -64,7 +64,8 @@ class StarGate(Gate):
     # Override
     @property
     def status(self) -> GateStatus:
-        return gate_status(status=self.connection.status)
+        cs = self.connection.get_status(now=time.time())
+        return gate_status(status=cs)
 
     # Override
     @property
@@ -143,10 +144,11 @@ class StarGate(Gate):
         if delegate is not None:
             s1 = gate_status(status=old_status)
             s2 = gate_status(status=new_status)
-            delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
+            if s1 != s2:
+                delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
 
     def connection_received(self, connection, data: bytes):
-        # received data will be processed in run loop (MTPDocker::processIncome),
+        # received data will be processed in run loop (Docker::handle),
         # do nothing here
         pass
 

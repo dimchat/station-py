@@ -34,9 +34,7 @@ import weakref
 from abc import abstractmethod
 from typing import Optional, List, Dict
 
-from tcp import Connection
-
-from .base import Gate, GateDelegate, Ship, StarShip, Worker
+from .base import Gate, GateStatus, GateDelegate, Ship, StarShip, Worker
 
 """
     Star Dock
@@ -159,8 +157,23 @@ class Docker(Worker):
         return self.gate.delegate
 
     @property
-    def connection(self) -> Optional[Connection]:
-        return self.gate.connection
+    def status(self) -> GateStatus:
+        return self.gate.status
+
+    def _send_buffer(self, data: bytes) -> bool:
+        conn = self.gate.connection
+        if conn is not None and self.status == GateStatus.Connected:
+            return conn.send(data=data) == len(data)
+
+    def _received_buffer(self) -> Optional[bytes]:
+        conn = self.gate.connection
+        if conn is not None:
+            return conn.received()
+
+    def _receive_buffer(self, length: int) -> Optional[bytes]:
+        conn = self.gate.connection
+        if conn is not None:
+            return conn.receive(length=length)
 
     # Override
     def setup(self):
@@ -174,26 +187,29 @@ class Docker(Worker):
     # Override
     def handle(self) -> bool:
         # 1. process income
-        income = self._get_income()
+        income = self._get_income_ship()
         if income is not None:
-            res = self._handle(income=income)
+            res = self._handle_ship(income=income)
             if res is not None:
                 if res.priority == StarShip.SLOWER:
                     # put the response into waiting queue
                     self.dock.put(ship=res)
                 else:
                     # send response directly
-                    self._send(outgo=res)
+                    self._send_ship(outgo=res)
         # 2. process outgo
-        outgo = self._get_outgo()
+        outgo = self._get_outgo_ship()
         if outgo is not None:
-            delegate = outgo.delegate
-            if delegate is None:
-                # no callback, just sent
-                self._send(outgo=outgo)
-            elif not outgo.expired and not self._send(outgo=outgo):
+            if outgo.expired:
+                # outgo Ship expired, callback
+                delegate = outgo.delegate
+                if delegate is not None:
+                    delegate.ship_sent(ship=outgo, payload=outgo.payload, error=TimeoutError('Request timeout'))
+            elif not self._send_ship(outgo=outgo):
                 # failed to send outgo Ship, callback
-                delegate.ship_sent(ship=outgo, payload=outgo.payload, error=TimeoutError('Request timeout'))
+                delegate = outgo.delegate
+                if delegate is not None:
+                    delegate.ship_sent(ship=outgo, payload=outgo.payload, error=IOError('Socket error'))
         # 3. heart beat
         if income is None and outgo is None:
             # check time for next heartbeat
@@ -210,13 +226,13 @@ class Docker(Worker):
             return True
 
     @abstractmethod
-    def _get_income(self) -> Optional[Ship]:
+    def _get_income_ship(self) -> Optional[Ship]:
         """ Get income Ship from Connection """
         raise NotImplemented
 
-    def _handle(self, income: Ship) -> Optional[StarShip]:
+    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
         """ Override to process income Ship """
-        linked = self._get_outgo(income=income)
+        linked = self._get_outgo_ship(income=income)
         if linked is None:
             return None
         # callback for the linked outgo Ship and remove it
@@ -224,7 +240,7 @@ class Docker(Worker):
         if delegate is not None:
             delegate.ship_sent(ship=linked, payload=linked.payload)
 
-    def _get_outgo(self, income: Optional[Ship] = None) -> Optional[StarShip]:
+    def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
         """ Get outgo Ship from waiting queue """
         if income is None:
             # get next new task (time == 0)
@@ -238,7 +254,7 @@ class Docker(Worker):
         return outgo
 
     @abstractmethod
-    def _send(self, outgo: StarShip) -> bool:
+    def _send_ship(self, outgo: StarShip) -> bool:
         """ Send outgo Ship via current Connection """
         raise NotImplemented
 
