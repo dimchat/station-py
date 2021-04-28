@@ -28,15 +28,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-import weakref
 from typing import Optional
 
 from tcp import Connection
 
 from .protocol import NetMsg, NetMsgHead
 
-from .base import Gate, StarShip, ShipDelegate
+from .base import Gate, Ship, StarShip, ShipDelegate
 from .dock import Docker
 
 
@@ -48,45 +46,8 @@ class MarsShip(StarShip):
     """ Star Ship with Mars Package """
 
     def __init__(self, package: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__()
+        super().__init__(priority=priority, delegate=delegate)
         self.__package = package
-        self.__priority = priority
-        # retry
-        self.__timestamp = 0
-        self.__retries = 0
-        # callback
-        if delegate is None:
-            self.__delegate = None
-        else:
-            self.__delegate = weakref.ref(delegate)
-
-    # Override
-    @property
-    def delegate(self) -> Optional[ShipDelegate]:
-        """ Get request handler """
-        if self.__delegate is not None:
-            return self.__delegate()
-
-    # Override
-    @property
-    def priority(self) -> int:
-        return self.__priority
-
-    # Override
-    @property
-    def time(self) -> int:
-        return self.__timestamp
-
-    # Override
-    @property
-    def retries(self) -> int:
-        return self.__retries
-
-    # Override
-    def update(self):
-        self.__timestamp = int(time.time())
-        self.__retries += 1
-        return self
 
     @property
     def package(self) -> NetMsg:
@@ -96,12 +57,12 @@ class MarsShip(StarShip):
     # Override
     @property
     def sn(self) -> bytes:
-        return seq_to_sn(seq=self.package.head.seq)
+        return seq_to_sn(seq=self.__package.head.seq)
 
     # Override
     @property
     def payload(self) -> bytes:
-        return self.package.body
+        return self.__package.body
 
 
 class MarsDocker(Docker):
@@ -109,8 +70,6 @@ class MarsDocker(Docker):
 
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
-        # time for checking heartbeat
-        self.__heartbeat_expired = int(time.time())
 
     @classmethod
     def parse_head(cls, buffer: bytes) -> Optional[NetMsgHead]:
@@ -188,75 +147,70 @@ class MarsDocker(Docker):
         return NetMsg(data=data, head=head, body=body)
 
     # Override
-    def _handle_income(self) -> bool:
+    def _get_income(self) -> Optional[Ship]:
         income = self.__receive_package()
-        if income is None:
-            # no more package now
-            return False
-        head = income.head
-        body = income.body
-        # check body
+        if income is not None:
+            return MarsShip(package=income)
+
+    # Override
+    def _handle(self, income: Ship) -> Optional[StarShip]:
+        assert isinstance(income, MarsShip), 'income ship error: %s' % income
+        pack = income.package
+        head = pack.head
+        body = pack.body
         if body is None:
-            res = b''
-        elif body == ping_body:
-            # PING -> PONG
+            body = b''
+        # 1. check head cmd
+        cmd = head.cmd
+        if cmd == NetMsgHead.SEND_MSG:
+            # handle SEND_MSG request
+            if len(body) == 0:
+                # FIXME: should not happen
+                return None
+        # elif cmd == NetMsgHead.PUSH_MESSAGE:
+        #     # remove linked outgo Ship
+        #     super()._handle(income=income)
+        elif cmd == NetMsgHead.NOOP:
+            # handle NOOP request
+            if len(body) == 0 or body == noop_body:
+                return income
+        # 2. process payload by delegate
+        res = None
+        if body == ping_body:
             res = pong_body
         elif body == pong_body:
-            # just ignore
-            return True
+            # FIXME: client should not send 'PONG' to server
+            return None
         elif body == noop_body:
-            # NOOP -> NOOP
-            res = noop_body
+            # FIXME: 'NOOP' can only sent by NOOP cmd
+            return None
         else:
-            res = None
             delegate = self.delegate
-            if delegate is not None and len(body) > 0:
-                # process received data
-                res = delegate.gate_received(gate=self.gate, payload=body)
-            if res is None:
-                res = b''
-        # respond with same cmd & seq
-        res_head = NetMsgHead.new(cmd=head.cmd, seq=head.seq, body_len=len(res))
-        res_pack = NetMsg.new(head=res_head, body=res)
-        res_ship = MarsShip(package=res_pack, priority=StarShip.NORMAL)
-        self.dock.put(ship=res_ship)
-        return True
-
-    # Override
-    def _handle_outgo(self) -> bool:
-        # get next new task (time == 0)
-        ship = self.dock.pop()
-        if ship is None:
-            # no more new task now, get any expired task
-            ship = self.dock.any()
-            if ship is None:
-                # no task expired now
-                return False
-            elif ship.expired:
-                # remove an expired task
-                delegate = ship.delegate
-                if delegate is not None:
-                    error = TimeoutError('Request timeout')
-                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-                return True
-        assert isinstance(ship, MarsShip), 'outgo ship error: %s' % ship
-        outgo = ship.package
-        # check data type
-        # if outgo.head.cmd == NetMsgHead.PUSH_MESSAGE:
-        #     # put back for response
-        #     self.dock.put(ship=ship)
-        # send out request data
-        res = self.__send_package(pack=outgo)
-        if res != outgo.length:
-            # callback for sent failed
-            delegate = ship.delegate
             if delegate is not None:
-                error = ConnectionError('Socket error')
-                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-        return True
+                res = delegate.gate_received(gate=self.gate, payload=body)
+        if res is None:
+            res = b''
+        # 3. response
+        if cmd in [NetMsgHead.NOOP, NetMsgHead.SEND_MSG]:
+            res_head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
+            res_pack = NetMsg.new(head=res_head, body=res)
+            return MarsShip(package=res_pack, priority=StarShip.NORMAL)
+        else:
+            self.send(payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _handle_heartbeat(self):
+    def _send(self, outgo: StarShip) -> bool:
+        assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
+        pack = outgo.package
+        # # check data type
+        # if pack.head.cmd == NetMsgHead.PUSH_MESSAGE:
+        #     # put back for response
+        #     self.dock.put(ship=outgo)
+        # send out request data
+        return self.__send_package(pack=pack) == pack.length
+
+    # Override
+    def _get_heartbeat(self) -> Optional[StarShip]:
         pass
 
 

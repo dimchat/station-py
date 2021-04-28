@@ -36,7 +36,7 @@ from tcp import Connection
 
 from .protocol import WebSocket
 
-from .base import Gate, StarShip, ShipDelegate
+from .base import Gate, Ship, StarShip, ShipDelegate
 from .dock import Docker
 
 
@@ -48,46 +48,9 @@ class WSShip(StarShip):
     """ Star Ship with WebSocket Package """
 
     def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__()
+        super().__init__(priority=priority, delegate=delegate)
         self.__package = package
         self.__payload = payload
-        self.__priority = priority
-        # retry
-        self.__timestamp = 0
-        self.__retries = 0
-        # callback
-        if delegate is None:
-            self.__delegate = None
-        else:
-            self.__delegate = weakref.ref(delegate)
-
-    # Override
-    @property
-    def delegate(self) -> Optional[ShipDelegate]:
-        """ Get request handler """
-        if self.__delegate is not None:
-            return self.__delegate()
-
-    # Override
-    @property
-    def priority(self) -> int:
-        return self.__priority
-
-    # Override
-    @property
-    def time(self) -> int:
-        return self.__timestamp
-
-    # Override
-    @property
-    def retries(self) -> int:
-        return self.__retries
-
-    # Override
-    def update(self):
-        self.__timestamp = int(time.time())
-        self.__retries += 1
-        return self
 
     @property
     def package(self) -> bytes:
@@ -97,7 +60,7 @@ class WSShip(StarShip):
     # Override
     @property
     def sn(self) -> bytes:
-        return self.payload
+        return self.__payload
 
     # Override
     @property
@@ -110,8 +73,6 @@ class WSDocker(Docker):
 
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
-        # time for checking heartbeat
-        self.__heartbeat_expired = int(time.time())
 
     @classmethod
     def check(cls, connection: Connection) -> bool:
@@ -143,89 +104,73 @@ class WSDocker(Docker):
             return -1
         return conn.send(data=pack)
 
-    def __receive_payload(self) -> Optional[bytes]:
+    def __receive_package(self) -> (Optional[bytes], Optional[bytes]):
         conn = self.connection
         if conn is None:
             # connection lost
-            return None
+            return None, None
         # 1. check received data
         buffer = conn.received()
         if buffer is None:
             # received nothing
-            return None
-        data, remaining = WebSocket.parse(stream=buffer)
+            return None, None
+        payload, remaining = WebSocket.parse(stream=buffer)
         old_len = len(buffer)
         new_len = len(remaining)
         if new_len < old_len:
             # skip received package
-            conn.receive(length=old_len-new_len)
-        # return received payload
-        return data
+            pack = conn.receive(length=old_len-new_len)
+            return pack, payload
+        else:
+            return None, None
 
     # Override
-    def _handle_income(self) -> bool:
-        income = self.__receive_payload()
-        if income is None:
+    def _get_income(self) -> Optional[Ship]:
+        income, payload = self.__receive_package()
+        if income is not None:
+            return WSShip(package=income, payload=payload)
+
+    # Override
+    def _handle(self, income: Ship) -> Optional[StarShip]:
+        assert isinstance(income, WSShip), 'income ship error: %s' % income
+        body = income.payload
+        # 1. check command
+        if body is None or len(body) == 0:
             # no more package now
-            return False
-        elif income == ping_body:
+            return None
+        elif body == ping_body:
             # respond Command: 'PONG' -> 'PING'
             self.send(payload=pong_body, priority=StarShip.SLOWER)
-            return True
+            return None
         elif income == pong_body:
             # just ignore
-            return True
+            return None
         elif income == noop_body:
             # just ignore
-            return True
-        elif len(income) > 0:
-            # process received payload
-            delegate = self.delegate
-            if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=income)
-                if res is not None and len(res) > 0:
-                    self.send(payload=res, priority=StarShip.NORMAL)
-        return True
+            return None
+        # 2. process payload by delegate
+        delegate = self.delegate
+        if delegate is not None:
+            res = delegate.gate_received(gate=self.gate, payload=body)
+        else:
+            res = None
+        # 3. response
+        if res is None or len(res) == 0:
+            res = ok_body
+        req_pack = WebSocket.pack(payload=res)
+        return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _handle_outgo(self) -> bool:
-        # get next new task (time == 0)
-        ship = self.dock.pop()
-        if ship is None:
-            # no more new task now, get any expired task
-            ship = self.dock.any()
-            if ship is None:
-                # no task expired now
-                return False
-            elif ship.expired:
-                # remove an expired task
-                delegate = ship.delegate
-                if delegate is not None:
-                    error = TimeoutError('Request timeout')
-                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-                return True
-        assert isinstance(ship, WSShip), 'outgo ship error: %s' % ship
-        outgo = ship.package
+    def _send(self, outgo: StarShip) -> bool:
+        assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
+        pack = outgo.package
         # send out request data
-        res = self.__send_package(pack=outgo)
-        if res != len(outgo):
-            # callback for sent failed
-            delegate = ship.delegate
-            if delegate is not None:
-                error = ConnectionError('Socket error')
-                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-        return True
+        return self.__send_package(pack=pack) == len(pack)
 
     # Override
-    def _handle_heartbeat(self):
-        # check time for next heartbeat
-        now = time.time()
-        if now > self.__heartbeat_expired:
-            conn = self.connection
-            if conn.is_expired(now=now):
-                self.send(payload=ping_body, priority=StarShip.SLOWER)
-            # try heartbeat next 2 seconds
-            self.__heartbeat_expired = now + 2
+    def _get_heartbeat(self) -> Optional[StarShip]:
+        req_pack = WebSocket.pack(payload=noop_body)
+        return WSShip(package=req_pack, payload=noop_body, priority=StarShip.NORMAL)
 
 
 #
@@ -235,3 +180,4 @@ class WSDocker(Docker):
 ping_body = b'PING'
 pong_body = b'PONG'
 noop_body = b'NOOP'
+ok_body = b'OK'

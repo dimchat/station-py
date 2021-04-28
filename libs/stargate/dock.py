@@ -36,7 +36,7 @@ from typing import Optional, List, Dict
 
 from tcp import Connection
 
-from .base import Gate, GateDelegate, StarShip, Worker
+from .base import Gate, GateDelegate, Ship, StarShip, Worker
 
 """
     Star Dock
@@ -102,7 +102,7 @@ class Dock:
                     fleet = self.__fleets.get(priority, [])
                     for ship in fleet:
                         if ship.time == 0:
-                            # got it
+                            # update time and try
                             ship.update()
                             fleet.remove(ship)
                             return ship
@@ -112,7 +112,6 @@ class Dock:
                     fleet = self.__fleets.get(priority, [])
                     for ship in fleet:
                         if ship.sn == sn:
-                            # got it
                             fleet.remove(ship)
                             return ship
 
@@ -128,7 +127,7 @@ class Dock:
                         # not expired yet
                         continue
                     if ship.retries <= StarShip.RETRIES:
-                        # got it, update time and retry
+                        # update time and retry
                         ship.update()
                         return ship
                     # retried too many times
@@ -144,7 +143,8 @@ class Docker(Worker):
         super().__init__()
         self.__dock = Dock()
         self.__gate = weakref.ref(gate)
-        self.__counter = 0
+        # time for checking heartbeat
+        self.__heartbeat_expired = int(time.time())
 
     @property
     def dock(self) -> Dock:
@@ -173,40 +173,75 @@ class Docker(Worker):
 
     # Override
     def handle(self) -> bool:
-        # process incoming packages / outgoing tasks
-        if Gate.MAX_INCOMES_PER_OUTGO > 0:
-            # incoming priority
-            if self.__counter < Gate.MAX_INCOMES_PER_OUTGO:
-                if self._handle_income():
-                    self.__counter += 1
-                    return True
-            # keep a chance for outgoing packages
-            if self._handle_outgo():
-                self.__counter = 0
-                return True
+        # 1. process income
+        income = self._get_income()
+        if income is not None:
+            res = self._handle(income=income)
+            if res is not None:
+                if res.priority == StarShip.SLOWER:
+                    # put the response into waiting queue
+                    self.dock.put(ship=res)
+                else:
+                    # send response directly
+                    self._send(outgo=res)
+        # 2. process outgo
+        outgo = self._get_outgo()
+        if outgo is not None:
+            delegate = outgo.delegate
+            if delegate is None:
+                # no callback, just sent
+                self._send(outgo=outgo)
+            elif not outgo.expired and not self._send(outgo=outgo):
+                # failed to send outgo Ship, callback
+                delegate.ship_sent(ship=outgo, payload=outgo.payload, error=TimeoutError('Request timeout'))
+        # 3. heart beat
+        if income is None and outgo is None:
+            # check time for next heartbeat
+            now = time.time()
+            if now > self.__heartbeat_expired:
+                beat = self._get_heartbeat()
+                if beat is not None:
+                    # put the heartbeat into waiting queue
+                    self.dock.put(ship=beat)
+                # try heartbeat next 2 seconds
+                self.__heartbeat_expired = now + 2
+            return False
         else:
-            # outgoing priority
-            assert Gate.MAX_INCOMES_PER_OUTGO != 0, 'cannot set MAX_INCOMES_PER_OUTGO to 0'
-            if self.__counter > Gate.MAX_INCOMES_PER_OUTGO:
-                if self._handle_outgo():
-                    self.__counter -= 1
-                    return True
-            # keep a chance for incoming packages
-            if self._handle_income():
-                self.__counter = 0
-                return True
-        # no task now, send a HEARTBEAT package
-        self._handle_heartbeat()
-        self.__counter = 0
-        return False
+            return True
 
     @abstractmethod
-    def _handle_income(self) -> bool:
+    def _get_income(self) -> Optional[Ship]:
+        """ Get income Ship from Connection """
         raise NotImplemented
+
+    def _handle(self, income: Ship) -> Optional[StarShip]:
+        """ Override to process income Ship """
+        linked = self._get_outgo(income=income)
+        if linked is None:
+            return None
+        # callback for the linked outgo Ship and remove it
+        delegate = linked.delegate
+        if delegate is not None:
+            delegate.ship_sent(ship=linked, payload=linked.payload)
+
+    def _get_outgo(self, income: Optional[Ship] = None) -> Optional[StarShip]:
+        """ Get outgo Ship from waiting queue """
+        if income is None:
+            # get next new task (time == 0)
+            outgo = self.dock.pop()
+            if outgo is None:
+                # no more new task now, get any expired task
+                outgo = self.dock.any()
+        else:
+            # get task with ID
+            outgo = self.dock.pop(sn=income.sn)
+        return outgo
 
     @abstractmethod
-    def _handle_outgo(self) -> bool:
+    def _send(self, outgo: StarShip) -> bool:
+        """ Send outgo Ship via current Connection """
         raise NotImplemented
 
-    def _handle_heartbeat(self) -> bool:
+    def _get_heartbeat(self) -> Optional[StarShip]:
+        """ Get an empty ship for keeping connection alive """
         pass

@@ -79,22 +79,23 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #
     def setup(self):
         super().setup()
-        self.__session.start()
-        NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-            'session': self.__session,
-        })
-        self.info('client connected: %s' % self.__session)
+        session = self.__session
+        if isinstance(session, Session):
+            session.start()
+            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                'session': session,
+            })
+            self.info('client connected: %s' % session)
 
     def finish(self):
-        self.info('client disconnected: %s' % self.__session)
-        NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-            'session': self.__session,
-        })
-        SessionServer().remove_session(session=self.__session)
-        assert isinstance(self.__session, Session), 'session lost'
-        self.__session.stop()
-        self.__session = None
-        self.__messenger = None
+        session = self.__session
+        if isinstance(session, Session):
+            self.info('client disconnected: %s' % session)
+            SessionServer().remove_session(session=session)
+            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                'session': session,
+            })
+            session.stop()
         super().finish()
 
     """

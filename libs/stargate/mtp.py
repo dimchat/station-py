@@ -28,8 +28,6 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-import weakref
 from typing import Optional
 
 from tcp import Connection
@@ -40,7 +38,7 @@ from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
 from dmtp.mtp import MessageFragment as MTPMessageFragment
 from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
 
-from .base import Gate, StarShip, ShipDelegate
+from .base import Gate, Ship, StarShip, ShipDelegate
 from .dock import Docker
 
 
@@ -48,45 +46,8 @@ class MTPShip(StarShip):
     """ Star Ship with MTP Package """
 
     def __init__(self, package: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__()
+        super().__init__(priority=priority, delegate=delegate)
         self.__package = package
-        self.__priority = priority
-        # retry
-        self.__timestamp = 0
-        self.__retries = 0
-        # callback
-        if delegate is None:
-            self.__delegate = None
-        else:
-            self.__delegate = weakref.ref(delegate)
-
-    # Override
-    @property
-    def delegate(self) -> Optional[ShipDelegate]:
-        """ Get request handler """
-        if self.__delegate is not None:
-            return self.__delegate()
-
-    # Override
-    @property
-    def priority(self) -> int:
-        return self.__priority
-
-    # Override
-    @property
-    def time(self) -> int:
-        return self.__timestamp
-
-    # Override
-    @property
-    def retries(self) -> int:
-        return self.__retries
-
-    # Override
-    def update(self):
-        self.__timestamp = int(time.time())
-        self.__retries += 1
-        return self
 
     @property
     def package(self) -> Package:
@@ -96,12 +57,12 @@ class MTPShip(StarShip):
     # Override
     @property
     def sn(self) -> bytes:
-        return self.package.head.sn.get_bytes()
+        return self.__package.head.sn.get_bytes()
 
     # Override
     @property
     def payload(self) -> bytes:
-        return self.package.body.get_bytes()
+        return self.__package.body.get_bytes()
 
 
 class MTPDocker(Docker):
@@ -109,8 +70,6 @@ class MTPDocker(Docker):
 
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
-        # time for checking heartbeat
-        self.__heartbeat_expired = int(time.time())
 
     @classmethod
     def check(cls, connection: Connection) -> bool:
@@ -176,119 +135,75 @@ class MTPDocker(Docker):
         return Package(data=data, head=head, body=body)
 
     # Override
-    def _handle_income(self) -> bool:
+    def _get_income(self) -> Optional[Ship]:
         income = self.__receive_package()
-        if income is None:
-            # no more package now
-            return False
-        head = income.head
-        body = income.body
-        # check data type
+        if income is not None:
+            return MTPShip(package=income)
+
+    # Override
+    def _handle(self, income: Ship) -> Optional[StarShip]:
+        assert isinstance(income, MTPShip), 'income ship error: %s' % income
+        pack = income.package
+        head = pack.head
+        body = pack.body
+        # 1. check data type
         data_type = head.data_type
         if data_type == MTPCommand:
-            # respond for Command
+            # respond for Command directly
             if body == ping_body:  # 'PING'
                 res = pong_body    # 'PONG'
-                res_pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                res_ship = MTPShip(package=res_pack, priority=StarShip.SLOWER)
-                self.dock.put(ship=res_ship)
-            return True
+                pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
+                return MTPShip(package=pack, priority=StarShip.SLOWER)
+            return None
         elif data_type == MTPCommandRespond:
-            # just ignore
-            return True
+            # remove linked outgo Ship
+            return super()._handle(income=income)
         elif data_type == MTPMessageFragment:
             # just ignore
-            return True
+            return None
         elif data_type == MTPMessageRespond:
-            # process Message Respond
-            sn = head.sn.get_bytes()
-            ship = self.dock.pop(sn=sn)
-            if ship is not None:
-                delegate = ship.delegate
-                if delegate is not None:
-                    # callback for the request data
-                    if body == again_body:
-                        error = ConnectionResetError('Send the message again')
-                    else:
-                        error = None
-                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-            # check body
-            if body == ok_body:
+            # remove linked outgo Ship
+            super()._handle(income=income)
+            if body.length == 0 or body == ok_body:
                 # just ignore
-                return True
+                return None
             elif body == again_body:
                 # TODO: mission failed, send the message again
-                return True
-        # received data in the Message/Respond
-        res = None
-        if body.length > 0:
-            delegate = self.delegate
-            if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
-        if res is None:
-            if data_type == MTPMessage:
-                # respond for Message
-                res = ok_body.get_bytes()
-            else:
-                # just ignore
-                return True
+                return None
+        # 2. process payload by delegate
+        delegate = self.delegate
+        if body.length > 0 and delegate is not None:
+            res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
+        else:
+            res = None
+        # 3. response
         if data_type == MTPMessage:
             # respond for Message
-            res = Data(data=res)
-            res_pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            res_ship = MTPShip(package=res_pack, priority=StarShip.NORMAL)
-            self.dock.put(ship=res_ship)
-        else:
+            if res is None or len(res) == 0:
+                res = ok_body
+            else:
+                res = Data(data=res)
+            pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
+            return MTPShip(package=pack, priority=StarShip.NORMAL)
+        elif res is not None and len(res) > 0:
             # push as new Message
             self.send(payload=res, priority=StarShip.NORMAL)
-        return True
 
     # Override
-    def _handle_outgo(self) -> bool:
-        # get next new task (time == 0)
-        ship = self.dock.pop()
-        if ship is None:
-            # no more new task now, get any expired task
-            ship = self.dock.any()
-            if ship is None:
-                # no task expired now
-                return False
-            elif ship.expired:
-                # remove an expired task
-                delegate = ship.delegate
-                if delegate is not None:
-                    error = TimeoutError('Request timeout')
-                    delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-                return True
-        assert isinstance(ship, MTPShip), 'outgo ship error: %s' % ship
-        outgo = ship.package
+    def _send(self, outgo: StarShip) -> bool:
+        assert isinstance(outgo, MTPShip), 'outgo ship error: %s' % outgo
+        pack = outgo.package
         # check data type
-        if outgo.head.data_type == MTPMessage:
+        if pack.head.data_type == MTPMessage:
             # put back for response
-            self.dock.put(ship=ship)
+            self.dock.put(ship=outgo)
         # send out request data
-        res = self.__send_package(pack=outgo)
-        if res != outgo.length:
-            # callback for sent failed
-            delegate = ship.delegate
-            if delegate is not None:
-                error = ConnectionError('Socket error')
-                delegate.ship_sent(ship=ship, payload=ship.payload, error=error)
-        return True
+        return self.__send_package(pack=pack) == pack.length
 
     # Override
-    def _handle_heartbeat(self):
-        # check time for next heartbeat
-        now = time.time()
-        if now > self.__heartbeat_expired:
-            conn = self.connection
-            if conn.is_expired(now=now):
-                req = ping_body
-                pack = Package.new(data_type=MTPCommand, body_length=req.length, body=req)
-                ship = MTPShip(package=pack, priority=StarShip.SLOWER)
-                self.dock.put(ship=ship)
-            # try heartbeat next 2 seconds
-            self.__heartbeat_expired = now + 2
+    def _get_heartbeat(self) -> Optional[StarShip]:
+        pack = Package.new(data_type=MTPCommand, body_length=ping_body.length, body=ping_body)
+        return MTPShip(package=pack, priority=StarShip.SLOWER)
 
 
 #

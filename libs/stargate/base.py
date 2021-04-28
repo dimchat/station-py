@@ -29,6 +29,7 @@
 # ==============================================================================
 
 import time
+import weakref
 from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
@@ -108,9 +109,6 @@ class ShipDelegate:
 class Gate(ConnectionDelegate):
     """ Star Gate of remote peer """
 
-    # flow control
-    MAX_INCOMES_PER_OUTGO = 2
-
     @property
     def status(self) -> GateStatus:
         """ Get connection status """
@@ -170,25 +168,38 @@ class StarShip(Ship):
     NORMAL = 0
     SLOWER = 1
 
+    def __init__(self, priority: int = 0, delegate: Optional[ShipDelegate] = None):
+        super().__init__()
+        self.__priority = priority
+        # retry
+        self.__timestamp = 0
+        self.__retries = 0
+        # callback
+        if delegate is None:
+            self.__delegate = None
+        else:
+            self.__delegate = weakref.ref(delegate)
+
     @property
     def delegate(self) -> Optional[ShipDelegate]:
         """ Get Gate handler for this Star Ship """
-        yield None
+        if self.__delegate is not None:
+            return self.__delegate()
 
     @property
     def priority(self) -> int:
         """ Get priority of this Star Ship """
-        return 0
+        return self.__priority
 
     @property
     def time(self) -> int:
         """ Get last time of trying """
-        raise NotImplemented
+        return self.__timestamp
 
     @property
     def retries(self) -> int:
         """ Get count of retries """
-        raise NotImplemented
+        return self.__retries
 
     @property
     def expired(self) -> bool:
@@ -198,7 +209,9 @@ class StarShip(Ship):
 
     def update(self):
         """ Update retries count and time """
-        raise NotImplemented
+        self.__timestamp = int(time.time())
+        self.__retries += 1
+        return self
 
 
 """
