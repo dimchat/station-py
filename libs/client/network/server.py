@@ -30,6 +30,7 @@
     Local station
 """
 
+import time
 import weakref
 from abc import abstractmethod
 from typing import Optional
@@ -51,13 +52,20 @@ class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, host: str, port: int):
         super().__init__(messenger=messenger, address=(host, port))
+        self.__address = (host, port)
 
     def setup(self):
         self.active = True
         self.gate.setup()
 
     def handle(self) -> bool:
-        return self.gate.handle()
+        try:
+            return self.gate.handle()
+        except ConnectionError as error:
+            self.error('Gate connection error: %s, %s' % (self.__address, error))
+            time.sleep(2)
+        except Exception as error:
+            self.error('Gate handling error: %s, %s' % (self.__address, error))
 
     def finish(self):
         self.gate.finish()

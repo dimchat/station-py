@@ -162,12 +162,32 @@ class Docker(Worker):
 
     def _send_buffer(self, data: bytes) -> bool:
         conn = self.gate.connection
-        if conn is not None and self.status == GateStatus.Connected:
-            return conn.send(data=data) == len(data)
+        assert conn is not None, 'Gate connection lost'
+        data_len = len(data)
+        if self.status == GateStatus.Connected:
+            res = conn.send(data=data)
+            if res == data_len:
+                return True
+        # # check connection
+        # if conn.socket is None:
+        #     raise ConnectionError('Connection lost')
+        # try again
+        if self.status == GateStatus.Connected:
+            res = conn.send(data=data)
+            if res == data_len:
+                return True
 
     def _received_buffer(self) -> Optional[bytes]:
         conn = self.gate.connection
-        if conn is not None:
+        assert conn is not None, 'Gate connection lost'
+        buffer = conn.received()
+        if buffer is not None:
+            return buffer
+        # check connection
+        if conn.socket is None:
+            raise ConnectionError('Connection lost')
+        else:
+            # try again
             return conn.received()
 
     def _receive_buffer(self, length: int) -> Optional[bytes]:
