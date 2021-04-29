@@ -99,8 +99,7 @@ class StarGate(Gate):
             # waiting for connection
             while self.status in [GateStatus.Init, GateStatus.Connecting]:
                 time.sleep(0.1)
-            # run
-            while self.status == GateStatus.Connected:
+            while self.connection.is_alive():
                 self.handle()
         finally:
             self.finish()
@@ -129,11 +128,11 @@ class StarGate(Gate):
         conn = self.connection
         if conn is None:
             return None
-        if MTPDocker.check(connection=self.connection):
+        if MTPDocker.check(connection=conn):
             return MTPDocker(gate=self)
-        if MarsDocker.check(connection=self.connection):
+        if MarsDocker.check(connection=conn):
             return MarsDocker(gate=self)
-        if WSDocker.check(connection=self.connection):
+        if WSDocker.check(connection=conn):
             return WSDocker(gate=self)
 
     #
