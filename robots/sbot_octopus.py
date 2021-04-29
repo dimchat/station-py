@@ -150,7 +150,7 @@ class Worker(threading.Thread, Logging):
         self.__running = True
         while self.__running:
             try:
-                while self.__running:
+                while self.__running and messenger.accepted:
                     msg = self.pop_msg()
                     if msg is None:
                         # waiting queue empty, have a rest
@@ -170,8 +170,8 @@ class Worker(threading.Thread, Logging):
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
                 traceback.print_exc()
             finally:
-                # restart next loop
-                time.sleep(1)
+                self.info('octopus waiting server accepted: %s ...' % self.client.server)
+                time.sleep(2)
         self.info('octopus exit: %s' % self.client.server)
         while True:
             msg = self.pop_msg()
