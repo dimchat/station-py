@@ -192,8 +192,8 @@ class Docker(Worker):
 
     def _receive_buffer(self, length: int) -> Optional[bytes]:
         conn = self.gate.connection
-        if conn is not None:
-            return conn.receive(length=length)
+        assert conn is not None, 'Gate connection lost'
+        return conn.receive(length=length)
 
     # Override
     def setup(self):

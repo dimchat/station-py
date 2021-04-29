@@ -55,7 +55,7 @@ class StarGate(Gate):
         else:
             # server gate
             self.__connection = Connection(sock=sock)
-            self.__worker = None
+            self.__worker: Optional[Worker] = None
         # set StarGate as connection delegate
         self.__connection.delegate = self
         # StarGate delegate

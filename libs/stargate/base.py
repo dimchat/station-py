@@ -56,12 +56,13 @@ class GateStatus(IntEnum):
 
 def gate_status(status: ConnectionStatus) -> GateStatus:
     """ Convert Connection Status to Star Gate Status """
-    if status in [ConnectionStatus.Default, ConnectionStatus.Connecting]:
-        return GateStatus.Connecting
     if status in [ConnectionStatus.Connected, ConnectionStatus.Maintaining, ConnectionStatus.Expired]:
         return GateStatus.Connected
+    if status == ConnectionStatus.Connecting:
+        return GateStatus.Connecting
     if status == ConnectionStatus.Error:
         return GateStatus.Error
+    # Default
     return GateStatus.Init
 
 
@@ -131,6 +132,7 @@ class Gate(ConnectionDelegate):
 
     @abstractmethod
     def process(self):
+        """ Process in come & outgo """
         raise NotImplemented
 
 
@@ -182,7 +184,7 @@ class StarShip(Ship):
 
     @property
     def delegate(self) -> Optional[ShipDelegate]:
-        """ Get Gate handler for this Star Ship """
+        """ Get handler for this Star Ship """
         if self.__delegate is not None:
             return self.__delegate()
 

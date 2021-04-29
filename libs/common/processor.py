@@ -37,19 +37,13 @@ from dimp import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 from dimsdk import ContentProcessor
 
-from ..utils import Log
+from ..utils import Logging
 
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 
 
-class CommonProcessor(MessageProcessor):
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
+class CommonProcessor(MessageProcessor, Logging):
 
     @property
     def messenger(self) -> CommonMessenger:

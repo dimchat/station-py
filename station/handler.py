@@ -30,6 +30,7 @@
     Handler for each connection
 """
 
+import traceback
 from socketserver import StreamRequestHandler
 from typing import Optional
 
@@ -79,23 +80,31 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #
     def setup(self):
         super().setup()
-        session = self.__session
-        if isinstance(session, Session):
-            session.start()
-            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-                'session': session,
-            })
-            self.info('client connected: %s' % session)
+        try:
+            session = self.__session
+            if isinstance(session, Session):
+                session.start()
+                NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                    'session': session,
+                })
+                self.info('client connected: %s' % session)
+        except Exception as error:
+            self.error('setup request handler error: %s' % error)
+            traceback.print_exc()
 
     def finish(self):
-        session = self.__session
-        if isinstance(session, Session):
-            self.info('client disconnected: %s' % session)
-            SessionServer().remove_session(session=session)
-            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-                'session': session,
-            })
-            session.stop()
+        try:
+            session = self.__session
+            if isinstance(session, Session):
+                self.info('client disconnected: %s' % session)
+                SessionServer().remove_session(session=session)
+                NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                    'session': session,
+                })
+                session.stop()
+        except Exception as error:
+            self.error('finish request handler error: %s' % error)
+            traceback.print_exc()
         super().finish()
 
     """
@@ -103,9 +112,14 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     """
 
     def handle(self):
-        self.info('session started: %s' % str(self.client_address))
-        self.__session.gate.process()
-        self.info('session finished: %s' % str(self.client_address))
+        super().handle()
+        try:
+            self.info('session started: %s' % str(self.client_address))
+            self.__session.gate.process()
+            self.info('session finished: %s' % str(self.client_address))
+        except Exception as error:
+            self.error('request handler error: %s' % error)
+            traceback.print_exc()
 
     #
     #   MessengerDelegate

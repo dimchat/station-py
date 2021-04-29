@@ -63,10 +63,10 @@ class ServerProcessor(CommonProcessor):
         if msg_traced(msg=msg, node=station, append=True):
             self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-                self.info('ignore station msg: %s -> %s' % (sender, receiver))
+                self.warning('ignore station msg: %s -> %s' % (sender, receiver))
                 return None
             if is_broadcast_message(msg=msg):
-                self.error('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+                self.warning('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
                 return None
             s_msg = messenger.verify_message(msg=msg)
             if s_msg is None:
