@@ -29,43 +29,42 @@
 # ==============================================================================
 
 import socket
+import threading
 import time
 import weakref
 from typing import Optional
 
-from tcp import ConnectionStatus, Connection
+from tcp import Connection, ConnectionStatus, ConnectionDelegate
+from tcp import BaseConnection, ActiveConnection
 
-from .base import gate_status
-from .base import Gate, GateStatus, GateDelegate, ShipDelegate
-from .base import Worker
+from .ship import ShipDelegate
+from .dock import Dock
+from .worker import Worker
+from .gate import gate_status
+from .gate import Gate, GateStatus, GateDelegate
 
 from .ws import WSDocker
 from .mtp import MTPDocker
 from .mars import MarsDocker
 
 
-class StarGate(Gate):
+class StarGate(Gate, ConnectionDelegate):
 
-    def __init__(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
+    def __init__(self, connection: Optional[BaseConnection] = None,
+                 address: Optional[tuple] = None,
+                 sock: Optional[socket.socket] = None):
+        if connection is None:
+            if address is None:
+                connection = BaseConnection(sock=sock)
+            else:
+                connection = ActiveConnection(address=address, sock=sock)
         super().__init__()
-        if sock is None:
-            # client gate
-            self.__connection = Connection(address=address)
-            self.__worker = MTPDocker(gate=self)
-        else:
-            # server gate
-            self.__connection = Connection(sock=sock)
-            self.__worker: Optional[Worker] = None
-        # set StarGate as connection delegate
-        self.__connection.delegate = self
-        # StarGate delegate
+        self.__running = False
         self.__delegate: Optional[weakref.ReferenceType] = None
-
-    # Override
-    @property
-    def status(self) -> GateStatus:
-        cs = self.connection.get_status(now=time.time())
-        return gate_status(status=cs)
+        self.__worker: Optional[Worker] = None
+        self.__dock = Dock()
+        self.__connection = connection
+        connection.delegate = self
 
     # Override
     @property
@@ -84,38 +83,71 @@ class StarGate(Gate):
 
     # Override
     @property
+    def worker(self) -> Optional[Worker]:
+        if self.__worker is None:
+            self.__worker = self._create_worker()
+        return self.__worker
+
+    # override to customize Worker
+    def _create_worker(self) -> Optional[Worker]:
+        if MTPDocker.check(connection=self.connection):
+            return MTPDocker(gate=self)
+        if MarsDocker.check(connection=self.connection):
+            return MarsDocker(gate=self)
+        if WSDocker.check(connection=self.connection):
+            return WSDocker(gate=self)
+
+    # Override
+    @property
+    def dock(self) -> Dock:
+        return self.__dock
+
+    # Override
+    @property
     def connection(self) -> Optional[Connection]:
         return self.__connection
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        if self.__worker is not None and self.status == GateStatus.Connected:
-            return self.__worker.send(payload=payload, priority=priority, delegate=delegate)
+    @property
+    def status(self) -> GateStatus:
+        cs = self.connection.status
+        return gate_status(status=cs)
 
     # Override
-    def process(self):
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+        worker = self.worker
+        if worker is None:
+            return False
+        if self.status != GateStatus.Connected:
+            return False
+        return worker.send(payload=payload, priority=priority, delegate=delegate)
+
+    #
+    #   Running
+    #
+
+    def run(self):
         self.setup()
         try:
-            # waiting for connection
-            while self.status in [GateStatus.Init, GateStatus.Connecting]:
-                time.sleep(0.1)
-            while self.connection.is_alive():
-                self.handle()
+            self.handle()
         finally:
             self.finish()
 
+    def stop(self):
+        self.__running = False
+
     def setup(self):
         # 1. start connection
-        self.__connection.start()
-        # 2. waiting for worker
-        while self.__worker is None:
-            time.sleep(0.1)
-            self.__worker = self._create_worker()
+        threading.Thread(target=self.__connection.run).start()
+        while self.status in [GateStatus.Init, GateStatus.Connecting]:
+            # waiting for connection
+            self._idle()
+        # 2. check worker
+        while self.worker is None:
+            # waiting for worker
+            self._idle()
         # 3. setup worker
         self.__worker.setup()
-
-    def handle(self) -> bool:
-        return self.__worker.handle()
 
     def finish(self):
         # 1. clean worker
@@ -123,17 +155,18 @@ class StarGate(Gate):
         # 2. stop connection
         self.__connection.stop()
 
-    # override to customize Worker
-    def _create_worker(self) -> Optional[Worker]:
-        conn = self.connection
-        if conn is None:
-            return None
-        if MTPDocker.check(connection=conn):
-            return MTPDocker(gate=self)
-        if MarsDocker.check(connection=conn):
-            return MarsDocker(gate=self)
-        if WSDocker.check(connection=conn):
-            return WSDocker(gate=self)
+    # Override
+    def handle(self):
+        while self.__running:
+            if not self.process():
+                self._idle()
+
+    # noinspection PyMethodMayBeStatic
+    def _idle(self):
+        time.sleep(0.1)
+
+    def process(self) -> bool:
+        return self.__worker.process()
 
     #
     #   ConnectionDelegate

@@ -45,7 +45,8 @@ def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Statio
         # load from 'etc' directory
         meta = Meta.parse(meta=load_station_info(identifier=identifier, filename='meta.js'))
         if meta is None:
-            raise LookupError('failed to get meta for station: %s' % identifier)
+            # raise LookupError('failed to get meta for station: %s' % identifier)
+            pass
         elif not facebook.save_meta(meta=meta, identifier=identifier):
             raise ValueError('meta error: %s' % meta)
     # check private key

@@ -55,20 +55,16 @@ class Session(BaseSession):
         self.__address = (host, port)
 
     def setup(self):
+        super().setup()
         self.active = True
-        self.gate.setup()
 
-    def handle(self) -> bool:
-        try:
-            return self.gate.handle()
-        except ConnectionError as error:
-            self.error('Gate connection error: %s, %s' % (self.__address, error))
-            time.sleep(2)
-        except Exception as error:
-            self.error('Gate handling error: %s, %s' % (self.__address, error))
+    def process(self) -> bool:
+        if not super().process():
+            return self.gate.process()
 
     def finish(self):
-        self.gate.finish()
+        self.active = False
+        super().finish()
 
     #
     #   GateDelegate

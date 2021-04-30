@@ -28,35 +28,44 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .ship import Ship, ShipDelegate
-from .gate import Gate, GateDelegate, GateStatus
-from .starship import StarShip
-from .stargate import StarGate
-from .dock import Dock
-from .worker import Worker
-from .docker import Docker
+from abc import abstractmethod
+from typing import Optional
 
-from .ws import WSShip, WSDocker
-from .mtp import MTPShip, MTPDocker
-from .mars import MarsShip, MarsDocker
+from .ship import ShipDelegate
 
 
 """
-    Star Gate
-    ~~~~~~~~~
-    
-    Interfaces for network connection
+    Star Worker
+    ~~~~~~~~~~~
+
+    Processor for Star Ships
 """
 
 
-__all__ = [
+class Worker:
+    """ Star Worker for packages in Ships """
 
-    'Ship', 'ShipDelegate',
-    'Gate', 'GateDelegate', 'GateStatus',
-    'StarShip', 'StarGate',
-    'Dock', 'Worker', 'Docker',
+    @abstractmethod
+    def setup(self):
+        """ Set up connection """
+        raise NotImplemented
 
-    'WSShip', 'WSDocker',
-    'MTPShip', 'MTPDocker',
-    'MarsShip', 'MarsDocker',
-]
+    @abstractmethod
+    def handle(self):
+        """ Call 'process()' circularly """
+        raise NotImplemented
+
+    @abstractmethod
+    def process(self) -> bool:
+        """ Process incoming/outgoing Ships """
+        raise NotImplemented
+
+    @abstractmethod
+    def finish(self):
+        """ Do clean jobs """
+        raise NotImplemented
+
+    @abstractmethod
+    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+        """ Send data to remote peer """
+        raise NotImplemented

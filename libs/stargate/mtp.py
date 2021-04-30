@@ -38,8 +38,10 @@ from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
 from dmtp.mtp import MessageFragment as MTPMessageFragment
 from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
 
-from .base import Gate, Ship, StarShip, ShipDelegate
-from .dock import Docker
+from .ship import Ship, ShipDelegate
+from .starship import StarShip
+from .docker import Docker
+from .gate import Gate
 
 
 class MTPShip(StarShip):
@@ -162,7 +164,7 @@ class MTPDocker(Docker):
         # 2. process payload by delegate
         delegate = self.delegate
         if body.length > 0 and delegate is not None:
-            res = delegate.gate_received(gate=self.gate, payload=body.get_bytes())
+            res = delegate.gate_received(gate=self.gate, ship=income)
         else:
             res = None
         # 3. response
@@ -176,7 +178,7 @@ class MTPDocker(Docker):
             return MTPShip(package=pack, priority=StarShip.NORMAL)
         elif res is not None and len(res) > 0:
             # push as new Message
-            self.send(payload=res, priority=StarShip.NORMAL)
+            self.send(payload=res, priority=StarShip.SLOWER)
 
     # Override
     def _send_ship(self, outgo: StarShip) -> bool:
@@ -187,7 +189,7 @@ class MTPDocker(Docker):
             # put back for response
             self.dock.put(ship=outgo)
         # send out request data
-        return self._send_buffer(data=pack.get_bytes()) == pack.length
+        return self._send_buffer(data=pack.get_bytes())
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

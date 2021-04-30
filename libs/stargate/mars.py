@@ -34,8 +34,10 @@ from tcp import Connection
 
 from .protocol import NetMsg, NetMsgHead
 
-from .base import Gate, Ship, StarShip, ShipDelegate
-from .dock import Docker
+from .ship import Ship, ShipDelegate
+from .starship import StarShip
+from .docker import Docker
+from .gate import Gate
 
 
 def seq_to_sn(seq: int) -> bytes:
@@ -176,7 +178,7 @@ class MarsDocker(Docker):
         else:
             delegate = self.delegate
             if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, payload=body)
+                res = delegate.gate_received(gate=self.gate, ship=income)
         if res is None:
             res = b''
         # 3. response
@@ -185,7 +187,7 @@ class MarsDocker(Docker):
             res_pack = NetMsg.new(head=res_head, body=res)
             return MarsShip(package=res_pack, priority=StarShip.NORMAL)
         else:
-            self.send(payload=res, priority=StarShip.NORMAL)
+            self.send(payload=res, priority=StarShip.SLOWER)
 
     # Override
     def _send_ship(self, outgo: StarShip) -> bool:
@@ -196,7 +198,7 @@ class MarsDocker(Docker):
         #     # put back for response
         #     self.dock.put(ship=outgo)
         # send out request data
-        return self._send_buffer(data=pack.data) == pack.length
+        return self._send_buffer(data=pack.data)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

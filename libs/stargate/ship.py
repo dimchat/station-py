@@ -28,35 +28,41 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .ship import Ship, ShipDelegate
-from .gate import Gate, GateDelegate, GateStatus
-from .starship import StarShip
-from .stargate import StarGate
-from .dock import Dock
-from .worker import Worker
-from .docker import Docker
-
-from .ws import WSShip, WSDocker
-from .mtp import MTPShip, MTPDocker
-from .mars import MarsShip, MarsDocker
+from abc import abstractmethod
+from typing import Optional
 
 
 """
-    Star Gate
+    Star Ship
     ~~~~~~~~~
-    
-    Interfaces for network connection
+
+    Container carrying data package
 """
 
 
-__all__ = [
+class Ship:
+    """ Star Ship for carrying data """
 
-    'Ship', 'ShipDelegate',
-    'Gate', 'GateDelegate', 'GateStatus',
-    'StarShip', 'StarGate',
-    'Dock', 'Worker', 'Docker',
+    @property
+    def sn(self) -> bytes:
+        """ Get ID for this Ship """
+        raise NotImplemented
 
-    'WSShip', 'WSDocker',
-    'MTPShip', 'MTPDocker',
-    'MarsShip', 'MarsDocker',
-]
+    @property
+    def payload(self) -> bytes:
+        """ Get data in this Ship """
+        raise NotImplemented
+
+
+class ShipDelegate:
+    """ Star Ship Delegate """
+
+    @abstractmethod
+    def ship_sent(self, ship: Ship, error: Optional[OSError] = None):
+        """
+        Callback when package sent
+
+        :param ship:       package container
+        :param error:      None on success
+        """
+        raise NotImplemented

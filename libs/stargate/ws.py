@@ -34,8 +34,10 @@ from tcp import Connection
 
 from .protocol import WebSocket
 
-from .base import Gate, Ship, StarShip, ShipDelegate
-from .dock import Docker
+from .ship import Ship, ShipDelegate
+from .starship import StarShip
+from .docker import Docker
+from .gate import Gate
 
 
 def seq_to_sn(seq: int) -> bytes:
@@ -138,7 +140,7 @@ class WSDocker(Docker):
         # 2. process payload by delegate
         delegate = self.delegate
         if delegate is not None:
-            res = delegate.gate_received(gate=self.gate, payload=body)
+            res = delegate.gate_received(gate=self.gate, ship=income)
         else:
             res = None
         # 3. response
@@ -152,7 +154,7 @@ class WSDocker(Docker):
         assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # send out request data
-        return self._send_buffer(data=pack) == len(pack)
+        return self._send_buffer(data=pack)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

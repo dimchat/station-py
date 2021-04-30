@@ -90,7 +90,7 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #
     #   ShipDelegate
     #
-    def ship_sent(self, ship, payload: bytes, error: Optional[OSError] = None):
+    def ship_sent(self, ship, error: Optional[OSError] = None):
         if error is None:
             # success, remove message
             self.__msg = None
@@ -160,47 +160,52 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def active(self, value: bool):
         self.__active = value
 
+    def run(self):
+        self.setup()
+        try:
+            self.handle()
+        finally:
+            self.finish()
+
     def stop(self):
         self.__running = False
 
     def setup(self):
-        pass
-
-    def handle(self) -> bool:
-        pass
+        self.__running = True
+        self.__gate.setup()
 
     def finish(self):
-        pass
-
-    def run(self):
-        self.setup()
-        self.__running = True
-        while self.__running:
-            self.__clean()
-            if not self.__active:
-                # inactive
-                if not self.handle():
-                    # have a rest ^_^
-                    time.sleep(0.1)
-                continue
-            # get next message
-            wrapper = self.__next()
-            if wrapper is None:
-                msg = None
-            else:
-                msg = wrapper.msg
-            if msg is None:
-                # no more new message
-                if not self.handle():
-                    # have a rest ^_^
-                    time.sleep(0.1)
-                continue
-            # try to push
-            if not self.messenger.send_message(msg=msg, callback=wrapper):
-                wrapper.fail()
-        self.finish()
+        self.__gate.finish()
         # save unsent messages
         self.__flush()
+
+    def handle(self):
+        while self.__running:
+            if not self.process():
+                self._idle()
+
+    # noinspection PyMethodMayBeStatic
+    def _idle(self):
+        time.sleep(0.1)
+
+    def process(self) -> bool:
+        self.__clean()
+        if not self.__active:
+            # inactive
+            return False
+        # get next message
+        wrapper = self.__next()
+        if wrapper is None:
+            msg = None
+        else:
+            msg = wrapper.msg
+        if msg is None:
+            # no more new message
+            return False
+        # try to push
+        if not self.messenger.send_message(msg=msg, callback=wrapper):
+            wrapper.fail()
+        return True
 
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.__active:
