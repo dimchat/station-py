@@ -120,7 +120,7 @@ class WSDocker(Docker):
             return WSShip(package=income, payload=payload)
 
     # Override
-    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
+    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, WSShip), 'income ship error: %s' % income
         body = income.payload
         # 1. check command
@@ -150,7 +150,7 @@ class WSDocker(Docker):
         return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _send_ship(self, outgo: StarShip) -> bool:
+    def _send_outgo_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # send out request data

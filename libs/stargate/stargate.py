@@ -121,10 +121,6 @@ class StarGate(Gate, ConnectionDelegate):
     #
 
     def run(self):
-        # start connection
-        while self.status in [GateStatus.Init, GateStatus.Connecting]:
-            # waiting for connection
-            self._idle()
         self.setup()
         try:
             self.handle()
@@ -134,10 +130,20 @@ class StarGate(Gate, ConnectionDelegate):
     def stop(self):
         self._running = False
 
+    @property
+    def running(self) -> bool:
+        if self._running:
+            # check connection finished
+            conn = self.__connection
+            assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+            if conn.running or conn.received() is not None:
+                # connection not closed, or more data to be processed
+                return True
+
     def setup(self):
         self._running = True
         # check worker
-        while self.worker is None and not self.connection_finished:
+        while self.worker is None and self.running:
             # waiting for worker
             self._idle()
         # setup worker
@@ -148,18 +154,6 @@ class StarGate(Gate, ConnectionDelegate):
         # clean worker
         if self.__worker is not None:
             self.__worker.finish()
-
-    @property
-    def connection_finished(self) -> bool:
-        """ connection closed, and no more data unpressed """
-        conn = self.__connection
-        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-        if not conn.running and conn.received() is None:
-            return True
-
-    @property
-    def running(self) -> bool:
-        return self._running and not self.connection_finished
 
     # Override
     def handle(self):

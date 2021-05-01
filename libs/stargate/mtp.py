@@ -132,7 +132,7 @@ class MTPDocker(Docker):
             return MTPShip(package=income)
 
     # Override
-    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
+    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, MTPShip), 'income ship error: %s' % income
         pack = income.package
         head = pack.head
@@ -148,13 +148,13 @@ class MTPDocker(Docker):
             return None
         elif data_type == MTPCommandRespond:
             # remove linked outgo Ship
-            return super()._handle_ship(income=income)
+            return super()._process_income_ship(income=income)
         elif data_type == MTPMessageFragment:
             # just ignore
             return None
         elif data_type == MTPMessageRespond:
             # remove linked outgo Ship
-            super()._handle_ship(income=income)
+            super()._process_income_ship(income=income)
             if body.length == 0 or body == ok_body:
                 # just ignore
                 return None
@@ -181,7 +181,7 @@ class MTPDocker(Docker):
             self.send(payload=res, priority=StarShip.SLOWER)
 
     # Override
-    def _send_ship(self, outgo: StarShip) -> bool:
+    def _send_outgo_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, MTPShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # check data type

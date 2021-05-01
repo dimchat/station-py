@@ -111,9 +111,13 @@ class Docker(Worker):
         # TODO: go through all outgo Ships parking in Dock and call 'sent failed' on their delegates
         pass
 
+    @property
+    def running(self) -> bool:
+        return self.__running
+
     # Override
     def handle(self):
-        while self.__running:
+        while self.running:
             if not self.process():
                 self._idle()
 
@@ -126,14 +130,14 @@ class Docker(Worker):
         # 1. process income
         income = self._get_income_ship()
         if income is not None:
-            res = self._handle_ship(income=income)
+            res = self._process_income_ship(income=income)
             if res is not None:
                 if res.priority == StarShip.SLOWER:
                     # put the response into waiting queue
                     self.dock.put(ship=res)
                 else:
                     # send response directly
-                    self._send_ship(outgo=res)
+                    self._send_outgo_ship(outgo=res)
         # 2. process outgo
         outgo = self._get_outgo_ship()
         if outgo is not None:
@@ -142,11 +146,11 @@ class Docker(Worker):
                 delegate = outgo.delegate
                 if delegate is not None:
                     delegate.ship_sent(ship=outgo, error=TimeoutError('Request timeout'))
-            elif not self._send_ship(outgo=outgo):
+            elif not self._send_outgo_ship(outgo=outgo):
                 # failed to send outgo Ship, callback
                 delegate = outgo.delegate
                 if delegate is not None:
-                    delegate.ship_sent(ship=outgo, error=IOError('Socket error'))
+                    delegate.ship_sent(ship=outgo, error=IOError('Connection error'))
         # 3. heart beat
         if income is None and outgo is None:
             # check time for next heartbeat
@@ -167,7 +171,7 @@ class Docker(Worker):
         """ Get income Ship from Connection """
         raise NotImplemented
 
-    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
+    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         """ Override to process income Ship """
         linked = self._get_outgo_ship(income=income)
         if linked is None:
@@ -191,7 +195,7 @@ class Docker(Worker):
         return outgo
 
     @abstractmethod
-    def _send_ship(self, outgo: StarShip) -> bool:
+    def _send_outgo_ship(self, outgo: StarShip) -> bool:
         """ Send outgo Ship via current Connection """
         raise NotImplemented
 

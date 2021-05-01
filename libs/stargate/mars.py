@@ -144,7 +144,7 @@ class MarsDocker(Docker):
             return MarsShip(package=income)
 
     # Override
-    def _handle_ship(self, income: Ship) -> Optional[StarShip]:
+    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, MarsShip), 'income ship error: %s' % income
         pack = income.package
         head = pack.head
@@ -160,7 +160,7 @@ class MarsDocker(Docker):
                 return None
         # elif cmd == NetMsgHead.PUSH_MESSAGE:
         #     # remove linked outgo Ship
-        #     super()._handle_ship(income=income)
+        #     super()._process_income_ship(income=income)
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
             if len(body) == 0 or body == noop_body:
@@ -190,7 +190,7 @@ class MarsDocker(Docker):
             self.send(payload=res, priority=StarShip.SLOWER)
 
     # Override
-    def _send_ship(self, outgo: StarShip) -> bool:
+    def _send_outgo_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
         pack = outgo.package
         # # check data type
