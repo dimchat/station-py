@@ -28,14 +28,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import socket
-import threading
 import time
 import weakref
 from typing import Optional
 
 from tcp import Connection, ConnectionStatus, ConnectionDelegate
-from tcp import BaseConnection, ActiveConnection
+from tcp import BaseConnection
 
 from .ship import ShipDelegate
 from .dock import Dock
@@ -50,36 +48,23 @@ from .mars import MarsDocker
 
 class StarGate(Gate, ConnectionDelegate):
 
-    def __init__(self, connection: Optional[BaseConnection] = None,
-                 address: Optional[tuple] = None,
-                 sock: Optional[socket.socket] = None):
-        if connection is None:
-            if address is None:
-                connection = BaseConnection(sock=sock)
-            else:
-                connection = ActiveConnection(address=address, sock=sock)
+    def __init__(self, connection: Connection):
         super().__init__()
-        self.__running = False
-        self.__delegate: Optional[weakref.ReferenceType] = None
-        self.__worker: Optional[Worker] = None
         self.__dock = Dock()
         self.__connection = connection
-        connection.delegate = self
+        self.__worker: Optional[Worker] = None
+        self.__delegate: Optional[weakref.ReferenceType] = None
+        self._running = False
 
     # Override
     @property
-    def delegate(self) -> Optional[GateDelegate]:
-        if self.__delegate is None:
-            return None
-        else:
-            return self.__delegate()
+    def dock(self) -> Dock:
+        return self.__dock
 
-    @delegate.setter
-    def delegate(self, handler: GateDelegate):
-        if handler is None:
-            self.__delegate = None
-        else:
-            self.__delegate = weakref.ref(handler)
+    # Override
+    @property
+    def connection(self) -> Connection:
+        return self.__connection
 
     # Override
     @property
@@ -97,15 +82,24 @@ class StarGate(Gate, ConnectionDelegate):
         if WSDocker.check(connection=self.connection):
             return WSDocker(gate=self)
 
-    # Override
-    @property
-    def dock(self) -> Dock:
-        return self.__dock
+    @worker.setter
+    def worker(self, docker: Worker):
+        self.__worker = docker
 
     # Override
     @property
-    def connection(self) -> Optional[Connection]:
-        return self.__connection
+    def delegate(self) -> Optional[GateDelegate]:
+        if self.__delegate is None:
+            return None
+        else:
+            return self.__delegate()
+
+    @delegate.setter
+    def delegate(self, handler: GateDelegate):
+        if handler is None:
+            self.__delegate = None
+        else:
+            self.__delegate = weakref.ref(handler)
 
     # Override
     @property
@@ -127,6 +121,10 @@ class StarGate(Gate, ConnectionDelegate):
     #
 
     def run(self):
+        # start connection
+        while self.status in [GateStatus.Init, GateStatus.Connecting]:
+            # waiting for connection
+            self._idle()
         self.setup()
         try:
             self.handle()
@@ -134,30 +132,38 @@ class StarGate(Gate, ConnectionDelegate):
             self.finish()
 
     def stop(self):
-        self.__running = False
+        self._running = False
 
     def setup(self):
-        # 1. start connection
-        threading.Thread(target=self.__connection.run).start()
-        while self.status in [GateStatus.Init, GateStatus.Connecting]:
-            # waiting for connection
-            self._idle()
-        # 2. check worker
-        while self.worker is None:
+        self._running = True
+        # check worker
+        while self.worker is None and not self.connection_finished:
             # waiting for worker
             self._idle()
-        # 3. setup worker
-        self.__worker.setup()
+        # setup worker
+        if self.__worker is not None:
+            self.__worker.setup()
 
     def finish(self):
-        # 1. clean worker
-        self.__worker.finish()
-        # 2. stop connection
-        self.__connection.stop()
+        # clean worker
+        if self.__worker is not None:
+            self.__worker.finish()
+
+    @property
+    def connection_finished(self) -> bool:
+        """ connection closed, and no more data unpressed """
+        conn = self.__connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        if not conn.running and conn.received() is None:
+            return True
+
+    @property
+    def running(self) -> bool:
+        return self._running and not self.connection_finished
 
     # Override
     def handle(self):
-        while self.__running:
+        while self.running:
             if not self.process():
                 self._idle()
 
@@ -166,7 +172,8 @@ class StarGate(Gate, ConnectionDelegate):
         time.sleep(0.1)
 
     def process(self) -> bool:
-        return self.__worker.process()
+        if self.__worker is not None:
+            return self.__worker.process()
 
     #
     #   ConnectionDelegate

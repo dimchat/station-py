@@ -34,20 +34,21 @@
 
     for login user
 """
-import socket
+
 import threading
 import time
 import traceback
 import weakref
 from typing import Optional, List
 
-from tcp import Connection
+from tcp import Connection, BaseConnection
 
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
-from ..stargate import GateStatus, GateDelegate, StarGate, ShipDelegate
+from ..stargate import GateStatus, GateDelegate, StarGate
+from ..stargate import Ship, ShipDelegate
 
 from .database import Database
 from .messenger import CommonMessenger
@@ -113,16 +114,16 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
 
 class BaseSession(threading.Thread, GateDelegate, Logging):
 
-    def __init__(self, messenger: CommonMessenger,
-                 address: Optional[tuple] = None,
-                 sock: Optional[socket.socket] = None):
+    def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
-        self.__gate = StarGate(address=address, sock=sock)
-        self.__gate.delegate = self
+        gate = StarGate(connection=connection)
+        gate.delegate = self
+        connection.delegate = gate
+        self.__gate = gate
         # session status
         self.__active = False
-        self.__running = False
+        self._running = False
         # message queue
         self.__queue: List[MessageWrapper] = []
         self.__lock = threading.Lock()
@@ -168,19 +169,32 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             self.finish()
 
     def stop(self):
-        self.__running = False
+        self._running = False
 
     def setup(self):
-        self.__running = True
-        self.__gate.setup()
+        self._running = True
+        gate = self.__gate
+        conn = gate.connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        threading.Thread(target=conn.run).start()
+        time.sleep(0.5)
+        gate.setup()
 
     def finish(self):
-        self.__gate.finish()
+        gate = self.__gate
+        conn = gate.connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        gate.finish()
+        conn.stop()
         # save unsent messages
         self.__flush()
 
+    @property
+    def running(self) -> bool:
+        return self._running and self.__gate.running
+
     def handle(self):
-        while self.__running:
+        while self.running:
             if not self.process():
                 self._idle()
 
@@ -189,6 +203,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         time.sleep(0.1)
 
     def process(self) -> bool:
+        if self.__gate.process():
+            return True
         self.__clean()
         if not self.__active:
             # inactive
@@ -255,7 +271,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if new_status == GateStatus.Connected:
             self.messenger.connected()
 
-    def gate_received(self, gate, payload: bytes) -> Optional[bytes]:
+    def gate_received(self, gate, ship: Ship) -> Optional[bytes]:
+        payload = ship.payload
         if payload.startswith(b'{'):
             # JsON in lines
             packages = payload.splitlines()

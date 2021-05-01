@@ -30,10 +30,11 @@
     Local station
 """
 
-import time
 import weakref
 from abc import abstractmethod
 from typing import Optional
+
+from tcp import ActiveConnection
 
 from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -44,6 +45,7 @@ from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
 from ...stargate import GateStatus, ShipDelegate, StarShip
+from ...stargate import MTPDocker
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
@@ -51,16 +53,13 @@ from ...common import BaseSession
 class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, host: str, port: int):
-        super().__init__(messenger=messenger, address=(host, port))
+        super().__init__(messenger=messenger, connection=ActiveConnection(address=(host, port)))
         self.__address = (host, port)
+        self.gate.worker = MTPDocker(gate=self.gate)
 
     def setup(self):
-        super().setup()
         self.active = True
-
-    def process(self) -> bool:
-        if not super().process():
-            return self.gate.process()
+        super().setup()
 
     def finish(self):
         self.active = False

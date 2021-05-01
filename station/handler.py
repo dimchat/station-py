@@ -82,12 +82,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         super().setup()
         try:
             session = self.__session
+            self.info('client connected: %s' % session)
             if isinstance(session, Session):
                 session.setup()
                 NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
                     'session': session,
                 })
-                self.info('client connected: %s' % session)
         except Exception as error:
             self.error('setup request handler error: %s' % error)
             traceback.print_exc()
@@ -95,8 +95,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def finish(self):
         try:
             session = self.__session
+            self.info('client disconnected: %s' % session)
             if isinstance(session, Session):
-                self.info('client disconnected: %s' % session)
                 SessionServer().remove_session(session=session)
                 NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
                     'session': session,
