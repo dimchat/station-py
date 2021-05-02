@@ -32,6 +32,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from .ship import ShipDelegate
+from .starship import StarShip
 
 
 """
@@ -66,6 +67,6 @@ class Worker:
         raise NotImplemented
 
     @abstractmethod
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        """ Send data to remote peer """
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
+        """ Pack the payload to an outgo Ship """
         raise NotImplemented

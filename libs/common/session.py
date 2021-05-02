@@ -41,7 +41,7 @@ import traceback
 import weakref
 from typing import Optional, List
 
-from tcp import Connection, BaseConnection
+from tcp import BaseConnection
 
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
@@ -117,13 +117,14 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
+        self.__connection = connection
         gate = StarGate(connection=connection)
         gate.delegate = self
         connection.delegate = gate
         self.__gate = gate
         # session status
         self.__active = False
-        self._running = False
+        self.__running = False
         # message queue
         self.__queue: List[MessageWrapper] = []
         self.__lock = threading.Lock()
@@ -150,10 +151,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         return self.__gate
 
     @property
-    def connection(self) -> Connection:
-        return self.gate.connection
-
-    @property
     def active(self) -> bool:
         return self.__active
 
@@ -169,29 +166,27 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             self.finish()
 
     def stop(self):
-        self._running = False
+        self.__running = False
 
     def setup(self):
-        self._running = True
+        self.__running = True
         gate = self.__gate
-        conn = gate.connection
-        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-        threading.Thread(target=conn.run).start()
+        assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
+        threading.Thread(target=self.__connection.run).start()
         time.sleep(0.5)
         gate.setup()
 
     def finish(self):
         gate = self.__gate
-        conn = gate.connection
-        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
         gate.finish()
-        conn.stop()
+        self.__connection.stop()
         # save unsent messages
         self.__flush()
 
     @property
     def running(self) -> bool:
-        return self._running and self.__gate.running
+        return self.__running and self.__gate.running
 
     def handle(self):
         while self.running:
@@ -225,7 +220,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.__active:
-            return self.__gate.send(payload=payload, priority=priority, delegate=delegate)
+            return self.__gate.send_payload(payload=payload, priority=priority, delegate=delegate)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """

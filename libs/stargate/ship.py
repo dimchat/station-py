@@ -41,7 +41,12 @@ from typing import Optional
 
 
 class Ship:
-    """ Star Ship for carrying data """
+    """ Star Ship for carrying data package """
+
+    @property
+    def package(self) -> bytes:
+        """ Get the package in this Ship """
+        raise NotImplemented
 
     @property
     def sn(self) -> bytes:
@@ -50,7 +55,7 @@ class Ship:
 
     @property
     def payload(self) -> bytes:
-        """ Get data in this Ship """
+        """ Get data containing in the package """
         raise NotImplemented
 
 

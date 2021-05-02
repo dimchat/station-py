@@ -47,24 +47,28 @@ from .gate import Gate
 class MTPShip(StarShip):
     """ Star Ship with MTP Package """
 
-    def __init__(self, package: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None):
+    def __init__(self, mtp: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None):
         super().__init__(priority=priority, delegate=delegate)
-        self.__package = package
+        self.__mtp = mtp
 
     @property
-    def package(self) -> Package:
+    def mtp(self) -> Package:
         """ Get request will be sent to remote star """
-        return self.__package
+        return self.__mtp
+
+    @property
+    def package(self) -> bytes:
+        return self.__mtp.get_bytes()
 
     # Override
     @property
     def sn(self) -> bytes:
-        return self.__package.head.sn.get_bytes()
+        return self.__mtp.head.sn.get_bytes()
 
     # Override
     @property
     def payload(self) -> bytes:
-        return self.__package.body.get_bytes()
+        return self.__mtp.body.get_bytes()
 
 
 class MTPDocker(Docker):
@@ -83,15 +87,14 @@ class MTPDocker(Docker):
             return head is not None
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
         req = Data(data=payload)
-        req_pack = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
-        req_ship = MTPShip(package=req_pack, priority=priority, delegate=delegate)
-        return self.dock.put(ship=req_ship)
+        mtp = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
+        return MTPShip(mtp=mtp, priority=priority, delegate=delegate)
 
     def __receive_package(self) -> Optional[Package]:
         # 1. check received data
-        buffer = self._received_buffer()
+        buffer = self.gate.received()
         if buffer is None:
             # received nothing
             return None
@@ -105,10 +108,10 @@ class MTPDocker(Docker):
             pos = data.find(sub=Header.MAGIC_CODE, start=1)  # MAGIC_CODE_OFFSET = 0
             if pos > 0:
                 # found next head(starts with 'DIM'), skip data before it
-                self._receive_buffer(length=pos)
+                self.gate.receive(length=pos)
             else:
                 # skip the whole data
-                self._receive_buffer(length=data.length)
+                self.gate.receive(length=data.length)
             return None
         # 2. receive data with 'head.length + body.length'
         body_len = head.body_length
@@ -120,7 +123,7 @@ class MTPDocker(Docker):
             # waiting for more data
             return None
         # receive package
-        buffer = self._receive_buffer(length=pack_len)
+        buffer = self.gate.receive(length=pack_len)
         data = Data(data=buffer)
         body = data.slice(start=head.length)
         return Package(data=data, head=head, body=body)
@@ -129,22 +132,22 @@ class MTPDocker(Docker):
     def _get_income_ship(self) -> Optional[Ship]:
         income = self.__receive_package()
         if income is not None:
-            return MTPShip(package=income)
+            return MTPShip(mtp=income)
 
     # Override
     def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, MTPShip), 'income ship error: %s' % income
-        pack = income.package
-        head = pack.head
-        body = pack.body
+        mtp = income.mtp
+        head = mtp.head
+        body = mtp.body
         # 1. check data type
         data_type = head.data_type
         if data_type == MTPCommand:
             # respond for Command directly
             if body == ping_body:  # 'PING'
                 res = pong_body    # 'PONG'
-                pack = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
-                return MTPShip(package=pack, priority=StarShip.SLOWER)
+                mtp = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
+                return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
             return None
         elif data_type == MTPCommandRespond:
             # remove linked outgo Ship
@@ -162,7 +165,7 @@ class MTPDocker(Docker):
                 # TODO: mission failed, send the message again
                 return None
         # 2. process payload by delegate
-        delegate = self.delegate
+        delegate = self.gate.delegate
         if body.length > 0 and delegate is not None:
             res = delegate.gate_received(gate=self.gate, ship=income)
         else:
@@ -174,27 +177,27 @@ class MTPDocker(Docker):
                 res = ok_body
             else:
                 res = Data(data=res)
-            pack = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            return MTPShip(package=pack, priority=StarShip.NORMAL)
+            mtp = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
+            return MTPShip(mtp=mtp, priority=StarShip.NORMAL)
         elif res is not None and len(res) > 0:
             # push as new Message
-            self.send(payload=res, priority=StarShip.SLOWER)
+            return self.pack(payload=res, priority=StarShip.SLOWER)
 
     # Override
     def _send_outgo_ship(self, outgo: StarShip) -> bool:
         assert isinstance(outgo, MTPShip), 'outgo ship error: %s' % outgo
-        pack = outgo.package
+        mtp = outgo.mtp
         # check data type
-        if pack.head.data_type == MTPMessage:
+        if mtp.head.data_type == MTPMessage:
             # put back for response
-            self.dock.put(ship=outgo)
+            self.gate.put(ship=outgo)
         # send out request data
-        return self._send_buffer(data=pack.get_bytes())
+        return super()._send_outgo_ship(outgo=outgo)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:
-        pack = Package.new(data_type=MTPCommand, body_length=ping_body.length, body=ping_body)
-        return MTPShip(package=pack, priority=StarShip.SLOWER)
+        mtp = Package.new(data_type=MTPCommand, body_length=ping_body.length, body=ping_body)
+        return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
 
 
 #

@@ -33,13 +33,10 @@ import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from tcp import Connection
-
 from .ship import Ship
 from .starship import StarShip
-from .dock import Dock
 from .worker import Worker
-from .gate import Gate, GateStatus, GateDelegate
+from .gate import Gate
 
 
 """
@@ -63,31 +60,6 @@ class Docker(Worker):
     def gate(self) -> Gate:
         return self.__gate()
 
-    @property
-    def status(self) -> GateStatus:
-        return self.gate.status
-
-    @property
-    def connection(self) -> Connection:
-        return self.gate.connection
-
-    @property
-    def dock(self) -> Dock:
-        return self.gate.dock
-
-    @property
-    def delegate(self) -> Optional[GateDelegate]:
-        return self.gate.delegate
-
-    def _send_buffer(self, data: bytes) -> bool:
-        return self.connection.send(data=data) == len(data)
-
-    def _received_buffer(self) -> Optional[bytes]:
-        return self.connection.received()
-
-    def _receive_buffer(self, length: int) -> Optional[bytes]:
-        return self.connection.receive(length=length)
-
     #
     #   Running
     #
@@ -102,6 +74,10 @@ class Docker(Worker):
     def stop(self):
         self.__running = False
 
+    @property
+    def running(self) -> bool:
+        return self.__running
+
     # Override
     def setup(self):
         self.__running = True
@@ -110,10 +86,6 @@ class Docker(Worker):
     def finish(self):
         # TODO: go through all outgo Ships parking in Dock and call 'sent failed' on their delegates
         pass
-
-    @property
-    def running(self) -> bool:
-        return self.__running
 
     # Override
     def handle(self):
@@ -134,7 +106,7 @@ class Docker(Worker):
             if res is not None:
                 if res.priority == StarShip.SLOWER:
                     # put the response into waiting queue
-                    self.dock.put(ship=res)
+                    self.gate.put(ship=res)
                 else:
                     # send response directly
                     self._send_outgo_ship(outgo=res)
@@ -159,7 +131,7 @@ class Docker(Worker):
                 beat = self._get_heartbeat()
                 if beat is not None:
                     # put the heartbeat into waiting queue
-                    self.dock.put(ship=beat)
+                    self.gate.put(ship=beat)
                 # try heartbeat next 2 seconds
                 self.__heartbeat_expired = now + 2
             return False
@@ -171,6 +143,7 @@ class Docker(Worker):
         """ Get income Ship from Connection """
         raise NotImplemented
 
+    @abstractmethod
     def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
         """ Override to process income Ship """
         linked = self._get_outgo_ship(income=income)
@@ -185,19 +158,18 @@ class Docker(Worker):
         """ Get outgo Ship from waiting queue """
         if income is None:
             # get next new task (time == 0)
-            outgo = self.dock.pop()
+            outgo = self.gate.pop()
             if outgo is None:
                 # no more new task now, get any expired task
-                outgo = self.dock.any()
+                outgo = self.gate.any()
         else:
             # get task with ID
-            outgo = self.dock.pop(sn=income.sn)
+            outgo = self.gate.pop(sn=income.sn)
         return outgo
 
-    @abstractmethod
     def _send_outgo_ship(self, outgo: StarShip) -> bool:
         """ Send outgo Ship via current Connection """
-        raise NotImplemented
+        return self.gate.send(data=outgo.package)
 
     def _get_heartbeat(self) -> Optional[StarShip]:
         """ Get an empty ship for keeping connection alive """

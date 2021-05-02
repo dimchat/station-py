@@ -32,10 +32,10 @@ from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
 
-from tcp import Connection, ConnectionStatus
+from tcp import ConnectionStatus
 
 from .ship import Ship, ShipDelegate
-from .dock import Dock
+from .starship import StarShip
 from .worker import Worker
 
 
@@ -97,32 +97,92 @@ class GateDelegate:
 class Gate:
     """ Star Gate of remote peer """
 
-    @abstractmethod
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        """ Send data to remote peer """
-        raise NotImplemented
-
-    @property
-    def delegate(self) -> GateDelegate:
-        """ Get callback """
-        yield None
-
     @property
     def worker(self) -> Optional[Worker]:
         """ Get worker for processing packages """
         raise NotImplemented
 
     @property
-    def dock(self) -> Dock:
-        """ Get ship park """
-        raise NotImplemented
-
-    @property
-    def connection(self) -> Connection:
-        """ Get current connection """
-        raise NotImplemented
+    def delegate(self) -> GateDelegate:
+        """ Get callback for receiving data """
+        yield None
 
     @property
     def status(self) -> GateStatus:
-        """ Get connection status """
+        """ Get status """
+        raise NotImplemented
+
+    @abstractmethod
+    def send_payload(self, payload: bytes, priority: int = -1, delegate: Optional[ShipDelegate] = None) -> bool:
+        """
+        Send payload to remote peer
+
+        :param payload:  request data
+        :param priority: smaller is the faster, -1 means send it synchronously
+        :param delegate: completion handler
+        :return: false on error
+        """
+        raise NotImplemented
+
+    #
+    #   Connection
+    #
+
+    @abstractmethod
+    def send(self, data: bytes) -> bool:
+        """
+        Send data package
+
+        :param data: package
+        :return: false on error
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def received(self) -> Optional[bytes]:
+        """
+        Get received data from cache, but not remove
+
+        :return: received data
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def receive(self, length: int) -> Optional[bytes]:
+        """
+        Get received data from cache, and remove it
+        (call 'received()' to check data first)
+
+        :param length: how many bytes to receive
+        :return: received data
+        """
+        raise NotImplemented
+
+    #
+    #   Docking
+    #
+
+    @abstractmethod
+    def put(self, ship: StarShip) -> bool:
+        """ Park this outgo Ship in a waiting queue for departure """
+        raise NotImplemented
+
+    # @overload
+    # def pop(self) -> Optional[StarShip]:
+    #     """ Get a new Ship(time == 0) and remove it from the Dock """
+    #     pass
+    #
+    # @overload
+    # def pop(self, sn: bytes) -> Optional[StarShip]:
+    #     """ Get a Ship(with SN as ID) and remove it from the Dock """
+    #     pass
+
+    @abstractmethod
+    def pop(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
+        """ Get a parking Ship (remove it from the waiting queue) """
+        raise NotImplemented
+
+    @abstractmethod
+    def any(self) -> Optional[StarShip]:
+        """ Get any Ship timeout/expired (keep it in the waiting queue) """
         raise NotImplemented

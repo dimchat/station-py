@@ -83,23 +83,22 @@ class WSDocker(Docker):
 
     # Override
     def setup(self):
-        buffer = self._received_buffer()
+        buffer = self.gate.received()
         if buffer is not None:
             # remove first handshake package
-            self._receive_buffer(length=len(buffer))
+            self.gate.receive(length=len(buffer))
             # response for handshake
             res = WebSocket.handshake(stream=buffer)
-            self._send_buffer(data=res)
+            self.gate.send(data=res)
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
         req_pack = WebSocket.pack(payload=payload)
-        req_ship = WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
-        return self.dock.put(ship=req_ship)
+        return WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
 
     def __receive_package(self) -> (Optional[bytes], Optional[bytes]):
         # 1. check received data
-        buffer = self._received_buffer()
+        buffer = self.gate.received()
         if buffer is None:
             # received nothing
             return None, None
@@ -108,7 +107,7 @@ class WSDocker(Docker):
         new_len = len(remaining)
         if new_len < old_len:
             # skip received package
-            pack = self._receive_buffer(length=old_len-new_len)
+            pack = self.gate.receive(length=old_len-new_len)
             return pack, payload
         else:
             return None, None
@@ -129,8 +128,7 @@ class WSDocker(Docker):
             return None
         elif body == ping_body:
             # respond Command: 'PONG' -> 'PING'
-            self.send(payload=pong_body, priority=StarShip.SLOWER)
-            return None
+            return self.pack(payload=pong_body, priority=StarShip.SLOWER)
         elif income == pong_body:
             # just ignore
             return None
@@ -138,7 +136,7 @@ class WSDocker(Docker):
             # just ignore
             return None
         # 2. process payload by delegate
-        delegate = self.delegate
+        delegate = self.gate.delegate
         if delegate is not None:
             res = delegate.gate_received(gate=self.gate, ship=income)
         else:
@@ -149,12 +147,11 @@ class WSDocker(Docker):
         req_pack = WebSocket.pack(payload=res)
         return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
-    # Override
-    def _send_outgo_ship(self, outgo: StarShip) -> bool:
-        assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
-        pack = outgo.package
-        # send out request data
-        return self._send_buffer(data=pack)
+    # # Override
+    # def _send_outgo_ship(self, outgo: StarShip) -> bool:
+    #     assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
+    #     # send out request data
+    #     return super()._send_outgo_ship(outgo=outgo)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

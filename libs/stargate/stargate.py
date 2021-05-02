@@ -36,6 +36,7 @@ from tcp import Connection, ConnectionStatus, ConnectionDelegate
 from tcp import BaseConnection
 
 from .ship import ShipDelegate
+from .starship import StarShip
 from .dock import Dock
 from .worker import Worker
 from .gate import gate_status
@@ -54,17 +55,7 @@ class StarGate(Gate, ConnectionDelegate):
         self.__connection = connection
         self.__worker: Optional[Worker] = None
         self.__delegate: Optional[weakref.ReferenceType] = None
-        self._running = False
-
-    # Override
-    @property
-    def dock(self) -> Dock:
-        return self.__dock
-
-    # Override
-    @property
-    def connection(self) -> Connection:
-        return self.__connection
+        self.__running = False
 
     # Override
     @property
@@ -73,13 +64,13 @@ class StarGate(Gate, ConnectionDelegate):
             self.__worker = self._create_worker()
         return self.__worker
 
-    # override to customize Worker
     def _create_worker(self) -> Optional[Worker]:
-        if MTPDocker.check(connection=self.connection):
+        # override to customize Worker
+        if MTPDocker.check(connection=self.__connection):
             return MTPDocker(gate=self)
-        if MarsDocker.check(connection=self.connection):
+        if MarsDocker.check(connection=self.__connection):
             return MarsDocker(gate=self)
-        if WSDocker.check(connection=self.connection):
+        if WSDocker.check(connection=self.__connection):
             return WSDocker(gate=self)
 
     @worker.setter
@@ -104,17 +95,58 @@ class StarGate(Gate, ConnectionDelegate):
     # Override
     @property
     def status(self) -> GateStatus:
-        cs = self.connection.status
-        return gate_status(status=cs)
+        assert self.__connection is not None, 'connection should not empty'
+        return gate_status(status=self.__connection.status)
 
     # Override
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def send_payload(self, payload: bytes, priority: int = -1, delegate: Optional[ShipDelegate] = None) -> bool:
         worker = self.worker
         if worker is None:
             return False
         if self.status != GateStatus.Connected:
             return False
-        return worker.send(payload=payload, priority=priority, delegate=delegate)
+        req = worker.pack(payload=payload, priority=priority, delegate=delegate)
+        if priority < 0:
+            # send out directly
+            self.send(data=req.package)
+        else:
+            # put the Ship into a waiting queue
+            self.__dock.put(ship=req)
+
+    #
+    #   Connection
+    #
+
+    # Override
+    def send(self, data: bytes) -> bool:
+        assert self.__connection is not None, 'connection should not empty'
+        return self.__connection.send(data=data) == len(data)
+
+    # Override
+    def received(self) -> Optional[bytes]:
+        assert self.__connection is not None, 'connection should not empty'
+        return self.__connection.received()
+
+    # Override
+    def receive(self, length: int) -> Optional[bytes]:
+        assert self.__connection is not None, 'connection should not empty'
+        return self.__connection.receive(length=length)
+
+    #
+    #   Docking
+    #
+
+    # Override
+    def put(self, ship: StarShip) -> bool:
+        return self.__dock.put(ship=ship)
+
+    # Override
+    def pop(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
+        return self.__dock.pop(sn=sn)
+
+    # Override
+    def any(self) -> Optional[StarShip]:
+        return self.__dock.any()
 
     #
     #   Running
@@ -128,20 +160,23 @@ class StarGate(Gate, ConnectionDelegate):
             self.finish()
 
     def stop(self):
-        self._running = False
+        self.__running = False
 
     @property
     def running(self) -> bool:
-        if self._running:
+        if self.__running:
             # check connection finished
-            conn = self.__connection
-            assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-            if conn.running or conn.received() is not None:
-                # connection not closed, or more data to be processed
+            assert self.__connection is not None, 'connection should not empty'
+            if isinstance(self.__connection, BaseConnection):
+                if self.__connection.running:
+                    # connection not closed yet
+                    return True
+            if self.__connection.received() is not None:
+                # unprocessed data exists
                 return True
 
     def setup(self):
-        self._running = True
+        self.__running = True
         # check worker
         while self.worker is None and self.running:
             # waiting for worker
@@ -166,12 +201,16 @@ class StarGate(Gate, ConnectionDelegate):
         time.sleep(0.1)
 
     def process(self) -> bool:
-        if self.__worker is not None:
+        if self.__worker is None:
+            raise AssertionError('Star worker not found!')
+        else:
             return self.__worker.process()
 
     #
     #   ConnectionDelegate
     #
+
+    # Override
     def connection_changed(self, connection, old_status: ConnectionStatus, new_status: ConnectionStatus):
         delegate = self.delegate
         if delegate is not None:
@@ -180,11 +219,13 @@ class StarGate(Gate, ConnectionDelegate):
             if s1 != s2:
                 delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
 
+    # Override
     def connection_received(self, connection, data: bytes):
         # received data will be processed in run loop (Docker::handle),
         # do nothing here
         pass
 
+    # Override
     def connection_overflowed(self, connection, ejected: bytes):
         # TODO: connection cache pool is full,
         #       some received data will be ejected to here,
