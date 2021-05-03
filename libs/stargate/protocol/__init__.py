@@ -29,7 +29,7 @@
 # ==============================================================================
 
 from .ws import WebSocket
-from .mars import NetMsg, NetMsgHead
+from .mars import NetMsg, NetMsgHead, NetMsgSeq
 
 
 __all__ = [
@@ -38,5 +38,5 @@ __all__ = [
     'WebSocket',
 
     # Tencent Mars
-    'NetMsg', 'NetMsgHead',
+    'NetMsg', 'NetMsgHead', 'NetMsgSeq',
 ]

@@ -32,7 +32,7 @@ from typing import Optional
 
 from tcp import Connection
 
-from .protocol import NetMsg, NetMsgHead
+from .protocol import NetMsg, NetMsgHead, NetMsgSeq
 
 from .ship import Ship, ShipDelegate
 from .starship import StarShip
@@ -113,8 +113,12 @@ class MarsDocker(Docker):
 
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(payload))
-        mars = NetMsg.new(head=head, body=payload)
+        seq = NetMsgSeq.generate()
+        sn = seq.to_bytes(length=4, byteorder='big')
+        body = b'Mars SN:' + sn + b'\n' + payload
+        # pack sn + payload
+        head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(body))
+        mars = NetMsg.new(head=head, body=body)
         return MarsShip(mars=mars, priority=priority, delegate=delegate)
 
     def __receive_package(self) -> Optional[NetMsg]:
@@ -178,9 +182,11 @@ class MarsDocker(Docker):
             if len(body) == 0:
                 # FIXME: should not happen
                 return None
-        # elif cmd == NetMsgHead.PUSH_MESSAGE:
-        #     # remove linked outgo Ship
-        #     super()._process_income_ship(income=income)
+            # remove linked outgo Ship
+            super()._process_income_ship(income=income)
+        elif cmd == NetMsgHead.PUSH_MESSAGE:
+            # remove linked outgo Ship
+            super()._process_income_ship(income=income)
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
             if len(body) == 0 or body == noop_body:
