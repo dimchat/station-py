@@ -200,7 +200,7 @@ class MarsDocker(Docker):
     #     # check data type
     #     if mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
     #         # put back for response
-    #         self.gate.put(ship=outgo)
+    #         self.gate.park_ship(ship=outgo)
     #     # send out request data
     #     return super()._send_outgo_ship(outgo=outgo)
 

@@ -112,10 +112,46 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
             self.__time = -1
 
 
+class MessageQueue:
+
+    def __init__(self):
+        super().__init__()
+        self.__queue: List[MessageWrapper] = []
+        self.__lock = threading.Lock()
+
+    def append(self, msg: ReliableMessage) -> bool:
+        with self.__lock:
+            wrapper = MessageWrapper(msg=msg)
+            self.__queue.append(wrapper)
+            return True
+
+    def pop(self) -> Optional[MessageWrapper]:
+        with self.__lock:
+            if len(self.__queue) > 0:
+                return self.__queue.pop(0)
+
+    def next(self) -> Optional[MessageWrapper]:
+        """ Get next new message """
+        with self.__lock:
+            for wrapper in self.__queue:
+                if wrapper.virgin:
+                    wrapper.mark()  # mark sent
+                    return wrapper
+
+    def eject(self) -> Optional[MessageWrapper]:
+        """ Get any message sent or failed """
+        with self.__lock:
+            for wrapper in self.__queue:
+                if wrapper.msg is None or wrapper.failed:
+                    self.__queue.remove(wrapper)
+                    return wrapper
+
+
 class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
         super().__init__()
+        self.__queue = MessageQueue()
         self.__messenger = weakref.ref(messenger)
         self.__connection = connection
         gate = StarGate(connection=connection)
@@ -125,9 +161,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         # session status
         self.__active = False
         self.__running = False
-        # message queue
-        self.__queue: List[MessageWrapper] = []
-        self.__lock = threading.Lock()
 
     def __del__(self):
         # store stranded messages
@@ -135,12 +168,21 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __flush(self):
         # store all message
-        wrapper = self.__pop()
+        wrapper = self.__queue.pop()
         while wrapper is not None:
             msg = wrapper.msg
             if msg is not None:
                 g_database.store_message(msg=msg)
-            wrapper = self.__pop()
+            wrapper = self.__queue.pop()
+
+    def __clean(self):
+        wrapper = self.__queue.eject()
+        while wrapper is not None:
+            msg = wrapper.msg
+            if msg is not None:
+                # task failed
+                g_database.store_message(msg=msg)
+            wrapper = self.__queue.eject()
 
     @property
     def messenger(self) -> Optional[CommonMessenger]:
@@ -152,7 +194,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     @property
     def active(self) -> bool:
-        return self.__active
+        return self.__active and self.__gate.opened
 
     @active.setter
     def active(self, value: bool):
@@ -170,23 +212,21 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def setup(self):
         self.__running = True
-        gate = self.__gate
         assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
         threading.Thread(target=self.__connection.run).start()
         time.sleep(0.5)
-        gate.setup()
+        self.__gate.setup()
 
     def finish(self):
-        gate = self.__gate
         assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
-        gate.finish()
+        self.__gate.finish()
         self.__connection.stop()
         # save unsent messages
         self.__flush()
 
     @property
     def running(self) -> bool:
-        return self.__running and self.__gate.running
+        return self.__running and self.__gate.opened
 
     def handle(self):
         while self.running:
@@ -201,11 +241,11 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if self.__gate.process():
             return True
         self.__clean()
-        if not self.__active:
+        if not self.active:
             # inactive
             return False
         # get next message
-        wrapper = self.__next()
+        wrapper = self.__queue.next()
         if wrapper is None:
             msg = None
         else:
@@ -219,44 +259,13 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         return True
 
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        if self.__active:
+        if self.active:
             return self.__gate.send_payload(payload=payload, priority=priority, delegate=delegate)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """
-        with self.__lock:
-            if self.__active:
-                wrapper = MessageWrapper(msg=msg)
-                self.__queue.append(wrapper)
-                return True
-
-    def __pop(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
-
-    def __next(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            for wrapper in self.__queue:
-                if wrapper.virgin:
-                    wrapper.mark()  # mark sent
-                    return wrapper
-
-    def __eject(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            for wrapper in self.__queue:
-                if wrapper.msg is None or wrapper.failed:
-                    self.__queue.remove(wrapper)
-                    return wrapper
-
-    def __clean(self):
-        wrapper = self.__eject()
-        while wrapper is not None:
-            msg = wrapper.msg
-            if msg is not None:
-                # task failed
-                g_database.store_message(msg=msg)
-            wrapper = self.__eject()
+        if self.active:
+            return self.__queue.append(msg=msg)
 
     #
     #   GateDelegate

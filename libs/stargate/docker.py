@@ -75,8 +75,8 @@ class Docker(Worker):
         self.__running = False
 
     @property
-    def running(self) -> bool:
-        return self.__running
+    def working(self) -> bool:
+        return self.__running and self.gate.opened
 
     # Override
     def setup(self):
@@ -89,7 +89,7 @@ class Docker(Worker):
 
     # Override
     def handle(self):
-        while self.running:
+        while self.working:
             if not self.process():
                 self._idle()
 
@@ -106,7 +106,7 @@ class Docker(Worker):
             if res is not None:
                 if res.priority == StarShip.SLOWER:
                     # put the response into waiting queue
-                    self.gate.put(ship=res)
+                    self.gate.park_ship(ship=res)
                 else:
                     # send response directly
                     self._send_outgo_ship(outgo=res)
@@ -131,7 +131,7 @@ class Docker(Worker):
                 beat = self._get_heartbeat()
                 if beat is not None:
                     # put the heartbeat into waiting queue
-                    self.gate.put(ship=beat)
+                    self.gate.park_ship(ship=beat)
                 # try heartbeat next 2 seconds
                 self.__heartbeat_expired = now + 2
             return False
@@ -158,13 +158,13 @@ class Docker(Worker):
         """ Get outgo Ship from waiting queue """
         if income is None:
             # get next new task (time == 0)
-            outgo = self.gate.pop()
+            outgo = self.gate.pull_ship()
             if outgo is None:
                 # no more new task now, get any expired task
-                outgo = self.gate.any()
+                outgo = self.gate.any_ship()
         else:
             # get task with ID
-            outgo = self.gate.pop(sn=income.sn)
+            outgo = self.gate.pull_ship(sn=income.sn)
         return outgo
 
     def _send_outgo_ship(self, outgo: StarShip) -> bool:

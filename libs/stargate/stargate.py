@@ -28,12 +28,12 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 import time
 import weakref
 from typing import Optional
 
 from tcp import Connection, ConnectionStatus, ConnectionDelegate
-from tcp import BaseConnection
 
 from .ship import ShipDelegate
 from .starship import StarShip
@@ -53,6 +53,7 @@ class StarGate(Gate, ConnectionDelegate):
         super().__init__()
         self.__dock = Dock()
         self.__connection = connection
+        self.__lock = threading.RLock()
         self.__worker: Optional[Worker] = None
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__running = False
@@ -99,7 +100,7 @@ class StarGate(Gate, ConnectionDelegate):
         return gate_status(status=self.__connection.status)
 
     # Override
-    def send_payload(self, payload: bytes, priority: int = -1, delegate: Optional[ShipDelegate] = None) -> bool:
+    def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         worker = self.worker
         if worker is None:
             return False
@@ -111,7 +112,7 @@ class StarGate(Gate, ConnectionDelegate):
             self.send(data=req.package)
         else:
             # put the Ship into a waiting queue
-            self.__dock.put(ship=req)
+            self.park_ship(ship=req)
 
     #
     #   Connection
@@ -120,7 +121,8 @@ class StarGate(Gate, ConnectionDelegate):
     # Override
     def send(self, data: bytes) -> bool:
         assert self.__connection is not None, 'connection should not empty'
-        return self.__connection.send(data=data) == len(data)
+        with self.__lock:
+            return self.__connection.send(data=data) == len(data)
 
     # Override
     def received(self) -> Optional[bytes]:
@@ -137,15 +139,15 @@ class StarGate(Gate, ConnectionDelegate):
     #
 
     # Override
-    def put(self, ship: StarShip) -> bool:
+    def park_ship(self, ship: StarShip) -> bool:
         return self.__dock.put(ship=ship)
 
     # Override
-    def pop(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
+    def pull_ship(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
         return self.__dock.pop(sn=sn)
 
     # Override
-    def any(self) -> Optional[StarShip]:
+    def any_ship(self) -> Optional[StarShip]:
         return self.__dock.any()
 
     #
@@ -163,22 +165,16 @@ class StarGate(Gate, ConnectionDelegate):
         self.__running = False
 
     @property
-    def running(self) -> bool:
+    def opened(self) -> bool:
         if self.__running:
-            # check connection finished
-            assert self.__connection is not None, 'connection should not empty'
-            if isinstance(self.__connection, BaseConnection):
-                if self.__connection.running:
-                    # connection not closed yet
-                    return True
-            if self.__connection.received() is not None:
-                # unprocessed data exists
-                return True
+            conn = self.__connection
+            # connection not closed or still have data unprocessed
+            return conn.alive or conn.received() is not None
 
     def setup(self):
         self.__running = True
         # check worker
-        while self.worker is None and self.running:
+        while self.worker is None and self.opened:
             # waiting for worker
             self._idle()
         # setup worker
@@ -192,7 +188,7 @@ class StarGate(Gate, ConnectionDelegate):
 
     # Override
     def handle(self):
-        while self.running:
+        while self.opened:
             if not self.process():
                 self._idle()
 

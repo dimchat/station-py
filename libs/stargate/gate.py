@@ -97,6 +97,7 @@ class GateDelegate:
 class Gate:
     """ Star Gate of remote peer """
 
+    @abstractmethod
     @property
     def worker(self) -> Optional[Worker]:
         """ Get worker for processing packages """
@@ -107,13 +108,20 @@ class Gate:
         """ Get callback for receiving data """
         yield None
 
+    @abstractmethod
+    @property
+    def opened(self) -> bool:
+        """ Check whether StarGate is not closed and the current Connection is active """
+        raise NotImplemented
+
+    @abstractmethod
     @property
     def status(self) -> GateStatus:
         """ Get status """
         raise NotImplemented
 
     @abstractmethod
-    def send_payload(self, payload: bytes, priority: int = -1, delegate: Optional[ShipDelegate] = None) -> bool:
+    def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         """
         Send payload to remote peer
 
@@ -163,7 +171,7 @@ class Gate:
     #
 
     @abstractmethod
-    def put(self, ship: StarShip) -> bool:
+    def park_ship(self, ship: StarShip) -> bool:
         """ Park this outgo Ship in a waiting queue for departure """
         raise NotImplemented
 
@@ -178,11 +186,11 @@ class Gate:
     #     pass
 
     @abstractmethod
-    def pop(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
+    def pull_ship(self, sn: Optional[bytes] = None) -> Optional[StarShip]:
         """ Get a parking Ship (remove it from the waiting queue) """
         raise NotImplemented
 
     @abstractmethod
-    def any(self) -> Optional[StarShip]:
+    def any_ship(self) -> Optional[StarShip]:
         """ Get any Ship timeout/expired (keep it in the waiting queue) """
         raise NotImplemented
