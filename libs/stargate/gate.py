@@ -32,7 +32,7 @@ from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
 
-from tcp import ConnectionStatus
+from tcp import Connection, ConnectionStatus
 
 from .ship import Ship, ShipDelegate
 from .starship import StarShip
@@ -97,7 +97,11 @@ class GateDelegate:
 class Gate:
     """ Star Gate of remote peer """
 
-    @abstractmethod
+    @property
+    def connection(self) -> Connection:
+        """ Get current connection """
+        raise NotImplemented
+
     @property
     def worker(self) -> Optional[Worker]:
         """ Get worker for processing packages """
@@ -108,13 +112,11 @@ class Gate:
         """ Get callback for receiving data """
         yield None
 
-    @abstractmethod
     @property
     def opened(self) -> bool:
         """ Check whether StarGate is not closed and the current Connection is active """
         raise NotImplemented
 
-    @abstractmethod
     @property
     def status(self) -> GateStatus:
         """ Get status """

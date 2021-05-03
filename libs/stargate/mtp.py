@@ -178,9 +178,10 @@ class MTPDocker(Docker):
             else:
                 res = Data(data=res)
             mtp = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            return MTPShip(mtp=mtp, priority=StarShip.NORMAL)
+            # send it directly
+            self.gate.send(data=mtp.get_bytes())
         elif res is not None and len(res) > 0:
-            # push as new Message
+            # pack as new Message and put into waiting queue
             return self.pack(payload=res, priority=StarShip.SLOWER)
 
     # Override

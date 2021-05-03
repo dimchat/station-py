@@ -63,7 +63,7 @@ class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
         super().__init__(messenger=messenger, connection=connection)
-        self.__client_address = connection.socket.getpeername()
+        self.__client_address = connection.address
         self.__key = generate_session_key()
         self.__identifier = None
 

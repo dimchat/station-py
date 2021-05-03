@@ -58,6 +58,10 @@ class StarGate(Gate, ConnectionDelegate):
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__running = False
 
+    @property
+    def connection(self) -> Connection:
+        return self.__connection
+
     # Override
     @property
     def worker(self) -> Optional[Worker]:
@@ -109,10 +113,10 @@ class StarGate(Gate, ConnectionDelegate):
         req = worker.pack(payload=payload, priority=priority, delegate=delegate)
         if priority < 0:
             # send out directly
-            self.send(data=req.package)
+            return self.send(data=req.package)
         else:
             # put the Ship into a waiting queue
-            self.park_ship(ship=req)
+            return self.park_ship(ship=req)
 
     #
     #   Connection
@@ -173,13 +177,17 @@ class StarGate(Gate, ConnectionDelegate):
 
     def setup(self):
         self.__running = True
+        if not self.opened:
+            # waiting for connection
+            self._idle()
         # check worker
         while self.worker is None and self.opened:
             # waiting for worker
             self._idle()
         # setup worker
-        if self.__worker is not None:
-            self.__worker.setup()
+        worker = self.worker
+        if worker is not None:
+            worker.setup()
 
     def finish(self):
         # clean worker

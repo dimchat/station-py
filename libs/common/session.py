@@ -212,16 +212,12 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def setup(self):
         self.__running = True
-        assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
         threading.Thread(target=self.__connection.run).start()
-        time.sleep(0.5)
         self.__gate.setup()
 
     def finish(self):
-        assert isinstance(self.__connection, BaseConnection), 'connection error: %s' % self.__connection
         self.__gate.finish()
         self.__connection.stop()
-        # save unsent messages
         self.__flush()
 
     @property
@@ -261,6 +257,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.active:
             return self.__gate.send_payload(payload=payload, priority=priority, delegate=delegate)
+        else:
+            self.error('session inactive, cannot send message (%d) now' % len(payload))
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message when session active """

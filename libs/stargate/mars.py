@@ -44,6 +44,13 @@ def seq_to_sn(seq: int) -> bytes:
     return seq.to_bytes(length=4, byteorder='big')
 
 
+def fetch_sn(body: bytes) -> Optional[bytes]:
+    if body is not None and body.startswith(b'Mars SN:'):
+        pos = body.find(b'\n')
+        assert pos > 8, 'Mars SN error: %s' % body
+        return body[8:pos]
+
+
 class MarsShip(StarShip):
     """ Star Ship with Mars Package """
 
@@ -63,12 +70,22 @@ class MarsShip(StarShip):
     # Override
     @property
     def sn(self) -> bytes:
-        return seq_to_sn(seq=self.__mars.head.seq)
+        sn = fetch_sn(body=self.__mars.body)
+        if sn is None:
+            return seq_to_sn(seq=self.__mars.head.seq)
+        else:
+            return sn
 
     # Override
     @property
     def payload(self) -> bytes:
-        return self.__mars.body
+        body = self.__mars.body
+        sn = fetch_sn(body=body)
+        if sn is None:
+            return body
+        else:
+            pos = body.find(b'\n')
+            return body[pos+1:]
 
 
 class MarsDocker(Docker):
@@ -191,18 +208,19 @@ class MarsDocker(Docker):
             # send it directly
             self.gate.send(data=mars.data)
         else:
+            # pack and put into waiting queue
             return self.pack(payload=res, priority=StarShip.SLOWER)
 
-    # # Override
-    # def _send_outgo_ship(self, outgo: StarShip) -> bool:
-    #     assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
-    #     mars = outgo.mars
-    #     # check data type
-    #     if mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
-    #         # put back for response
-    #         self.gate.park_ship(ship=outgo)
-    #     # send out request data
-    #     return super()._send_outgo_ship(outgo=outgo)
+    # Override
+    def _send_outgo_ship(self, outgo: StarShip) -> bool:
+        assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
+        mars = outgo.mars
+        # check data type
+        if mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
+            # put back for response
+            self.gate.park_ship(ship=outgo)
+        # send out request data
+        return super()._send_outgo_ship(outgo=outgo)
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:
