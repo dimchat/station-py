@@ -161,7 +161,9 @@ class Worker(threading.Thread, Logging):
         while self.__running:
             try:
                 # check handshake
-                if not self.__messenger.accepted:
+                if self.__messenger.accepted:
+                    break
+                else:
                     self.error('not handshake yet, trying to reconnect')
                     self._reconnect()
             except Exception as error:
