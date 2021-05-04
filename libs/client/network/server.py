@@ -93,11 +93,12 @@ class Server(Station, MessengerDelegate):
     def error(self, msg: str):
         Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
-    def connect(self):
+    def connect(self) -> Session:
         if self.__session is None:
             session = Session(messenger=self.messenger, host=self.host, port=self.port)
             session.start()
             self.__session = session
+        return self.__session
 
     def disconnect(self):
         if self.__session is not None:

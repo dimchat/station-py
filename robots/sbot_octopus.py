@@ -124,12 +124,14 @@ class OuterMessenger(OctopusMessenger):
 class Worker(threading.Thread, Logging):
     """ Client-Server connection keeper """
 
-    def __init__(self, client: Terminal, server: Server, messenger: ClientMessenger):
+    def __init__(self, client: Terminal, server: Server, messenger: OctopusMessenger):
         super().__init__()
         self.__running = False
         self.__waiting_list: List[ReliableMessage] = []  # sending messages
         self.__lock = threading.Lock()
         self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
+        self.__server = server
+        self.__messenger = messenger
 
     @property
     def client(self) -> Terminal:
@@ -145,33 +147,28 @@ class Worker(threading.Thread, Logging):
                 return self.__waiting_list.pop(0)
 
     def run(self):
-        messenger = self.client.messenger
-        assert isinstance(messenger, OctopusMessenger), 'octopus messenger error: %s' % messenger
+        self.setup()
+        try:
+            self.handle()
+        finally:
+            self.finish()
+
+    def stop(self):
+        self.__running = False
+
+    def setup(self):
         self.__running = True
         while self.__running:
             try:
-                while self.__running and messenger.accepted:
-                    msg = self.pop_msg()
-                    if msg is None:
-                        # waiting queue empty, have a rest
-                        time.sleep(0.1)
-                        continue
-                    if messenger.send_message(msg=msg):
-                        # sent
-                        continue
-                    receiver = msg.receiver
-                    if receiver.is_broadcast or receiver.type == NetworkType.STATION:
-                        # ignore broadcast messages
-                        continue
-                    self.error('failed to send message, store it: %s' % msg)
-                    g_database.store_message(msg=msg)
-                    # time.sleep(2)
+                # check handshake
+                if not self.__messenger.accepted:
+                    self.error('not handshake yet, trying to reconnect')
+                    self._reconnect()
             except Exception as error:
-                self.error('octopus error: %s -> %s' % (self.client.server, error))
+                self.error('octopus error: %s -> %s' % (self.__server, error))
                 traceback.print_exc()
-            finally:
-                self.info('octopus waiting server accepted: %s ...' % self.client.server)
-                time.sleep(2)
+
+    def finish(self):
         self.info('octopus exit: %s' % self.client.server)
         while True:
             msg = self.pop_msg()
@@ -180,8 +177,53 @@ class Worker(threading.Thread, Logging):
             else:
                 g_database.store_message(msg=msg)
 
-    def stop(self):
-        self.__running = False
+    def handle(self):
+        while self.__running:
+            try:
+                # handling
+                while self.__running:
+                    if self.__messenger.accepted:
+                        if not self.process():
+                            # waiting queue empty, have a rest
+                            self._idle()
+                    elif not self._reconnect():
+                        # reconnect failed, have a rest
+                        self._idle()
+            except Exception as error:
+                self.error('octopus error: %s -> %s' % (self.client.server, error))
+                traceback.print_exc()
+            finally:
+                self.info('octopus waiting server accepted: %s ...' % self.client.server)
+                time.sleep(5)
+
+    def process(self) -> bool:
+        msg = self.pop_msg()
+        if msg is not None:
+            if self.__messenger.send_message(msg=msg):
+                # sent
+                return True
+            receiver = msg.receiver
+            if receiver.is_broadcast or receiver.type == NetworkType.STATION:
+                # ignore broadcast messages
+                return True
+            sender = msg.sender
+            if sender.type == NetworkType.STATION:
+                # ignore station message
+                return True
+            self.error('failed to send message, store it: %s' % msg)
+            g_database.store_message(msg=msg)
+            return True
+
+    def _reconnect(self) -> bool:
+        time.sleep(5)
+        session = self.__server.connect()
+        if session.gate.opened:
+            self.__server.handshake()
+            return True
+
+    # noinspection PyMethodMayBeStatic
+    def _idle(self):
+        time.sleep(0.1)
 
 
 class Octopus(Logging):
@@ -253,6 +295,7 @@ class Octopus(Logging):
                 sent_neighbors = []
             else:
                 msg.pop('sent_neighbors')
+            sent_neighbors.append(None)  # separator for logs
             for sid in all_neighbors:
                 if str(sid) in sent_neighbors:
                     self.debug('station %s in sent list, ignore this neighbor' % sid)
@@ -260,12 +303,17 @@ class Octopus(Logging):
                     self.debug('station %s in traced list, ignore this neighbor' % sid)
                 elif not self.__deliver_message(msg=msg, neighbor=sid):
                     self.error('failed to broadcast message to: %s' % sid)
+                else:
+                    sent_neighbors.append(sid)
+            self.info('message broadcast to neighbor stations: %s' % sent_neighbors)
         else:
             # redirect to single neighbor
             msg.pop('target')
             if not self.__deliver_message(msg=msg, neighbor=target):
                 self.error('failed to deliver message to: %s, save roaming message' % target)
                 g_database.store_message(msg=msg)
+            else:
+                self.info('message redirect to neighbor station: %s' % target)
 
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         sid = g_station.identifier
