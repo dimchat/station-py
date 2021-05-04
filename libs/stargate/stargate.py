@@ -52,15 +52,11 @@ class StarGate(Gate, ConnectionDelegate):
     def __init__(self, connection: Connection):
         super().__init__()
         self.__dock = Dock()
-        self.__connection = connection
+        self.__conn = connection
         self.__lock = threading.RLock()
         self.__worker: Optional[Worker] = None
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__running = False
-
-    @property
-    def connection(self) -> Connection:
-        return self.__connection
 
     # Override
     @property
@@ -71,11 +67,11 @@ class StarGate(Gate, ConnectionDelegate):
 
     def _create_worker(self) -> Optional[Worker]:
         # override to customize Worker
-        if MTPDocker.check(connection=self.__connection):
+        if MTPDocker.check(connection=self.__conn):
             return MTPDocker(gate=self)
-        if MarsDocker.check(connection=self.__connection):
+        if MarsDocker.check(connection=self.__conn):
             return MarsDocker(gate=self)
-        if WSDocker.check(connection=self.__connection):
+        if WSDocker.check(connection=self.__conn):
             return WSDocker(gate=self)
 
     @worker.setter
@@ -97,11 +93,20 @@ class StarGate(Gate, ConnectionDelegate):
         else:
             self.__delegate = weakref.ref(handler)
 
+    @property
+    def opened(self) -> bool:
+        if self.__running:
+            # connection not closed or still have data unprocessed
+            return self.__conn.alive or self.__conn.received() is not None
+
+    @property
+    def expired(self) -> bool:
+        return self.__conn.status == ConnectionStatus.Expired
+
     # Override
     @property
     def status(self) -> GateStatus:
-        assert self.__connection is not None, 'connection should not empty'
-        return gate_status(status=self.__connection.status)
+        return gate_status(status=self.__conn.status)
 
     # Override
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
@@ -124,19 +129,16 @@ class StarGate(Gate, ConnectionDelegate):
 
     # Override
     def send(self, data: bytes) -> bool:
-        assert self.__connection is not None, 'connection should not empty'
         with self.__lock:
-            return self.__connection.send(data=data) == len(data)
+            return self.__conn.send(data=data) == len(data)
 
     # Override
     def received(self) -> Optional[bytes]:
-        assert self.__connection is not None, 'connection should not empty'
-        return self.__connection.received()
+        return self.__conn.received()
 
     # Override
     def receive(self, length: int) -> Optional[bytes]:
-        assert self.__connection is not None, 'connection should not empty'
-        return self.__connection.receive(length=length)
+        return self.__conn.receive(length=length)
 
     #
     #   Docking
@@ -168,13 +170,6 @@ class StarGate(Gate, ConnectionDelegate):
     def stop(self):
         self.__running = False
 
-    @property
-    def opened(self) -> bool:
-        if self.__running:
-            conn = self.__connection
-            # connection not closed or still have data unprocessed
-            return conn.alive or conn.received() is not None
-
     def setup(self):
         self.__running = True
         if not self.opened:
@@ -190,6 +185,7 @@ class StarGate(Gate, ConnectionDelegate):
             worker.setup()
 
     def finish(self):
+        self.__running = False
         # clean worker
         if self.__worker is not None:
             self.__worker.finish()

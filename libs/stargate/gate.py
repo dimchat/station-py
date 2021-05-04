@@ -98,11 +98,6 @@ class Gate:
     """ Star Gate of remote peer """
 
     @property
-    def connection(self) -> Connection:
-        """ Get current connection """
-        raise NotImplemented
-
-    @property
     def worker(self) -> Optional[Worker]:
         """ Get worker for processing packages """
         raise NotImplemented
@@ -115,6 +110,11 @@ class Gate:
     @property
     def opened(self) -> bool:
         """ Check whether StarGate is not closed and the current Connection is active """
+        raise NotImplemented
+
+    @property
+    def expired(self) -> bool:
+        """ Check whether Connection Status is expired for maintaining """
         raise NotImplemented
 
     @property

@@ -33,8 +33,6 @@ import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from tcp import ConnectionStatus
-
 from .ship import Ship
 from .starship import StarShip
 from .worker import Worker
@@ -87,7 +85,7 @@ class Docker(Worker):
     # Override
     def finish(self):
         # TODO: go through all outgo Ships parking in Dock and call 'sent failed' on their delegates
-        pass
+        self.__running = False
 
     # Override
     def handle(self):
@@ -130,8 +128,7 @@ class Docker(Worker):
             # check time for next heartbeat
             now = time.time()
             if now > self.__heartbeat_expired:
-                conn = self.gate.connection
-                if conn.status == ConnectionStatus.Expired:
+                if self.gate.expired:
                     beat = self._get_heartbeat()
                     if beat is not None:
                         # put the heartbeat into waiting queue
