@@ -32,11 +32,11 @@ from abc import abstractmethod
 from enum import IntEnum
 from typing import Optional
 
-from tcp import Connection, ConnectionStatus
+from tcp import ConnectionStatus
 
 from .ship import Ship, ShipDelegate
 from .starship import StarShip
-from .worker import Worker
+from .docker import Docker
 
 
 """
@@ -98,7 +98,7 @@ class Gate:
     """ Star Gate of remote peer """
 
     @property
-    def worker(self) -> Optional[Worker]:
+    def docker(self) -> Optional[Docker]:
         """ Get worker for processing packages """
         raise NotImplemented
 

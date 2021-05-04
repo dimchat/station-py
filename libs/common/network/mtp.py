@@ -32,16 +32,16 @@ from typing import Optional
 
 from tcp import Connection
 
+from ...stargate import Gate
+from ...stargate import Ship, ShipDelegate
+from ...stargate import StarShip
+from ...stargate import StarDocker
+
 from dmtp.mtp.tlv import Data
 from dmtp.mtp import Package, Header
 from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
 from dmtp.mtp import MessageFragment as MTPMessageFragment
 from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
-
-from .ship import Ship, ShipDelegate
-from .starship import StarShip
-from .docker import Docker
-from .gate import Gate
 
 
 class MTPShip(StarShip):
@@ -71,7 +71,7 @@ class MTPShip(StarShip):
         return self.__mtp.body.get_bytes()
 
 
-class MTPDocker(Docker):
+class MTPDocker(StarDocker):
     """ Docker for MTP packages """
 
     def __init__(self, gate: Gate):

@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Star Gate: Interfaces for network connection
-#
-#                                Written in 2021 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
@@ -28,27 +23,24 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .ship import Ship, ShipDelegate
-from .gate import Gate, GateDelegate, GateStatus
-from .starship import StarShip
-from .stargate import StarGate
-from .dock import Dock
-from .docker import Docker
-from .stardocker import StarDocker
+from typing import Optional
+
+from ...stargate import StarGate as BaseGate
+from ...stargate import Docker
+
+from .ws import WSDocker
+from .mtp import MTPDocker
+from .mars import MarsDocker
 
 
-"""
-    Star Gate
-    ~~~~~~~~~
-    
-    Interfaces for network connection
-"""
+class StarGate(BaseGate):
 
-
-__all__ = [
-
-    'Ship', 'ShipDelegate',
-    'Gate', 'GateDelegate', 'GateStatus',
-    'StarShip', 'StarGate',
-    'Dock', 'Docker', 'StarDocker',
-]
+    # Override
+    def _create_docker(self) -> Optional[Docker]:
+        # override to customize Docker
+        if MTPDocker.check(connection=self.__conn):
+            return MTPDocker(gate=self)
+        if MarsDocker.check(connection=self.__conn):
+            return MarsDocker(gate=self)
+        if WSDocker.check(connection=self.__conn):
+            return WSDocker(gate=self)

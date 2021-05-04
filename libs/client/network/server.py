@@ -44,8 +44,8 @@ from dimsdk import MessengerDelegate, CompletionHandler
 from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
-from ...stargate import GateStatus, ShipDelegate, StarShip
-from ...stargate import MTPDocker
+from ...common.network import GateStatus, ShipDelegate, StarShip
+from ...common.network import MTPDocker
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
@@ -54,8 +54,7 @@ class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, host: str, port: int):
         super().__init__(messenger=messenger, connection=ActiveConnection(address=(host, port)))
-        self.__address = (host, port)
-        self.gate.worker = MTPDocker(gate=self.gate)
+        self.gate.docker = MTPDocker(gate=self.gate)
 
     def setup(self):
         self.active = True

@@ -32,12 +32,12 @@ from typing import Optional
 
 from tcp import Connection
 
-from .protocol import NetMsg, NetMsgHead, NetMsgSeq
+from ...stargate import Gate
+from ...stargate import Ship, ShipDelegate
+from ...stargate import StarShip
+from ...stargate import StarDocker
 
-from .ship import Ship, ShipDelegate
-from .starship import StarShip
-from .docker import Docker
-from .gate import Gate
+from .proto import NetMsg, NetMsgHead, NetMsgSeq
 
 
 def seq_to_sn(seq: int) -> bytes:
@@ -88,7 +88,7 @@ class MarsShip(StarShip):
             return body[pos+1:]
 
 
-class MarsDocker(Docker):
+class MarsDocker(StarDocker):
     """ Docker for Mars packages """
 
     def __init__(self, gate: Gate):

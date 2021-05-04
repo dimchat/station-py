@@ -42,7 +42,7 @@ from dimsdk.messenger import MessageCallback
 
 from libs.utils import Logging
 from libs.utils import NotificationCenter
-from libs.stargate import GateDelegate
+from libs.common.network import GateDelegate
 from libs.common import NotificationNames
 from libs.server import ServerMessenger, SessionServer, Session
 

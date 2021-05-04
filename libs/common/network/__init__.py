@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Star Gate: Interfaces for network connection
-#
-#                                Written in 2021 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
@@ -28,45 +23,26 @@
 # SOFTWARE.
 # ==============================================================================
 
-from abc import abstractmethod
-from typing import Optional
+from ...stargate import Ship, ShipDelegate
+from ...stargate import Gate, GateDelegate, GateStatus
+from ...stargate import StarShip
 
-from .ship import ShipDelegate
-from .starship import StarShip
+from .gate import StarGate
 
-
-"""
-    Star Worker
-    ~~~~~~~~~~~
-
-    Processor for Star Ships
-"""
+from .ws import WSShip, WSDocker
+from .mtp import MTPShip, MTPDocker
+from .mars import MarsShip, MarsDocker
 
 
-class Worker:
-    """ Star Worker for packages in Ships """
+__all__ = [
 
-    @abstractmethod
-    def setup(self):
-        """ Set up connection """
-        raise NotImplemented
+    'Ship', 'ShipDelegate',
+    'Gate', 'GateDelegate', 'GateStatus',
+    'StarShip',
 
-    @abstractmethod
-    def handle(self):
-        """ Call 'process()' circularly """
-        raise NotImplemented
+    'StarGate',
 
-    @abstractmethod
-    def process(self) -> bool:
-        """ Process incoming/outgoing Ships """
-        raise NotImplemented
-
-    @abstractmethod
-    def finish(self):
-        """ Do clean jobs """
-        raise NotImplemented
-
-    @abstractmethod
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        """ Pack the payload to an outgo Ship """
-        raise NotImplemented
+    'WSShip', 'WSDocker',
+    'MTPShip', 'MTPDocker',
+    'MarsShip', 'MarsDocker',
+]

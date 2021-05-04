@@ -28,15 +28,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
-import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from .ship import Ship
+from .ship import ShipDelegate
 from .starship import StarShip
-from .worker import Worker
-from .gate import Gate
 
 
 """
@@ -47,131 +43,30 @@ from .gate import Gate
 """
 
 
-class Docker(Worker):
-
-    def __init__(self, gate: Gate):
-        super().__init__()
-        self.__gate = weakref.ref(gate)
-        self.__running = False
-        # time for checking heartbeat
-        self.__heartbeat_expired = int(time.time()) + 2
-
-    @property
-    def gate(self) -> Gate:
-        return self.__gate()
-
-    #
-    #   Running
-    #
-
-    def run(self):
-        self.setup()
-        try:
-            self.handle()
-        finally:
-            self.finish()
-
-    def stop(self):
-        self.__running = False
-
-    @property
-    def working(self) -> bool:
-        return self.__running and self.gate.opened
-
-    # Override
-    def setup(self):
-        self.__running = True
-
-    # Override
-    def finish(self):
-        # TODO: go through all outgo Ships parking in Dock and call 'sent failed' on their delegates
-        self.__running = False
-
-    # Override
-    def handle(self):
-        while self.working:
-            if not self.process():
-                self._idle()
-
-    # noinspection PyMethodMayBeStatic
-    def _idle(self):
-        time.sleep(0.1)
-
-    # Override
-    def process(self) -> bool:
-        # 1. process income
-        income = self._get_income_ship()
-        if income is not None:
-            res = self._process_income_ship(income=income)
-            if res is not None:
-                if res.priority == StarShip.SLOWER:
-                    # put the response into waiting queue
-                    self.gate.park_ship(ship=res)
-                else:
-                    # send response directly
-                    self._send_outgo_ship(outgo=res)
-        # 2. process outgo
-        outgo = self._get_outgo_ship()
-        if outgo is not None:
-            if outgo.expired:
-                # outgo Ship expired, callback
-                delegate = outgo.delegate
-                if delegate is not None:
-                    delegate.ship_sent(ship=outgo, error=TimeoutError('Request timeout'))
-            elif not self._send_outgo_ship(outgo=outgo):
-                # failed to send outgo Ship, callback
-                delegate = outgo.delegate
-                if delegate is not None:
-                    delegate.ship_sent(ship=outgo, error=IOError('Connection error'))
-        # 3. heart beat
-        if income is None and outgo is None:
-            # check time for next heartbeat
-            now = time.time()
-            if now > self.__heartbeat_expired:
-                if self.gate.expired:
-                    beat = self._get_heartbeat()
-                    if beat is not None:
-                        # put the heartbeat into waiting queue
-                        self.gate.park_ship(ship=beat)
-                # try heartbeat next 2 seconds
-                self.__heartbeat_expired = now + 2
-            return False
-        else:
-            return True
+class Docker:
+    """ Star Worker for packages in Ships """
 
     @abstractmethod
-    def _get_income_ship(self) -> Optional[Ship]:
-        """ Get income Ship from Connection """
+    def setup(self):
+        """ Set up connection """
         raise NotImplemented
 
     @abstractmethod
-    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
-        """ Override to process income Ship """
-        linked = self._get_outgo_ship(income=income)
-        if linked is None:
-            return None
-        # callback for the linked outgo Ship and remove it
-        delegate = linked.delegate
-        if delegate is not None:
-            delegate.ship_sent(ship=linked)
+    def handle(self):
+        """ Call 'process()' circularly """
+        raise NotImplemented
 
-    def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
-        """ Get outgo Ship from waiting queue """
-        if income is None:
-            # get next new task (time == 0)
-            outgo = self.gate.pull_ship()
-            if outgo is None:
-                # no more new task now, get any expired task
-                outgo = self.gate.any_ship()
-        else:
-            # get task with ID
-            outgo = self.gate.pull_ship(sn=income.sn)
-        return outgo
+    @abstractmethod
+    def process(self) -> bool:
+        """ Process incoming/outgoing Ships """
+        raise NotImplemented
 
-    def _send_outgo_ship(self, outgo: StarShip) -> bool:
-        """ Send outgo Ship via current Connection """
-        return self.gate.send(data=outgo.package)
+    @abstractmethod
+    def finish(self):
+        """ Do clean jobs """
+        raise NotImplemented
 
-    def _get_heartbeat(self) -> Optional[StarShip]:
-        """ Get an empty ship for keeping connection alive """
-        pass
+    @abstractmethod
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
+        """ Pack the payload to an outgo Ship """
+        raise NotImplemented

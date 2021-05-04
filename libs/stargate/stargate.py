@@ -38,13 +38,9 @@ from tcp import Connection, ConnectionStatus, ConnectionDelegate
 from .ship import ShipDelegate
 from .starship import StarShip
 from .dock import Dock
-from .worker import Worker
+from .docker import Docker
 from .gate import gate_status
 from .gate import Gate, GateStatus, GateDelegate
-
-from .ws import WSDocker
-from .mtp import MTPDocker
-from .mars import MarsDocker
 
 
 class StarGate(Gate, ConnectionDelegate):
@@ -54,29 +50,24 @@ class StarGate(Gate, ConnectionDelegate):
         self.__dock = Dock()
         self.__conn = connection
         self.__lock = threading.RLock()
-        self.__worker: Optional[Worker] = None
+        self.__docker: Optional[Docker] = None
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__running = False
 
     # Override
     @property
-    def worker(self) -> Optional[Worker]:
-        if self.__worker is None:
-            self.__worker = self._create_worker()
-        return self.__worker
+    def docker(self) -> Optional[Docker]:
+        if self.__docker is None:
+            self.__docker = self._create_docker()
+        return self.__docker
 
-    def _create_worker(self) -> Optional[Worker]:
-        # override to customize Worker
-        if MTPDocker.check(connection=self.__conn):
-            return MTPDocker(gate=self)
-        if MarsDocker.check(connection=self.__conn):
-            return MarsDocker(gate=self)
-        if WSDocker.check(connection=self.__conn):
-            return WSDocker(gate=self)
+    def _create_docker(self) -> Optional[Docker]:
+        # override to customize Docker
+        raise NotImplemented
 
-    @worker.setter
-    def worker(self, docker: Worker):
-        self.__worker = docker
+    @docker.setter
+    def docker(self, worker: Docker):
+        self.__docker = worker
 
     # Override
     @property
@@ -110,7 +101,7 @@ class StarGate(Gate, ConnectionDelegate):
 
     # Override
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        worker = self.worker
+        worker = self.docker
         if worker is None:
             return False
         if self.status != GateStatus.Connected:
@@ -175,20 +166,20 @@ class StarGate(Gate, ConnectionDelegate):
         if not self.opened:
             # waiting for connection
             self._idle()
-        # check worker
-        while self.worker is None and self.opened:
-            # waiting for worker
+        # check docker
+        while self.docker is None and self.opened:
+            # waiting for docker
             self._idle()
-        # setup worker
-        worker = self.worker
+        # setup docker
+        worker = self.docker
         if worker is not None:
             worker.setup()
 
     def finish(self):
         self.__running = False
-        # clean worker
-        if self.__worker is not None:
-            self.__worker.finish()
+        # clean docker
+        if self.__docker is not None:
+            self.__docker.finish()
 
     # Override
     def handle(self):
@@ -201,10 +192,10 @@ class StarGate(Gate, ConnectionDelegate):
         time.sleep(0.1)
 
     def process(self) -> bool:
-        if self.__worker is None:
+        if self.__docker is None:
             raise AssertionError('Star worker not found!')
         else:
-            return self.__worker.process()
+            return self.__docker.process()
 
     #
     #   ConnectionDelegate
@@ -221,7 +212,7 @@ class StarGate(Gate, ConnectionDelegate):
 
     # Override
     def connection_received(self, connection, data: bytes):
-        # received data will be processed in run loop (Docker::handle),
+        # received data will be processed in run loop (StarDocker::handle),
         # do nothing here
         pass
 

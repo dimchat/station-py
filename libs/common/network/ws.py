@@ -32,12 +32,12 @@ from typing import Optional
 
 from tcp import Connection
 
-from .protocol import WebSocket
+from ...stargate import Gate
+from ...stargate import Ship, ShipDelegate
+from ...stargate import StarShip
+from ...stargate import StarDocker
 
-from .ship import Ship, ShipDelegate
-from .starship import StarShip
-from .docker import Docker
-from .gate import Gate
+from .proto import WebSocket
 
 
 def seq_to_sn(seq: int) -> bytes:
@@ -68,7 +68,7 @@ class WSShip(StarShip):
         return self.__payload
 
 
-class WSDocker(Docker):
+class WSDocker(StarDocker):
     """ Docker for WebSocket packages """
 
     def __init__(self, gate: Gate):

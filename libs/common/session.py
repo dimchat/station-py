@@ -47,8 +47,9 @@ from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
-from ..stargate import GateStatus, GateDelegate, StarGate
-from ..stargate import Ship, ShipDelegate
+
+from .network import GateStatus, GateDelegate, StarGate
+from .network import Ship, ShipDelegate
 
 from .database import Database
 from .messenger import CommonMessenger
@@ -104,7 +105,7 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #
     def finished(self, result, error=None):
         if error is None:
-            # this message was assigned to the Worker of StarGate,
+            # this message was assigned to the worker of StarGate,
             # update sent time
             self.__time = int(time.time())
         else:
@@ -235,6 +236,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def process(self) -> bool:
         if self.__gate.process():
+            # processed income/outgo packages
             return True
         self.__clean()
         if not self.active:
@@ -243,8 +245,11 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         # get next message
         wrapper = self.__queue.next()
         if wrapper is None:
+            # no more new message
             msg = None
         else:
+            # if msg in this wrapper is None (means sent successfully),
+            # it must have been cleaned already, so it should not be empty here.
             msg = wrapper.msg
         if msg is None:
             # no more new message
