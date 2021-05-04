@@ -40,8 +40,6 @@ import threading
 from weakref import WeakValueDictionary
 from typing import Optional, Dict, Set
 
-from tcp import BaseConnection
-
 from dimp import hex_encode
 from dimp import ID
 from dimsdk.plugins.aes import random_bytes
@@ -61,9 +59,9 @@ def generate_session_key() -> str:
 
 class Session(BaseSession):
 
-    def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
-        super().__init__(messenger=messenger, connection=connection)
-        self.__client_address = connection.address
+    def __init__(self, messenger: CommonMessenger, sock: socket.socket):
+        super().__init__(messenger=messenger, sock=sock)
+        self.__client_address = sock.getpeername()
         self.__key = generate_session_key()
         self.__identifier = None
 
@@ -109,7 +107,7 @@ class SessionServer:
             session = self.__sessions.get(client_address)
             if session is None and messenger is not None and sock is not None:
                 # create a new session and cache it
-                session = Session(messenger=messenger, connection=BaseConnection(sock=sock))
+                session = Session(messenger=messenger, sock=sock)
                 self.__sessions[client_address] = session
             return session
 

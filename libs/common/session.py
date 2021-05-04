@@ -35,13 +35,12 @@
     for login user
 """
 
+import socket
 import threading
 import time
 import traceback
 import weakref
 from typing import Optional, List
-
-from tcp import BaseConnection
 
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
@@ -148,17 +147,22 @@ class MessageQueue:
                     return wrapper
 
 
+def create_gate(delegate: GateDelegate,
+                address: Optional[tuple] = None,
+                sock: Optional[socket.socket] = None) -> StarGate:
+    gate = StarGate(address=address, sock=sock)
+    gate.delegate = delegate
+    return gate
+
+
 class BaseSession(threading.Thread, GateDelegate, Logging):
 
-    def __init__(self, messenger: CommonMessenger, connection: BaseConnection):
+    def __init__(self, messenger: CommonMessenger,
+                 address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
         super().__init__()
         self.__queue = MessageQueue()
         self.__messenger = weakref.ref(messenger)
-        self.__connection = connection
-        gate = StarGate(connection=connection)
-        gate.delegate = self
-        connection.delegate = gate
-        self.__gate = gate
+        self.__gate = create_gate(delegate=self, address=address, sock=sock)
         # session status
         self.__active = False
         self.__running = False
@@ -213,12 +217,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def setup(self):
         self.__running = True
-        threading.Thread(target=self.__connection.run).start()
         self.__gate.setup()
 
     def finish(self):
         self.__gate.finish()
-        self.__connection.stop()
         self.__flush()
 
     @property

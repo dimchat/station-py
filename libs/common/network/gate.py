@@ -23,7 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
+import socket
+import threading
 from typing import Optional
+
+from tcp import BaseConnection, ActiveConnection, ConnectionDelegate
 
 from ...stargate import StarGate as BaseGate
 from ...stargate import Docker
@@ -33,7 +37,23 @@ from .mtp import MTPDocker
 from .mars import MarsDocker
 
 
+def create_connection(delegate: ConnectionDelegate,
+                      address: Optional[tuple] = None,
+                      sock: Optional[socket.socket] = None) -> BaseConnection:
+    if address is None:
+        conn = BaseConnection(sock=sock)
+    else:
+        conn = ActiveConnection(address=address, sock=sock)
+    conn.delegate = delegate
+    return conn
+
+
 class StarGate(BaseGate):
+
+    def __init__(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
+        conn = create_connection(delegate=self, address=address, sock=sock)
+        super().__init__(connection=conn)
+        self.__conn = conn
 
     # Override
     def _create_docker(self) -> Optional[Docker]:
@@ -44,3 +64,13 @@ class StarGate(BaseGate):
             return MarsDocker(gate=self)
         if WSDocker.check(connection=self.__conn):
             return WSDocker(gate=self)
+
+    # Override
+    def setup(self):
+        threading.Thread(target=self.__conn.run).start()
+        super().setup()
+
+    # Override
+    def finish(self):
+        super().finish()
+        self.__conn.stop()

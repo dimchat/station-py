@@ -34,8 +34,6 @@ import weakref
 from abc import abstractmethod
 from typing import Optional
 
-from tcp import ActiveConnection
-
 from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
@@ -53,7 +51,7 @@ from ...common import BaseSession
 class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, host: str, port: int):
-        super().__init__(messenger=messenger, connection=ActiveConnection(address=(host, port)))
+        super().__init__(messenger=messenger, address=(host, port))
         self.gate.docker = MTPDocker(gate=self.gate)
 
     def setup(self):
