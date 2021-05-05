@@ -32,12 +32,12 @@ from typing import Optional
 
 from tcp import Connection
 
-from ...stargate import Gate
-from ...stargate import Ship, ShipDelegate
-from ...stargate import StarShip
-from ...stargate import StarDocker
+from startrek import Gate
+from startrek import Ship, ShipDelegate
+from startrek import StarShip
+from startrek import StarDocker
 
-from .proto import NetMsg, NetMsgHead, NetMsgSeq
+from .protocol import NetMsg, NetMsgHead, NetMsgSeq
 
 
 def seq_to_sn(seq: int) -> bytes:

@@ -29,8 +29,8 @@ from typing import Optional
 
 from tcp import BaseConnection, ActiveConnection, ConnectionDelegate
 
-from ...stargate import StarGate as BaseGate
-from ...stargate import Docker
+from startrek import StarGate as BaseGate
+from startrek import Docker
 
 from .ws import WSDocker
 from .mtp import MTPDocker

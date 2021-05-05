@@ -32,10 +32,10 @@ from typing import Optional
 
 from tcp import Connection
 
-from ...stargate import Gate
-from ...stargate import Ship, ShipDelegate
-from ...stargate import StarShip
-from ...stargate import StarDocker
+from startrek import Gate
+from startrek import Ship, ShipDelegate
+from startrek import StarShip
+from startrek import StarDocker
 
 from dmtp.mtp.tlv import Data
 from dmtp.mtp import Package, Header

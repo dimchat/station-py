@@ -47,8 +47,8 @@ from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
 
-from .network import GateStatus, GateDelegate, StarGate
-from .network import Ship, ShipDelegate
+from ..network import GateStatus, GateDelegate, StarGate
+from ..network import Ship, ShipDelegate
 
 from .database import Database
 from .messenger import CommonMessenger

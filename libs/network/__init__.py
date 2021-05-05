@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Star Gate: Interfaces for network connection
-#
-#                                Written in 2021 by Moky <albert.moky@gmail.com>
-#
 # ==============================================================================
 # MIT License
 #
@@ -28,27 +23,26 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .ship import Ship, ShipDelegate
-from .gate import Gate, GateDelegate, GateStatus
-from .starship import StarShip
-from .stargate import StarGate
-from .dock import Dock
-from .docker import Docker
-from .stardocker import StarDocker
+from startrek import Ship, ShipDelegate
+from startrek import Gate, GateDelegate, GateStatus
+from startrek import StarShip
 
+from .gate import StarGate
 
-"""
-    Star Gate
-    ~~~~~~~~~
-    
-    Interfaces for network connection
-"""
+from .ws import WSShip, WSDocker
+from .mtp import MTPShip, MTPDocker
+from .mars import MarsShip, MarsDocker
 
 
 __all__ = [
 
     'Ship', 'ShipDelegate',
     'Gate', 'GateDelegate', 'GateStatus',
-    'StarShip', 'StarGate',
-    'Dock', 'Docker', 'StarDocker',
+    'StarShip',
+
+    'StarGate',
+
+    'WSShip', 'WSDocker',
+    'MTPShip', 'MTPDocker',
+    'MarsShip', 'MarsDocker',
 ]

@@ -42,8 +42,8 @@ from dimsdk import MessengerDelegate, CompletionHandler
 from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
-from ...common.network import GateStatus, ShipDelegate, StarShip
-from ...common.network import MTPDocker
+from ...network import GateStatus, ShipDelegate, StarShip
+from ...network import MTPDocker
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
