@@ -220,6 +220,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         self.__gate.setup()
 
     def finish(self):
+        self.__running = False
         self.__gate.finish()
         self.__flush()
 

@@ -34,7 +34,7 @@ import threading
 import time
 import traceback
 from json import JSONDecodeError
-from typing import Optional, List, Union
+from typing import Optional, List
 
 from dimp import ID, NetworkType
 from dimsdk import Station
@@ -81,7 +81,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         return self.__station
 
     @station.setter
-    def station(self, server: Union[ID, Station]):
+    def station(self, server: ID):
         if isinstance(server, Station):
             server = server.identifier
         self.__station = server

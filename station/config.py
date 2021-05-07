@@ -216,9 +216,9 @@ g_facebook.current_user = current_station
 # set current station for key store
 g_keystore.user = current_station
 # set current station for dispatcher
-g_dispatcher.station = current_station
+g_dispatcher.station = current_station.identifier
 # set current station for receptionist
-g_receptionist.station = current_station
+g_receptionist.station = current_station.identifier
 
 # load neighbour station for delivering message
 Log.info('-------- Loading neighbor stations: %d' % len(all_stations))
@@ -227,6 +227,6 @@ for node in all_stations:
         Log.info('current node: %s' % node)
         continue
     Log.info('add node: %s' % node)
-    g_dispatcher.add_neighbor(station=node)
+    g_dispatcher.add_neighbor(station=node.identifier)
 
 Log.info('======== configuration OK!')

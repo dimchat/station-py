@@ -124,13 +124,13 @@ class Dispatcher(NotificationObserver):
         return self.__single_worker.station
 
     @station.setter
-    def station(self, server: Union[ID, Station]):
+    def station(self, server: ID):
         sid = _entity_id(server)
         self.__single_worker.station = sid
         self.__group_worker.station = sid
         self.__broadcast_worker.station = sid
 
-    def add_neighbor(self, station: Union[Station, ID]):
+    def add_neighbor(self, station: ID):
         sid = _entity_id(station)
         self.__single_worker.add_neighbor(station=sid)
         self.__group_worker.add_neighbor(station=sid)
@@ -280,6 +280,8 @@ class Worker(threading.Thread, Logging):
 
     @station.setter
     def station(self, server: ID):
+        if isinstance(server, Station):
+            server = server.identifier
         self.__station = server
 
     @property

@@ -36,7 +36,7 @@ import os
 import threading
 import time
 import traceback
-from typing import Optional, Union, Dict, List
+from typing import Optional, Dict, List
 
 from dimp import ID, NetworkType, ReliableMessage
 from dimsdk import Station
@@ -53,7 +53,7 @@ from libs.common import msg_traced
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
 from robots.config import g_station
-from robots.config import load_station, dims_connect, all_stations
+from robots.config import dims_connect, all_stations
 
 
 g_facebook = ClientFacebook()
@@ -251,7 +251,7 @@ class Octopus(Logging):
         # local station
         self.__home.stop()
 
-    def add_neighbor(self, station: Union[Station, ID]) -> bool:
+    def add_neighbor(self, station: ID) -> bool:
         if isinstance(station, Station):
             station = station.identifier
         assert isinstance(station, ID), 'station ID error: %s' % station
@@ -262,7 +262,7 @@ class Octopus(Logging):
                 return True
         elif self.__neighbors.get(station) is None:
             # create remote station
-            server = load_station(identifier=station, facebook=g_facebook)
+            server = g_facebook.user(identifier=station)
             assert isinstance(server, Station), 'station error: %s' % station
             if not isinstance(server, Server):
                 server = Server(identifier=station, host=server.host, port=server.port)
@@ -339,13 +339,13 @@ if __name__ == '__main__':
 
     octopus = Octopus()
     # set local station
-    octopus.add_neighbor(g_station)
+    octopus.add_neighbor(station=g_station.identifier)
     Log.info('bridge for local station: %s' % g_station)
     # add neighbors
     for s in all_stations:
         if s == g_station:
             continue
-        octopus.add_neighbor(station=s)
+        octopus.add_neighbor(station=s.identifier)
         Log.info('bridge for neighbor station: %s' % s)
     # start all
     octopus.start()

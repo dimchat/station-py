@@ -84,8 +84,10 @@ class MarsShip(StarShip):
         if sn is None:
             return body
         else:
-            pos = body.find(b'\n')
-            return body[pos+1:]
+            # pos = body.find(b'\n')
+            # return body[pos+1:]
+            skip = 8 + len(sn) + 1
+            return body[skip:]
 
 
 class MarsDocker(StarDocker):
