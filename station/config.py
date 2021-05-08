@@ -193,7 +193,7 @@ g_facebook.group_assistants = group_assistants
 
 # convert ID to Station
 Log.info('-------- Loading stations: %d' % len(all_stations))
-all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
+all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
 
 # convert ID to Server
 Log.info('-------- creating servers: %d' % len(local_servers))

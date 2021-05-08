@@ -130,7 +130,7 @@ for key, value in ans_reserved_records.items():
 
 # convert ID to Station
 Log.info('-------- Loading stations: %d' % len(all_stations))
-all_stations = [load_station(identifier=item, facebook=g_facebook) for item in all_stations]
+all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
 
 # convert robot IDs
 Log.info('-------- robots')

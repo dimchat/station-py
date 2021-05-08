@@ -31,14 +31,23 @@ def load_station_info(identifier: ID, filename: str):
     return Storage.read_json(path=os.path.join(etc, str(identifier.address), filename))
 
 
-def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Station:
+def load_station(station: Union[ID, str, dict], facebook: CommonFacebook) -> Station:
     """ Load station info from 'etc' directory
 
-        :param identifier - station ID
+        :param station - station info
         :param facebook - social network data source
         :return station with info from 'dims/etc/{address}/*'
     """
-    identifier = ID.parse(identifier=identifier)
+    if isinstance(station, dict):
+        identifier = ID.parse(identifier=station.get('ID'))
+        name = station.get('name')
+        host = station.get('host')
+        port = station.get('port')
+    else:
+        identifier = ID.parse(identifier=station)
+        name = identifier.name
+        host = None
+        port = 9394
     # check meta
     meta = facebook.meta(identifier=identifier)
     if meta is None:
@@ -63,12 +72,12 @@ def load_station(identifier: Union[ID, str], facebook: CommonFacebook) -> Statio
     if profile is None:
         # create station profile from 'etc/xxx/profile.js'
         profile = load_station_info(identifier=identifier, filename='profile.js')
-        if profile is None:
-            raise LookupError('failed to get profile for station: %s' % identifier)
-        Log.info('station profile: %s' % profile)
-        name = profile.get('name')
-        host = profile.get('host')
-        port = profile.get('port')
+        if profile is not None:
+            Log.info('station profile: %s' % profile)
+            name = profile.get('name')
+            host = profile.get('host')
+            port = profile.get('port')
+        # sign for local station
         if private_key is not None:
             # create profile
             profile = Document.create(doc_type=Document.PROFILE, identifier=identifier)
