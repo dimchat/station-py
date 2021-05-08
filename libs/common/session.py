@@ -42,7 +42,7 @@ import traceback
 import weakref
 from typing import Optional, List
 
-from dimp import ReliableMessage
+from dimp import ReliableMessage, ContentType
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
@@ -65,6 +65,17 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
         super().__init__()
         self.__time = 0
         self.__msg = msg
+
+    @property
+    def priority(self) -> int:
+        msg = self.__msg
+        if msg is not None:
+            if msg.receiver.is_broadcast:
+                return 1  # SLOWER
+            group = msg.group
+            if group is not None and group.is_broadcast:
+                return 1  # SLOWER
+        return 0  # NORMAL
 
     @property
     def msg(self) -> Optional[ReliableMessage]:
@@ -258,7 +269,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             # no more new message
             return False
         # try to push
-        if not self.messenger.send_message(msg=msg, callback=wrapper):
+        if not self.messenger.send_message(msg=msg, callback=wrapper, priority=wrapper.priority):
             wrapper.fail()
         return True
 

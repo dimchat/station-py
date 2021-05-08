@@ -93,7 +93,7 @@ class ServerProcessor(CommonProcessor):
                 # and continue to process it with the station.
                 # because this station is also a recipient too.
                 if res is not None:
-                    messenger.send_message(msg=res)
+                    messenger.send_message(msg=res, priority=1)
             else:
                 # or, this is is an ordinary group message,
                 # just deliver it to the group assistant

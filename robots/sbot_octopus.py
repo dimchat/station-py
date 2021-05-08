@@ -70,13 +70,14 @@ class OctopusMessenger(ClientMessenger):
     def accepted(self) -> bool:
         return self.__accepted
 
-    @accepted.setter
-    def accepted(self, value: bool):
-        self.__accepted = value
-
     def connected(self):
-        self.accepted = False
-        super().connected()
+        # super().connected()
+        self.__accepted = False
+
+    def handshake_accepted(self, server: Server):
+        self.__accepted = True
+        self.info('start bridge for: %s' % self.server)
+        # super().handshake_accepted(server=server)
 
 
 class InnerMessenger(OctopusMessenger):
@@ -91,11 +92,6 @@ class InnerMessenger(OctopusMessenger):
             return octopus.departure(msg=msg)
         else:
             return super().process_reliable_message(msg=msg)
-
-    def handshake_accepted(self, server: Server):
-        super().handshake_accepted(server=server)
-        self.info('start bridge for: %s' % self.server)
-        self.accepted = True
 
 
 class OuterMessenger(OctopusMessenger):
@@ -113,8 +109,6 @@ class OuterMessenger(OctopusMessenger):
 
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
-        self.info('start bridge for: %s' % self.server)
-        self.accepted = True
         # query online users from neighbor station
         cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
         cmd.limit = -1
@@ -276,6 +270,7 @@ class Octopus(Logging):
             worker = self.__home
         else:
             worker = self.__neighbors.get(neighbor)
+            # TODO: if not connected directly, forward to the middle station
         if worker is None:
             self.error('neighbor station not defined: %s' % neighbor)
             return False
