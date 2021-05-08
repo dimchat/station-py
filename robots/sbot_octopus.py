@@ -48,7 +48,7 @@ sys.path.append(rootPath)
 from libs.utils import Log, Logging
 from libs.common import SearchCommand
 from libs.common import Database
-from libs.common import msg_traced
+from libs.common import msg_traced, is_broadcast_message
 
 from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
 
@@ -195,7 +195,11 @@ class Worker(threading.Thread, Logging):
     def process(self) -> bool:
         msg = self.pop_msg()
         if msg is not None:
-            if self.__messenger.send_message(msg=msg):
+            if is_broadcast_message(msg=msg):
+                priority = 1  # SLOWER
+            else:
+                priority = 0  # NORMAL
+            if self.__messenger.send_message(msg=msg, priority=priority):
                 # sent
                 return True
             receiver = msg.receiver

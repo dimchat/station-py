@@ -38,7 +38,7 @@ from .cpu import *
 from .database import Storage, Database
 
 from .notification import NotificationNames
-from .session import BaseSession
+from .session import BaseSession, is_broadcast_message
 
 from .ans import AddressNameServer
 
@@ -101,13 +101,6 @@ def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
             traces.append(str(node))
         msg['traces'] = traces
     return is_traced
-
-
-def is_broadcast_message(msg: ReliableMessage):
-    if msg.receiver.is_broadcast:
-        return True
-    group = msg.group
-    return group is not None and group.is_broadcast
 
 
 __all__ = [

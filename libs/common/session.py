@@ -42,7 +42,7 @@ import traceback
 import weakref
 from typing import Optional, List
 
-from dimp import ReliableMessage, ContentType
+from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
@@ -55,6 +55,13 @@ from .messenger import CommonMessenger
 
 
 g_database = Database()
+
+
+def is_broadcast_message(msg: ReliableMessage):
+    if msg.receiver.is_broadcast:
+        return True
+    group = msg.group
+    return group is not None and group.is_broadcast
 
 
 class MessageWrapper(ShipDelegate, MessengerCallback):
@@ -70,10 +77,7 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     def priority(self) -> int:
         msg = self.__msg
         if msg is not None:
-            if msg.receiver.is_broadcast:
-                return 1  # SLOWER
-            group = msg.group
-            if group is not None and group.is_broadcast:
+            if is_broadcast_message(msg=msg):
                 return 1  # SLOWER
         return 0  # NORMAL
 
