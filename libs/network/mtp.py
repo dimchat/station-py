@@ -150,14 +150,12 @@ class MTPDocker(StarDocker):
                 return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
             return None
         elif data_type == MTPCommandRespond:
-            # remove linked outgo Ship
-            return super()._process_income_ship(income=income)
+            # just ignore
+            return None
         elif data_type == MTPMessageFragment:
             # just ignore
             return None
         elif data_type == MTPMessageRespond:
-            # remove linked outgo Ship
-            super()._process_income_ship(income=income)
             if body.length == 0 or body == ok_body:
                 # just ignore
                 return None
@@ -177,23 +175,28 @@ class MTPDocker(StarDocker):
                 res = ok_body
             else:
                 res = Data(data=res)
+            # pack MessageRespond
             mtp = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
-            # send it directly
-            self.gate.send(data=mtp.get_bytes())
+            return MTPShip(mtp=mtp)
         elif res is not None and len(res) > 0:
             # pack as new Message and put into waiting queue
             return self.pack(payload=res, priority=StarShip.SLOWER)
 
     # Override
-    def _send_outgo_ship(self, outgo: StarShip) -> bool:
-        assert isinstance(outgo, MTPShip), 'outgo ship error: %s' % outgo
-        mtp = outgo.mtp
-        # check data type
-        if mtp.head.data_type == MTPMessage:
-            # put back for response
-            self.gate.park_ship(ship=outgo)
-        # send out request data
-        return super()._send_outgo_ship(outgo=outgo)
+    def _remove_linked_ship(self, income: Ship):
+        assert isinstance(income, MTPShip), 'income ship error: %s' % income
+        if income.mtp.head.data_type == MTPMessageRespond:
+            super()._remove_linked_ship(income=income)
+
+    # Override
+    def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
+        outgo = super()._get_outgo_ship(income=income)
+        if income is None and isinstance(outgo, MTPShip):
+            # check data type
+            if outgo.retries == 0 and outgo.mtp.head.data_type == MTPMessage:
+                # put back for response
+                self.gate.park_ship(ship=outgo)
+        return outgo
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

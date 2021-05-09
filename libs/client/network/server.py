@@ -143,7 +143,7 @@ class Server(Station, MessengerDelegate):
         # send out directly
         self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
         # Urgent Command
-        self.__session.send(payload=data, priority=StarShip.URGENT)
+        self.__session.send_payload(payload=data, priority=StarShip.URGENT)
 
     def handshake_success(self):
         user = self.facebook.current_user
@@ -163,7 +163,7 @@ class Server(Station, MessengerDelegate):
             callback = handler.callback
             if isinstance(callback, ShipDelegate):
                 delegate = callback
-        if self.__session.send(payload=data, delegate=delegate):
+        if self.__session.send_payload(payload=data, priority=priority, delegate=delegate):
             if handler is not None:
                 handler.success()
             return True

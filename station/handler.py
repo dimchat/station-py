@@ -130,7 +130,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
             callback = handler.callback
             if isinstance(callback, GateDelegate):
                 delegate = callback
-        if self.__session.send(payload=data, delegate=delegate):
+        if self.__session.send_payload(payload=data, priority=priority, delegate=delegate):
             if handler is not None:
                 handler.success()
             return True

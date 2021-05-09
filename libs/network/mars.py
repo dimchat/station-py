@@ -184,11 +184,6 @@ class MarsDocker(StarDocker):
             if len(body) == 0:
                 # FIXME: should not happen
                 return None
-            # remove linked outgo Ship
-            super()._process_income_ship(income=income)
-        elif cmd == NetMsgHead.PUSH_MESSAGE:
-            # remove linked outgo Ship
-            super()._process_income_ship(income=income)
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
             if len(body) == 0 or body == noop_body:
@@ -211,24 +206,29 @@ class MarsDocker(StarDocker):
             res = b''
         # 3. response
         if cmd in [NetMsgHead.NOOP, NetMsgHead.SEND_MSG]:
+            # pack with request.seq
             head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
             mars = NetMsg.new(head=head, body=res)
-            # send it directly
-            self.gate.send(data=mars.data)
+            return MarsShip(mars=mars)
         else:
             # pack and put into waiting queue
             return self.pack(payload=res, priority=StarShip.SLOWER)
 
     # Override
-    def _send_outgo_ship(self, outgo: StarShip) -> bool:
-        assert isinstance(outgo, MarsShip), 'outgo ship error: %s' % outgo
-        mars = outgo.mars
-        # check data type
-        if mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
-            # put back for response
-            self.gate.park_ship(ship=outgo)
-        # send out request data
-        return super()._send_outgo_ship(outgo=outgo)
+    def _remove_linked_ship(self, income: Ship):
+        assert isinstance(income, MarsShip), 'income ship error: %s' % income
+        if income.mars.head.cmd == NetMsgHead.SEND_MSG:
+            super()._remove_linked_ship(income=income)
+
+    # Override
+    def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
+        outgo = super()._get_outgo_ship(income=income)
+        if income is None and isinstance(outgo, MarsShip):
+            # check data type
+            if outgo.retries == 0 and outgo.mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
+                # put back for response
+                self.gate.park_ship(ship=outgo)
+        return outgo
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

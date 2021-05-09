@@ -147,11 +147,10 @@ class WSDocker(StarDocker):
         req_pack = WebSocket.pack(payload=res)
         return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
-    # # Override
-    # def _send_outgo_ship(self, outgo: StarShip) -> bool:
-    #     assert isinstance(outgo, WSShip), 'outgo ship error: %s' % outgo
-    #     # send out request data
-    #     return super()._send_outgo_ship(outgo=outgo)
+    # Override
+    def _remove_linked_ship(self, income: Ship):
+        # do nothing
+        pass
 
     # Override
     def _get_heartbeat(self) -> Optional[StarShip]:

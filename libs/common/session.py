@@ -277,7 +277,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             wrapper.fail()
         return True
 
-    def send(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.active:
             return self.__gate.send_payload(payload=payload, priority=priority, delegate=delegate)
         else:
