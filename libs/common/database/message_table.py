@@ -34,6 +34,13 @@ from dimp import ReliableMessage
 from .storage import Storage
 
 
+def is_broadcast_message(msg: ReliableMessage):
+    if msg.receiver.is_broadcast:
+        return True
+    group = msg.group
+    return group is not None and group.is_broadcast
+
+
 class MessageTable(Storage):
 
     MESSAGE_EXPIRES = 3600 * 24 * 7  # only relay cached messages within 7 days
@@ -110,14 +117,18 @@ class MessageTable(Storage):
     def store_message(self, msg: ReliableMessage) -> bool:
         sender = msg.sender
         receiver = msg.receiver
+        if is_broadcast_message(msg=msg):
+            self.info('ignore broadcast msg: %s -> %s' % (sender, receiver))
+            return False
         if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-            self.info('ignore station message: %s -> %s' % (sender, receiver))
+            self.info('ignore station msg: %s -> %s' % (sender, receiver))
             return False
         path = self.__message_path(msg=msg)
         if self.__message_exists(msg=msg, path=path):
-            self.error('message duplicated: %s' % msg)
+            self.error('msg duplicated: %s -> %s\n traces: %s\n signature: %s'
+                       % (sender, receiver, msg.get('traces'), msg.get('signature')))
             return False
-        self.debug('Appending message into: %s' % path)
+        self.debug('appending msg into: %s' % path)
         # message data
         data = utf8_decode(data=json_encode(msg.dictionary))
         data = data + '\n'

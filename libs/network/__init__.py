@@ -25,9 +25,9 @@
 
 from startrek import Ship, ShipDelegate
 from startrek import Gate, GateDelegate, GateStatus
-from startrek import StarShip
+from startrek import StarShip, StarGate
 
-from .gate import StarGate
+from .gate import StarTrek
 
 from .ws import WSShip, WSDocker
 from .mtp import MTPShip, MTPDocker
@@ -38,9 +38,9 @@ __all__ = [
 
     'Ship', 'ShipDelegate',
     'Gate', 'GateDelegate', 'GateStatus',
-    'StarShip',
+    'StarShip', 'StarGate',
 
-    'StarGate',
+    'StarTrek',
 
     'WSShip', 'WSDocker',
     'MTPShip', 'MTPDocker',

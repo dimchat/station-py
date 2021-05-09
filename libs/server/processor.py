@@ -70,7 +70,7 @@ class ServerProcessor(CommonProcessor):
                 return None
             s_msg = messenger.verify_message(msg=msg)
             if s_msg is None:
-                self.error('failed to verify message: %s' % msg)
+                self.error('failed to verify message: %s -> %s' % (sender, receiver))
                 return None
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:

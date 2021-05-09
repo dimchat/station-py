@@ -47,7 +47,7 @@ from dimsdk import Callback as MessengerCallback
 
 from ..utils import Logging
 
-from ..network import GateStatus, GateDelegate, StarGate
+from ..network import GateStatus, GateDelegate, StarGate, StarTrek
 from ..network import Ship, ShipDelegate
 
 from .database import Database
@@ -165,7 +165,7 @@ class MessageQueue:
 def create_gate(delegate: GateDelegate,
                 address: Optional[tuple] = None,
                 sock: Optional[socket.socket] = None) -> StarGate:
-    gate = StarGate(address=address, sock=sock)
+    gate = StarTrek.create(address=address, sock=sock)
     gate.delegate = delegate
     return gate
 
@@ -187,22 +187,25 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         self.__flush()
 
     def __flush(self):
-        # store all message
-        wrapper = self.__queue.pop()
-        while wrapper is not None:
+        # store all messages
+        while True:
+            wrapper = self.__queue.pop()
+            if wrapper is None:
+                break
             msg = wrapper.msg
             if msg is not None:
                 g_database.store_message(msg=msg)
-            wrapper = self.__queue.pop()
 
     def __clean(self):
-        wrapper = self.__queue.eject()
-        while wrapper is not None:
+        # store expired messages
+        while True:
+            wrapper = self.__queue.eject()
+            if wrapper is None:
+                break
             msg = wrapper.msg
             if msg is not None:
                 # task failed
                 g_database.store_message(msg=msg)
-            wrapper = self.__queue.eject()
 
     @property
     def messenger(self) -> Optional[CommonMessenger]:

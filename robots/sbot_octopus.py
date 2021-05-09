@@ -38,7 +38,7 @@ import time
 import traceback
 from typing import Optional, Dict, List
 
-from dimp import ID, NetworkType, ReliableMessage
+from dimp import ID, ReliableMessage
 from dimsdk import Station
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -199,19 +199,9 @@ class Worker(threading.Thread, Logging):
                 priority = 1  # SLOWER
             else:
                 priority = 0  # NORMAL
-            if self.__messenger.send_message(msg=msg, priority=priority):
-                # sent
-                return True
-            receiver = msg.receiver
-            if receiver.is_broadcast or receiver.type == NetworkType.STATION:
-                # ignore broadcast messages
-                return True
-            sender = msg.sender
-            if sender.type == NetworkType.STATION:
-                # ignore station message
-                return True
-            self.error('failed to send message, store it: %s' % msg)
-            g_database.store_message(msg=msg)
+            if not self.__messenger.send_message(msg=msg, priority=priority):
+                self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
+                g_database.store_message(msg=msg)
             return True
 
     def _reconnect(self) -> bool:
@@ -319,7 +309,7 @@ class Octopus(Logging):
     def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         sid = g_station.identifier
         if not self.__deliver_message(msg=msg, neighbor=sid):
-            self.error('failed to deliver income message: %s' % msg)
+            self.error('failed to deliver income msg: %s -> %s, %s' % (msg.sender, msg.receiver, msg.get('traces')))
             g_database.store_message(msg=msg)
         return None
 

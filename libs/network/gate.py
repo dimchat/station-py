@@ -27,9 +27,9 @@ import socket
 import threading
 from typing import Optional
 
-from tcp import BaseConnection, ActiveConnection, ConnectionDelegate
+from tcp import BaseConnection, ActiveConnection
 
-from startrek import StarGate as BaseGate
+from startrek import StarGate
 from startrek import Docker
 
 from .ws import WSDocker
@@ -37,23 +37,21 @@ from .mtp import MTPDocker
 from .mars import MarsDocker
 
 
-def create_connection(delegate: ConnectionDelegate,
-                      address: Optional[tuple] = None,
-                      sock: Optional[socket.socket] = None) -> BaseConnection:
-    if address is None:
-        conn = BaseConnection(sock=sock)
-    else:
-        conn = ActiveConnection(address=address, sock=sock)
-    conn.delegate = delegate
-    return conn
+class StarTrek(StarGate):
 
+    @classmethod
+    def create(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
+        if address is None:
+            conn = BaseConnection(sock=sock)
+        else:
+            conn = ActiveConnection(address=address, sock=sock)
+        gate = StarTrek(connection=conn)
+        conn.delegate = gate
+        return gate
 
-class StarGate(BaseGate):
-
-    def __init__(self, address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
-        conn = create_connection(delegate=self, address=address, sock=sock)
-        super().__init__(connection=conn)
-        self.__conn = conn
+    def __init__(self, connection: BaseConnection):
+        super().__init__(connection=connection)
+        self.__conn = connection
 
     # Override
     def _create_docker(self) -> Optional[Docker]:
