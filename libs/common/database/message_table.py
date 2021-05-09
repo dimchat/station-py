@@ -95,7 +95,8 @@ class MessageTable(Storage):
             if isinstance(msg, ReliableMessage):
                 if msg.time < expires:
                     delta = time.time() - msg.time
-                    self.warning('drop expired msg: %d days ago -> %s' % (delta / 3600 / 24, msg.receiver))
+                    days = delta / 3600 / 24
+                    self.warning('drop expired msg: %d days ago, %s -> %s' % (days, msg.sender, msg.receiver))
                 else:
                     messages.append(msg)
         return messages

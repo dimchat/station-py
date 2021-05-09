@@ -39,10 +39,9 @@ from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
 from dimsdk import Station
 from dimsdk import MessengerDelegate, CompletionHandler
-from dimsdk.messenger import MessageCallback
 
 from ...utils import Log
-from ...network import GateStatus, ShipDelegate, StarShip
+from ...network import GateStatus, StarShip
 from ...network import MTPDocker
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
@@ -158,12 +157,7 @@ class Server(Station, MessengerDelegate):
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         """ Send out a data package onto network """
-        delegate = None
-        if isinstance(handler, MessageCallback):
-            callback = handler.callback
-            if isinstance(callback, ShipDelegate):
-                delegate = callback
-        if self.__session.send_payload(payload=data, priority=priority, delegate=delegate):
+        if self.__session.send_payload(payload=data, priority=priority):
             if handler is not None:
                 handler.success()
             return True

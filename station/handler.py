@@ -38,11 +38,9 @@ from dimp import User
 from dimp import InstantMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
-from dimsdk.messenger import MessageCallback
 
 from libs.utils import Logging
 from libs.utils import NotificationCenter
-from libs.network import GateDelegate
 from libs.common import NotificationNames
 from libs.server import ServerMessenger, SessionServer, Session
 
@@ -125,12 +123,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        delegate = None
-        if isinstance(handler, MessageCallback):
-            callback = handler.callback
-            if isinstance(callback, GateDelegate):
-                delegate = callback
-        if self.__session.send_payload(payload=data, priority=priority, delegate=delegate):
+        if self.__session.send_payload(payload=data, priority=priority):
             if handler is not None:
                 handler.success()
             return True
