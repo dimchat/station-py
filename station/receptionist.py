@@ -63,16 +63,13 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         self.__lock = threading.Lock()
         # current station and guests
         self.__station: Optional[ID] = None
-        self.__guests = []
         self.__roamers = []
         nc = NotificationCenter()
-        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
         nc.add(observer=self, name=NotificationNames.USER_ROAMING)
 
     def __del__(self):
         nc = NotificationCenter()
-        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
         nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
         nc.remove(observer=self, name=NotificationNames.USER_ROAMING)
 
@@ -86,20 +83,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             server = server.identifier
         self.__station = server
 
-    def get_guests(self) -> List[ID]:
-        with self.__lock:
-            guests = self.__guests.copy()
-            self.__guests.clear()
-            return guests
-
-    def add_guest(self, identifier: ID):
-        with self.__lock:
-            self.__guests.append(identifier)
-
-    def remove_guest(self, identifier: ID):
-        with self.__lock:
-            self.__guests.remove(identifier)
-
     def get_roamers(self) -> List[ID]:
         with self.__lock:
             roamers = self.__roamers.copy()
@@ -110,10 +93,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         with self.__lock:
             self.__roamers.append(identifier)
 
-    def remove_roamer(self, identifier: ID):
-        with self.__lock:
-            self.__roamers.remove(identifier)
-
     #
     #    Notification Observer
     #
@@ -123,15 +102,9 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         user = ID.parse(identifier=info.get('ID'))
         if user is None or user.type == NetworkType.STATION:
             self.error('ignore notification: %s' % info)
-        elif name == NotificationNames.USER_LOGIN:
-            # add the new guest for checking offline messages
-            self.add_guest(identifier=user)
         elif name == NotificationNames.USER_ONLINE:
             sid = info.get('station')
-            if sid is None or sid == self.station:
-                # add the new guest for checking offline messages
-                self.add_guest(identifier=user)
-            else:
+            if sid is not None and sid != self.station:
                 # add the new roamer for checking cached messages
                 self.add_roamer(identifier=user)
         elif name == NotificationNames.USER_ROAMING:
@@ -139,7 +112,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             self.add_roamer(identifier=user)
 
     #
-    #  Process guests/roamers
+    #  Process roamers
     #
 
     def __process_users(self, users: List[ID]):
@@ -156,21 +129,6 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     #   Run Loop
     #
     def __run_unsafe(self):
-        # process guests
-        try:
-            self.__process_users(users=self.get_guests())
-        except IOError as error:
-            self.error('IO error %s' % error)
-        except JSONDecodeError as error:
-            self.error('JSON decode error %s' % error)
-        except TypeError as error:
-            self.error('type error %s' % error)
-            traceback.print_exc()
-        except ValueError as error:
-            self.error('value error %s' % error)
-        finally:
-            # sleep for next loop
-            time.sleep(0.1)
         # process roamers
         try:
             self.__process_users(users=self.get_roamers())

@@ -88,6 +88,32 @@ class Session(BaseSession):
     def identifier(self, value: ID):
         self.__identifier = value
 
+    @property
+    def active(self) -> bool:
+        return super().active
+
+    @active.setter
+    def active(self, value: bool):
+        old = self.active
+        BaseSession.active.__set__(self, value)
+        if old != value and value:
+            identifier = self.identifier
+            if identifier is not None:
+                self.__scan(identifier=identifier)
+
+    def __scan(self, identifier: ID):
+        self.debug('scanning messages for: %s' % identifier)
+        messages = g_database.fetch_all_messages(receiver=identifier)
+        total = len(messages)
+        self.info('%d message(s) loaded for: %s' % (total, identifier))
+        success = 0
+        for msg in messages:
+            if self.push_message(msg=msg):
+                success += 1
+            else:
+                g_database.store_message(msg=msg)
+        self.info('%d/%d message(s) pushed to %s' % (success, total, identifier))
+
 
 @Singleton
 class SessionServer:

@@ -131,24 +131,29 @@ class MessageQueue:
 
     def __init__(self):
         super().__init__()
-        self.__queue: List[MessageWrapper] = []
+        self.__wrappers: List[MessageWrapper] = []
         self.__lock = threading.Lock()
+
+    @property
+    def length(self) -> int:
+        with self.__lock:
+            return len(self.__wrappers)
 
     def append(self, msg: ReliableMessage) -> bool:
         with self.__lock:
             wrapper = MessageWrapper(msg=msg)
-            self.__queue.append(wrapper)
+            self.__wrappers.append(wrapper)
             return True
 
     def pop(self) -> Optional[MessageWrapper]:
         with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
+            if len(self.__wrappers) > 0:
+                return self.__wrappers.pop(0)
 
     def next(self) -> Optional[MessageWrapper]:
         """ Get next new message """
         with self.__lock:
-            for wrapper in self.__queue:
+            for wrapper in self.__wrappers:
                 if wrapper.virgin:
                     wrapper.mark()  # mark sent
                     return wrapper
@@ -156,9 +161,9 @@ class MessageQueue:
     def eject(self) -> Optional[MessageWrapper]:
         """ Get any message sent or failed """
         with self.__lock:
-            for wrapper in self.__queue:
+            for wrapper in self.__wrappers:
                 if wrapper.msg is None or wrapper.failed:
-                    self.__queue.remove(wrapper)
+                    self.__wrappers.remove(wrapper)
                     return wrapper
 
 
@@ -188,9 +193,12 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __flush(self):
         # store all messages
+        count = self.__queue.length
+        self.info('saving %d unsent message(s)' % count)
         while True:
             wrapper = self.__queue.pop()
-            if wrapper is None:
+            count -= 1
+            if wrapper is None and count < 0:
                 break
             msg = wrapper.msg
             if msg is not None:
@@ -205,6 +213,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             msg = wrapper.msg
             if msg is not None:
                 # task failed
+                self.warning('msg expired: %s -> %s' % (msg.sender, msg.receiver))
                 g_database.store_message(msg=msg)
 
     @property
@@ -276,7 +285,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             # no more new message
             return False
         # try to push
-        if not self.messenger.send_message(msg=msg, callback=wrapper, priority=wrapper.priority):
+        data = self.messenger.serialize_message(msg=msg)
+        if not self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
             wrapper.fail()
         return True
 
