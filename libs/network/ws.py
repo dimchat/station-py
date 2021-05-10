@@ -30,8 +30,6 @@
 
 from typing import Optional
 
-from tcp import Connection
-
 from startrek import Gate
 from startrek import Ship, ShipDelegate
 from startrek import StarShip
@@ -71,22 +69,22 @@ class WSShip(StarShip):
 class WSDocker(StarDocker):
     """ Docker for WebSocket packages """
 
+    MAX_PACK_LENGTH = 65536  # 64 KB
+
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
 
     @classmethod
-    def check(cls, connection: Connection) -> bool:
+    def check(cls, gate: Gate) -> bool:
         # 1. check received data
-        buffer = connection.received()
+        buffer = gate.receive(length=cls.MAX_PACK_LENGTH, remove=False)
         if buffer is not None:
             return WebSocket.is_handshake(stream=buffer)
 
     # Override
     def setup(self):
-        buffer = self.gate.received()
+        buffer = self.gate.receive(length=self.MAX_PACK_LENGTH, remove=True)
         if buffer is not None:
-            # remove first handshake package
-            self.gate.receive(length=len(buffer))
             # response for handshake
             res = WebSocket.handshake(stream=buffer)
             self.gate.send(data=res)
@@ -98,7 +96,7 @@ class WSDocker(StarDocker):
 
     def __receive_package(self) -> (Optional[bytes], Optional[bytes]):
         # 1. check received data
-        buffer = self.gate.received()
+        buffer = self.gate.receive(length=self.MAX_PACK_LENGTH, remove=False)
         if buffer is None:
             # received nothing
             return None, None
@@ -106,8 +104,8 @@ class WSDocker(StarDocker):
         old_len = len(buffer)
         new_len = len(remaining)
         if new_len < old_len:
-            # skip received package
-            pack = self.gate.receive(length=old_len-new_len)
+            # 2. cut for received package
+            pack = self.gate.receive(length=old_len-new_len, remove=True)
             return pack, payload
         else:
             return None, None

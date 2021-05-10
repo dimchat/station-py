@@ -51,24 +51,39 @@ class StarTrek(StarGate):
 
     def __init__(self, connection: BaseConnection):
         super().__init__(connection=connection)
-        self.__conn = connection
+        self.__send_lock = threading.RLock()
+        self.__receive_lock = threading.RLock()
 
     # Override
     def _create_docker(self) -> Optional[Docker]:
         # override to customize Docker
-        if MTPDocker.check(connection=self.__conn):
+        if MTPDocker.check(gate=self):
             return MTPDocker(gate=self)
-        if MarsDocker.check(connection=self.__conn):
+        if MarsDocker.check(gate=self):
             return MarsDocker(gate=self)
-        if WSDocker.check(connection=self.__conn):
+        if WSDocker.check(gate=self):
             return WSDocker(gate=self)
 
     # Override
+    def send(self, data: bytes) -> bool:
+        with self.__send_lock:
+            return super().send(data=data)
+
+    # Override
+    def receive(self, length: int, remove: bool) -> Optional[bytes]:
+        with self.__receive_lock:
+            return super().receive(length=length, remove=remove)
+
+    # Override
     def setup(self):
-        threading.Thread(target=self.__conn.run).start()
+        conn = self.connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        threading.Thread(target=conn.run).start()
         super().setup()
 
     # Override
     def finish(self):
         super().finish()
-        self.__conn.stop()
+        conn = self.connection
+        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
+        conn.stop()

@@ -30,8 +30,6 @@
 
 from typing import Optional
 
-from tcp import Connection
-
 from startrek import Gate
 from startrek import Ship, ShipDelegate
 from startrek import StarShip
@@ -93,6 +91,8 @@ class MarsShip(StarShip):
 class MarsDocker(StarDocker):
     """ Docker for Mars packages """
 
+    MAX_HEAD_LENGTH = NetMsgHead.MIN_HEAD_LEN + 12  # FIXME: len(options) > 12?
+
     def __init__(self, gate: Gate):
         super().__init__(gate=gate)
 
@@ -104,12 +104,13 @@ class MarsDocker(StarDocker):
                 return None
             if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
                 return None
+            if head.body_length < 0:
+                return None
             return head
 
     @classmethod
-    def check(cls, connection: Connection) -> bool:
-        # 1. check received data
-        buffer = connection.received()
+    def check(cls, gate: Gate) -> bool:
+        buffer = gate.receive(length=cls.MAX_HEAD_LENGTH, remove=False)
         if buffer is not None:
             return cls.parse_head(buffer=buffer) is not None
 
@@ -123,45 +124,51 @@ class MarsDocker(StarDocker):
         mars = NetMsg.new(head=head, body=body)
         return MarsShip(mars=mars, priority=priority, delegate=delegate)
 
-    def __receive_package(self) -> Optional[NetMsg]:
-        # 1. check received data
-        data = self.gate.received()
-        if data is None:
+    def __seek_header(self) -> Optional[NetMsgHead]:
+        buffer = self.gate.receive(length=512, remove=False)
+        if buffer is None:
             # received nothing
             return None
-        data_len = len(data)
-        head = self.parse_head(buffer=data)
+        head = self.parse_head(buffer=buffer)
         if head is None:
-            # not a MTP package?
-            if data_len < NetMsgHead.MIN_HEAD_LEN:
+            buf_len = len(buffer)
+            # not a Mars package?
+            if buf_len < self.MAX_HEAD_LENGTH:
                 # wait for more data
                 return None
-            pos = data.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
+            # locate next header
+            pos = buffer.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
             if pos > NetMsgHead.MAGIC_CODE_OFFSET:
                 # found next head, skip data before it
-                self.gate.receive(length=pos-NetMsgHead.MAGIC_CODE_OFFSET)
-            else:
-                # skip the whole data
-                self.gate.receive(length=data_len)
-            # take it as NOOP
-            head = NetMsgHead.new(cmd=NetMsgHead.NOOP)
-            return NetMsg.new(head=head)
-        # 2. receive data with 'head.length + body.length'
+                self.gate.receive(length=pos-NetMsgHead.MAGIC_CODE_OFFSET, remove=True)
+            elif buf_len > 500:
+                # skip the whole buffer
+                self.gate.receive(length=buf_len, remove=True)
+        return head
+
+    def __receive_package(self) -> Optional[NetMsg]:
+        # 1. seek header in received data
+        head = self.__seek_header()
+        if head is None:
+            # # take it as NOOP
+            # head = NetMsgHead.new(cmd=NetMsgHead.NOOP)
+            # return NetMsg.new(head=head)
+            return None
         body_len = head.body_length
-        if body_len < 0:
-            # should not happen
-            body_len = data_len - head.length
+        assert body_len >= 0, 'body length error: %d' % body_len
         pack_len = head.length + body_len
-        if pack_len > data_len:
+        # 2. receive data with 'head.length + body.length'
+        buffer = self.gate.receive(length=pack_len, remove=False)
+        if len(buffer) < pack_len:
             # waiting for more data
             return None
-        # receive package
-        data = self.gate.receive(length=pack_len)
+        # receive package (remove from gate)
+        buffer = self.gate.receive(length=pack_len, remove=True)
         if body_len > 0:
-            body = data[head.length:]
+            body = buffer[head.length:]
         else:
             body = None
-        return NetMsg(data=data, head=head, body=body)
+        return NetMsg(data=buffer, head=head, body=body)
 
     # Override
     def _get_income_ship(self) -> Optional[Ship]:
@@ -224,9 +231,10 @@ class MarsDocker(StarDocker):
     def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
         outgo = super()._get_outgo_ship(income=income)
         if income is None and isinstance(outgo, MarsShip):
-            # check data type
+            # if retries == 0, means this ship is first time to be sent,
+            # and it would be removed from the dock.
             if outgo.retries == 0 and outgo.mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
-                # put back for response
+                # put back for waiting response
                 self.gate.park_ship(ship=outgo)
         return outgo
 

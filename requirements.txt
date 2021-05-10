@@ -8,8 +8,8 @@ xmltodict
 pika
 jpush
 
-tcp>=0.1.16
-startrek>=0.1.4
+tcp>=0.1.17
+startrek>=0.1.5
 dmtp>=0.3.2
 mkm>=0.10.15
 dkd>=0.10.15
