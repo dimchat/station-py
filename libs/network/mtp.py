@@ -93,6 +93,7 @@ class MTPDocker(StarDocker):
             return cls.parse_head(buffer=buffer) is not None
 
     # Override
+    # noinspection PyMethodMayBeStatic
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
         req = Data(data=payload)
         mtp = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
@@ -141,13 +142,13 @@ class MTPDocker(StarDocker):
         return Package(data=data, head=head, body=body)
 
     # Override
-    def _get_income_ship(self) -> Optional[Ship]:
+    def get_income_ship(self) -> Optional[Ship]:
         income = self.__receive_package()
         if income is not None:
             return MTPShip(mtp=income)
 
     # Override
-    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
+    def process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, MTPShip), 'income ship error: %s' % income
         mtp = income.mtp
         head = mtp.head
@@ -195,14 +196,14 @@ class MTPDocker(StarDocker):
             return self.pack(payload=res, priority=StarShip.SLOWER)
 
     # Override
-    def _remove_linked_ship(self, income: Ship):
+    def remove_linked_ship(self, income: Ship):
         assert isinstance(income, MTPShip), 'income ship error: %s' % income
         if income.mtp.head.data_type == MTPMessageRespond:
-            super()._remove_linked_ship(income=income)
+            super().remove_linked_ship(income=income)
 
     # Override
-    def _get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
-        outgo = super()._get_outgo_ship(income=income)
+    def get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
+        outgo = super().get_outgo_ship(income=income)
         if income is None and isinstance(outgo, MTPShip):
             # if retries == 0, means this ship is first time to be sent,
             # and it would be removed from the dock.
@@ -212,7 +213,8 @@ class MTPDocker(StarDocker):
         return outgo
 
     # Override
-    def _get_heartbeat(self) -> Optional[StarShip]:
+    # noinspection PyMethodMayBeStatic
+    def get_heartbeat(self) -> Optional[StarShip]:
         mtp = Package.new(data_type=MTPCommand, body_length=ping_body.length, body=ping_body)
         return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
 

@@ -110,7 +110,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
         assert isinstance(cmd, Command), 'command error: %s' % cmd
         # submit device token for APNs
         token = cmd.get('device_token')
-        if token is not None:
+        if token is not None and len(token) > 0:
             g_database.save_device_token(token=token, identifier=msg.sender)
             return ReceiptCommand(message='Token received')
 

@@ -252,6 +252,8 @@ def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -
         something = 'a voice message'
     elif msg_type == ContentType.VIDEO:
         something = 'a video'
+    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
+        something = 'some money'
     else:
         Log.warning('ignore msg type: %d' % msg_type)
         return False

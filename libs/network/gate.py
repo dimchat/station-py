@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+#   Star Gate: Interfaces for network connection
+#
+#                                Written in 2021 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
@@ -27,9 +32,10 @@ import socket
 import threading
 from typing import Optional
 
+from tcp import Connection, ConnectionStatus, ConnectionDelegate
 from tcp import BaseConnection, ActiveConnection
 
-from startrek import StarGate
+from startrek import GateStatus, StarGate
 from startrek import Docker
 
 from .ws import WSDocker
@@ -37,7 +43,119 @@ from .mtp import MTPDocker
 from .mars import MarsDocker
 
 
-class StarTrek(StarGate):
+def gate_status(status: ConnectionStatus) -> GateStatus:
+    """ Convert Connection Status to Star Gate Status """
+    if status in [ConnectionStatus.Connected, ConnectionStatus.Maintaining, ConnectionStatus.Expired]:
+        return GateStatus.Connected
+    if status == ConnectionStatus.Connecting:
+        return GateStatus.Connecting
+    if status == ConnectionStatus.Error:
+        return GateStatus.Error
+    # Default
+    return GateStatus.Init
+
+
+class TCPGate(StarGate, ConnectionDelegate):
+
+    def __init__(self, connection: Connection):
+        super().__init__()
+        self.__conn = connection
+        self.__chunks: Optional[bytes] = None
+
+    @property
+    def connection(self) -> Connection:
+        return self.__conn
+
+    # Override
+    def _create_docker(self) -> Optional[Docker]:
+        # override to customize Docker
+        if MTPDocker.check(gate=self):
+            return MTPDocker(gate=self)
+        if MarsDocker.check(gate=self):
+            return MarsDocker(gate=self)
+        if WSDocker.check(gate=self):
+            return WSDocker(gate=self)
+
+    @property
+    def running(self) -> bool:
+        if super().running:
+            # connection not closed or still have data unprocessed
+            return self.__conn.alive or self.__conn.available > 0
+
+    @property
+    def expired(self) -> bool:
+        return self.__conn.status == ConnectionStatus.Expired
+
+    # Override
+    @property
+    def status(self) -> GateStatus:
+        return gate_status(status=self.__conn.status)
+
+    #
+    #   Connection
+    #
+
+    # Override
+    def send(self, data: bytes) -> bool:
+        if self.__conn.alive:
+            return self.__conn.send(data=data) == len(data)
+
+    # Override
+    def receive(self, length: int, remove: bool) -> Optional[bytes]:
+        fragment = self.__receive(length=length)
+        if fragment is not None:
+            if len(fragment) > length:
+                if remove:
+                    self.__chunks = fragment[length:]
+                return fragment[:length]
+            elif remove:
+                # assert len(fragment) == length, 'fragment length error'
+                self.__chunks = None
+            return fragment
+
+    def __receive(self, length: int) -> Optional[bytes]:
+        cached = 0
+        if self.__chunks is not None:
+            cached = len(self.__chunks)
+        while cached < length:
+            # check available length from connection
+            available = self.__conn.available
+            if available <= 0:
+                break
+            # try to receive data from connection
+            data = self.__conn.receive(max_length=available)
+            if data is None:
+                break
+            # append data
+            if self.__chunks is None:
+                self.__chunks = data
+            else:
+                self.__chunks += data
+            cached += len(data)
+        return self.__chunks
+
+    #
+    #   ConnectionDelegate
+    #
+
+    # Override
+    # noinspection PyUnusedLocal
+    def connection_changed(self, connection, old_status: ConnectionStatus, new_status: ConnectionStatus):
+        s1 = gate_status(status=old_status)
+        s2 = gate_status(status=new_status)
+        if s1 != s2:
+            delegate = self.delegate
+            if delegate is not None:
+                delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
+
+    # Override
+    def connection_received(self, connection, data: bytes):
+        # received data will be processed in run loop (StarDocker::handle),
+        # do nothing here
+        pass
+
+
+class StarTrek(TCPGate):
 
     @classmethod
     def create(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
@@ -53,16 +171,6 @@ class StarTrek(StarGate):
         super().__init__(connection=connection)
         self.__send_lock = threading.RLock()
         self.__receive_lock = threading.RLock()
-
-    # Override
-    def _create_docker(self) -> Optional[Docker]:
-        # override to customize Docker
-        if MTPDocker.check(gate=self):
-            return MTPDocker(gate=self)
-        if MarsDocker.check(gate=self):
-            return MarsDocker(gate=self)
-        if WSDocker.check(gate=self):
-            return WSDocker(gate=self)
 
     # Override
     def send(self, data: bytes) -> bool:

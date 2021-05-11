@@ -76,7 +76,6 @@ class WSDocker(StarDocker):
 
     @classmethod
     def check(cls, gate: Gate) -> bool:
-        # 1. check received data
         buffer = gate.receive(length=cls.MAX_PACK_LENGTH, remove=False)
         if buffer is not None:
             return WebSocket.is_handshake(stream=buffer)
@@ -90,6 +89,7 @@ class WSDocker(StarDocker):
             self.gate.send(data=res)
 
     # Override
+    # noinspection PyMethodMayBeStatic
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
         req_pack = WebSocket.pack(payload=payload)
         return WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
@@ -111,13 +111,13 @@ class WSDocker(StarDocker):
             return None, None
 
     # Override
-    def _get_income_ship(self) -> Optional[Ship]:
+    def get_income_ship(self) -> Optional[Ship]:
         income, payload = self.__receive_package()
         if income is not None:
             return WSShip(package=income, payload=payload)
 
     # Override
-    def _process_income_ship(self, income: Ship) -> Optional[StarShip]:
+    def process_income_ship(self, income: Ship) -> Optional[StarShip]:
         assert isinstance(income, WSShip), 'income ship error: %s' % income
         body = income.payload
         # 1. check command
@@ -146,12 +146,13 @@ class WSDocker(StarDocker):
         return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
 
     # Override
-    def _remove_linked_ship(self, income: Ship):
+    def remove_linked_ship(self, income: Ship):
         # do nothing
         pass
 
     # Override
-    def _get_heartbeat(self) -> Optional[StarShip]:
+    # noinspection PyMethodMayBeStatic
+    def get_heartbeat(self) -> Optional[StarShip]:
         req_pack = WebSocket.pack(payload=noop_body)
         return WSShip(package=req_pack, payload=noop_body, priority=StarShip.NORMAL)
 
