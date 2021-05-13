@@ -84,7 +84,7 @@ class TextContentProcessor(ContentProcessor):
     def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
         # check robot
         if sender.type in [NetworkType.ROBOT, NetworkType.STATION]:
-            Log.info('Dialog > ignore message from another robot: %s' % sender)
+            Log.info('Dialog > ignore message from another robot: %s, "%s"' % (sender, content.get('text')))
             return True
         # check time
         now = int(time.time())

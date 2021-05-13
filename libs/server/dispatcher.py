@@ -46,15 +46,14 @@ from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushNotificationService
 from ..common import NotificationNames
-from ..common import Database
+from ..common import Database, CommonFacebook
 from ..common import msg_receipt, msg_traced
 
 from .session import Session, SessionServer
-from .facebook import ServerFacebook
 
 
 g_session_server = SessionServer()
-g_facebook = ServerFacebook()
+g_facebook = CommonFacebook()
 g_database = Database()
 
 
@@ -373,7 +372,7 @@ class BroadcastDispatcher(Worker):
         for sid in neighbors:
             # check traces
             if msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
-                self.warning('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
+                self.info('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
                 continue
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             # push to neighbor station

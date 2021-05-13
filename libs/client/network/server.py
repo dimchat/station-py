@@ -112,7 +112,7 @@ class Server(Station, MessengerDelegate):
         self.__messenger = weakref.ref(transceiver)
 
     @property
-    def facebook(self):  # -> ClientFacebook:
+    def facebook(self):  # -> CommonFacebook:
         return self.messenger.facebook
 
     #
@@ -125,9 +125,7 @@ class Server(Station, MessengerDelegate):
         assert isinstance(env, Envelope), 'envelope error: %s' % env
         cmd = HandshakeCommand.start(session=session)
         # allow connect server without meta.js
-        facebook = self.facebook
-        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
-        if facebook.public_key_for_encryption(identifier=self.identifier) is None:
+        if self.facebook.public_key_for_encryption(identifier=self.identifier) is None:
             cmd.group = EVERYONE
         # pack message
         i_msg = InstantMessage.create(head=env, body=cmd)

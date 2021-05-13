@@ -47,16 +47,16 @@ sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
 from libs.common import SearchCommand
-from libs.common import Database
+from libs.common import Database, CommonFacebook
 from libs.common import msg_traced, is_broadcast_message
 
-from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
+from libs.client import Server, Terminal, ClientMessenger
 
 from robots.config import g_station
 from robots.config import dims_connect, all_stations
 
 
-g_facebook = ClientFacebook()
+g_facebook = CommonFacebook()
 g_database = Database()
 
 
@@ -86,7 +86,7 @@ class InnerMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('outgoing msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
+            self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.departure(msg=msg)
@@ -100,7 +100,7 @@ class OuterMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if self.accepted or msg.receiver != g_station.identifier:
-            self.info('incoming msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
+            self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
             if msg.delegate is None:
                 msg.delegate = self
             return octopus.arrival(msg=msg)

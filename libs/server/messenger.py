@@ -39,16 +39,15 @@ from dimp import Processor
 
 from ..utils import NotificationCenter
 from ..common import NotificationNames
-from ..common import CommonMessenger
+from ..common import CommonMessenger, CommonFacebook
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
-from .facebook import ServerFacebook
 
 
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
-g_facebook = ServerFacebook()
+g_facebook = CommonFacebook()
 
 
 class ServerMessenger(CommonMessenger):
@@ -59,10 +58,10 @@ class ServerMessenger(CommonMessenger):
         self.__filter = Filter(messenger=self)
 
     @property
-    def facebook(self) -> ServerFacebook:
+    def facebook(self) -> CommonFacebook:
         return g_facebook
 
-    def _create_facebook(self) -> ServerFacebook:
+    def _create_facebook(self) -> CommonFacebook:
         return g_facebook
 
     def _create_processor(self) -> Processor:

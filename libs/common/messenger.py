@@ -91,12 +91,6 @@ class CommonMessenger(Messenger):
             Messenger.data_source.__set__(self, delegate)
         return delegate
 
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
-
     def _create_facebook(self) -> CommonFacebook:
         # facebook = CommonFacebook()
         # facebook.messenger = self
@@ -119,14 +113,10 @@ class CommonMessenger(Messenger):
 
     def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]) -> bool:
         if isinstance(msg, ReliableMessage):
-            sender = msg.sender
-            meta = self.facebook.meta(identifier=sender)
-            if meta is None:
-                self.query_meta(identifier=sender)
-            else:
-                doc = self.facebook.document(identifier=sender)
-                if doc is None:
-                    self.query_document(identifier=sender)
+            # check meta & document
+            meta = self.facebook.meta(identifier=msg.sender)
+            if meta is not None:
+                self.facebook.document(identifier=msg.sender)
         return super().suspend_message(msg=msg)
 
     def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
@@ -203,7 +193,10 @@ class CommonMessenger(Messenger):
 class MessageDataSource(MessengerDataSource):
 
     def save_message(self, msg: InstantMessage) -> bool:
-        Log.info('TODO: saving msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
+        content = msg.content
+        Log.info('TODO: saving msg: %s -> %s\n type=%d, text=%s\n %s' % (msg.sender, msg.receiver,
+                                                                         content.type, content.get('text'),
+                                                                         msg.get('traces')))
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:

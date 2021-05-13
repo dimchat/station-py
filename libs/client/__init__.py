@@ -35,7 +35,6 @@ from .extension import GroupManager
 
 from .network import Terminal, Server, ServerDelegate
 
-from .facebook import ClientFacebook
 from .messenger import ClientMessenger
 from .processor import ClientProcessor
 
@@ -46,7 +45,6 @@ __all__ = [
 
     'Terminal', 'Server', 'ServerDelegate',
 
-    'ClientFacebook',
     'ClientMessenger',
     'ClientProcessor',
 ]

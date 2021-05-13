@@ -38,8 +38,8 @@ from dimsdk.ans import keywords as ans_keywords
 #
 from libs.utils import Log
 from libs.common import AddressNameServer
-from libs.common import Storage
-from libs.client import ClientMessenger, ClientFacebook
+from libs.common import Storage, CommonFacebook
+from libs.client import ClientMessenger
 from libs.client import Server, Terminal
 
 #
@@ -79,7 +79,7 @@ station_port = 9394
 
 g_station = Server(identifier=station_id, host=station_host, port=station_port)
 
-g_facebook = ClientFacebook()
+g_facebook = CommonFacebook()
 g_facebook.cache_user(user=g_station)
 
 # Address Name Service

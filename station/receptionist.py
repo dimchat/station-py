@@ -34,7 +34,7 @@ import threading
 import time
 import traceback
 from json import JSONDecodeError
-from typing import Optional, List
+from typing import Optional, Set
 
 from dimp import ID, NetworkType
 from dimsdk import Station
@@ -42,13 +42,12 @@ from dimsdk import Station
 from libs.utils import Singleton, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
-from libs.common import Database
+from libs.common import Database, CommonFacebook
 from libs.server import SessionServer
-from libs.server import ServerFacebook
 from libs.server import Dispatcher
 
 
-g_facebook = ServerFacebook()
+g_facebook = CommonFacebook()
 g_database = Database()
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
@@ -63,7 +62,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         self.__lock = threading.Lock()
         # current station and guests
         self.__station: Optional[ID] = None
-        self.__roamers = []
+        self.__roamers = set()
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
         nc.add(observer=self, name=NotificationNames.USER_ROAMING)
@@ -83,7 +82,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             server = server.identifier
         self.__station = server
 
-    def get_roamers(self) -> List[ID]:
+    def get_roamers(self) -> Set[ID]:
         with self.__lock:
             roamers = self.__roamers.copy()
             self.__roamers.clear()
@@ -91,7 +90,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
 
     def add_roamer(self, identifier: ID):
         with self.__lock:
-            self.__roamers.append(identifier)
+            self.__roamers.add(identifier)
 
     #
     #    Notification Observer
@@ -115,13 +114,13 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     #  Process roamers
     #
 
-    def __process_users(self, users: List[ID]):
+    def __process_users(self, users: Set[ID]):
         for identifier in users:
             # 1. get cached messages
             self.debug('scanning messages for: %s' % identifier)
             messages = g_database.fetch_all_messages(receiver=identifier)
             # 2. sent messages one by one
-            self.info('loaded %d message(s) for: %s' % (len(messages), identifier))
+            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
             for msg in messages:
                 g_dispatcher.deliver(msg=msg)
 

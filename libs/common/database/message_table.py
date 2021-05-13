@@ -70,7 +70,7 @@ class MessageTable(Storage):
         # message file path
         return os.path.join(directory, filename)
 
-    def __load_messages(self, path: str, remove: bool = False) -> List[ReliableMessage]:
+    def __load_messages(self, path: str, remove: bool) -> List[ReliableMessage]:
         messages = []
         text = self.read_text(path=path)
         if text is None:
@@ -105,15 +105,11 @@ class MessageTable(Storage):
         if not self.exists(path=path):
             return False
         # check whether message duplicated
-        messages = self.__load_messages(path=path)
+        messages = self.__load_messages(path=path, remove=False)
         for item in messages:
             if item.get('signature') == msg.get('signature'):
                 # only same messages will have same signature
                 return True
-
-    def message_exists(self, msg: ReliableMessage) -> bool:
-        path = self.__message_path(msg=msg)
-        return self.__message_exists(msg=msg, path=path)
 
     def store_message(self, msg: ReliableMessage) -> bool:
         sender = msg.sender

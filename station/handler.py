@@ -100,6 +100,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
                     'session': session,
                 })
                 session.finish()
+            self.__session = None
         except Exception as error:
             self.error('finish request handler error: %s' % error)
             traceback.print_exc()
@@ -123,7 +124,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        if self.__session.send_payload(payload=data, priority=priority):
+        session = self.__session
+        if session is not None and session.send_payload(payload=data, priority=priority):
             if handler is not None:
                 handler.success()
             return True

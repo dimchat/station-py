@@ -47,8 +47,10 @@ from dimp import ID
 
 from ..utils import Log
 
+from .service import PushNotificationService
 
-class ApplePushNotificationService:
+
+class ApplePushNotificationService(PushNotificationService):
 
     class Delegate(ABC):
         """
@@ -145,6 +147,10 @@ class ApplePushNotificationService:
         except APNsException as error:
             self.error('failed to push notification: %s, error %s' % (notification, error))
             return -400  # Bad Request
+
+    #
+    #   PushNotificationService
+    #
 
     # Override
     def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:

@@ -69,6 +69,11 @@ class SearchCommand(Command):
                 command = SearchCommand.SEARCH
             super().__init__(command=command)
         else:
+            # convert to 'UsersCommand'
+            kw = cmd.get('keywords')
+            if kw == SearchCommand.ONLINE_USERS:
+                cmd['command'] = kw
+                cmd.pop('keywords')
             super().__init__(cmd=cmd)
         if keywords is not None:
             self['keywords'] = keywords

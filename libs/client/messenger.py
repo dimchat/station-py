@@ -38,10 +38,9 @@ from dimp import Command
 from dimp import Transceiver
 from dimsdk import LoginCommand, Station
 
-from ..common import CommonMessenger
+from ..common import CommonMessenger, CommonFacebook
 
 from .network import Terminal, Server, ServerDelegate
-from .facebook import ClientFacebook
 
 
 class ClientMessenger(CommonMessenger, ServerDelegate):
@@ -54,8 +53,8 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
         self.__document_queries = {}  # ID -> time
         self.__group_queries = {}     # ID -> time
 
-    def _create_facebook(self) -> ClientFacebook:
-        facebook = ClientFacebook()
+    def _create_facebook(self) -> CommonFacebook:
+        facebook = CommonFacebook()
         facebook.messenger = self
         return facebook
 

@@ -37,7 +37,7 @@
 
 import socket
 import threading
-from weakref import WeakValueDictionary
+import weakref
 from typing import Optional, Dict, Set
 
 from dimp import hex_encode
@@ -122,7 +122,7 @@ class SessionServer:
         super().__init__()
         # memory cache
         self.__client_addresses: Dict[ID, Set[tuple]] = {}  # {identifier, [client_address]}
-        self.__sessions = WeakValueDictionary()             # {client_address, session}
+        self.__sessions = weakref.WeakValueDictionary()     # {client_address, session}
         self.__lock = threading.Lock()
 
     def get_session(self, client_address: tuple,

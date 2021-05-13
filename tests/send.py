@@ -38,8 +38,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Log
-from libs.common import Database
-from libs.client import Server, Terminal, ClientFacebook, ClientMessenger
+from libs.common import Database, CommonFacebook
+from libs.client import Server, Terminal, ClientMessenger
 from robots.config import dims_connect
 
 
@@ -65,7 +65,7 @@ station_port = 9394
 
 g_station = Server(identifier=station_id, host=station_host, port=station_port)
 
-g_facebook = ClientFacebook()
+g_facebook = CommonFacebook()
 g_facebook.cache_user(user=g_station)
 
 

@@ -32,6 +32,7 @@
 """
 
 from cmd import Cmd
+from typing import Optional
 
 from dimp import json_decode, utf8_encode
 from dimp import ID, Document
@@ -65,12 +66,12 @@ class Console(Cmd):
 
     def __init__(self):
         super().__init__()
-        self.client: Terminal = None
+        self.client: Optional[Terminal] = None
         self.receiver = None
         self.do_call('station')
 
-    @staticmethod
-    def info(msg: str):
+    # noinspection PyMethodMayBeStatic
+    def info(self, msg: str):
         print('\r%s' % msg)
 
     def login(self, identifier: ID):

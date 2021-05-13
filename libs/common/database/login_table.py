@@ -24,6 +24,7 @@
 # ==============================================================================
 
 import os
+import time
 from typing import Optional, Dict
 
 from dimp import ID, ReliableMessage
@@ -100,6 +101,14 @@ class LoginTable(Storage):
             self.__messages[identifier] = msg
         if cmd is self.__empty:
             cmd = None
+        else:
+            login_time = cmd.time
+            if login_time is None:
+                login_time = 0
+            days = (time.time() - login_time) / 3600 / 24
+            if days > 7:
+                self.error('login too long ago: %d days, %s' % (days, cmd.identifier))
+                return None, None
         if msg is self.__empty:
             msg = None
         return cmd, msg

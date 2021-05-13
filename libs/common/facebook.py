@@ -31,28 +31,39 @@
 """
 
 import time
+import weakref
 from typing import Optional, List
 
 from dimp import PrivateKey, SignKey, DecryptKey
-from dimp import NetworkType, ID, Meta, Document, User, Group
+from dimp import ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
-from ..utils.immortals import Immortals
+from ..utils import Singleton
 
 from .database import Database
 
 
+@Singleton
 class CommonFacebook(Facebook):
 
     def __init__(self):
         super().__init__()
-        # built-in accounts
-        #     Immortal Hulk: 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'
-        #     Monkey King:   'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'
-        self.__immortals = Immortals()
+        self.__messenger: Optional[weakref.ReferenceType] = None
         self.__database: Optional[Database] = None
         self.__local_users: Optional[List[User]] = None
         self.__db = Database()
+
+    @property
+    def messenger(self):  # -> CommonMessenger:
+        if self.__messenger is not None:
+            return self.__messenger()
+
+    @messenger.setter
+    def messenger(self, transceiver):
+        if transceiver is None:
+            self.__messenger = None
+        else:
+            self.__messenger = weakref.ref(transceiver)
 
     #
     #   Local Users
@@ -188,9 +199,11 @@ class CommonFacebook(Facebook):
             return None
         # try from database
         info = self.__db.meta(identifier=identifier)
-        if info is None and identifier.type == NetworkType.MAIN:
-            # try from immortals
-            info = self.__immortals.meta(identifier=identifier)
+        if info is None:
+            # query from DIM network
+            messenger = self.messenger
+            if messenger is not None:
+                messenger.query_meta(identifier=identifier)
         return info
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
@@ -199,9 +212,11 @@ class CommonFacebook(Facebook):
             return None
         # try from database
         info = self.__db.document(identifier=identifier, doc_type=doc_type)
-        if info is None and identifier.type == NetworkType.MAIN:
-            # try from immortals
-            info = self.__immortals.document(identifier=identifier, doc_type=doc_type)
+        if info is None or self.is_expired_document(document=info):
+            # query from DIM network
+            messenger = self.messenger
+            if messenger is not None:
+                messenger.query_document(identifier=identifier)
         return info
 
     #
@@ -209,34 +224,16 @@ class CommonFacebook(Facebook):
     #
 
     def contacts(self, identifier: ID) -> Optional[List[ID]]:
-        array = self.__db.contacts(user=identifier)
-        if array is None or len(array) == 0:
-            array = self.__immortals.contacts(identifier=identifier)
-        return array
+        return self.__db.contacts(user=identifier)
 
     def private_keys_for_decryption(self, identifier: ID) -> Optional[List[DecryptKey]]:
-        keys = self.__db.private_keys_for_decryption(identifier=identifier)
-        if keys is None or len(keys) == 0:
-            keys = self.__immortals.private_keys_for_decryption(identifier=identifier)
-            if keys is None or len(keys) == 0:
-                # DIMP v1.0:
-                #     decrypt key and the sign key are the same keys
-                key = self.private_key_for_signature(identifier=identifier)
-                if isinstance(key, DecryptKey):
-                    keys = [key]
-        return keys
+        return self.__db.private_keys_for_decryption(identifier=identifier)
 
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        key = self.__db.private_key_for_signature(identifier=identifier)
-        if key is None:
-            key = self.__immortals.private_key_for_signature(identifier=identifier)
-        return key
+        return self.__db.private_key_for_signature(identifier=identifier)
 
     def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        key = self.__db.private_key_for_visa_signature(identifier=identifier)
-        if key is None:
-            key = self.__immortals.private_key_for_visa_signature(identifier=identifier)
-        return key
+        return self.__db.private_key_for_visa_signature(identifier=identifier)
 
     #
     #    GroupDataSource

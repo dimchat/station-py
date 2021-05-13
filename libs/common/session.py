@@ -193,12 +193,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __flush(self):
         # store all messages
-        count = self.__queue.length
-        self.info('saving %d unsent message(s)' % count)
+        self.info('saving %d unsent message(s)' % self.__queue.length)
         while True:
             wrapper = self.__queue.pop()
-            count -= 1
-            if wrapper is None and count < 0:
+            if wrapper is None:
                 break
             msg = wrapper.msg
             if msg is not None:
@@ -213,7 +211,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             msg = wrapper.msg
             if msg is not None:
                 # task failed
-                self.warning('msg expired: %s -> %s' % (msg.sender, msg.receiver))
+                self.warning('clean expired msg: %s -> %s' % (msg.sender, msg.receiver))
                 g_database.store_message(msg=msg)
 
     @property
