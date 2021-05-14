@@ -39,7 +39,7 @@ from dimp import Processor
 
 from ..utils import NotificationCenter
 from ..common import NotificationNames
-from ..common import CommonMessenger, CommonFacebook
+from ..common import CommonMessenger, CommonFacebook, SharedFacebook
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
@@ -47,7 +47,7 @@ from .dispatcher import Dispatcher
 
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 
 
 class ServerMessenger(CommonMessenger):

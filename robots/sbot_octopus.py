@@ -47,7 +47,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
 from libs.common import SearchCommand
-from libs.common import Database, CommonFacebook
+from libs.common import Database, SharedFacebook
 from libs.common import msg_traced, is_broadcast_message
 
 from libs.client import Server, Terminal, ClientMessenger
@@ -56,7 +56,7 @@ from robots.config import g_station
 from robots.config import dims_connect, all_stations
 
 
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 g_database = Database()
 
 
@@ -207,7 +207,7 @@ class Worker(threading.Thread, Logging):
     def _reconnect(self) -> bool:
         time.sleep(5)
         session = self.__server.connect()
-        if session.gate.opened:
+        if session.gate.running:
             self.__server.handshake()
             return True
 

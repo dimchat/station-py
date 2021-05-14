@@ -40,7 +40,7 @@ from dimsdk.ans import keywords as ans_keywords
 #  Common Libs
 #
 from libs.utils import Log
-from libs.common import Storage, AddressNameServer, CommonFacebook
+from libs.common import Storage, AddressNameServer, SharedFacebook
 
 
 #
@@ -65,7 +65,7 @@ g_ans = AddressNameServer()
 
     Barrack for cache entities
 """
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 
 
 """

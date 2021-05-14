@@ -41,7 +41,7 @@ from dimsdk import Station
 from libs.utils import Log
 from libs.push import ApplePushNotificationService
 from libs.common import AddressNameServer
-from libs.common import Storage, Database, CommonFacebook, KeyStore
+from libs.common import Storage, Database, SharedFacebook, KeyStore
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
 
@@ -98,7 +98,7 @@ g_ans = AddressNameServer()
 
     Barrack for cache entities
 """
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 
 g_messenger = ServerMessenger()
 g_facebook.messenger = g_messenger

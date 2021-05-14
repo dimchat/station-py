@@ -37,13 +37,13 @@ from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
-from ..common import Database, CommonFacebook
+from ..common import Database, CommonFacebook, SharedFacebook
 
 from .session import Session
 from .messenger import ServerMessenger
 
 
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 g_database = Database()
 
 

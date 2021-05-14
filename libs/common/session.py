@@ -236,7 +236,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     @property
     def active(self) -> bool:
-        return self.__active and self.__gate.opened
+        return self.__active and self.__gate.running
 
     @active.setter
     def active(self, value: bool):
@@ -263,7 +263,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     @property
     def running(self) -> bool:
-        return self.__running and self.__gate.opened
+        return self.__running and self.__gate.running
 
     def handle(self):
         while self.running:

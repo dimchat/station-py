@@ -42,12 +42,11 @@ from dimsdk import Station
 from libs.utils import Singleton, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
-from libs.common import Database, CommonFacebook
+from libs.common import Database
 from libs.server import SessionServer
 from libs.server import Dispatcher
 
 
-g_facebook = CommonFacebook()
 g_database = Database()
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()

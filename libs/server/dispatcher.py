@@ -46,14 +46,14 @@ from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushNotificationService
 from ..common import NotificationNames
-from ..common import Database, CommonFacebook
+from ..common import Database, SharedFacebook
 from ..common import msg_receipt, msg_traced
 
 from .session import Session, SessionServer
 
 
 g_session_server = SessionServer()
-g_facebook = CommonFacebook()
+g_facebook = SharedFacebook()
 g_database = Database()
 
 

@@ -112,7 +112,7 @@ class Server(Station, MessengerDelegate):
         self.__messenger = weakref.ref(transceiver)
 
     @property
-    def facebook(self):  # -> CommonFacebook:
+    def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
     #

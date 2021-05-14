@@ -52,6 +52,7 @@ from libs.utils import JSONFile
 from libs.common import Storage
 from libs.common import SearchCommand
 from libs.common import TextContentProcessor
+from libs.common import CommonFacebook
 
 from libs.client import Terminal, ClientMessenger
 
@@ -243,8 +244,8 @@ class History:
         self.__pool: list = []
         self.__load_history()
 
-    @staticmethod
-    def __path() -> str:
+    # noinspection PyMethodMayBeStatic
+    def __path(self) -> str:
         base = os.path.join(Storage.root, 'public')
         return os.path.join(base, 'chatroom-history.js')
 
@@ -294,7 +295,7 @@ class ChatRoom(Logging):
         return self.__messenger
 
     @property
-    def facebook(self):  # Facebook
+    def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
     def __refresh(self):

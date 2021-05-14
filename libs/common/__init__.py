@@ -43,7 +43,7 @@ from .session import BaseSession, is_broadcast_message
 from .ans import AddressNameServer
 
 from .keystore import KeyStore
-from .facebook import CommonFacebook
+from .facebook import CommonFacebook, SharedFacebook
 from .messenger import CommonMessenger
 from .packer import CommonPacker
 from .processor import CommonProcessor
@@ -129,7 +129,7 @@ __all__ = [
     'BaseSession',
     'AddressNameServer',
 
-    'KeyStore', 'CommonFacebook',
+    'KeyStore', 'CommonFacebook', 'SharedFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
 
     'msg_receipt', 'msg_traced', 'is_broadcast_message',

@@ -91,8 +91,14 @@ class CommonMessenger(Messenger):
             Messenger.data_source.__set__(self, delegate)
         return delegate
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
     def _create_facebook(self) -> CommonFacebook:
-        # facebook = CommonFacebook()
+        # facebook = SharedFacebook()
         # facebook.messenger = self
         # return facebook
         raise AssertionError('set facebook first')

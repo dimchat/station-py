@@ -39,11 +39,9 @@ from dimp import ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
 from ..utils import Singleton
-
 from .database import Database
 
 
-@Singleton
 class CommonFacebook(Facebook):
 
     def __init__(self):
@@ -267,3 +265,8 @@ class CommonFacebook(Facebook):
         robot = ID.parse(identifier='assistant')
         if robot is not None:
             return [robot]
+
+
+@Singleton
+class SharedFacebook(CommonFacebook):
+    pass
