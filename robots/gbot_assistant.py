@@ -282,7 +282,7 @@ class AssistantMessenger(ClientMessenger, Logging):
         sender = self.facebook.current_user.identifier
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=forward)
-        i_msg['origin'] = {'sender': msg.sender, 'group': msg.group, 'type': msg.type}
+        i_msg['origin'] = {'sender': str(msg.sender), 'group': str(msg.group), 'type': msg.type}
         return self.send_message(msg=i_msg)
 
 

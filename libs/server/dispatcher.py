@@ -233,10 +233,10 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
             # check origin message info
             origin = msg.get('origin')
             if isinstance(origin, dict):
-                value = origin.get('sender')
+                value = ID.parse(identifier=origin.get('sender'))
                 if value is not None:
                     sender = value
-                value = origin.get('group')
+                value = ID.parse(identifier=origin.get('group'))
                 if value is not None:
                     group = value
                 value = origin.get('type')
