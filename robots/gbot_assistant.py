@@ -38,7 +38,7 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, ForwardContent, GroupCommand
+from dimp import Content, GroupCommand
 from dimsdk import ReceiptCommand
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -69,8 +69,8 @@ class GroupKeyCache(Storage):
         self.__cache = {}  # group => (sender => (member => key str))
 
     # path: '/data/.dim/protected/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS).json'
-    @staticmethod
-    def __path(group: ID, sender: ID) -> str:
+    # noinspection PyMethodMayBeStatic
+    def __path(self, group: ID, sender: ID) -> str:
         filename = 'group-keys-%s.js' % str(sender.address)
         return os.path.join(Storage.root, 'protected', str(group.address), filename)
 
@@ -291,8 +291,9 @@ class AssistantMessenger(ClientMessenger):
                 # cannot forward group message without key
                 return False
             msg['key'] = key
-        forward = ForwardContent(message=msg)
-        return self.send_content(sender=None, receiver=receiver, content=forward)
+        # forward = ForwardContent(message=msg)
+        # return self.send_content(sender=None, receiver=receiver, content=forward)
+        return self.send_message(msg=msg)
 
 
 """
