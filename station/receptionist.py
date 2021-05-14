@@ -117,10 +117,10 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
     def __process_users(self, users: Set[ID]):
         for identifier in users:
             # 1. get cached messages
-            self.debug('scanning messages for: %s' % identifier)
             bundle = g_database.message_bundle(identifier=identifier)
+            messages = bundle.all()
+            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
             # 2. sent messages one by one
-            self.info('%d message(s) loaded for: %s' % (bundle.count(), identifier))
             while True:
                 msg = bundle.pop()
                 if msg is None:

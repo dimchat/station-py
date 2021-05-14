@@ -71,10 +71,12 @@ class MessageBundle:
 
     def add(self, msg: ReliableMessage) -> bool:
         with self.__lock:
+            # check duplicated
             signature = msg.get('signature')
             for item in self.__messages:
                 if item.get('signature') == signature:
                     return False
+            # append
             self.__messages.append(msg)
             return True
 
@@ -92,6 +94,7 @@ class MessageBundle:
             assert isinstance(db, MessageTable), 'db error: %s' % db
             messages = db.fetch_all_messages(receiver=self.__identifier)
             for msg in messages:
+                # check duplicated
                 exists = False
                 signature = msg.get('signature')
                 for item in self.__messages:
@@ -99,12 +102,9 @@ class MessageBundle:
                         exists = True
                         break
                 if not exists:
+                    # append
                     self.__messages.append(msg)
-            return self.__messages
-
-    def count(self) -> int:
-        messages = self.all()
-        return len(messages)
+            return self.__messages.copy()
 
 
 class MessageTable(Storage):
@@ -115,6 +115,22 @@ class MessageTable(Storage):
         super().__init__()
         self.__bundles = weakref.WeakValueDictionary()  # ID -> MessageBundle
         self.__lock = threading.Lock()
+
+    def message_bundle(self, identifier: ID) -> MessageBundle:
+        with self.__lock:
+            bundle = self.__bundles.get(identifier)
+            if bundle is None:
+                bundle = MessageBundle(db=self, identifier=identifier)
+                self.__bundles[identifier] = bundle
+            return bundle
+
+    def store_message(self, msg: ReliableMessage) -> bool:
+        bundle = self.message_bundle(identifier=msg.receiver)
+        return bundle.add(msg=msg)
+
+    def erase_message(self, msg: ReliableMessage) -> bool:
+        bundle = self.message_bundle(identifier=msg.receiver)
+        return bundle.erase(msg=msg)
 
     """
         Reliable message for Receivers
@@ -216,19 +232,3 @@ class MessageTable(Storage):
             for msg in messages:
                 all_messages.append(msg)
         return all_messages
-
-    def message_bundle(self, identifier: ID) -> MessageBundle:
-        with self.__lock:
-            bundle = self.__bundles.get(identifier)
-            if bundle is None:
-                bundle = MessageBundle(db=self, identifier=identifier)
-                self.__bundles[identifier] = bundle
-            return bundle
-
-    def store_message(self, msg: ReliableMessage) -> bool:
-        bundle = self.message_bundle(identifier=msg.receiver)
-        return bundle.add(msg=msg)
-
-    def erase_message(self, msg: ReliableMessage) -> bool:
-        bundle = self.message_bundle(identifier=msg.receiver)
-        return bundle.erase(msg=msg)

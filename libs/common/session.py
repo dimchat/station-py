@@ -146,6 +146,13 @@ class MessageQueue:
 
     def append(self, msg: ReliableMessage) -> bool:
         with self.__lock:
+            # check duplicated
+            signature = msg.get('signature')
+            for wrapper in self.__wrappers:
+                item = wrapper.msg
+                if item is not None and item.get('signature') == signature:
+                    return True
+            # append with wrapper
             wrapper = MessageWrapper(msg=msg)
             self.__wrappers.append(wrapper)
             return True
