@@ -194,9 +194,10 @@ class MessageDataSource(MessengerDataSource):
 
     def save_message(self, msg: InstantMessage) -> bool:
         content = msg.content
-        Log.info('TODO: saving msg: %s -> %s\n type=%d, text=%s\n %s' % (msg.sender, msg.receiver,
-                                                                         content.type, content.get('text'),
-                                                                         msg.get('traces')))
+        Log.info('TODO: saving msg: %s -> %s\n type=%d, command=%s, text=%s\n %s'
+                 % (msg.sender, msg.receiver,
+                    content.type, content.get('command'), content.get('text'),
+                    msg.get('traces')))
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:

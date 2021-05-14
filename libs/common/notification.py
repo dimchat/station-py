@@ -45,3 +45,4 @@ class NotificationNames:
     USER_ROAMING = 'user_roaming'        # roaming
 
     DELIVER_MESSAGE = 'deliver_message'  # delivering message
+    MESSAGE_SENT = 'message_sent'        # message sent out

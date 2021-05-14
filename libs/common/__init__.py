@@ -35,7 +35,7 @@ from dimsdk import ReceiptCommand
 
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
-from .database import Storage, Database
+from .database import Storage, Database, MessageBundle
 
 from .notification import NotificationNames
 from .session import BaseSession, is_broadcast_message
@@ -120,6 +120,7 @@ __all__ = [
     #
     'Storage',
     'Database',
+    'MessageBundle',
 
     #
     #   Common libs

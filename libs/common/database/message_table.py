@@ -24,8 +24,10 @@
 # ==============================================================================
 
 import os
+import threading
 import time
-from typing import List
+import weakref
+from typing import List, Optional
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID, NetworkType
@@ -41,14 +43,78 @@ def is_broadcast_message(msg: ReliableMessage):
     return group is not None and group.is_broadcast
 
 
+class MessageBundle:
+
+    def __init__(self, db, identifier: ID):
+        super().__init__()
+        self.__db = weakref.ref(db)
+        self.__identifier = identifier
+        self.__messages: List[ReliableMessage] = []
+        self.__lock = threading.Lock()
+
+    def __del__(self):
+        self.__flush()
+
+    def __flush(self):
+        db = self.__db()
+        assert isinstance(db, MessageTable), 'db error: %s' % db
+        while True:
+            msg = self.pop()
+            if msg is None:
+                break
+            db.save_message(msg=msg)
+
+    def pop(self) -> Optional[ReliableMessage]:
+        with self.__lock:
+            if len(self.__messages) > 0:
+                return self.__messages.pop(0)
+
+    def add(self, msg: ReliableMessage) -> bool:
+        with self.__lock:
+            signature = msg.get('signature')
+            for item in self.__messages:
+                if item.get('signature') == signature:
+                    return False
+            self.__messages.append(msg)
+            return True
+
+    def erase(self, msg: ReliableMessage) -> bool:
+        with self.__lock:
+            signature = msg.get('signature')
+            for item in self.__messages:
+                if item.get('signature') == signature:
+                    self.__messages.remove(item)
+                    return True
+
+    def all(self) -> List[ReliableMessage]:
+        with self.__lock:
+            db = self.__db()
+            assert isinstance(db, MessageTable), 'db error: %s' % db
+            messages = db.fetch_all_messages(receiver=self.__identifier)
+            for msg in messages:
+                exists = False
+                signature = msg.get('signature')
+                for item in self.__messages:
+                    if item.get('signature') == signature:
+                        exists = True
+                        break
+                if not exists:
+                    self.__messages.append(msg)
+            return self.__messages
+
+    def count(self) -> int:
+        messages = self.all()
+        return len(messages)
+
+
 class MessageTable(Storage):
 
     MESSAGE_EXPIRES = 3600 * 24 * 7  # only relay cached messages within 7 days
 
     def __init__(self):
         super().__init__()
-        # memory caches
-        # self.__caches: dict = {}
+        self.__bundles = weakref.WeakValueDictionary()  # ID -> MessageBundle
+        self.__lock = threading.Lock()
 
     """
         Reliable message for Receivers
@@ -111,7 +177,7 @@ class MessageTable(Storage):
                 # only same messages will have same signature
                 return True
 
-    def store_message(self, msg: ReliableMessage) -> bool:
+    def save_message(self, msg: ReliableMessage) -> bool:
         sender = msg.sender
         receiver = msg.receiver
         if is_broadcast_message(msg=msg):
@@ -150,3 +216,19 @@ class MessageTable(Storage):
             for msg in messages:
                 all_messages.append(msg)
         return all_messages
+
+    def message_bundle(self, identifier: ID) -> MessageBundle:
+        with self.__lock:
+            bundle = self.__bundles.get(identifier)
+            if bundle is None:
+                bundle = MessageBundle(db=self, identifier=identifier)
+                self.__bundles[identifier] = bundle
+            return bundle
+
+    def store_message(self, msg: ReliableMessage) -> bool:
+        bundle = self.message_bundle(identifier=msg.receiver)
+        return bundle.add(msg=msg)
+
+    def erase_message(self, msg: ReliableMessage) -> bool:
+        bundle = self.message_bundle(identifier=msg.receiver)
+        return bundle.erase(msg=msg)

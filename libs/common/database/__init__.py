@@ -45,7 +45,7 @@ from .meta_table import MetaTable
 from .document_table import DocumentTable, DeviceTable
 from .user_table import UserTable
 from .group_table import GroupTable
-from .message_table import MessageTable
+from .message_table import MessageTable, MessageBundle
 from .ans_table import AddressNameTable
 
 from .login_table import LoginTable
@@ -56,6 +56,7 @@ __all__ = [
     # 'MetaTable', 'DocumentTable', 'PrivateKeyTable',
     # 'DeviceTable',
     # 'MessageTable',
+    'MessageBundle',
     # 'AddressNameTable',
     'Database',
 ]
@@ -245,11 +246,14 @@ class Database:
 
         file path: '.dim/public/{ADDRESS}/messages/*.msg'
     """
+    def message_bundle(self, identifier: ID) -> MessageBundle:
+        return self.__message_table.message_bundle(identifier=identifier)
+
     def store_message(self, msg: ReliableMessage) -> bool:
         return self.__message_table.store_message(msg=msg)
 
-    def fetch_all_messages(self, receiver: ID) -> List[ReliableMessage]:
-        return self.__message_table.fetch_all_messages(receiver=receiver)
+    def erase_message(self, msg: ReliableMessage) -> bool:
+        return self.__message_table.erase_message(msg=msg)
 
     """
         Search Engine

@@ -45,11 +45,12 @@ from typing import Optional, List
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
-from ..utils import Logging
+from ..utils import NotificationCenter, Logging
 
 from ..network import GateStatus, GateDelegate, StarGate, StarTrek
 from ..network import Ship, ShipDelegate
 
+from .notification import NotificationNames
 from .database import Database
 from .messenger import CommonMessenger
 
@@ -109,6 +110,10 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     def ship_sent(self, ship, error: Optional[OSError] = None):
         if error is None:
             # success, remove message
+            msg = self.__msg
+            if isinstance(msg, ReliableMessage):
+                NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
+                g_database.erase_message(msg=msg)
             self.__msg = None
         else:
             # failed

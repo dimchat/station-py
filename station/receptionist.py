@@ -118,10 +118,13 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         for identifier in users:
             # 1. get cached messages
             self.debug('scanning messages for: %s' % identifier)
-            messages = g_database.fetch_all_messages(receiver=identifier)
+            bundle = g_database.message_bundle(identifier=identifier)
             # 2. sent messages one by one
-            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
-            for msg in messages:
+            self.info('%d message(s) loaded for: %s' % (bundle.count(), identifier))
+            while True:
+                msg = bundle.pop()
+                if msg is None:
+                    break
                 g_dispatcher.deliver(msg=msg)
 
     #

@@ -45,7 +45,7 @@ from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
-from ..common import Database
+from ..common import Database, MessageBundle
 from ..common import BaseSession
 from ..common import CommonMessenger
 
@@ -64,6 +64,7 @@ class Session(BaseSession):
         self.__client_address = sock.getpeername()
         self.__key = generate_session_key()
         self.__identifier = None
+        self.__bundle = None
 
     def __str__(self):
         clazz = self.__class__.__name__
@@ -86,7 +87,12 @@ class Session(BaseSession):
 
     @identifier.setter
     def identifier(self, value: ID):
-        self.__identifier = value
+        if self.__identifier != value:
+            self.__identifier = value
+            if value is None:
+                self.__bundle = None
+            else:
+                self.__bundle = g_database.message_bundle(identifier=value)
 
     @property
     def active(self) -> bool:
@@ -94,25 +100,21 @@ class Session(BaseSession):
 
     @active.setter
     def active(self, value: bool):
-        old = self.active
-        BaseSession.active.__set__(self, value)
-        if old != value and value:
-            identifier = self.identifier
-            if identifier is not None:
-                self.__scan(identifier=identifier)
+        if value != self.active:
+            BaseSession.active.__set__(self, value)
+            if value and self.__bundle is not None:
+                self.__scan(bundle=self.__bundle)
 
-    def __scan(self, identifier: ID):
-        self.debug('scanning messages for: %s' % identifier)
-        messages = g_database.fetch_all_messages(receiver=identifier)
+    def __scan(self, bundle: MessageBundle):
+        self.debug('scanning messages for: %s' % self.identifier)
+        messages = bundle.all()
         total = len(messages)
-        self.info('%d message(s) loaded for: %s' % (total, identifier))
+        self.info('%d message(s) loaded for: %s' % (total, self.identifier))
         success = 0
         for msg in messages:
             if self.push_message(msg=msg):
                 success += 1
-            else:
-                g_database.store_message(msg=msg)
-        self.info('%d/%d message(s) pushed to %s' % (success, total, identifier))
+        self.info('%d/%d message(s) pushed to %s' % (success, total, self.identifier))
 
 
 @Singleton
