@@ -229,6 +229,20 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
         msg_type = msg.type
         if msg_type is None:
             msg_type = 0
+        elif msg_type == ContentType.FORWARD:
+            # check origin message info
+            origin = msg.get('origin')
+            if isinstance(origin, dict):
+                value = origin.get('sender')
+                if value is not None:
+                    sender = value
+                value = origin.get('group')
+                if value is not None:
+                    group = value
+                value = origin.get('type')
+                if value is not None:
+                    msg_type = value
+                msg.pop('origin')
         _push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
     return msg_receipt(msg=msg, text='Message cached')
 
@@ -262,6 +276,7 @@ def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -
     if group is not None:
         # group message
         text += ' in group [%s]' % g_facebook.name(identifier=group)
+    print('push notification: %s' % text)
     return service.push_notification(sender=sender, receiver=receiver, message=text)
 
 

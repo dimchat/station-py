@@ -37,7 +37,7 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, GroupCommand
+from dimp import Content, ForwardContent, GroupCommand
 from dimsdk import ReceiptCommand
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -275,10 +275,15 @@ class AssistantMessenger(ClientMessenger, Logging):
                 # cannot forward group message without key
                 return False
             msg['key'] = key
-        # forward = ForwardContent(message=msg)
-        # return self.send_content(sender=None, receiver=receiver, content=forward)
+        # wrap
         msg.pop('traces', None)
-        return self.send_message(msg=msg)
+        forward = ForwardContent(message=msg)
+        # pack and send
+        sender = self.facebook.current_user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        i_msg = InstantMessage.create(head=env, body=forward)
+        i_msg['origin'] = {'sender': msg.sender, 'group': msg.group, 'type': msg.type}
+        return self.send_message(msg=i_msg)
 
 
 """
