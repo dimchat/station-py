@@ -33,7 +33,6 @@
 
 import sys
 import os
-import time
 from typing import Optional, List
 
 from dimp import ID
@@ -45,6 +44,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from libs.utils import Logging
 from libs.common import Storage
 
 from libs.client import Terminal, ClientMessenger
@@ -55,11 +55,6 @@ from robots.config import dims_connect
 from robots.config import group_assistants
 
 from etc.cfg_loader import load_user
-
-
-def current_time() -> str:
-    time_array = time.localtime()
-    return time.strftime('%Y-%m-%d %H:%M:%S', time_array)
 
 
 class GroupKeyCache(Storage):
@@ -144,22 +139,11 @@ class GroupKeyCache(Storage):
         return key
 
 
-class AssistantMessenger(ClientMessenger):
+class AssistantMessenger(ClientMessenger, Logging):
 
     def __init__(self):
         super().__init__()
         self.__key_cache = GroupKeyCache()
-
-    #
-    #  Log
-    #
-    @classmethod
-    def info(cls, msg: str):
-        print('[%s] Storage > %s' % (current_time(), msg))
-
-    @classmethod
-    def error(cls, msg: str):
-        print('[%s] ERROR - Storage > %s' % (current_time(), msg))
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
@@ -293,6 +277,7 @@ class AssistantMessenger(ClientMessenger):
             msg['key'] = key
         # forward = ForwardContent(message=msg)
         # return self.send_content(sender=None, receiver=receiver, content=forward)
+        msg.pop('traces', None)
         return self.send_message(msg=msg)
 
 
