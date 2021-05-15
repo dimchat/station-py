@@ -189,7 +189,8 @@ g_database.scan_ids()
 Log.info('-------- Loading group assistants: %d' % len(group_assistants))
 group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
-g_facebook.group_assistants = group_assistants
+for ass in group_assistants:
+    g_facebook.add_assistant(assistant=ass)
 
 # convert ID to Station
 Log.info('-------- Loading stations: %d' % len(all_stations))

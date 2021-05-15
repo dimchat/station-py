@@ -31,7 +31,7 @@
 from typing import Optional
 
 from dimp import NetworkType
-from dimp import SecureMessage, ReliableMessage
+from dimp import ReliableMessage
 
 from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
@@ -55,11 +55,18 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        # check traces
         messenger = self.messenger
+        #
+        # 1. verify message
+        #
+        s_msg = messenger.verify_message(msg=msg)
+        if s_msg is None:
+            # waiting for sender's meta if not exists
+            return None
         station = messenger.dispatcher.station
         sender = msg.sender
         receiver = msg.receiver
+        # 1.1. check traces
         if msg_traced(msg=msg, node=station, append=True):
             self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
@@ -80,30 +87,40 @@ class ServerProcessor(CommonProcessor):
                 self.info('store cycled msg: %s, %s -> %s' % (station, sender, receiver))
                 g_database.store_message(msg=msg)
                 return None
-        if receiver.is_group:
-            # verify signature
-            s_msg = messenger.verify_message(msg=msg)
-            if s_msg is None:
-                # signature error?
-                return None
-            # deliver group message
+        # 1.2. check broadcast/group message
+        if receiver.is_broadcast:
             res = messenger.deliver_message(msg=msg)
-            if receiver.is_broadcast:
-                # if this is a broadcast, deliver it, send back the response
-                # and continue to process it with the station.
-                # because this station is also a recipient too.
-                if res is not None:
-                    messenger.send_message(msg=res, priority=1)
+            # if this is a broadcast, deliver it, send back the response
+            # and continue to process it with the station.
+            # because this station is also a recipient too.
+            if res is not None:
+                messenger.send_message(msg=res, priority=1)
+        elif receiver.is_group:
+            # or, if this is is an ordinary group message,
+            # just deliver it to the group assistant
+            # and return the response to the sender.
+            return messenger.deliver_message(msg=msg)
+        #
+        # 2. process message
+        #
+        try:
+            s_msg = messenger.process_secure_message(msg=s_msg, r_msg=msg)
+            if s_msg is None:
+                # nothing to respond
+                return None
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                # not mine? deliver it
+                return self.messenger.deliver_message(msg=msg)
             else:
-                # or, this is is an ordinary group message,
-                # just deliver it to the group assistant
-                # and return the response to the sender.
-                return res
-        # call super to process message
-        res = super().process_reliable_message(msg=msg)
+                raise error
+        #
+        # 3. sign message
+        #
+        res = messenger.sign_message(msg=s_msg)
         if res is not None:
             group = msg.group
-            if (receiver.is_broadcast and receiver.is_user) or (group is not None and group.is_broadcast):
+            if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
                 # if this message sent to 'station@anywhere', or with group ID 'station@everywhere',
                 # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
                 # so respond them as message attachments.
@@ -111,14 +128,3 @@ class ServerProcessor(CommonProcessor):
                 res.meta = user.meta
                 res.visa = user.visa
             return res
-
-    # Override
-    def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> Optional[SecureMessage]:
-        try:
-            return super().process_secure_message(msg=msg, r_msg=r_msg)
-        except LookupError as error:
-            if str(error).startswith('receiver error'):
-                # not mine? deliver it
-                return self.messenger.deliver_message(msg=r_msg)
-            else:
-                raise error

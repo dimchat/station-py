@@ -224,25 +224,25 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
     # check mute-list
     sender = msg.sender
     group = msg.group
+    msg_type = msg.type
+    if msg_type is None:
+        msg_type = 0
+    elif msg_type == ContentType.FORWARD:
+        # check origin message info
+        origin = msg.get('origin')
+        if isinstance(origin, dict):
+            value = ID.parse(identifier=origin.get('sender'))
+            if value is not None:
+                sender = value
+            value = ID.parse(identifier=origin.get('group'))
+            if value is not None:
+                group = value
+            value = origin.get('type')
+            if value is not None:
+                msg_type = value
+            msg.pop('origin')
     if not g_database.is_muted(sender=sender, receiver=receiver, group=group):
         # push notification
-        msg_type = msg.type
-        if msg_type is None:
-            msg_type = 0
-        elif msg_type == ContentType.FORWARD:
-            # check origin message info
-            origin = msg.get('origin')
-            if isinstance(origin, dict):
-                value = ID.parse(identifier=origin.get('sender'))
-                if value is not None:
-                    sender = value
-                value = ID.parse(identifier=origin.get('group'))
-                if value is not None:
-                    group = value
-                value = origin.get('type')
-                if value is not None:
-                    msg_type = value
-                msg.pop('origin')
         _push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
     return msg_receipt(msg=msg, text='Message cached')
 
@@ -377,9 +377,44 @@ class BroadcastDispatcher(Worker):
     """ broadcast (split and deliver) to everyone """
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        # FIXME: now only broadcast message to all stations
-        #        what about robots?
-        self.debug('broadcasting message from: %s' % msg.sender)
+        self.info('broadcasting message: %s -> %s, %s' % (msg.sender, msg.receiver, msg.group))
+        receiver = msg.receiver
+        # check for group bots: assistants
+        if receiver in ['assistant@anywhere', 'assistants@everywhere']:
+            return self.__deliver_to_assistants(msg=msg)
+        # check for search engine: 'archivist'
+        if receiver in ['archivist@anywhere', 'archivists@everywhere']:
+            return self.__deliver_to_archivist(msg=msg)
+        # push to all neighbour stations
+        return self.__deliver_to_neighbors(msg=msg)
+
+    def __deliver_to_assistants(self, msg: ReliableMessage) -> Optional[Content]:
+        assistants = g_facebook.assistants(identifier=msg.receiver)
+        success = 0
+        for ass in assistants:
+            cnt = _push_message(msg=msg, receiver=ass)
+            if cnt > 0:
+                success += 1
+            else:
+                self.warning('failed to push message to assistant: %s' % ass)
+        # response
+        text = 'Message broadcast to %d/%d assistants' % (success, len(assistants))
+        res = TextContent(text=text)
+        res.group = msg.group
+        return res
+
+    def __deliver_to_archivist(self, msg: ReliableMessage) -> Optional[Content]:
+        archivist = ID.parse(identifier='archivist')
+        if archivist is None:
+            self.error('failed to get search bot: archivist')
+        elif _push_message(msg=msg, receiver=archivist) > 0:
+            # response
+            text = 'Search command forward to archivist: ' % archivist
+            res = TextContent(text=text)
+            res.group = msg.group
+            return res
+
+    def __deliver_to_neighbors(self, msg: ReliableMessage) -> Optional[Content]:
         # 1. push to all neighbors connected th current station
         neighbors = self.neighbors
         sent_neighbors = []
