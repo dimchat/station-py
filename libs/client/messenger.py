@@ -73,7 +73,9 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
 
     @property
     def server(self) -> Server:
-        return self.terminal.server
+        client = self.terminal
+        if client is not None:
+            return client.server
 
     #
     #   Sending command

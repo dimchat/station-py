@@ -47,7 +47,7 @@ from libs.client import Server, Terminal
 #
 from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_gsp import station_id, all_stations
-from etc.cfg_bots import group_assistants
+from etc.cfg_bots import group_assistants, search_archivists
 from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id
 
 from etc.cfg_loader import load_station
@@ -139,6 +139,9 @@ group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 for ass in group_assistants:
     g_facebook.add_assistant(assistant=ass)
+
+search_archivists = [ID.parse(identifier=item) for item in search_archivists]
+Log.info('Search archivists: %s' % search_archivists)
 
 lingling_id = ID.parse(identifier=lingling_id)
 xiaoxiao_id = ID.parse(identifier=xiaoxiao_id)

@@ -52,7 +52,7 @@ from etc.cfg_db import base_dir, ans_reserved_records
 from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
 from etc.cfg_gsp import all_stations, local_servers
 from etc.cfg_gsp import station_id, station_host, station_port, station_name
-from etc.cfg_bots import group_assistants
+from etc.cfg_bots import group_assistants, search_archivists
 
 from etc.cfg_loader import load_station
 
@@ -191,6 +191,10 @@ group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 for ass in group_assistants:
     g_facebook.add_assistant(assistant=ass)
+
+Log.info('-------- Loading search engines: %d' % len(search_archivists))
+search_archivists = [ID.parse(identifier=item) for item in search_archivists]
+Log.info('Search archivists: %s' % search_archivists)
 
 # convert ID to Station
 Log.info('-------- Loading stations: %d' % len(all_stations))

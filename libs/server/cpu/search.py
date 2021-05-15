@@ -24,122 +24,78 @@
 # ==============================================================================
 
 """
-    Command Processor for search/online users
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    1. search users with keyword(s)
-    2. show online users (connected)
+    Command Processor for online users
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional
+from typing import Optional, List
 
-from dimp import ID, Meta
+from dimp import NetworkType, ID, Meta
 from dimp import ReliableMessage
-from dimp import Content, TextContent
+from dimp import Content
 from dimp import Command
 from dimsdk import CommandProcessor
 
-from ...utils import NotificationCenter
-from ...common import NotificationNames
 from ...common import SearchCommand
 from ...common import Database
 
 from ..session import SessionServer
+from ..messenger import ServerMessenger
 
 
 g_session_server = SessionServer()
 g_database = Database()
 
 
+def online_users(facebook, start: int, limit: int) -> (list, dict):
+    users = g_session_server.active_users(start=start, limit=limit)
+    results = {}
+    for item in users:
+        meta = facebook.meta(identifier=item)
+        if isinstance(meta, Meta):
+            results[str(item)] = meta.dictionary
+    return users, results
+
+
+# noinspection PyUnusedLocal
+def save_response(facebook, station: ID, users: List[ID], results: dict) -> Optional[Content]:
+    # TODO: Save online users in a text file
+    pass
+
+
 class SearchCommandProcessor(CommandProcessor):
 
-    @staticmethod
-    def __search(cmd: SearchCommand) -> Optional[Content]:
-        # keywords
-        keywords = cmd.get('keywords')
-        if keywords is None:
-            return TextContent(text='Search command error')
-        keywords = keywords.split(' ')
-        start = cmd.start
-        limit = cmd.limit
-        # search in database
-        results = g_database.search(keywords=keywords, start=start, limit=limit)
-        users = list(results.keys())
-        return _new_search_command(cmd=cmd, users=users, results=results)
+    @property
+    def messenger(self) -> ServerMessenger:
+        return super().messenger
 
-    def __process(self, cmd: SearchCommand) -> Optional[Content]:
-        # save meta for users
-        _save_metas(cmd=cmd, facebook=self.facebook)
-        # TODO: show users?
-        return None
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        CommandProcessor.messenger.__set__(self, transceiver)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
-        users = cmd.users
-        if users is None:
-            return self.__search(cmd=cmd)
-        else:
-            return self.__process(cmd=cmd)
-
-
-def _new_search_command(cmd: SearchCommand, users: list, results: dict) -> SearchCommand:
-    info = cmd.copy_dictionary(False)
-    info.pop('sn', None)
-    info.pop('time', None)
-    cmd = SearchCommand(cmd=info)
-    cmd.users = users
-    cmd.results = results
-    return cmd
-
-
-def _save_metas(cmd: SearchCommand, facebook):
-    results = cmd.results
-    for key, value in results.items():
-        identifier = ID.parse(identifier=key)
-        meta = Meta.parse(meta=value)
-        if identifier is not None and meta is not None:
-            # assert meta.match_identifier(identifier=identifier), 'meta error'
-            facebook.save_meta(meta=meta, identifier=identifier)
-
-
-class UsersCommandProcessor(CommandProcessor):
-
-    def __search(self, cmd: SearchCommand) -> Optional[Content]:
-        facebook = self.facebook
-        start = cmd.start
-        limit = cmd.limit
-        # get active users
-        users = g_session_server.active_users(start=start, limit=limit)
-        results = {}
-        for item in users:
-            meta = facebook.meta(identifier=item)
-            if isinstance(meta, Meta):
-                results[str(item)] = meta.dictionary
-        return _new_search_command(cmd=cmd, users=list(users), results=results)
-
-    def __process(self, cmd: SearchCommand) -> Optional[Content]:
-        # save meta for users
-        _save_metas(cmd=cmd, facebook=self.facebook)
-        # post roamers
-        nc = NotificationCenter()
-        users = cmd.users
-        for item in users:
-            # post notification: USER_ROAMING
-            nc.post(name=NotificationNames.USER_ROAMING, sender=self, info={
-                'ID': item
-            })
-        return None
-
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
-        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
-        users = cmd.users
-        if users is None:
-            return self.__search(cmd=cmd)
-        else:
-            return self.__process(cmd=cmd)
+        if cmd.users is not None or cmd.results is not None:
+            # this is a response
+            return save_response(self.facebook, station=msg.sender, users=cmd.users, results=cmd.results)
+        # this is a request
+        if msg.sender.type != NetworkType.ROBOT:
+            # only for robot
+            return None
+        station = self.messenger.facebook.current_user
+        users, results = online_users(self.facebook, start=cmd.start, limit=cmd.limit)
+        # respond
+        info = cmd.copy_dictionary(False)
+        info.pop('sn', None)
+        info.pop('time', None)
+        cmd = SearchCommand(cmd=info)
+        cmd.station = station.identifier
+        cmd.users = users
+        cmd.results = results
+        return cmd
 
 
 # register
 spu = SearchCommandProcessor()
-CommandProcessor.register(command=SearchCommand.SEARCH, cpu=SearchCommandProcessor())
-CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=UsersCommandProcessor())
+CommandProcessor.register(command=SearchCommand.SEARCH, cpu=spu)
+CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=spu)

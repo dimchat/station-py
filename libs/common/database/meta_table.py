@@ -106,7 +106,7 @@ class MetaTable(Storage):
             string = str(identifier).lower()
             match = True
             for kw in keywords:
-                if string.find(kw.lower()) < 0:
+                if len(kw) > 0 and string.find(kw.lower()) < 0:
                     # not match
                     match = False
                     break

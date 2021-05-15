@@ -30,7 +30,7 @@
     Search users with keywords
 """
 
-from typing import Optional, List
+from typing import Optional, Union, List
 
 from dimp import ID, Command
 from dimp.protocol import CommandFactoryBuilder
@@ -46,11 +46,12 @@ class SearchCommand(Command):
             sn   : 123,
 
             command  : "search",        // or "users"
+            keywords : "keywords",      // keyword string
 
             start    : 0,
             limit    : 20,
 
-            keywords : "keywords",      // keyword string
+            station  : "STATION_ID",    // station ID
             users    : ["ID",],         // user ID list
             results  : {"ID": {meta}, } // user's meta map
         }
@@ -62,19 +63,10 @@ class SearchCommand(Command):
 
     def __init__(self, cmd: Optional[dict] = None, keywords: str = None, users: List[ID] = None, results: dict = None):
         if cmd is None:
-            if keywords == SearchCommand.ONLINE_USERS:
-                command = keywords
-                keywords = None
-            else:
-                command = SearchCommand.SEARCH
-            super().__init__(command=command)
+            super().__init__(command=SearchCommand.SEARCH)
         else:
-            # convert to 'UsersCommand'
-            kw = cmd.get('keywords')
-            if kw == SearchCommand.ONLINE_USERS:
-                cmd['command'] = kw
-                cmd.pop('keywords')
             super().__init__(cmd=cmd)
+        # keywords
         if keywords is not None:
             self['keywords'] = keywords
         # users
@@ -85,6 +77,24 @@ class SearchCommand(Command):
         if results is not None:
             self['results'] = results
         self.__results = results
+
+    #
+    #   Keywords
+    #
+    @property
+    def keywords(self) -> Optional[str]:
+        kw = self.get('keywords')
+        if kw is not None:
+            return kw
+        elif self.command == SearchCommand.ONLINE_USERS:
+            return SearchCommand.ONLINE_USERS
+
+    @keywords.setter
+    def keywords(self, value: Union[str, list]):
+        if isinstance(value, list):
+            self['keywords'] = ' '.join(value)
+        else:
+            self['keywords'] = value
 
     @property
     def start(self) -> int:
@@ -109,6 +119,20 @@ class SearchCommand(Command):
     @limit.setter
     def limit(self, value: int):
         self['limit'] = value
+
+    #
+    #   Station ID
+    #
+    @property
+    def station(self) -> Optional[ID]:
+        return ID.parse(identifier=self.get('station'))
+
+    @station.setter
+    def station(self, identifier: ID):
+        if identifier is None:
+            self.pop('station', None)
+        else:
+            self['station'] = str(identifier)
 
     #
     #   User ID list

@@ -34,7 +34,7 @@ from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 from .report import ReportCommandProcessor
 from .profile import DocumentCommandProcessor
-from .search import SearchCommandProcessor, UsersCommandProcessor
+from .search import SearchCommandProcessor
 
 
 __all__ = [
@@ -42,5 +42,4 @@ __all__ = [
     'ReportCommandProcessor',
     'LoginCommandProcessor', 'DocumentCommandProcessor',
     'SearchCommandProcessor',
-    'UsersCommandProcessor',
 ]

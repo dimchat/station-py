@@ -46,7 +46,6 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
-from libs.common import SearchCommand
 from libs.common import Database, SharedFacebook
 from libs.common import msg_traced, is_broadcast_message
 
@@ -106,13 +105,6 @@ class OuterMessenger(OctopusMessenger):
             return octopus.arrival(msg=msg)
         else:
             return super().process_reliable_message(msg=msg)
-
-    def handshake_accepted(self, server: Server):
-        super().handshake_accepted(server=server)
-        # query online users from neighbor station
-        cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
-        cmd.limit = -1
-        self._send_command(cmd=cmd, receiver=server.identifier)
 
 
 class Worker(threading.Thread, Logging):

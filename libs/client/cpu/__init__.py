@@ -32,11 +32,8 @@
 
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
-from .search import SearchCommandProcessor, UsersCommandProcessor
 
 __all__ = [
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
-    'SearchCommandProcessor',
-    'UsersCommandProcessor',
 ]
