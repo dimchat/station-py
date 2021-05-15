@@ -30,9 +30,9 @@
 
 from typing import Optional, List
 
-from dimp import NetworkType, ID, Meta
+from dimp import ID, Meta
 from dimp import ReliableMessage
-from dimp import Content
+from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import CommandProcessor
 
@@ -79,11 +79,16 @@ class SearchCommandProcessor(CommandProcessor):
             # this is a response
             return save_response(self.facebook, station=msg.sender, users=cmd.users, results=cmd.results)
         # this is a request
-        if msg.sender.type != NetworkType.ROBOT:
-            # only for robot
+        facebook = self.facebook
+        keywords = cmd.keywords
+        if keywords is None:
+            return TextContent(text='Search command error')
+        elif keywords == SearchCommand.ONLINE_USERS:
+            users, results = online_users(facebook, start=cmd.start, limit=cmd.limit)
+        else:
+            # let search bot (archivist) to do the job
             return None
-        station = self.messenger.facebook.current_user
-        users, results = online_users(self.facebook, start=cmd.start, limit=cmd.limit)
+        station = facebook.current_user
         # respond
         info = cmd.copy_dictionary(False)
         info.pop('sn', None)

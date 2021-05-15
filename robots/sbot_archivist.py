@@ -36,7 +36,7 @@ import os
 import time
 from typing import Optional, List
 
-from dimp import NetworkType, ID, Meta
+from dimp import ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, TextContent, Command
 from dimsdk import CommandProcessor
@@ -69,7 +69,7 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
     return users, results
 
 
-def online_users(start: int, limit: int) -> (list, dict):
+def recent_users(start: int, limit: int) -> (list, dict):
     all_users = set()
     for station in all_stations:
         users = load_users(station.identifier)
@@ -150,12 +150,12 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         if keywords is None:
             return TextContent(text='Search command error')
         elif keywords == SearchCommand.ONLINE_USERS:
-            if msg.sender.type == NetworkType.ROBOT:
-                # ignore other robots
-                # online users will be responded by the station directly
-                return None
+            # let the station to do the job
+            return None
+        elif keywords == 'all users':
+            # query all online users (last 5 minutes)
             self.__query_online_users()
-            users, results = online_users(start=cmd.start, limit=cmd.limit)
+            users, results = recent_users(start=cmd.start, limit=cmd.limit)
         else:
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
         # respond
@@ -183,7 +183,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         else:
             meta = None
             visa = None
-        self.__expired = now + 60 * 5
+        self.__expired = now + 300  # update next 5 minutes at lease
         # search command
         cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
         cmd.limit = -1
