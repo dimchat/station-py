@@ -256,15 +256,9 @@ class Database:
         return self.__message_table.erase_message(msg=msg)
 
     """
-        Search Engine
-        ~~~~~~~~~~~~~
-
-        Search accounts by the 'Search Number'
+        Scan ID from data directory
     """
-    def search(self, keywords: List[str], start: int = 0, limit: int = 20) -> dict:
-        return self.__meta_table.search(keywords=keywords, start=start, limit=limit)
-
-    def scan_ids(self):
+    def scan_ids(self) -> List[ID]:
         return self.__meta_table.scan_ids()
 
     """

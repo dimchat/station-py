@@ -85,52 +85,8 @@ class MetaTable(Storage):
             return info
         self.error('meta not found: %s' % identifier)
 
-    """
-        Search Engine
-        ~~~~~~~~~~~~~
-
-        Search accounts by the 'Search Number'
-    """
-
-    def search(self, keywords: List[str], start: int = 0, limit: int = 20) -> dict:
-        results = {}
-        index = -1
-        end = start + limit
-        array = self.scan_ids()
-        array = random.sample(array, len(array))
-        for identifier in array:
-            network = identifier.type
-            if network not in [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]:
-                # ignore
-                continue
-            string = str(identifier).lower()
-            match = True
-            for kw in keywords:
-                if len(kw) > 0 and string.find(kw.lower()) < 0:
-                    # not match
-                    match = False
-                    break
-            if not match:
-                continue
-            meta = self.meta(identifier)
-            if meta is None:
-                # meta not found
-                continue
-            # got it
-            index += 1
-            if index < start:
-                # skip
-                continue
-            elif index < end:
-                # OK
-                results[str(identifier)] = meta.dictionary
-            else:
-                # finished
-                break
-        self.info('Got %d account(s) matched %s' % (len(results), keywords))
-        return results
-
     def scan_ids(self) -> List[ID]:
+        """ Scan ID from data directory """
         ids = []
         directory = os.path.join(self.root, 'public')
         # get all files in messages directory and sort by filename

@@ -36,7 +36,7 @@ import os
 import time
 from typing import Optional, List
 
-from dimp import ID, Meta
+from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, TextContent, Command
 from dimsdk import CommandProcessor
@@ -61,10 +61,43 @@ g_database = Database()
 g_messenger = ClientMessenger()
 g_facebook = g_messenger.facebook
 
+#
+#   User Info Cache
+#
+g_cached_user_info = {}     # user ID -> user info
+g_cached_online_users = {}  # station ID -> user list
+
 
 def search(keywords: List[str], start: int, limit: int) -> (list, dict):
-    # TODO: support searching nickname
-    results = g_database.search(keywords=keywords, start=start, limit=limit)
+    results = {}
+    if limit <= 0:
+        end = 1024
+    else:
+        end = start + limit
+    index = -1
+    for identifier in g_cached_user_info:
+        if not isinstance(identifier, ID):
+            # 'expired'
+            continue
+        if identifier.type not in [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]:
+            # ignore
+            continue
+        match = True
+        info = g_cached_user_info[identifier]
+        for kw in keywords:
+            if len(kw) > 0 and info.find(kw.lower()) < 0:
+                match = False
+                break
+        if match:
+            meta = g_facebook.meta(identifier=identifier)
+            if meta is not None:
+                index += 1
+                if index >= end:
+                    # mission accomplished
+                    break
+                elif index >= start:
+                    # got it
+                    results[str(identifier)] = meta.dictionary
     users = list(results.keys())
     return users, results
 
@@ -94,15 +127,19 @@ def recent_users(start: int, limit: int) -> (list, dict):
 
 
 def load_users(station: ID) -> List[ID]:
-    path = os.path.join(Storage.root, 'protected', str(station.address), 'online_users.txt')
-    text = Storage.read_text(path=path)
-    if text is None:
-        return []
-    else:
-        return ID.convert(members=text.splitlines())
+    # path = os.path.join(Storage.root, 'protected', str(station.address), 'online_users.txt')
+    # text = Storage.read_text(path=path)
+    # if text is None:
+    #     return []
+    # else:
+    #     return ID.convert(members=text.splitlines())
+    return g_cached_online_users.get(station)
 
 
 def save_users(station: ID, users: List[ID]) -> bool:
+    g_cached_online_users[station] = users
+    """ Save online users in a text file
+        file path: '.dim/protected/{ADDRESS}/online_users.txt' """
     array = ID.revert(members=users)
     text = '\n'.join(array)
     path = os.path.join(Storage.root, 'protected', str(station.address), 'online_users.txt')
@@ -110,10 +147,6 @@ def save_users(station: ID, users: List[ID]) -> bool:
 
 
 def save_response(station: ID, users: List[ID], results: dict) -> Optional[Content]:
-    """ Save online users in a text file
-
-        file path: '.dim/protected/{ADDRESS}/online_users.txt'
-    """
     for key, value in results.items():
         identifier = ID.parse(identifier=key)
         meta = Meta.parse(meta=value)
@@ -129,7 +162,8 @@ class SearchCommandProcessor(CommandProcessor, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__expired: int = 0
+        self.__query_expired = 0
+        self.__scan_expired = 0
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -156,8 +190,11 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             # query all online users (last 5 minutes)
             self.__query_online_users()
             users, results = recent_users(start=cmd.start, limit=cmd.limit)
+            self.info('Got %d recent online user(s)' % len(results))
         else:
+            self.__scan_all_users()
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
+            self.info('Got %d account(s) matched %s' % (len(results), keywords))
         # respond
         info = cmd.copy_dictionary(False)
         info.pop('sn', None)
@@ -170,10 +207,10 @@ class SearchCommandProcessor(CommandProcessor, Logging):
 
     def __query_online_users(self) -> bool:
         now = int(time.time())
-        if now < self.__expired:
+        if now < self.__query_expired:
             return False
         user = g_facebook.current_user
-        if self.__expired == 0:
+        if self.__query_expired == 0:
             # first time, query stations with meta & visa as attachments
             meta = user.meta
             meta = meta.dictionary
@@ -183,7 +220,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         else:
             meta = None
             visa = None
-        self.__expired = now + 300  # update next 5 minutes at lease
+        self.__query_expired = now + 120  # update next 2 minutes at least
         # search command
         cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
         cmd.limit = -1
@@ -199,6 +236,23 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             if messenger.send_message(msg=msg):
                 cnt += 1
         return cnt > 0
+
+    def __scan_all_users(self) -> bool:
+        now = int(time.time())
+        if now < self.__scan_expired:
+            return False
+        self.__scan_expired = now + 600  # expired 10 minutes at least
+        # scan ID from data directory
+        array = g_database.scan_ids()
+        for identifier in array:
+            info = str(identifier).lower()
+            doc = g_facebook.document(identifier=identifier)
+            if doc is not None:
+                name = doc.name
+                if name is not None:
+                    info += ' ' + name
+            g_cached_user_info[identifier] = info
+        return True
 
 
 # register
