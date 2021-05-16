@@ -84,7 +84,7 @@ class InnerMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        if self.accepted or msg.receiver != g_station.identifier:
+        if msg.receiver != g_station.identifier:
             self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
             if msg.delegate is None:
                 msg.delegate = self
