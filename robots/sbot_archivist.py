@@ -113,7 +113,7 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
                 elif index >= start:
                     # got it
                     results[str(identifier)] = meta.dictionary
-    return users, results
+    return list(results.keys()), results
 
 
 def recent_users(start: int, limit: int) -> (list, dict):
