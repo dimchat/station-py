@@ -46,7 +46,7 @@ from libs.server import ServerMessenger, SessionServer, Session
 
 from robots.nlp import chat_bots
 
-from station.config import current_station
+from station.config import g_station
 
 
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
@@ -56,7 +56,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         m = ServerMessenger()
         m.delegate = self
         # set context
-        m.context['station'] = current_station
+        m.context['station'] = g_station
         m.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
         m.context['remote_address'] = client_address
         self.__messenger = m

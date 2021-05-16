@@ -44,7 +44,7 @@ from libs.utils import Log
 from libs.utils.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
-from station.config import g_monitor, g_receptionist, g_dispatcher, current_station
+from station.config import g_monitor, g_receptionist, g_dispatcher, g_station
 
 
 if __name__ == '__main__':
@@ -54,16 +54,16 @@ if __name__ == '__main__':
     g_dispatcher.start()
 
     # start UDP Server
-    Log.info('>>> UDP server (%s:%d) starting ...' % (current_station.host, current_station.port))
-    g_udp_server = UDPServer(host=current_station.host, port=current_station.port)
+    Log.info('>>> UDP server (%s:%d) starting ...' % (g_station.host, g_station.port))
+    g_udp_server = UDPServer(host=g_station.host, port=g_station.port)
     g_udp_server.start()
 
     # start TCP Server
     try:
         TCPServer.allow_reuse_address = True
-        server = ThreadingTCPServer(server_address=(current_station.host, current_station.port),
+        server = ThreadingTCPServer(server_address=(g_station.host, g_station.port),
                                     RequestHandlerClass=RequestHandler)
-        Log.info('server (%s:%s) is listening...' % (current_station.host, current_station.port))
+        Log.info('server (%s:%s) is listening...' % (g_station.host, g_station.port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)

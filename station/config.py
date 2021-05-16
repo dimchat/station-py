@@ -48,11 +48,11 @@ from libs.server import Dispatcher
 #
 #  Configurations
 #
-from etc.cfg_db import base_dir, ans_reserved_records
-from etc.cfg_apns import apns_credentials, apns_use_sandbox, apns_topic
-from etc.cfg_gsp import all_stations, local_servers
-from etc.cfg_gsp import station_id, station_host, station_port, station_name
-from etc.cfg_bots import group_assistants, search_archivists
+from etc.config import base_dir, ans_reserved_records
+from etc.config import apns_credentials, apns_use_sandbox, apns_topic
+from etc.config import all_stations, local_servers
+from etc.config import station_id, station_host, station_port, station_name
+from etc.config import group_assistants
 
 from etc.cfg_loader import load_station
 
@@ -181,20 +181,15 @@ for key, value in ans_reserved_records.items():
         g_ans.save(key, _id)
 
 
-# scan accounts
-Log.info('-------- scanning accounts')
-g_database.scan_ids()
+# convert robot IDs
+Log.info('-------- Loading robots')
 
-# convert string to IDs
-Log.info('-------- Loading group assistants: %d' % len(group_assistants))
 group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 for ass in group_assistants:
     g_facebook.add_assistant(assistant=ass)
 
-Log.info('-------- Loading search engines: %d' % len(search_archivists))
-search_archivists = [ID.parse(identifier=item) for item in search_archivists]
-Log.info('Search archivists: %s' % search_archivists)
+Log.info('Search Engine: %s' % ID.parse(identifier='archivist'))
 
 # convert ID to Station
 Log.info('-------- Loading stations: %d' % len(all_stations))
@@ -205,30 +200,30 @@ Log.info('-------- creating servers: %d' % len(local_servers))
 local_servers = [create_server(identifier=item, host=station_host, port=station_port) for item in local_servers]
 
 # current station
-current_station = None
+g_station = None
 station_id = ID.parse(identifier=station_id)
 for srv in local_servers:
     if srv.identifier == station_id:
         # got it
-        current_station = srv
+        g_station = srv
         break
-assert current_station is not None, 'current station not created: %s' % station_id
-Log.info('current station(%s): %s' % (station_name, current_station))
+assert g_station is not None, 'current station not created: %s' % station_id
+Log.info('current station(%s): %s' % (station_name, g_station))
 
 # set local users for facebook
 g_facebook.local_users = local_servers
-g_facebook.current_user = current_station
+g_facebook.current_user = g_station
 # set current station for key store
-g_keystore.user = current_station
+g_keystore.user = g_station
 # set current station for dispatcher
-g_dispatcher.station = current_station.identifier
+g_dispatcher.station = g_station.identifier
 # set current station for receptionist
-g_receptionist.station = current_station.identifier
+g_receptionist.station = g_station.identifier
 
 # load neighbour station for delivering message
 Log.info('-------- Loading neighbor stations: %d' % len(all_stations))
 for node in all_stations:
-    if node.identifier == current_station.identifier:
+    if node.identifier == g_station.identifier:
         Log.info('current node: %s' % node)
         continue
     Log.info('add node: %s' % node)

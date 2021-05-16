@@ -52,7 +52,6 @@ from libs.client import Terminal, ClientMessenger
 from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
-from robots.config import group_assistants
 
 from etc.cfg_loader import load_user
 
@@ -292,13 +291,13 @@ class AssistantMessenger(ClientMessenger, Logging):
 """
 g_messenger = AssistantMessenger()
 g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
-
+g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':
 
     # set current user
-    facebook = g_messenger.facebook
-    facebook.current_user = load_user(group_assistants[0], facebook=facebook)
+    assistant = ID.parse(identifier='assistant')
+    g_facebook.current_user = load_user(identifier=assistant, facebook=g_facebook)
 
     # create client and connect to the station
     client = Terminal()

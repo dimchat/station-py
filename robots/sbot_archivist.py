@@ -52,7 +52,6 @@ from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_station, all_stations
 from robots.config import dims_connect
-from robots.config import search_archivists
 
 from etc.cfg_loader import load_user
 
@@ -85,7 +84,7 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
         match = True
         info = g_cached_user_info[identifier]
         for kw in keywords:
-            if len(kw) > 0 and info.find(kw.lower()) < 0:
+            if len(kw) > 0 > info.find(kw.lower()):
                 match = False
                 break
         if match:
@@ -264,7 +263,8 @@ CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=spu)
 if __name__ == '__main__':
 
     # set current user
-    g_facebook.current_user = load_user(search_archivists[0], facebook=g_facebook)
+    archivist = ID.parse(identifier='archivist')
+    g_facebook.current_user = load_user(identifier=archivist, facebook=g_facebook)
 
     # create client and connect to the station
     client = Terminal()

@@ -35,7 +35,7 @@ from typing import Optional, List
 
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
 
-from etc.cfg_bots import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
+from etc.config import tuling_keys, tuling_ignores, xiaoi_keys, xiaoi_ignores
 
 
 def chat_bot(name: str) -> Optional[ChatBot]:

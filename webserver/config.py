@@ -46,7 +46,7 @@ from libs.common import Storage, AddressNameServer, SharedFacebook
 #
 #  Configurations
 #
-from etc.cfg_db import base_dir, ans_reserved_records
+from etc.config import base_dir, ans_reserved_records
 
 Log.info("local storage directory: %s" % base_dir)
 Storage.root = base_dir

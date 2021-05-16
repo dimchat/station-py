@@ -45,10 +45,10 @@ from libs.client import Server, Terminal
 #
 #  Configurations
 #
-from etc.cfg_db import base_dir, ans_reserved_records
-from etc.cfg_gsp import station_id, all_stations
-from etc.cfg_bots import group_assistants, search_archivists
-from etc.cfg_bots import lingling_id, xiaoxiao_id, chatroom_id
+from etc.config import base_dir, ans_reserved_records
+from etc.config import station_id, all_stations
+from etc.config import group_assistants
+from etc.config import lingling_id, xiaoxiao_id, chatroom_id
 
 from etc.cfg_loader import load_station
 
@@ -128,20 +128,15 @@ for key, value in ans_reserved_records.items():
         # not reserved name, save it directly
         g_ans.save(key, _id)
 
-# convert ID to Station
-Log.info('-------- Loading stations: %d' % len(all_stations))
-all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
-
 # convert robot IDs
-Log.info('-------- robots')
+Log.info('-------- Loading robots')
 
 group_assistants = [ID.parse(identifier=item) for item in group_assistants]
-Log.info('Group assistants: %s' % group_assistants)
+Log.info('Group Assistants: %s' % group_assistants)
 for ass in group_assistants:
     g_facebook.add_assistant(assistant=ass)
 
-search_archivists = [ID.parse(identifier=item) for item in search_archivists]
-Log.info('Search archivists: %s' % search_archivists)
+Log.info('Search Engine: %s' % ID.parse(identifier='archivist'))
 
 lingling_id = ID.parse(identifier=lingling_id)
 xiaoxiao_id = ID.parse(identifier=xiaoxiao_id)
@@ -150,5 +145,9 @@ chatroom_id = ID.parse(identifier=chatroom_id)
 Log.info('Chat bot: %s' % lingling_id)
 Log.info('Chat bot: %s' % xiaoxiao_id)
 Log.info('Chatroom: %s' % chatroom_id)
+
+# convert ID to Station
+Log.info('-------- Loading stations: %d' % len(all_stations))
+all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
 
 Log.info('======== configuration OK!')
