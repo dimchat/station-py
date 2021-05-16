@@ -56,17 +56,18 @@ class ServerProcessor(CommonProcessor):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         messenger = self.messenger
+        sender = msg.sender
+        receiver = msg.receiver
         #
         # 1. verify message
         #
         s_msg = messenger.verify_message(msg=msg)
         if s_msg is None:
+            self.error('failed to verify message: %s -> %s' % (sender, receiver))
             # waiting for sender's meta if not exists
             return None
-        station = messenger.dispatcher.station
-        sender = msg.sender
-        receiver = msg.receiver
         # 1.1. check traces
+        station = messenger.dispatcher.station
         if msg_traced(msg=msg, node=station, append=True):
             self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
@@ -74,10 +75,6 @@ class ServerProcessor(CommonProcessor):
                 return None
             if is_broadcast_message(msg=msg):
                 self.warning('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
-                return None
-            s_msg = messenger.verify_message(msg=msg)
-            if s_msg is None:
-                self.error('failed to verify message: %s -> %s' % (sender, receiver))
                 return None
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
@@ -100,6 +97,9 @@ class ServerProcessor(CommonProcessor):
             # just deliver it to the group assistant
             # and return the response to the sender.
             return messenger.deliver_message(msg=msg)
+        elif receiver.type != NetworkType.STATION:
+            # receiver not station, deliver it
+            return messenger.deliver_message(msg=msg)
         #
         # 2. process message
         #
@@ -111,7 +111,7 @@ class ServerProcessor(CommonProcessor):
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
-                return self.messenger.deliver_message(msg=msg)
+                return messenger.deliver_message(msg=msg)
             else:
                 raise error
         #

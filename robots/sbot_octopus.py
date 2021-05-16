@@ -84,13 +84,14 @@ class InnerMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        if msg.receiver != g_station.identifier:
-            self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
-            if msg.delegate is None:
-                msg.delegate = self
-            return octopus.departure(msg=msg)
-        else:
+        if msg.receiver == g_station.identifier:
+            # handshaking
             return super().process_reliable_message(msg=msg)
+        # handshake accepted, delivering message
+        self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
+        if msg.delegate is None:
+            msg.delegate = self
+        return octopus.departure(msg=msg)
 
 
 class OuterMessenger(OctopusMessenger):
@@ -98,13 +99,17 @@ class OuterMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        if self.accepted or msg.receiver != g_station.identifier:
-            self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
-            if msg.delegate is None:
-                msg.delegate = self
-            return octopus.arrival(msg=msg)
-        else:
+        if msg.sender == msg.receiver:
+            self.error('drop msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
+            return None
+        elif not self.accepted and msg.receiver == g_station.identifier:
+            # handshaking
             return super().process_reliable_message(msg=msg)
+        # handshake accepted, receiving message
+        self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
+        if msg.delegate is None:
+            msg.delegate = self
+        return octopus.arrival(msg=msg)
 
 
 class Worker(threading.Thread, Logging):
