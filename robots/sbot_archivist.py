@@ -49,17 +49,12 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.common import SearchCommand
 from libs.common import Storage, Database
-from libs.client import Terminal, ClientMessenger
+from libs.client import Terminal, ClientMessenger, Server
 
 from robots.config import g_station, all_stations
 from robots.config import dims_connect
 
 from etc.cfg_loader import load_user
-
-
-g_database = Database()
-g_messenger = ClientMessenger()
-g_facebook = g_messenger.facebook
 
 #
 #   User Info Cache
@@ -76,7 +71,7 @@ def reload():
         info = str(identifier).lower()
         name = doc.name
         if name is not None:
-            info += ' ' + name
+            info += ' ' + name.lower()
         g_cached_user_info[identifier] = info
         users.append(identifier)
     g_cached_user_info['users'] = users
@@ -202,11 +197,11 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             return None
         elif keywords == 'all users':
             # query all online users (last 5 minutes)
-            self.__query_online_users()
+            self.query_online_users()
             users, results = recent_users(start=cmd.start, limit=cmd.limit)
             self.info('Got %d recent online user(s)' % len(results))
         else:
-            self.__scan_all_users()
+            self.scan_all_users()
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
             self.info('Got %d account(s) matched %s' % (len(results), keywords))
         # respond
@@ -219,7 +214,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         cmd.results = results
         return cmd
 
-    def __query_online_users(self) -> bool:
+    def query_online_users(self) -> bool:
         now = int(time.time())
         if now < self.__query_expired:
             return False
@@ -251,7 +246,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
                 cnt += 1
         return cnt > 0
 
-    def __scan_all_users(self) -> bool:
+    def scan_all_users(self) -> bool:
         now = int(time.time())
         if now > self.__scan_expired:
             self.__scan_expired = now + 1800  # expired 30 minutes at least
@@ -265,6 +260,21 @@ CommandProcessor.register(command=SearchCommand.SEARCH, cpu=spu)
 CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=spu)
 
 
+class ArchivistMessenger(ClientMessenger):
+
+    def handshake_accepted(self, server: Server):
+        super().handshake_accepted(server=server)
+        # refresh data
+        time.sleep(2)
+        spu.query_online_users()
+        spu.scan_all_users()
+
+
+g_database = Database()
+g_messenger = ArchivistMessenger()
+g_facebook = g_messenger.facebook
+
+
 if __name__ == '__main__':
 
     # set current user
@@ -274,6 +284,3 @@ if __name__ == '__main__':
     # create client and connect to the station
     client = Terminal()
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
-
-    # load data
-    reload()
