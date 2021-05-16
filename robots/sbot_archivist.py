@@ -250,6 +250,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         now = int(time.time())
         if now > self.__scan_expired:
             self.__scan_expired = now + 1800  # expired 30 minutes at least
+            self.info('scanning documents...')
             threading.Thread(target=reload).start()
             return True
 
@@ -266,6 +267,7 @@ class ArchivistMessenger(ClientMessenger):
         super().handshake_accepted(server=server)
         # refresh data
         time.sleep(2)
+        spu.messenger = g_messenger
         spu.query_online_users()
         spu.scan_all_users()
 

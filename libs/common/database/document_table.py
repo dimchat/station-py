@@ -101,10 +101,12 @@ class DocumentTable(Storage):
             self.info('Loading document from: %s' % path)
             dictionary = self.read_json(path=path)
             if dictionary is None:
-                self.error('document not exists: %s' % path)
+                self.error('document not exists: %s' % item)
                 continue
-            doc_type = dictionary.get('type')
             identifier = ID.parse(identifier=dictionary.get('ID'))
+            doc_type = dictionary.get('type')
+            if doc_type is None:
+                doc_type = '*'
             data = dictionary.get('data')
             if data is None:
                 # compatible with v1.0
