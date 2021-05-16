@@ -33,6 +33,7 @@
 
 import sys
 import os
+import threading
 import time
 from typing import Optional, List
 
@@ -67,6 +68,20 @@ g_cached_user_info = {}     # user ID -> user info
 g_cached_online_users = {}  # station ID -> user list
 
 
+def reload():
+    # scan ID from data directory
+    users = g_database.scan_ids()
+    for identifier in users:
+        info = str(identifier).lower()
+        doc = g_facebook.document(identifier=identifier)
+        if doc is not None:
+            name = doc.name
+            if name is not None:
+                info += ' ' + name
+        g_cached_user_info[identifier] = info
+    g_cached_user_info['users'] = users
+
+
 def search(keywords: List[str], start: int, limit: int) -> (list, dict):
     results = {}
     if limit <= 0:
@@ -74,7 +89,8 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
     else:
         end = start + limit
     index = -1
-    for identifier in g_cached_user_info:
+    users = g_cached_user_info.get('users', [])
+    for identifier in users:
         if not isinstance(identifier, ID):
             # 'expired'
             continue
@@ -82,7 +98,7 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
             # ignore
             continue
         match = True
-        info = g_cached_user_info[identifier]
+        info = g_cached_user_info.get(identifier, '')
         for kw in keywords:
             if len(kw) > 0 > info.find(kw.lower()):
                 match = False
@@ -97,7 +113,6 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
                 elif index >= start:
                     # got it
                     results[str(identifier)] = meta.dictionary
-    users = list(results.keys())
     return users, results
 
 
@@ -238,20 +253,10 @@ class SearchCommandProcessor(CommandProcessor, Logging):
 
     def __scan_all_users(self) -> bool:
         now = int(time.time())
-        if now < self.__scan_expired:
-            return False
-        self.__scan_expired = now + 600  # expired 10 minutes at least
-        # scan ID from data directory
-        array = g_database.scan_ids()
-        for identifier in array:
-            info = str(identifier).lower()
-            doc = g_facebook.document(identifier=identifier)
-            if doc is not None:
-                name = doc.name
-                if name is not None:
-                    info += ' ' + name
-            g_cached_user_info[identifier] = info
-        return True
+        if now > self.__scan_expired:
+            self.__scan_expired = now + 1800  # expired 30 minutes at least
+            threading.Thread(target=reload).start()
+            return True
 
 
 # register
