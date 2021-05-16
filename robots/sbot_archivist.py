@@ -69,16 +69,16 @@ g_cached_online_users = {}  # station ID -> user list
 
 
 def reload():
-    # scan ID from data directory
-    users = g_database.scan_ids()
-    for identifier in users:
+    users = []
+    documents = g_database.scan_documents()
+    for doc in documents:
+        identifier = doc.identifier
         info = str(identifier).lower()
-        doc = g_facebook.document(identifier=identifier)
-        if doc is not None:
-            name = doc.name
-            if name is not None:
-                info += ' ' + name
+        name = doc.name
+        if name is not None:
+            info += ' ' + name
         g_cached_user_info[identifier] = info
+        users.append(identifier)
     g_cached_user_info['users'] = users
 
 
@@ -274,3 +274,6 @@ if __name__ == '__main__':
     # create client and connect to the station
     client = Terminal()
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
+
+    # load data
+    reload()

@@ -91,6 +91,32 @@ class DocumentTable(Storage):
             return info
         self.info('document not found: %s' % identifier)
 
+    def scan_documents(self) -> List[Document]:
+        """ Scan all documents from data directory """
+        documents = []
+        directory = os.path.join(self.root, 'public')
+        array = os.listdir(directory)
+        for item in array:
+            path = os.path.join(directory, item, 'profile.js')
+            self.info('Loading document from: %s' % path)
+            dictionary = self.read_json(path=path)
+            if dictionary is None:
+                self.error('document not exists: %s' % path)
+                continue
+            doc_type = dictionary.get('type')
+            identifier = ID.parse(identifier=dictionary.get('ID'))
+            data = dictionary.get('data')
+            if data is None:
+                # compatible with v1.0
+                data = dictionary.get('profile')
+            signature = dictionary.get('signature')
+            doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+            if doc is not None:
+                self.__caches[identifier] = doc
+                documents.append(doc)
+        self.debug('Scanned %d documents(s) from %s' % (len(documents), directory))
+        return documents
+
 
 class DeviceTable(Storage):
 

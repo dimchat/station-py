@@ -256,10 +256,10 @@ class Database:
         return self.__message_table.erase_message(msg=msg)
 
     """
-        Scan ID from data directory
+        Scan all documents from data directory
     """
-    def scan_ids(self) -> List[ID]:
-        return self.__meta_table.scan_ids()
+    def scan_documents(self) -> List[Document]:
+        return self.__document_table.scan_documents()
 
     """
         Address Name Service

@@ -24,10 +24,9 @@
 # ==============================================================================
 
 import os
-import random
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 
-from dimp import NetworkType, ID, Meta
+from dimp import ID, Meta
 
 from .storage import Storage
 
@@ -84,33 +83,3 @@ class MetaTable(Storage):
         if info is not self.__empty:
             return info
         self.error('meta not found: %s' % identifier)
-
-    def scan_ids(self) -> List[ID]:
-        """ Scan ID from data directory """
-        ids = []
-        directory = os.path.join(self.root, 'public')
-        # get all files in messages directory and sort by filename
-        files = os.listdir(directory)
-        for filename in files:
-            path = os.path.join(directory, filename, 'meta.js')
-            if not os.path.exists(path):
-                self.warning('meta file not exists: %s' % path)
-                continue
-            address = ID.parse(identifier=filename)
-            if address is None:
-                self.error('ID/address error: %s' % filename)
-                continue
-            meta = self.meta(identifier=address)
-            if meta is None:
-                self.error('meta error: %s' % address)
-            else:
-                identifier = meta.generate_identifier(network=address.type)
-                self.debug('loaded meta for %s from %s: %s' % (identifier, path, meta))
-                # the ID contains 'username' now
-                if identifier != address:
-                    # switch cache key
-                    # self.__caches.pop(address)
-                    self.__caches[identifier] = meta
-                ids.append(identifier)
-        self.debug('Scanned %d ID(s) from %s' % (len(ids), directory))
-        return ids
