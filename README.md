@@ -86,6 +86,7 @@ base_dir = '/data/.dim'
 ```
 chmod a+x start_*.sh
 ./start_station.sh
+./start_octopus.sh
 ./start_assistant.sh
 ./start_archivist.sh
 ```

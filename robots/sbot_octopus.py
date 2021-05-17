@@ -243,7 +243,7 @@ class Octopus(Logging):
         if station == g_station.identifier:
             if self.__home is None:
                 # worker for local station
-                self.__home = Worker(client=Terminal(), server=g_station, messenger=g_messenger)
+                self.__home = Worker(client=Terminal(), server=g_station, messenger=InnerMessenger())
                 return True
         elif self.__neighbors.get(station) is None:
             # create remote station
@@ -309,13 +309,6 @@ class Octopus(Logging):
             self.error('failed to deliver income msg: %s -> %s, %s' % (msg.sender, msg.receiver, msg.get('traces')))
             g_database.store_message(msg=msg)
         return None
-
-
-"""
-    Messenger for Local Station Bridge
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = InnerMessenger()
 
 
 if __name__ == '__main__':

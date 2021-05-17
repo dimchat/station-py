@@ -27,7 +27,7 @@ import os
 import time
 from typing import Optional, Dict
 
-from dimp import ID, ReliableMessage
+from dimp import NetworkType, ID, ReliableMessage
 from dimsdk import LoginCommand
 
 from .storage import Storage
@@ -55,6 +55,9 @@ class LoginTable(Storage):
         sender = msg.sender
         if cmd.identifier != sender:
             self.error('sender error: %s, %s' % (sender, cmd))
+            return False
+        elif sender.type == NetworkType.STATION:
+            self.error('a station should not "login" to another station: %s' % cmd)
             return False
         # check last login time
         old = self.login_command(identifier=sender)
@@ -114,6 +117,9 @@ class LoginTable(Storage):
         return cmd, msg
 
     def __load_login(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+        if identifier.type == NetworkType.STATION:
+            self.error('a station would not "login" to another station: %s' % identifier)
+            return None, None
         path = self.__path(identifier=identifier)
         self.info('Loading login from: %s' % path)
         dictionary = self.read_json(path=path)

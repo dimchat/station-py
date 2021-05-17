@@ -95,7 +95,7 @@ def search(keywords: List[str], start: int, limit: int) -> (list, dict):
         match = True
         info = g_cached_user_info.get(identifier, '')
         for kw in keywords:
-            if len(kw) > 0 > info.find(kw.lower()):
+            if len(kw) > 0 > info.find(kw):
                 match = False
                 break
         if match:
@@ -192,7 +192,8 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         keywords = cmd.keywords
         if keywords is None:
             return TextContent(text='Search command error')
-        elif keywords == SearchCommand.ONLINE_USERS:
+        keywords = keywords.lower()
+        if keywords == SearchCommand.ONLINE_USERS:
             # let the station to do the job
             return None
         elif keywords == 'all users':
@@ -203,7 +204,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         else:
             self.scan_all_users()
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
-            self.info('Got %d account(s) matched %s' % (len(results), keywords))
+            self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
         # respond
         info = cmd.copy_dictionary(False)
         info.pop('sn', None)

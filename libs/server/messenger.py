@@ -32,7 +32,7 @@
 
 from typing import Optional
 
-from dimp import ID, EVERYWHERE, User
+from dimp import ID, User
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
@@ -119,7 +119,7 @@ class ServerMessenger(CommonMessenger):
     #
     def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
-            receiver = ID.create(name='station', address=EVERYWHERE)
+            receiver = ID.parse(identifier='station@everywhere')
         station = self.get_context(key='station')
         if station is None:
             user = self.facebook.current_user
