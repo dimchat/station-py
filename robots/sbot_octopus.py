@@ -46,17 +46,12 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
-from libs.common import Database, SharedFacebook
 from libs.common import msg_traced, is_broadcast_message
-
 from libs.client import Server, Terminal, ClientMessenger
 
+from etc.cfg_init import neighbor_stations, g_database, g_facebook
 from robots.config import g_station
-from robots.config import dims_connect, all_stations
-
-
-g_facebook = SharedFacebook()
-g_database = Database()
+from robots.config import dims_connect
 
 
 class OctopusMessenger(ClientMessenger):
@@ -321,10 +316,9 @@ if __name__ == '__main__':
     octopus.add_neighbor(station=g_station.identifier)
     Log.info('bridge for local station: %s' % g_station)
     # add neighbors
-    for s in all_stations:
-        if s == g_station:
-            continue
-        octopus.add_neighbor(station=s.identifier)
-        Log.info('bridge for neighbor station: %s' % s)
+    for node in neighbor_stations:
+        assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
+        octopus.add_neighbor(station=node.identifier)
+        Log.info('bridge for neighbor station: %s' % node)
     # start all
     octopus.start()

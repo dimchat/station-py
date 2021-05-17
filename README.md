@@ -52,31 +52,43 @@ tests/register.py generate ROBOT --seed="archivist"
 tests/register.py modify {NewID} --name="SearchEngine1"
 ```
 
-### 2. Edit "etc/config.py"
+### 2. Edit "etc/gsp.js" & "etc/config.py"
+
+```
+    "stations": [
+        //
+        //  2.1. Add your new station ID with host & port here
+        //
+        {"ID": "gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC", "host": "106.52.25.169", "port": 9394}
+    ],
+    "assistants": [
+        //
+        //  2.2. Add your new assistant ID here
+        //
+        "assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq"
+    ],
+    "archivists": [
+        //
+        //  2.3. Add your new archivist ID here
+        //
+        "archivist@2Ph6zsUBL8rbimRArb2f539j64JUJJQoDpZ"
+    ]
+```
 
 ```
 #
-#   2.1. Replace your new station ID here
+#   2.3. Replace your new station ID here
 #
 station_id = 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'
-all_stations = [
-    station_id,
-    
-    #
-    #   Place neighbor stations with host & port here
-    #
-    
-    # {'ID': 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW', 'host': '106.52.25.169', 'port': 9394},
-]
 
 #
-#   2.2. Replace your new bots here
+#   2.4. Replace your new bots ID here
 #
-archivist_id = 'archivist@2PVvMPm1j74HFWAGnDSZFkLsbEgM3KCGkTR'
 assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
+archivist_id = 'archivist@2Ph6zsUBL8rbimRArb2f539j64JUJJQoDpZ'
 
 #
-#   2.3. Set to your data directory
+#   2.5. Set to your data directory
 #
 base_dir = '/data/.dim'
 ```

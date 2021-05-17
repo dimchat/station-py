@@ -51,17 +51,6 @@ from libs.client import Terminal, ClientMessenger
 from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
-from robots.config import xiaoxiao_id
-
-from etc.cfg_loader import load_user
-
-
-"""
-    Messenger for Chat Bot client
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['xiaoi'])  # chat bot
 
 
 def load_statistics(prefix: str) -> List[str]:
@@ -124,11 +113,20 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
 ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor())
 
 
+"""
+    Messenger for Chat Bot client
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.context['bots'] = chat_bots(names=['xiaoi'])  # chat bot
+g_facebook = g_messenger.facebook
+
+
 if __name__ == '__main__':
 
     # set current user
-    facebook = g_messenger.facebook
-    facebook.current_user = load_user(xiaoxiao_id, facebook=facebook)
+    bot_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'  # chat bot XiaoI
+    g_facebook.current_user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
 
     # create client and connect to the station
     client = Terminal()

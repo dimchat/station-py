@@ -48,13 +48,14 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.common import SearchCommand
-from libs.common import Storage, Database
+from libs.common import Storage
 from libs.client import Terminal, ClientMessenger, Server
 
-from robots.config import g_station, all_stations
+from robots.config import g_station
 from robots.config import dims_connect
 
-from etc.cfg_loader import load_user
+from etc.cfg_init import all_stations, g_database
+
 
 #
 #   User Info Cache
@@ -142,7 +143,7 @@ def load_users(station: ID) -> List[ID]:
     #     return []
     # else:
     #     return ID.convert(members=text.splitlines())
-    return g_cached_online_users.get(station)
+    return g_cached_online_users.get(station, [])
 
 
 def save_users(station: ID, users: List[ID]) -> bool:
@@ -273,7 +274,6 @@ class ArchivistMessenger(ClientMessenger):
         spu.scan_all_users()
 
 
-g_database = Database()
 g_messenger = ArchivistMessenger()
 g_facebook = g_messenger.facebook
 
@@ -281,8 +281,8 @@ g_facebook = g_messenger.facebook
 if __name__ == '__main__':
 
     # set current user
-    archivist = ID.parse(identifier='archivist')
-    g_facebook.current_user = load_user(identifier=archivist, facebook=g_facebook)
+    bot_id = ID.parse(identifier='archivist')
+    g_facebook.current_user = g_facebook.user(identifier=bot_id)
 
     # create client and connect to the station
     client = Terminal()

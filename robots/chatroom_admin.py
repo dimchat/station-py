@@ -59,17 +59,6 @@ from libs.client import Terminal, ClientMessenger
 from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
-from robots.config import chatroom_id
-
-from etc.cfg_loader import load_user
-
-
-"""
-    Messenger for Chat Room Admin robot
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
 
 
 #
@@ -440,11 +429,19 @@ class ChatRoom(Logging):
         return None
 
 
+"""
+    Messenger for Chat Room Admin robot
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_messenger = ClientMessenger()
+g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
+g_facebook = g_messenger.facebook
+
 if __name__ == '__main__':
 
     # set current user
-    facebook = g_messenger.facebook
-    facebook.current_user = load_user(chatroom_id, facebook=facebook)
+    bot_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
+    g_facebook.current_user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
 
     # create client and connect to the station
     client = Terminal()

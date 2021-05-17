@@ -44,7 +44,29 @@ from libs.utils import Log
 from libs.utils.mtp import Server as UDPServer
 
 from station.handler import RequestHandler
-from station.config import g_monitor, g_receptionist, g_dispatcher, g_station
+from station.config import g_station, g_dispatcher
+from station.monitor import Monitor
+from station.receptionist import Receptionist
+
+
+"""
+    DIM Network Monitor
+    ~~~~~~~~~~~~~~~~~~~
+
+    A dispatcher for sending reports to administrator(s)
+"""
+g_monitor = Monitor()
+
+
+"""
+    Station Receptionist
+    ~~~~~~~~~~~~~~~~~~~~
+
+    A message scanner for new guests who have just come in.
+"""
+g_receptionist = Receptionist()
+# set current station for receptionist
+g_receptionist.station = g_station.identifier
 
 
 if __name__ == '__main__':

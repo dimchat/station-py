@@ -42,14 +42,8 @@ from dimsdk import Station
 from libs.utils import Singleton, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
-from libs.common import Database
-from libs.server import SessionServer
-from libs.server import Dispatcher
 
-
-g_database = Database()
-g_session_server = SessionServer()
-g_dispatcher = Dispatcher()
+from station.config import g_database, g_dispatcher
 
 
 @Singleton

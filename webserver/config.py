@@ -33,61 +33,9 @@
 from typing import Union
 from flask import Flask, Response
 
-from dimp import ID, Address
-from dimsdk.ans import keywords as ans_keywords
+from dimp import Address
 
-#
-#  Common Libs
-#
-from libs.utils import Log
-from libs.common import Storage, AddressNameServer, SharedFacebook
-
-
-#
-#  Configurations
-#
-from etc.config import base_dir, ans_reserved_records
-
-Log.info("local storage directory: %s" % base_dir)
-Storage.root = base_dir
-
-"""
-    Address Name Service
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A map for short name to ID, just like DNS
-"""
-g_ans = AddressNameServer()
-
-"""
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = SharedFacebook()
-
-
-"""
-    Loading info
-    ~~~~~~~~~~~~
-"""
-
-# load ANS reserved records
-Log.info('-------- Loading ANS reserved records')
-for key, value in ans_reserved_records.items():
-    _id = ID.parse(identifier=value)
-    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, _id))
-    if key in ans_keywords:
-        # remove reserved name temporary
-        index = ans_keywords.index(key)
-        ans_keywords.remove(key)
-        g_ans.save(key, _id)
-        ans_keywords.insert(index, key)
-    else:
-        # not reserved name, save it directly
-        g_ans.save(key, _id)
+from etc.cfg_init import *
 
 
 """

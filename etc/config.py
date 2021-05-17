@@ -2,9 +2,19 @@
 
 import os
 
+from libs.utils import Log
 from libs.common import Storage
 
 etc = os.path.abspath(os.path.dirname(__file__))
+
+
+"""
+    Log Level
+    ~~~~~~~~~
+"""
+# Log.LEVEL = Log.DEBUG
+Log.LEVEL = Log.DEVELOP
+# Log.LEVEL = Log.RELEASE
 
 
 """
@@ -13,82 +23,31 @@ etc = os.path.abspath(os.path.dirname(__file__))
 
     Configuration of stations
 """
-station_name = 'Genesis Station (GZ)'
-station_host = '0.0.0.0'
-station_port = 9394
+gsp_conf = os.path.join(etc, 'gsp.js')
 
+bind_host = '0.0.0.0'
+bind_port = 9394
+
+local_host = '127.0.0.1'
+local_port = 9394
+
+station_id = None  # use the 'ID' value of first record of 'stations' in 'gsp.js' as default
 # station_id = 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'
-station_id = 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW'
-
-all_stations = [
-    station_id,
-    # {'ID': 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW', 'host': '106.52.25.169', 'port': 9394},
-    {'ID': 'gsp-jlp@x8Eudmgq4rHvTm2ongrwk6BVdS1wuE7ctE', 'host': '47.254.237.224', 'port': 9394},
-    {'ID': 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq', 'host': '149.129.234.145', 'port': 9394},
-    {'ID': 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw', 'host': '147.139.30.182', 'port': 9394},
-]
-
-local_servers = [
-    station_id,
-]
+# station_id = 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW'
+# station_id = 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw'
+# station_id = 'gsp-jlp@x8Eudmgq4rHvTm2ongrwk6BVdS1wuE7ctE'
+# station_id = 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq'
 
 
 """
-    System Bots Configuration
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
+    System Bots
+    ~~~~~~~~~~~
 
     1. assistant: bot for group message
     2. archivist: bot for searching users
 """
-archivist_id = 'archivist@2PVvMPm1j74HFWAGnDSZFkLsbEgM3KCGkTR'
-assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
-
-group_assistants = [
-    assistant_id,
-    # 'assistant@4WBSiDzg9cpZGPqFrQ4bHcq4U5z9QAQLHS',
-]
-
-
-"""
-    Chat Bots Configuration
-    ~~~~~~~~~~~~~~~~~~~~~~~
-
-    Secret keys for AI chat bots
-"""
-tuling_keys = Storage.read_json(path=os.path.join(etc, 'tuling', 'secret.js'))
-tuling_ignores = [4003]
-
-xiaoi_keys = Storage.read_json(path=os.path.join(etc, 'xiaoi', 'secret.js'))
-xiaoi_ignores = ['默认回复', '重复回复']
-
-xiaoxiao_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'  # chat bot XiaoI
-lingling_id = 'lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa'  # chat bot: Tuling
-
-chatroom_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
-
-
-"""
-    Address Name Service
-    ~~~~~~~~~~~~~~~~~~~~
-
-    ANS reserved records
-"""
-ans_reserved_records = {
-    'founder': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
-
-    'assistant': assistant_id,
-    'archivist': archivist_id,
-
-    # chat bots
-    'xiaoxiao': xiaoxiao_id,
-    'lingling': lingling_id,
-    'chatroom': chatroom_id,
-
-    # others
-    'moky': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
-    'moki': 'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk',
-    'hulk': 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj',
-}
+assistant_id = None  # use the first record of 'assistants' in 'gsp.js' as default
+archivist_id = None  # use the first record of 'archivists' in 'gsp.js' as default
 
 
 """
@@ -98,6 +57,7 @@ ans_reserved_records = {
     Paths for data files: "/data/.dim"
 """
 base_dir = '/data/.dim'
+# base_dir = '/var/dim'
 
 
 """
@@ -112,3 +72,30 @@ if not os.path.exists(apns_credentials):
 
 apns_use_sandbox = False
 apns_topic = 'chat.dim.client'
+
+
+"""
+    Chat Bots Configuration
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
+    Secret keys for AI chat bots
+"""
+tuling_keys = Storage.read_json(path=os.path.join(etc, 'tuling', 'secret.js'))
+tuling_ignores = [4003]
+
+xiaoi_keys = Storage.read_json(path=os.path.join(etc, 'xiaoi', 'secret.js'))
+xiaoi_ignores = ['默认回复', '重复回复']
+
+
+"""
+    Address Name Service
+    ~~~~~~~~~~~~~~~~~~~~
+
+    ANS reserved records
+"""
+ans_reserved_records = {
+    'founder': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
+    'moky': 'moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ',
+    'moki': 'moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk',
+    'hulk': 'hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj',
+}

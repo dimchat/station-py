@@ -53,8 +53,6 @@ from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
 
-from etc.cfg_loader import load_user
-
 
 class GroupKeyCache(Storage):
 
@@ -297,7 +295,7 @@ if __name__ == '__main__':
 
     # set current user
     assistant = ID.parse(identifier='assistant')
-    g_facebook.current_user = load_user(identifier=assistant, facebook=g_facebook)
+    g_facebook.current_user = g_facebook.user(identifier=assistant)
 
     # create client and connect to the station
     client = Terminal()

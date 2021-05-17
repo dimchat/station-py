@@ -30,76 +30,30 @@
     Configuration for DIM network server node
 """
 
-from dimp import ID
-
-from dimsdk.ans import keywords as ans_keywords
-from dimsdk import Station
-
 #
 #  Common Libs
 #
 from libs.utils import Log
 from libs.push import ApplePushNotificationService
-from libs.common import AddressNameServer
-from libs.common import Storage, Database, SharedFacebook, KeyStore
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
 
 #
 #  Configurations
 #
-from etc.config import base_dir, ans_reserved_records
 from etc.config import apns_credentials, apns_use_sandbox, apns_topic
-from etc.config import all_stations, local_servers
-from etc.config import station_id, station_host, station_port, station_name
-from etc.config import group_assistants
+from etc.config import bind_host, bind_port
 
-from etc.cfg_loader import load_station
-
-from station.receptionist import Receptionist
-from station.monitor import Monitor
-
-
-#
-#  Log Level
-#
-# Log.LEVEL = Log.DEBUG
-Log.LEVEL = Log.DEVELOP
-# Log.LEVEL = Log.RELEASE
-
-
-# data directory
-Log.info("local storage directory: %s" % base_dir)
-Storage.root = base_dir
-
-g_database = Database()
+from etc.cfg_init import g_database, g_facebook, g_keystore
+from etc.cfg_init import station_id, create_station, neighbor_stations
 
 
 """
-    Key Store
+    Messenger
     ~~~~~~~~~
 
-    Memory cache for reused passwords (symmetric key)
+    Transceiver for processing messages
 """
-g_keystore = KeyStore()
-
-
-"""
-    Address Name Service
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A map for short name to ID, just like DNS
-"""
-g_ans = AddressNameServer()
-
-"""
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
-"""
-g_facebook = SharedFacebook()
-
 g_messenger = ServerMessenger()
 g_facebook.messenger = g_messenger
 
@@ -124,109 +78,33 @@ if apns_credentials is not None:
     g_push_service.delegate = g_database
     g_dispatcher.push_service = g_push_service
 
-"""
-    DIM Network Monitor
-    ~~~~~~~~~~~~~~~~~~~
-
-    A dispatcher for sending reports to administrator(s)
-"""
-g_monitor = Monitor()
-
 
 """
-    Station Receptionist
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A message scanner for new guests who have just come in.
+    Local Station
+    ~~~~~~~~~~~~~
 """
-g_receptionist = Receptionist()
-
-
-"""
-    Station Info Loaders
-    ~~~~~~~~~~~~~~~~~~~~
-    
-    Loading station info from service provider configuration
-"""
-
-
-def create_server(identifier: str, host: str, port: int = 9394) -> Station:
-    """ Create Local Server """
-    identifier = ID.parse(identifier=identifier)
-    server = Station(identifier=identifier, host=host, port=port)
-    g_facebook.cache_user(user=server)
-    Log.info('local station created: %s' % server)
-    return server
-
-
-"""
-    Loading info
-    ~~~~~~~~~~~~
-"""
-
-# load ANS reserved records
-Log.info('-------- Loading ANS reserved records')
-for key, value in ans_reserved_records.items():
-    _id = ID.parse(identifier=value)
-    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, _id))
-    if key in ans_keywords:
-        # remove reserved name temporary
-        index = ans_keywords.index(key)
-        ans_keywords.remove(key)
-        g_ans.save(key, _id)
-        ans_keywords.insert(index, key)
-    else:
-        # not reserved name, save it directly
-        g_ans.save(key, _id)
-
-
-# convert robot IDs
-Log.info('-------- Loading robots')
-
-group_assistants = [ID.parse(identifier=item) for item in group_assistants]
-Log.info('Group assistants: %s' % group_assistants)
-for ass in group_assistants:
-    g_facebook.add_assistant(assistant=ass)
-
-Log.info('Search Engine: %s' % ID.parse(identifier='archivist'))
-
-# convert ID to Station
-Log.info('-------- Loading stations: %d' % len(all_stations))
-all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
-
-# convert ID to Server
-Log.info('-------- creating servers: %d' % len(local_servers))
-local_servers = [create_server(identifier=item, host=station_host, port=station_port) for item in local_servers]
-
-# current station
-g_station = None
-station_id = ID.parse(identifier=station_id)
-for srv in local_servers:
-    if srv.identifier == station_id:
-        # got it
-        g_station = srv
-        break
+Log.info('-------- Creating local server: %s (%s:%d)' % (station_id, bind_host, bind_port))
+g_station = create_station(info={
+    'ID': station_id,
+    'host': bind_host,
+    'port': bind_port
+})
 assert g_station is not None, 'current station not created: %s' % station_id
-Log.info('current station(%s): %s' % (station_name, g_station))
+Log.info('Current station: %s' % g_station)
 
 # set local users for facebook
-g_facebook.local_users = local_servers
+g_facebook.local_users = [g_station]
 g_facebook.current_user = g_station
 # set current station for key store
 g_keystore.user = g_station
 # set current station for dispatcher
 g_dispatcher.station = g_station.identifier
-# set current station for receptionist
-g_receptionist.station = g_station.identifier
 
 # load neighbour station for delivering message
-Log.info('-------- Loading neighbor stations: %d' % len(all_stations))
-for node in all_stations:
-    if node.identifier == g_station.identifier:
-        Log.info('current node: %s' % node)
-        continue
+Log.info('-------- Loading neighbor stations: %d' % len(neighbor_stations))
+for node in neighbor_stations:
+    assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
     Log.info('add node: %s' % node)
     g_dispatcher.add_neighbor(station=node.identifier)
 
-Log.info('======== configuration OK!')
+Log.info('======== configuration OK! ========')

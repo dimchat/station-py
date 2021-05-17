@@ -34,6 +34,8 @@
 import sys
 import os
 
+from dimp import ID
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
@@ -43,9 +45,6 @@ from libs.client import Terminal, ClientMessenger
 from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
-from robots.config import lingling_id
-
-from etc.cfg_loader import load_user
 
 
 """
@@ -54,13 +53,13 @@ from etc.cfg_loader import load_user
 """
 g_messenger = ClientMessenger()
 g_messenger.context['bots'] = chat_bots(names=['tuling'])  # chat bot
-
+g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':
 
     # set current user
-    facebook = g_messenger.facebook
-    facebook.current_user = load_user(lingling_id, facebook=facebook)
+    bot_id = 'lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa'  # chat bot: Tuling
+    g_facebook.current_user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
 
     # create client and connect to the station
     client = Terminal()

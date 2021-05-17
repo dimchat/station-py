@@ -30,70 +30,20 @@
     Configuration for Robot
 """
 
-from dimp import ID
-from dimsdk.ans import keywords as ans_keywords
-
 #
 #  Common Libs
 #
 from libs.utils import Log
-from libs.common import AddressNameServer
-from libs.common import Storage, SharedFacebook
 from libs.client import ClientMessenger
 from libs.client import Server, Terminal
 
 #
 #  Configurations
 #
-from etc.config import base_dir, ans_reserved_records
-from etc.config import station_id, all_stations
-from etc.config import group_assistants
-from etc.config import lingling_id, xiaoxiao_id, chatroom_id
+from etc.config import local_host, local_port
 
-from etc.cfg_loader import load_station
-
-
-#
-#  Log Level
-#
-# Log.LEVEL = Log.DEBUG
-Log.LEVEL = Log.DEVELOP
-# Log.LEVEL = Log.RELEASE
-
-
-# data directory
-Log.info("local storage directory: %s" % base_dir)
-Storage.root = base_dir
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-station_id = ID.parse(identifier=station_id)
-
-station_host = '127.0.0.1'
-# station_host = '106.52.25.169'  # dimchat-gz
-# station_host = '124.156.108.150'  # dimchat-hk
-station_port = 9394
-
-g_station = Server(identifier=station_id, host=station_host, port=station_port)
-
-g_facebook = SharedFacebook()
-g_facebook.cache_user(user=g_station)
-
-# Address Name Service
-g_ans = AddressNameServer()
-g_ans.save('station', g_station.identifier)
-g_ans.save('moki', ID.parse(identifier='moki@4WDfe3zZ4T7opFSi3iDAKiuTnUHjxmXekk'))
-g_ans.save('hulk', ID.parse(identifier='hulk@4YeVEN3aUnvC1DNUufCq1bs9zoBSJTzVEj'))
-
-
-"""
-    Client
-    ~~~~~~
-    
-"""
+from etc.cfg_init import station_id
+from etc.cfg_init import g_facebook
 
 
 def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger) -> Terminal:
@@ -108,46 +58,11 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
 
 
 """
-    Loading info
-    ~~~~~~~~~~~~
+    Current Station
+    ~~~~~~~~~~~~~~~
 """
-
-# load ANS reserved records
-Log.info('-------- Loading ANS reserved records')
-for key, value in ans_reserved_records.items():
-    _id = ID.parse(identifier=value)
-    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, _id))
-    if key in ans_keywords:
-        # remove reserved name temporary
-        index = ans_keywords.index(key)
-        ans_keywords.remove(key)
-        g_ans.save(key, _id)
-        ans_keywords.insert(index, key)
-    else:
-        # not reserved name, save it directly
-        g_ans.save(key, _id)
-
-# convert robot IDs
-Log.info('-------- Loading robots')
-
-group_assistants = [ID.parse(identifier=item) for item in group_assistants]
-Log.info('Group Assistants: %s' % group_assistants)
-for ass in group_assistants:
-    g_facebook.add_assistant(assistant=ass)
-
-Log.info('Search Engine: %s' % ID.parse(identifier='archivist'))
-
-lingling_id = ID.parse(identifier=lingling_id)
-xiaoxiao_id = ID.parse(identifier=xiaoxiao_id)
-chatroom_id = ID.parse(identifier=chatroom_id)
-
-Log.info('Chat bot: %s' % lingling_id)
-Log.info('Chat bot: %s' % xiaoxiao_id)
-Log.info('Chatroom: %s' % chatroom_id)
-
-# convert ID to Station
-Log.info('-------- Loading stations: %d' % len(all_stations))
-all_stations = [load_station(station=item, facebook=g_facebook) for item in all_stations]
+Log.info('-------- Current station: %s' % station_id)
+g_station = Server(identifier=station_id, host=local_host, port=local_port)
+g_facebook.cache_user(user=g_station)
 
 Log.info('======== configuration OK!')

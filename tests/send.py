@@ -37,13 +37,10 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log
-from libs.common import Database, SharedFacebook
 from libs.client import Server, Terminal, ClientMessenger
-from robots.config import dims_connect
 
-
-Log.LEVEL = Log.DEVELOP
+from etc.cfg_init import g_database
+from robots.config import dims_connect, g_facebook
 
 
 """
@@ -54,8 +51,6 @@ Log.LEVEL = Log.DEVELOP
 # station_id = 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw'
 station_id = 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq'
 
-station_id = ID.parse(identifier=station_id)
-
 # station_host = '127.0.0.1'
 # station_host = '106.52.25.169'  # dimchat-gz
 # station_host = '124.156.108.150'  # dimchat-hk
@@ -63,9 +58,8 @@ station_id = ID.parse(identifier=station_id)
 station_host = '149.129.234.145'  # yjd
 station_port = 9394
 
+station_id = ID.parse(identifier=station_id)
 g_station = Server(identifier=station_id, host=station_host, port=station_port)
-
-g_facebook = SharedFacebook()
 g_facebook.cache_user(user=g_station)
 
 
@@ -83,10 +77,6 @@ class TestMessenger(ClientMessenger):
 
 
 g_messenger = TestMessenger()
-
-g_facebook = g_messenger.facebook
-
-g_database = Database()
 g_client = Terminal()
 
 
