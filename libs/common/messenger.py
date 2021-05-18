@@ -40,14 +40,14 @@ from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
-from ..utils import Log
+from ..utils import Logging
 from ..utils import Singleton
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook
 
 
-class CommonMessenger(Messenger):
+class CommonMessenger(Messenger, Logging):
 
     EXPIRES = 120  # query expires (2 minutes)
 
@@ -102,12 +102,6 @@ class CommonMessenger(Messenger):
     def _create_processor(self) -> Processor:
         from .processor import CommonProcessor
         return CommonProcessor(messenger=self)
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]) -> bool:
         if isinstance(msg, ReliableMessage):
@@ -188,16 +182,16 @@ class CommonMessenger(Messenger):
 
 
 @Singleton
-class MessageDataSource(MessengerDataSource):
+class MessageDataSource(MessengerDataSource, Logging):
 
     def save_message(self, msg: InstantMessage) -> bool:
         content = msg.content
-        Log.info('TODO: saving msg: %s -> %s\n type=%d, command=%s, text=%s\n %s'
-                 % (msg.sender, msg.receiver,
-                    content.type, content.get('command'), content.get('text'),
-                    msg.get('traces')))
+        self.info('TODO: saving msg: %s -> %s\n type=%d, command=%s, text=%s\n %s'
+                  % (msg.sender, msg.receiver,
+                     content.type, content.get('command'), content.get('text'),
+                     msg.get('traces')))
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
-        Log.info('TODO: suspending msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
+        self.info('TODO: suspending msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
         return True

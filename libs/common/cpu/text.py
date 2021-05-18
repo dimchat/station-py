@@ -35,17 +35,17 @@ from urllib.error import URLError
 
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
-from dimp import Content, TextContent
+from dimp import ContentType, Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
-from ...utils import Log
+from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
 
 from ..messenger import CommonMessenger
 
 
-class TextContentProcessor(ContentProcessor):
+class TextContentProcessor(ContentProcessor, Logging):
 
     def __init__(self, bots: Union[list, ChatBot]):
         super().__init__()
@@ -62,23 +62,28 @@ class TextContentProcessor(ContentProcessor):
 
     @property
     def dialog(self) -> Dialog:
-        if self.__dialog is None:
+        if self.__dialog is None and len(self.__bots) > 0:
             d = Dialog()
             d.bots = self.__bots
             self.__dialog = d
         return self.__dialog
 
-    def _query(self, content: Content, sender: ID) -> TextContent:
+    def _query(self, content: Content, sender: ID) -> Optional[TextContent]:
+        if self.__bots is None:
+            self.error('chat bots not set')
+            return None
         dialog = self.dialog
+        if dialog is None:
+            return None
         try:
             return dialog.query(content=content, sender=sender)
         except URLError as error:
-            Log.error('%s' % error)
+            self.error('%s' % error)
 
     def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
         # check robot
         if sender.type in [NetworkType.ROBOT, NetworkType.STATION]:
-            Log.info('Dialog > ignore message from another robot: %s, "%s"' % (sender, content.get('text')))
+            self.info('ignore message from another robot: %s, "%s"' % (sender, content.get('text')))
             return True
         # check time
         now = int(time.time())
@@ -97,7 +102,7 @@ class TextContentProcessor(ContentProcessor):
         receiver = msg.receiver
         at = '@%s' % self.facebook.name(identifier=receiver)
         if text.find(at) < 0:
-            Log.info('ignore group message that not querying me(%s): %s' % (at, text))
+            self.info('ignore group message that not querying me(%s): %s' % (at, text))
             return True
         # TODO: remove all '@nickname'
         text = text.replace(at, '')
@@ -112,7 +117,7 @@ class TextContentProcessor(ContentProcessor):
         nickname = self.facebook.name(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
-        Log.debug('Received text message from %s: %s' % (nickname, content))
+        self.debug('received text message from %s: %s' % (nickname, content))
         response = self._query(content=content, sender=sender)
         if response is not None:
             assert isinstance(response, TextContent)
@@ -121,14 +126,18 @@ class TextContentProcessor(ContentProcessor):
             group = content.group
             if group is None:
                 # personal message
-                Log.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+                self.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
                 return response
             else:
                 # group message
-                Log.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
+                self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
                 if self.messenger.send_content(sender=None, receiver=group, content=response):
                     text = 'Group message responded'
                     return ReceiptCommand(message=text)
                 else:
                     text = 'Group message respond failed'
                     return ReceiptCommand(message=text)
+
+
+# register
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=[]))

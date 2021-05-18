@@ -40,7 +40,7 @@ from dimsdk import HandshakeCommand
 from dimsdk import Station
 from dimsdk import MessengerDelegate, CompletionHandler
 
-from ...utils import Log
+from ...utils import Logging
 from ...network import GateStatus, StarShip
 from ...network import MTPDocker
 from ...common import CommonMessenger, CommonFacebook
@@ -73,7 +73,7 @@ class Session(BaseSession):
                 delegate.handshake()
 
 
-class Server(Station, MessengerDelegate):
+class Server(Station, MessengerDelegate, Logging):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -83,12 +83,6 @@ class Server(Station, MessengerDelegate):
         super().__init__(identifier=identifier, host=host, port=port)
         self.__session: Optional[Session] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     def connect(self) -> Session:
         if self.__session is None:

@@ -45,12 +45,12 @@ from apns2.payload import Payload
 
 from dimp import ID
 
-from ..utils import Log
+from ..utils import Logging
 
 from .service import PushNotificationService
 
 
-class ApplePushNotificationService(PushNotificationService):
+class ApplePushNotificationService(PushNotificationService, Logging):
 
     class Delegate(ABC):
         """
@@ -82,18 +82,6 @@ class ApplePushNotificationService(PushNotificationService):
         self.__delegate: Optional[weakref.ReferenceType] = None  # APNs Delegate
         # counting offline messages
         self.badge_table = {}
-
-    def debug(self, msg: str):
-        Log.debug('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def info(self, msg: str):
-        Log.info('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def warning(self, msg: str):
-        Log.warning('%s >\t%s' % (self.__class__.__name__, msg))
-
-    def error(self, msg: str):
-        Log.error('%s >\t%s' % (self.__class__.__name__, msg))
 
     @property
     def delegate(self) -> Delegate:
