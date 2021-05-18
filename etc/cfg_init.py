@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from typing import Optional
+
 from dimp import ID
 from dimsdk import Station
 from dimsdk.ans import keywords as ans_keywords
@@ -52,20 +54,25 @@ g_facebook = SharedFacebook()
 """
 g_ans = AddressNameServer()
 
+
+def update_ans(name: str, identifier: Optional[ID] = None):
+    Log.info('Update ANS: %s -> %s' % (name, identifier))
+    if name in ans_keywords:
+        # remove reserved name temporary
+        index = ans_keywords.index(name)
+        ans_keywords.remove(name)
+        g_ans.save(name=name, identifier=identifier)
+        ans_keywords.insert(index, name)
+    else:
+        # not reserved name, save it directly
+        g_ans.save(name=name, identifier=identifier)
+
+
 Log.info('-------- Loading ANS reserved records')
 for key, value in ans_reserved_records.items():
     _id = ID.parse(identifier=value)
     assert _id is not None, 'ANS record error: %s, %s' % (key, value)
-    Log.info('Name: %s -> ID: %s' % (key, _id))
-    if key in ans_keywords:
-        # remove reserved name temporary
-        index = ans_keywords.index(key)
-        ans_keywords.remove(key)
-        g_ans.save(name=key, identifier=_id)
-        ans_keywords.insert(index, key)
-    else:
-        # not reserved name, save it directly
-        g_ans.save(name=key, identifier=_id)
+    update_ans(name=key, identifier=_id)
 
 
 """
@@ -102,10 +109,10 @@ all_stations = [create_station(info=item) for item in all_stations]
 # current station
 station_id = ID.parse(identifier=station_id)
 if station_id is not None:
-    g_ans.save(name='station', identifier=station_id)
+    update_ans(name='station', identifier=station_id)
 elif len(all_stations) > 0:
     station_id = all_stations[0].identifier
-    g_ans.save(name='station', identifier=station_id)
+    update_ans(name='station', identifier=station_id)
 # connected stations
 neighbor_stations = []
 for item in all_stations:
@@ -132,10 +139,10 @@ for ass in group_assistants:
 # set default assistant
 assistant_id = ID.parse(identifier=assistant_id)
 if assistant_id is not None:
-    g_ans.save(name='assistant', identifier=assistant_id)
+    update_ans(name='assistant', identifier=assistant_id)
 elif len(group_assistants) > 0:
     assistant_id = group_assistants[0]
-    g_ans.save(name='assistant', identifier=assistant_id)
+    update_ans(name='assistant', identifier=assistant_id)
 Log.info('Default assistant: %s' % assistant_id)
 
 search_archivists = sp_info['archivists']
@@ -144,8 +151,8 @@ Log.info('Search archivists: %s' % search_archivists)
 # set default archivist
 archivist_id = ID.parse(identifier=archivist_id)
 if archivist_id is not None:
-    g_ans.save(name='archivist', identifier=archivist_id)
+    update_ans(name='archivist', identifier=archivist_id)
 elif len(group_assistants) > 0:
     archivist_id = search_archivists[0]
-    g_ans.save(name='archivist', identifier=archivist_id)
+    update_ans(name='archivist', identifier=archivist_id)
 Log.info('Default archivist: %s' % archivist_id)
