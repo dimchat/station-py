@@ -118,8 +118,8 @@ class ChatTextContentProcessor(TextContentProcessor):
         return super().process(content=content, msg=msg)
 
 
-# register
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor())
+bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
 ContentProcessor.register(content_type=ContentType.FORWARD, cpu=ForwardContentProcessor())
 CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
 
@@ -434,7 +434,6 @@ class ChatRoom(Logging):
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
 g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':

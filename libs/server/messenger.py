@@ -32,10 +32,11 @@
 
 from typing import Optional
 
-from dimp import ID, User
+from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
+from dimsdk import Station
 
 from ..utils import NotificationCenter
 from ..common import NotificationNames
@@ -56,6 +57,7 @@ class ServerMessenger(CommonMessenger):
         super().__init__()
         from .filter import Filter
         self.__filter = Filter(messenger=self)
+        self.__current_session: Optional[Session] = None
 
     @property
     def facebook(self) -> CommonFacebook:
@@ -68,17 +70,13 @@ class ServerMessenger(CommonMessenger):
         from .processor import ServerProcessor
         return ServerProcessor(messenger=self)
 
-    @property
-    def dispatcher(self) -> Dispatcher:
-        return g_dispatcher
-
     def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
         # FIXME: check deliver permission
         res = self.__filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
-            res = self.dispatcher.deliver(msg=msg)
+            res = g_dispatcher.deliver(msg=msg)
         # pack response
         if res is not None:
             if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
@@ -95,24 +93,12 @@ class ServerMessenger(CommonMessenger):
     #   Session
     #
     @property
-    def session_server(self) -> SessionServer:
-        return g_session_server
+    def current_session(self) -> Session:
+        return self.__current_session
 
-    def current_session(self, identifier: ID) -> Session:
-        address = self.remote_address
-        assert address is not None, 'client address not found: %s' % identifier
-        return self.session_server.get_session(client_address=address)
-
-    #
-    #   Remote user
-    #
-    @property
-    def remote_user(self) -> User:
-        return self.get_context(key='remote_user')
-
-    @property
-    def remote_address(self):  # (IP, port)
-        return self.get_context(key='remote_address')
+    @current_session.setter
+    def current_session(self, session: Session):
+        self.__current_session = session
 
     #
     #   Sending command
@@ -120,15 +106,9 @@ class ServerMessenger(CommonMessenger):
     def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
             receiver = ID.parse(identifier='station@everywhere')
-        station = self.get_context(key='station')
-        if station is None:
-            user = self.facebook.current_user
-            if user is None:
-                return False
-            sender = user.identifier
-        else:
-            sender = station.identifier
-        env = Envelope.create(sender=sender, receiver=receiver)
+        srv = self.facebook.current_user
+        assert isinstance(srv, Station), 'current station error: %s' % srv
+        env = Envelope.create(sender=srv.identifier, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=cmd)
         s_msg = self.encrypt_message(msg=i_msg)
         if s_msg is None:
@@ -137,7 +117,7 @@ class ServerMessenger(CommonMessenger):
         r_msg = self.sign_message(msg=s_msg)
         assert r_msg is not None, 'failed to sign message: %s' % s_msg
         r_msg.delegate = self
-        self.dispatcher.deliver(msg=r_msg)
+        g_dispatcher.deliver(msg=r_msg)
         return True
 
     #
@@ -148,8 +128,6 @@ class ServerMessenger(CommonMessenger):
         sender = session.identifier
         session_key = session.key
         client_address = session.client_address
-        user = self.facebook.user(identifier=sender)
-        self.context['remote_user'] = user
         self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
         # post notification: USER_LOGIN
         NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={

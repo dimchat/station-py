@@ -53,7 +53,6 @@ class CommonMessenger(Messenger):
 
     def __init__(self):
         super().__init__()
-        self.__context = {}
         # for checking duplicated queries
         self.__meta_queries = {}      # ID -> time
         self.__document_queries = {}  # ID -> time
@@ -61,13 +60,6 @@ class CommonMessenger(Messenger):
 
     def connected(self):
         pass
-
-    @property
-    def context(self) -> dict:
-        return self.__context
-
-    def get_context(self, key: str):
-        return self.__context.get(key)
 
     @property
     def key_cache(self) -> CipherKeyDelegate:

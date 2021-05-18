@@ -109,8 +109,8 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
         return super()._query(content=content, sender=sender)
 
 
-# register
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor())
+bots = chat_bots(names=['xiaoi'])  # chat bot
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
 
 
 """
@@ -118,7 +118,6 @@ ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProc
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['xiaoi'])  # chat bot
 g_facebook = g_messenger.facebook
 
 

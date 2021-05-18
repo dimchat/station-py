@@ -35,11 +35,14 @@ import sys
 import os
 
 from dimp import ID
+from dimp import ContentType
+from dimsdk import ContentProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from libs.common import TextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -47,12 +50,15 @@ from robots.config import g_station
 from robots.config import dims_connect
 
 
+bots = chat_bots(names=['tuling'])  # chat bot
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
+
+
 """
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = ClientMessenger()
-g_messenger.context['bots'] = chat_bots(names=['tuling'])  # chat bot
 g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':

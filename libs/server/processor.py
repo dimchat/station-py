@@ -39,10 +39,12 @@ from ..common import Database
 
 from .session import SessionServer
 from .messenger import ServerMessenger
+from .dispatcher import Dispatcher
 
 
-g_session_server = SessionServer()
 g_database = Database()
+g_session_server = SessionServer()
+g_dispatcher = Dispatcher()
 
 
 class ServerProcessor(CommonProcessor):
@@ -67,7 +69,7 @@ class ServerProcessor(CommonProcessor):
             # waiting for sender's meta if not exists
             return None
         # 1.1. check traces
-        station = messenger.dispatcher.station
+        station = g_dispatcher.station
         if msg_traced(msg=msg, node=station, append=True):
             self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:

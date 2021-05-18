@@ -39,7 +39,6 @@ from dimsdk import HandshakeCommand
 
 from ..common import Database, CommonFacebook, SharedFacebook
 
-from .session import Session
 from .messenger import ServerMessenger
 
 
@@ -85,18 +84,8 @@ class Filter:
             res.group = group
             return res
 
-    def __check_login(self, envelope: Envelope) -> Optional[Content]:
-        # check remote user
-        user = self.messenger.remote_user
-        # TODO: check neighbour stations
-        # assert user is not None, 'check client for sending message after handshake accepted'
-        if user is None:
-            # FIXME: make sure the client sends message after handshake accepted
-            sender = envelope.sender
-        else:
-            sender = user.identifier
-        session = self.messenger.current_session(identifier=sender)
-        assert isinstance(session, Session), 'session error: %s' % session
+    def __check_login(self) -> Optional[Content]:
+        session = self.messenger.current_session
         if session.identifier is None:
             return HandshakeCommand.ask(session=session.key)
 
@@ -104,7 +93,7 @@ class Filter:
     #   filters
     #
     def check_deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        res = self.__check_login(envelope=msg.envelope)
+        res = self.__check_login()
         if res is not None:
             # session invalid
             return res

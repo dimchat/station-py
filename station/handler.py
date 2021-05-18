@@ -34,7 +34,6 @@ import traceback
 from socketserver import StreamRequestHandler
 from typing import Optional
 
-from dimp import User
 from dimp import InstantMessage
 from dimsdk import CompletionHandler
 from dimsdk import MessengerDelegate
@@ -42,25 +41,19 @@ from dimsdk import MessengerDelegate
 from libs.utils import Logging
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
-from libs.server import ServerMessenger, SessionServer, Session
-
-from robots.nlp import chat_bots
-
-from station.config import g_station
+from libs.server import ServerMessenger, SessionServer
 
 
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
 
     def __init__(self, request, client_address, server):
         # messenger
-        m = ServerMessenger()
-        m.delegate = self
-        # set context
-        m.context['station'] = g_station
-        m.context['bots'] = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
-        m.context['remote_address'] = client_address
-        self.__messenger = m
-        self.__session = SessionServer().get_session(client_address=client_address, messenger=m, sock=request)
+        mess = ServerMessenger()
+        mess.delegate = self
+        # session
+        sess = SessionServer().get_session(client_address=client_address, messenger=mess, sock=request)
+        mess.current_session = sess
+        self.__messenger = mess
         # init
         super().__init__(request=request, client_address=client_address, server=server)
 
@@ -68,39 +61,32 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def messenger(self) -> ServerMessenger:
         return self.__messenger
 
-    @property
-    def remote_user(self) -> Optional[User]:
-        if self.__messenger is not None:
-            return self.__messenger.remote_user
-
     #
     #
     #
     def setup(self):
         super().setup()
         try:
-            session = self.__session
+            session = self.messenger.current_session
             self.info('client connected: %s' % session)
-            if isinstance(session, Session):
-                session.setup()
-                NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-                    'session': session,
-                })
+            session.setup()
+            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                'session': session,
+            })
         except Exception as error:
             self.error('setup request handler error: %s' % error)
             traceback.print_exc()
 
     def finish(self):
         try:
-            session = self.__session
+            session = self.messenger.current_session
             self.info('client disconnected: %s' % session)
-            if isinstance(session, Session):
-                SessionServer().remove_session(session=session)
-                NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-                    'session': session,
-                })
-                session.finish()
-            self.__session = None
+            SessionServer().remove_session(session=session)
+            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                'session': session,
+            })
+            session.finish()
+            self.messenger.current_session = None
         except Exception as error:
             self.error('finish request handler error: %s' % error)
             traceback.print_exc()
@@ -114,7 +100,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         super().handle()
         try:
             self.info('session started: %s' % str(self.client_address))
-            self.__session.handle()
+            session = self.messenger.current_session
+            session.handle()
             self.info('session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error('request handler error: %s' % error)
@@ -124,7 +111,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #   MessengerDelegate
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        session = self.__session
+        session = self.messenger.current_session
         if session is not None and session.send_payload(payload=data, priority=priority):
             if handler is not None:
                 handler.success()

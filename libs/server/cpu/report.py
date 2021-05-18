@@ -65,8 +65,9 @@ class ReportCommandProcessor(CommandProcessor):
         # compatible with v1.0
         state = cmd.get('state')
         if state is not None:
-            session = self.messenger.current_session(identifier=sender)
-            if isinstance(session, Session):
+            session = self.messenger.current_session
+            if session is not None:
+                assert session.identifier == sender, 'session ID not match: %s, %s' % (sender, session)
                 if 'background' == state:
                     session.active = False
                 else:  # 'foreground'
@@ -120,8 +121,8 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
-        session = self.messenger.current_session(identifier=msg.sender)
-        if isinstance(session, Session):
+        session = self.messenger.current_session
+        if session is not None:
             session.active = True
             _post_notification(session=session, sender=self)
             # TODO: notification for pushing offline message(s) from 'last_time'
@@ -133,8 +134,8 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
         # goodbye!
-        session = self.messenger.current_session(identifier=msg.sender)
-        if isinstance(session, Session):
+        session = self.messenger.current_session
+        if session is not None:
             session.active = False
             _post_notification(session=session, sender=self)
         return ReceiptCommand(message='Client offline received')

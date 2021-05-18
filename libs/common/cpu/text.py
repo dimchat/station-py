@@ -30,25 +30,26 @@
 """
 
 import time
-from typing import Optional
+from typing import Optional, Union
 from urllib.error import URLError
 
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
-from dimp import ContentType, Content, TextContent
+from dimp import Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
 from ...utils import Log
-from ...utils.nlp import Dialog
+from ...utils.nlp import ChatBot, Dialog
 
 from ..messenger import CommonMessenger
 
 
 class TextContentProcessor(ContentProcessor):
 
-    def __init__(self):
+    def __init__(self, bots: Union[list, ChatBot]):
         super().__init__()
+        self.__bots = bots
         self.__dialog: Optional[Dialog] = None
 
     @property
@@ -60,17 +61,10 @@ class TextContentProcessor(ContentProcessor):
         ContentProcessor.messenger.__set__(self, transceiver)
 
     @property
-    def bots(self) -> list:
-        array = self.messenger.get_context(key='bots')
-        if array is None:
-            array = []
-        return array
-
-    @property
     def dialog(self) -> Dialog:
         if self.__dialog is None:
             d = Dialog()
-            d.bots = self.bots
+            d.bots = self.__bots
             self.__dialog = d
         return self.__dialog
 
@@ -138,7 +132,3 @@ class TextContentProcessor(ContentProcessor):
                 else:
                     text = 'Group message respond failed'
                     return ReceiptCommand(message=text)
-
-
-# register
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor())
