@@ -37,9 +37,8 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import ContentType, Content, ForwardContent, GroupCommand
+from dimp import Content, ForwardContent, GroupCommand
 from dimsdk import ReceiptCommand
-from dimsdk import ContentProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -47,17 +46,11 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.common import Storage
-from libs.common import TextContentProcessor
 
 from libs.client import Terminal, ClientMessenger
 
-from robots.nlp import chat_bots
 from robots.config import g_station
 from robots.config import dims_connect
-
-
-bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
 
 
 class GroupKeyCache(Storage):
