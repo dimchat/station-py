@@ -36,16 +36,8 @@ from dimsdk import HandshakeCommand
 
 from ..common import CommonProcessor
 
-from .messenger import ClientMessenger
-
 
 class ClientProcessor(CommonProcessor):
-
-    @property
-    def messenger(self) -> ClientMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, ClientMessenger), 'messenger error: %s' % transceiver
-        return transceiver
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:

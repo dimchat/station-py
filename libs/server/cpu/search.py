@@ -40,7 +40,6 @@ from ...common import SearchCommand
 from ...common import Database
 
 from ..session import SessionServer
-from ..messenger import ServerMessenger
 
 
 g_session_server = SessionServer()
@@ -64,14 +63,6 @@ def save_response(facebook, station: ID, users: List[ID], results: dict) -> Opti
 
 
 class SearchCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        CommandProcessor.messenger.__set__(self, transceiver)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd

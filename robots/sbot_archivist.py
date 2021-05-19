@@ -175,14 +175,6 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         self.__query_expired = 0
         self.__scan_expired = 0
 
-    @property
-    def messenger(self) -> ClientMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ClientMessenger):
-        CommandProcessor.messenger.__set__(self, transceiver)
-
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         if cmd.users is not None or cmd.results is not None:
@@ -236,6 +228,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
         cmd.limit = -1
         messenger = self.messenger
+        assert isinstance(messenger, ClientMessenger), 'messenger error: %s' % messenger
         cnt = 0
         for station in all_stations:
             self.info('querying online users: %s' % station)

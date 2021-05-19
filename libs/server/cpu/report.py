@@ -53,19 +53,13 @@ g_database = Database()
 
 class ReportCommandProcessor(CommandProcessor):
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        CommandProcessor.messenger.__set__(self, transceiver)
-
     def __process_old_report(self, cmd: ReportCommand, sender: ID) -> Optional[Content]:
         # compatible with v1.0
         state = cmd.get('state')
         if state is not None:
-            session = self.messenger.current_session
+            messenger = self.messenger
+            assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+            session = messenger.current_session
             if session is not None:
                 assert session.identifier == sender, 'session ID not match: %s, %s' % (sender, session)
                 if 'background' == state:
@@ -121,7 +115,9 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
-        session = self.messenger.current_session
+        messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        session = messenger.current_session
         if session is not None:
             session.active = True
             _post_notification(session=session, sender=self)
@@ -134,7 +130,9 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
         # goodbye!
-        session = self.messenger.current_session
+        messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        session = messenger.current_session
         if session is not None:
             session.active = False
             _post_notification(session=session, sender=self)

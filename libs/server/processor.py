@@ -49,15 +49,10 @@ g_dispatcher = Dispatcher()
 
 class ServerProcessor(CommonProcessor):
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
-        return transceiver
-
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         sender = msg.sender
         receiver = msg.receiver
         #

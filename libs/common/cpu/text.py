@@ -42,23 +42,27 @@ from dimsdk import ContentProcessor
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
 
+from ..facebook import CommonFacebook
 from ..messenger import CommonMessenger
 
 
-class TextContentProcessor(ContentProcessor, Logging):
+class DefaultTextContentProcessor(ContentProcessor):
+
+    #
+    #   main
+    #
+    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+        assert isinstance(content, TextContent), 'text content error: %s' % content
+        # just ignore
+        return None
+
+
+class ChatTextContentProcessor(ContentProcessor, Logging):
 
     def __init__(self, bots: Union[list, ChatBot]):
         super().__init__()
         self.__bots = bots
         self.__dialog: Optional[Dialog] = None
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: CommonMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
 
     @property
     def dialog(self) -> Dialog:
@@ -100,7 +104,9 @@ class TextContentProcessor(ContentProcessor, Logging):
             raise ValueError('text content error: %s' % content)
         # checking '@nickname'
         receiver = msg.receiver
-        at = '@%s' % self.facebook.name(identifier=receiver)
+        facebook = self.facebook
+        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        at = '@%s' % facebook.name(identifier=receiver)
         if text.find(at) < 0:
             self.info('ignore group message that not querying me(%s): %s' % (at, text))
             return True
@@ -114,7 +120,10 @@ class TextContentProcessor(ContentProcessor, Logging):
     def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         sender = msg.sender
-        nickname = self.facebook.name(identifier=sender)
+        from ..facebook import CommonFacebook
+        facebook = self.facebook
+        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        nickname = facebook.name(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return None
         self.debug('received text message from %s: %s' % (nickname, content))
@@ -131,7 +140,9 @@ class TextContentProcessor(ContentProcessor, Logging):
             else:
                 # group message
                 self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
-                if self.messenger.send_content(sender=None, receiver=group, content=response):
+                messenger = self.messenger
+                assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
+                if messenger.send_content(sender=None, receiver=group, content=response):
                     text = 'Group message responded'
                     return ReceiptCommand(message=text)
                 else:
@@ -140,4 +151,4 @@ class TextContentProcessor(ContentProcessor, Logging):
 
 
 # register
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=[]))
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=DefaultTextContentProcessor())

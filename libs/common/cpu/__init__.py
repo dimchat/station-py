@@ -30,7 +30,8 @@
     Processors for commands
 """
 
-from .text import TextContentProcessor
+from .text import DefaultTextContentProcessor, ChatTextContentProcessor
+
 from .image import ImageContentProcessor
 
 from .receipt import ReceiptCommandProcessor
@@ -43,7 +44,8 @@ from .query import QueryCommandProcessor  # patch
 
 __all__ = [
 
-    'TextContentProcessor',
+    'DefaultTextContentProcessor', 'ChatTextContentProcessor',
+
     'ImageContentProcessor',
 
     'ReceiptCommandProcessor',

@@ -36,24 +36,15 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import ReceiptCommand, MuteCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from ..database import Database
-from ..messenger import CommonMessenger
 
 
 g_database = Database()
 
 
 class MuteCommandProcessor(CommandProcessor):
-
-    @property
-    def messenger(self) -> CommonMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: CommonMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, MuteCommand), 'command error: %s' % cmd

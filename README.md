@@ -96,11 +96,8 @@ base_dir = '/data/.dim'
 ### 3. Run
 
 ```
-chmod a+x start*.sh
-./start_station.sh
-./start_octopus.sh
-./start_archivist.sh
-./start_assistant.sh
+chmod a+x *.sh
+./start_all.sh
 ```
 
 ### Test Client

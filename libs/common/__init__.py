@@ -113,7 +113,12 @@ __all__ = [
     #
     #   CPU
     #
-    'TextContentProcessor',
+    'DefaultTextContentProcessor', 'ChatTextContentProcessor',
+    'ImageContentProcessor',
+    'ReceiptCommandProcessor',
+    'MuteCommandProcessor',
+    'BlockCommandProcessor',
+    'StorageCommandProcessor',
 
     #
     #   Database module

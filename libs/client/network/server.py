@@ -97,12 +97,12 @@ class Server(Station, MessengerDelegate, Logging):
             self.__session = None
 
     @property
-    def messenger(self):  # -> ClientMessenger:
+    def messenger(self) -> CommonMessenger:
         if self.__messenger is not None:
             return self.__messenger()
 
     @messenger.setter
-    def messenger(self, transceiver):
+    def messenger(self, transceiver: CommonMessenger):
         self.__messenger = weakref.ref(transceiver)
 
     @property
@@ -123,14 +123,15 @@ class Server(Station, MessengerDelegate, Logging):
             cmd.group = EVERYONE
         # pack message
         i_msg = InstantMessage.create(head=env, body=cmd)
-        s_msg = self.messenger.encrypt_message(msg=i_msg)
+        messenger = self.messenger
+        s_msg = messenger.encrypt_message(msg=i_msg)
         assert s_msg is not None, 'failed to handshake with server: %s' % self.identifier
-        r_msg = self.messenger.sign_message(msg=s_msg)
+        r_msg = messenger.sign_message(msg=s_msg)
         assert isinstance(r_msg, ReliableMessage), 'failed to sign message as user: %s' % user.identifier
         # carry meta, visa for first handshaking
         r_msg.meta = user.meta
         r_msg.visa = user.visa
-        data = self.messenger.serialize_message(msg=r_msg)
+        data = messenger.serialize_message(msg=r_msg)
         # send out directly
         self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
         # Urgent Command

@@ -37,7 +37,7 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import HandshakeCommand
-from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import CommandProcessor
 
 from ..messenger import ServerMessenger
 from ..session import SessionServer
@@ -48,21 +48,15 @@ g_session_server = SessionServer()
 
 class HandshakeCommandProcessor(CommandProcessor):
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ServerMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
     def __offer(self, sender: ID, session_key: str = None) -> Content:
         # set/update session in session server with new session key
-        session = self.messenger.current_session
+        messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        session = messenger.current_session
         if session_key == session.key:
             # session verified success
             g_session_server.update_session(session=session, identifier=sender)
-            response = self.messenger.handshake_accepted(session=session)
+            response = messenger.handshake_accepted(session=session)
             if response is None:
                 response = HandshakeCommand.success()
             return response

@@ -1,49 +1,52 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
+
+root=$(cd "$(dirname "$0")" || exit;pwd)
+restart=${root}/shell_restart.sh
 
 echo ""
 echo ">>> Starting DIM Station ..."
 echo ""
-/srv/dims/shell_restart.sh dims station/start.py
+${restart} dims "${root}/station/start.py"
 
 sleep 2
 
 echo ""
 echo ">>> Starting DIM Station Bridge ..."
 echo ""
-/srv/dims/shell_restart.sh bridge robots/sbot_octopus.py
+${restart} octopus "${root}/robots/sbot_octopus.py"
 
 sleep 5
 
 echo ""
 echo ">>> Starting DIM Search Engine ..."
 echo ""
-/srv/dims/shell_restart.sh search robots/sbot_archivist.py
+${restart} search "${root}/robots/sbot_archivist.py"
 
 #echo ""
 #echo ">>> Starting DIM Group Assistant ..."
 #echo ""
-#/srv/dims/shell_restart.sh group robots/gbot_assistant.py
+#${restart} group "${root}/robots/gbot_assistant.py"
 #
 #echo ""
 #echo ">>> Starting DIM Chat Bots ..."
 #echo ""
-#/srv/dims/shell_restart.sh chat_ling robots/chatbot_ling.py
-#/srv/dims/shell_restart.sh chat_xiao robots/chatbot_xiao.py
+#${restart} ling "${root}/robots/chatbot_ling.py"
+#${restart} xiao "${root}/robots/chatbot_xiao.py"
 #
 #echo ""
 #echo ">>> Starting DIM Chat Room ..."
 #echo ""
-#/srv/dims/shell_restart.sh chatroom robots/chatroom_admin.py
+#${restart} chatroom "${root}/robots/chatroom_admin.py"
 #
 #echo ""
 #echo ">>> Starting Web Server ..."
 #echo ""
-#/srv/dims/shell_restart.sh www webserver/httpd.py
+#${restart} www "${root}/webserver/httpd.py"
 #
 #echo ""
 #echo ">>> Starting Notification Pusher ..."
 #echo ""
-#/srv/dims/shell_restart.sh pusher station/pusher.py
+#${restart} pusher "${root}/station/pusher.py"
 
 echo ""
 echo ">>> Done."

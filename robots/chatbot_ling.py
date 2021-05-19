@@ -42,7 +42,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.common import TextContentProcessor
+from libs.common import ChatTextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -51,7 +51,7 @@ from robots.config import dims_connect
 
 
 bots = chat_bots(names=['tuling'])  # chat bot
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
 
 
 """

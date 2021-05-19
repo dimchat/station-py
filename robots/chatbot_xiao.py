@@ -45,7 +45,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.common import Storage
-from libs.common import TextContentProcessor
+from libs.common import ChatTextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -82,7 +82,7 @@ def stat_record(columns: List[str]) -> str:
 #
 #   Text Content Processor
 #
-class ChatTextContentProcessor(TextContentProcessor, Logging):
+class TextContentProcessor(ChatTextContentProcessor, Logging):
 
     def __stat(self, condition: str, group: Optional[ID]) -> Optional[TextContent]:
         results = load_statistics(prefix=condition.strip())
@@ -110,7 +110,7 @@ class ChatTextContentProcessor(TextContentProcessor, Logging):
 
 
 bots = chat_bots(names=['xiaoi'])  # chat bot
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
 
 
 """

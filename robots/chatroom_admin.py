@@ -51,7 +51,7 @@ from libs.utils import Logging
 from libs.utils import JSONFile
 from libs.common import Storage
 from libs.common import SearchCommand
-from libs.common import TextContentProcessor
+from libs.common import ChatTextContentProcessor
 from libs.common import CommonFacebook
 
 from libs.client import Terminal, ClientMessenger
@@ -76,14 +76,6 @@ class ReceiptCommandProcessor(CommandProcessor):
 #
 class ForwardContentProcessor(ContentProcessor):
 
-    @property
-    def messenger(self) -> ClientMessenger:
-        return super().messenger
-
-    @messenger.setter
-    def messenger(self, transceiver: ClientMessenger):
-        ContentProcessor.messenger.__set__(self, transceiver)
-
     #
     #   main
     #
@@ -92,7 +84,9 @@ class ForwardContentProcessor(ContentProcessor):
         r_msg = content.message
 
         # [Forward Protocol]
-        s_msg = self.messenger.verify_message(msg=r_msg)
+        messenger = self.messenger
+        assert isinstance(messenger, ClientMessenger), 'messenger error: %s' % messenger
+        s_msg = messenger.verify_message(msg=r_msg)
         if s_msg is None:
             # TODO: save this message in a queue to wait meta response
             # raise ValueError('failed to verify message: %s' % r_msg)
@@ -105,7 +99,7 @@ class ForwardContentProcessor(ContentProcessor):
 #
 #   Text Content Processor
 #
-class ChatTextContentProcessor(TextContentProcessor):
+class TextContentProcessor(ChatTextContentProcessor):
 
     #
     #   main
@@ -119,7 +113,7 @@ class ChatTextContentProcessor(TextContentProcessor):
 
 
 bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
+ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
 ContentProcessor.register(content_type=ContentType.FORWARD, cpu=ForwardContentProcessor())
 CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
 
