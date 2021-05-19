@@ -4,7 +4,7 @@ exec=python3
 logs=/tmp
 
 function stop() {
-    res=$(pgrep -f "$1")
+    res=$(pgrep -f "${exec} $1")
     for pid in ${res[*]}
     do
         if [[ $((pid)) -gt 1 ]]
