@@ -36,7 +36,6 @@ from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
-from dimsdk import Station
 
 from ..utils import NotificationCenter
 from ..common import NotificationNames
@@ -107,7 +106,6 @@ class ServerMessenger(CommonMessenger):
         if receiver is None:
             receiver = ID.parse(identifier='station@everywhere')
         srv = self.facebook.current_user
-        assert isinstance(srv, Station), 'current station error: %s' % srv
         env = Envelope.create(sender=srv.identifier, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=cmd)
         s_msg = self.encrypt_message(msg=i_msg)

@@ -31,7 +31,7 @@
 
 from typing import Optional
 
-from dimp import ID
+from dimp import ID, NetworkType
 from dimp import ReliableMessage
 from dimp import Content
 from dimp import ForwardContent, Command, DocumentCommand
@@ -39,7 +39,7 @@ from dimp import ForwardContent, Command, DocumentCommand
 from dimsdk import CommandProcessor
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
-from ...common import Database
+from ...common import Database, CommonFacebook
 
 from ..messenger import ServerMessenger
 
@@ -49,26 +49,40 @@ g_database = Database()
 
 class DocumentCommandProcessor(SuperCommandProcessor):
 
-    def __check_login(self, cmd: DocumentCommand, sender: ID) -> bool:
-        profile = cmd.document
-        if profile is not None:
-            # this command is submitting profile, not querying
-            return False
-        # respond login message when querying profile
-        identifier = cmd.identifier
-        msg = g_database.login_message(identifier=identifier)
-        if msg is None:
-            # login message not found
-            return False
-        cmd = ForwardContent(message=msg)
-        messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        return messenger.send_content(sender=None, receiver=sender, content=cmd)
+    def __check_login(self, identifier: ID, sender: ID) -> Optional[ReliableMessage]:
+        cmd, msg = g_database.login_info(identifier=identifier)
+        if cmd is not None:
+            if sender.type == NetworkType.STATION:
+                # this is a request from another station.
+                # if the user is not roaming to this station, just ignore it,
+                # let the target station to respond.
+                facebook = self.facebook
+                assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+                srv = facebook.current_user
+                # get roaming station ID
+                station = cmd.station
+                assert isinstance(station, dict), 'login command error: %s' % cmd
+                sid = ID.parse(identifier=station.get('ID'))
+                if sid != srv.identifier:
+                    # not my guest, ignore it.
+                    return None
+            return msg
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd
         res = super().execute(cmd=cmd, msg=msg)
-        self.__check_login(cmd=cmd, sender=msg.sender)
+        if cmd.document is None and isinstance(res, DocumentCommand):
+            # this is a request, and target document got.
+            # check login command message
+            login = self.__check_login(identifier=cmd.identifier, sender=msg.sender)
+            if login is not None:
+                messenger = self.messenger
+                assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+                # respond document
+                messenger.send_content(sender=None, receiver=msg.sender, content=res)
+                # respond login command
+                messenger.send_content(sender=None, receiver=msg.sender, content=ForwardContent(message=login))
+                return None
         return res
 
 

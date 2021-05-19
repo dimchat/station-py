@@ -96,6 +96,8 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     def handshake_accepted(self, server: Server):
         user = self.facebook.current_user
         if isinstance(user, Station):
+            # the current user is a station,
+            # it would not login to another station.
             return None
         # post current profile to station
         # post contacts(encrypted) to station

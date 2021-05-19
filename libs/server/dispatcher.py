@@ -35,12 +35,11 @@ import threading
 import traceback
 import weakref
 from abc import abstractmethod
-from typing import Optional, Union, List, Set
+from typing import Optional, List, Set
 
-from dimp import ID, NetworkType, Entity
+from dimp import ID, NetworkType
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
-from dimsdk import Station
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
@@ -124,22 +123,19 @@ class Dispatcher(NotificationObserver):
 
     @station.setter
     def station(self, server: ID):
-        sid = _entity_id(server)
-        self.__single_worker.station = sid
-        self.__group_worker.station = sid
-        self.__broadcast_worker.station = sid
+        self.__single_worker.station = server
+        self.__group_worker.station = server
+        self.__broadcast_worker.station = server
 
     def add_neighbor(self, station: ID):
-        sid = _entity_id(station)
-        self.__single_worker.add_neighbor(station=sid)
-        self.__group_worker.add_neighbor(station=sid)
-        self.__broadcast_worker.add_neighbor(station=sid)
+        self.__single_worker.add_neighbor(station=station)
+        self.__group_worker.add_neighbor(station=station)
+        self.__broadcast_worker.add_neighbor(station=station)
 
-    def remove_neighbor(self, station: Union[Station, ID]):
-        sid = _entity_id(station)
-        self.__single_worker.remove_neighbor(station=sid)
-        self.__group_worker.remove_neighbor(station=sid)
-        self.__broadcast_worker.remove_neighbor(station=sid)
+    def remove_neighbor(self, station: ID):
+        self.__single_worker.remove_neighbor(station=station)
+        self.__group_worker.remove_neighbor(station=station)
+        self.__broadcast_worker.remove_neighbor(station=station)
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         # post notification for monitor
@@ -159,15 +155,6 @@ class Dispatcher(NotificationObserver):
         stations = _roaming_stations(user=msg.sender)
         if self.station in stations:
             return res
-
-
-def _entity_id(entity: Union[Entity, ID]) -> ID:
-    """ get entity ID """
-    if isinstance(entity, Entity):
-        return entity.identifier
-    elif isinstance(entity, ID):
-        return entity
-    raise TypeError('failed to get ID: %s' % entity)
 
 
 def _roaming_stations(user: ID) -> List[ID]:
@@ -296,8 +283,6 @@ class Worker(threading.Thread, Logging):
 
     @station.setter
     def station(self, server: ID):
-        if isinstance(server, Station):
-            server = server.identifier
         self.__station = server
 
     @property

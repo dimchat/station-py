@@ -232,9 +232,6 @@ class Octopus(Logging):
         self.__home.stop()
 
     def add_neighbor(self, station: ID) -> bool:
-        if isinstance(station, Station):
-            station = station.identifier
-        assert isinstance(station, ID), 'station ID error: %s' % station
         if station == g_station.identifier:
             if self.__home is None:
                 # worker for local station

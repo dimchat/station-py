@@ -68,7 +68,7 @@ class LoginTable(Storage):
             new_time = cmd.time
             if new_time is None:
                 new_time = 0
-            if new_time < old_time:
+            if new_time <= old_time and old_time > 0:
                 self.error('expired command, drop it: %s' % cmd)
                 return False
         # store into memory cache
@@ -81,14 +81,14 @@ class LoginTable(Storage):
         return self.write_json(container=dictionary, path=path)
 
     def login_command(self, identifier: ID) -> Optional[LoginCommand]:
-        cmd, _ = self.__login_info(identifier=identifier)
+        cmd, _ = self.login_info(identifier=identifier)
         return cmd
 
     def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
-        _, msg = self.__login_info(identifier=identifier)
+        _, msg = self.login_info(identifier=identifier)
         return msg
 
-    def __login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         # 1. try from memory cache
         cmd = self.__commands.get(identifier)
         msg = self.__messages.get(identifier)

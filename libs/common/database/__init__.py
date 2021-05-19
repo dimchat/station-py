@@ -285,8 +285,11 @@ class Database:
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         return self.__login_table.save_login(cmd=cmd, msg=msg)
 
-    def login_command(self, identifier: ID) -> LoginCommand:
+    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
         return self.__login_table.login_command(identifier=identifier)
 
-    def login_message(self, identifier: ID) -> ReliableMessage:
+    def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
         return self.__login_table.login_message(identifier=identifier)
+
+    def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+        return self.__login_table.login_info(identifier=identifier)
