@@ -49,7 +49,7 @@ class CommonFacebook(Facebook):
         self.__messenger: Optional[weakref.ReferenceType] = None
         self.__db = Database()
         self.__local_users: Optional[List[User]] = None
-        self.__group_assistants = set()
+        self.__group_assistants = []
 
     @property
     def messenger(self):  # -> CommonMessenger:
@@ -263,14 +263,18 @@ class CommonFacebook(Facebook):
             return array
         # get from global setting
         if len(self.__group_assistants) > 0:
-            return list(self.__group_assistants)
+            return self.__group_assistants
         # get from ANS
         robot = ID.parse(identifier='assistant')
         if robot is not None:
             return [robot]
 
     def add_assistant(self, assistant: ID):
-        self.__group_assistants.add(assistant)
+        if assistant not in self.__group_assistants:
+            if assistant == ID.parse(identifier='assistant'):
+                self.__group_assistants.insert(0, assistant)
+            else:
+                self.__group_assistants.append(assistant)
 
 
 @Singleton
