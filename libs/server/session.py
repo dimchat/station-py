@@ -37,6 +37,7 @@
 
 import socket
 import threading
+import time
 import weakref
 from typing import Optional, Dict, Set
 
@@ -65,6 +66,7 @@ class Session(BaseSession):
         self.__key = generate_session_key()
         self.__identifier = None
         self.__bundle = None
+        self.__scan_time = 0
 
     def __str__(self):
         clazz = self.__class__.__name__
@@ -94,16 +96,16 @@ class Session(BaseSession):
             else:
                 self.__bundle = g_database.message_bundle(identifier=value)
 
-    @property
-    def active(self) -> bool:
-        return super().active
-
-    @active.setter
-    def active(self, value: bool):
-        if value != self.active:
-            BaseSession.active.__set__(self, value)
-            if value and self.__bundle is not None:
-                self.__scan(bundle=self.__bundle)
+    # Override
+    def _idle(self):
+        bundle = self.__bundle
+        now = int(time.time())
+        if bundle is None or now < self.__scan_time or not self.active:
+            super()._idle()
+        else:
+            # TODO: set a 'dirty' flag to reduce local storage scanning
+            self.__scan_time = now + 16  # scan after 16 seconds
+            self.__scan(bundle=bundle)
 
     def __scan(self, bundle: MessageBundle):
         self.debug('scanning messages for: %s' % self.identifier)

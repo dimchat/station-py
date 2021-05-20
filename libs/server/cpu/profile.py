@@ -59,6 +59,9 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 facebook = self.facebook
                 assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
                 srv = facebook.current_user
+                if sender == srv.identifier:
+                    # the station is querying itself, ignore it
+                    return None
                 # get roaming station ID
                 station = cmd.station
                 assert isinstance(station, dict), 'login command error: %s' % cmd
