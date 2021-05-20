@@ -131,28 +131,32 @@ Log.info('Got current station: %s' % station_id)
 """
 Log.info('-------- Loading bots')
 
+# set default assistant
+assistant_id = ID.parse(identifier=assistant_id)
+if assistant_id is not None:
+    update_ans(name='assistant', identifier=assistant_id)
+# add group assistants
 group_assistants = sp_info['assistants']
 group_assistants = [ID.parse(identifier=item) for item in group_assistants]
 Log.info('Group assistants: %s' % group_assistants)
 for ass in group_assistants:
     g_facebook.add_assistant(assistant=ass)
-# set default assistant
-assistant_id = ID.parse(identifier=assistant_id)
-if assistant_id is not None:
-    update_ans(name='assistant', identifier=assistant_id)
-elif len(group_assistants) > 0:
+# check default assistant
+if assistant_id is None and len(group_assistants) > 0:
     assistant_id = group_assistants[0]
     update_ans(name='assistant', identifier=assistant_id)
 Log.info('Default assistant: %s' % assistant_id)
 
-search_archivists = sp_info['archivists']
-search_archivists = [ID.parse(identifier=item) for item in search_archivists]
-Log.info('Search archivists: %s' % search_archivists)
-# set default archivist
+# set default search engine
 archivist_id = ID.parse(identifier=archivist_id)
 if archivist_id is not None:
     update_ans(name='archivist', identifier=archivist_id)
-elif len(group_assistants) > 0:
+# add search engines
+search_archivists = sp_info['archivists']
+search_archivists = [ID.parse(identifier=item) for item in search_archivists]
+Log.info('Search archivists: %s' % search_archivists)
+# check default search engine
+if archivist_id is None and len(group_assistants) > 0:
     archivist_id = search_archivists[0]
     update_ans(name='archivist', identifier=archivist_id)
 Log.info('Default archivist: %s' % archivist_id)

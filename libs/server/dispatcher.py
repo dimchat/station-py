@@ -355,7 +355,9 @@ class GroupDispatcher(Worker):
         assistants = g_facebook.assistants(identifier=msg.receiver)
         if assistants is None or len(assistants) == 0:
             raise LookupError('failed to get assistant for group: %s' % msg.receiver)
-        return _deliver_message(msg=msg, receiver=assistants[0], station=self.station)
+        bot = assistants[0]
+        self.info('deliver group message to assistant: %s' % bot)
+        return _deliver_message(msg=msg, receiver=bot, station=self.station)
 
 
 class BroadcastDispatcher(Worker):
