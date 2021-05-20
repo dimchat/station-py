@@ -37,6 +37,7 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
+from dimp import ContentType
 from dimp import Content, ForwardContent, GroupCommand
 from dimsdk import ReceiptCommand
 
@@ -147,17 +148,61 @@ class AssistantMessenger(ClientMessenger, Logging):
         if msg.delegate is None:
             msg.delegate = self
         receiver = msg.receiver
-        if receiver.is_group:
-            # FIXME: check group meta/profile
-            meta = self.facebook.meta(identifier=receiver)
-            if meta is None:
-                self.suspend_message(msg=msg)
-                self.info('waiting for meta of group: %s' % receiver)
-                return None
-            # process group message
+        if not receiver.is_group:
+            # try to decrypt and process message
+            return super().process_reliable_message(msg=msg)
+        elif self.__is_waiting_group(group=receiver, sender=msg.sender, msg_type=msg.type):
+            # group not ready
+            # save this message in a queue to wait group info response
+            self.suspend_message(msg=msg)
+        else:
             return self.__process_group_message(msg=msg)
-        # try to decrypt and process message
-        return super().process_reliable_message(msg=msg)
+
+    def __is_waiting_group(self, group: ID, sender: ID, msg_type: int) -> bool:
+        if group.is_broadcast:
+            # broadcast group has no meta & members list to be updated,
+            # so it's always ready
+            return False
+        facebook = self.facebook
+        if facebook.is_waiting_meta(identifier=group):
+            # NOTICE: if meta for group not found,
+            #         facebook should query it from DIM network automatically
+            self.info('waiting for meta of group: %s' % group)
+            # raise LookupError('group meta not found: %s' % group)
+            return True
+        if facebook.is_empty_group(group=group):
+            # NOTICE: if the group info not found, and this is not an 'invite/reset' command
+            #         query group info from the sender
+            if msg_type == ContentType.HISTORY:
+                # FIXME: can we trust this stranger?
+                #        may be we should keep this members list temporary,
+                #        and send 'query' to the owner immediately.
+                # TODO: check whether the members list is a full list,
+                #       it should contain the group owner(owner)
+                return False
+            else:
+                return self.query_group(group=group, users=[sender])
+        elif facebook.exists_member(member=sender, group=group):
+            # normal membership
+            return False
+        elif facebook.exists_assistant(member=sender, group=group):
+            # normal membership
+            return False
+        elif facebook.is_owner(member=sender, group=group):
+            # normal membership
+            return False
+        else:
+            # if assistants exists, query them
+            admins = facebook.assistants(identifier=group)
+            # if owner found, query it too
+            owner = facebook.owner(identifier=group)
+            if owner is not None:
+                if admins is None:
+                    admins = [owner]
+                elif owner not in admins:
+                    admins = admins.copy()
+                    admins.append(owner)
+            return self.query_group(group=group, users=admins)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """

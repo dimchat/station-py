@@ -172,10 +172,14 @@ class CommonMessenger(Messenger, Logging):
         if len(users) == 0:
             return False
         self.__group_queries[group] = now
+        # current user ID
+        current = self.facebook.current_user.identifier
         # query from users
         cmd = GroupCommand.query(group=group)
         checking = False
         for item in users:
+            if item == current:
+                continue
             if self._send_command(cmd=cmd, receiver=item):
                 checking = True
         return checking

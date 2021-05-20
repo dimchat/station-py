@@ -54,20 +54,6 @@ class CommonProcessor(MessageProcessor, Logging):
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    def __is_empty(self, group: ID) -> bool:
-        """
-        Check whether group info empty (lost)
-
-        :param group: group ID
-        :return: True on members, owner not found
-        """
-        facebook = self.facebook
-        members = facebook.members(identifier=group)
-        if members is None or len(members) == 0:
-            return True
-        owner = facebook.owner(identifier=group)
-        return owner is None
-
     def __is_waiting_group(self, content: Content, sender: ID) -> bool:
         """
         Check if it is a group message, and whether the group members info needs update
@@ -83,16 +69,14 @@ class CommonProcessor(MessageProcessor, Logging):
             return False
         # check meta for new group ID
         facebook = self.facebook
-        meta = facebook.meta(identifier=group)
-        if meta is None:
+        if facebook.is_waiting_meta(identifier=group):
             # NOTICE: if meta for group not found,
             #         facebook should query it from DIM network automatically
-            # TODO: insert the message to a temporary queue to wait meta
+            self.info('waiting for meta of group: %s' % group)
             # raise LookupError('group meta not found: %s' % group)
             return True
-        # query group info
-        if self.__is_empty(group=group):
-            # NOTICE: if the group info not found, and this is not an 'invite' command
+        if facebook.is_empty_group(group=group):
+            # NOTICE: if the group info not found, and this is not an 'invite/reset' command
             #         query group info from the sender
             if isinstance(content, InviteCommand) or isinstance(content, ResetCommand):
                 # FIXME: can we trust this stranger?
@@ -121,6 +105,7 @@ class CommonProcessor(MessageProcessor, Logging):
                 if admins is None:
                     admins = [owner]
                 elif owner not in admins:
+                    admins = admins.copy()
                     admins.append(owner)
             return self.messenger.query_group(group=group, users=admins)
 
@@ -128,9 +113,8 @@ class CommonProcessor(MessageProcessor, Logging):
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
         sender = r_msg.sender
         if self.__is_waiting_group(content=content, sender=sender):
-            # save this message in a queue to wait group meta response
-            group = content.group
-            r_msg['waiting'] = str(group)
+            # group not ready
+            # save this message in a queue to wait group info response
             self.messenger.suspend_message(msg=r_msg)
             return None
         try:

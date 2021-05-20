@@ -152,16 +152,14 @@ class CommonFacebook(Facebook):
         pass
 
     def exists_member(self, member: ID, group: ID) -> bool:
-        members = self.members(identifier=group)
-        if members is not None and member in members:
+        if self.owner(identifier=group) == member:
             return True
-        owner = self.owner(identifier=group)
-        return owner == member
+        members = self.members(identifier=group)
+        return members is not None and member in members
 
     def exists_assistant(self, member: ID, group: ID) -> bool:
         assistants = self.assistants(identifier=group)
-        if assistants is not None and member in assistants:
-            return True
+        return assistants is not None and member in assistants
 
     def name(self, identifier: ID) -> str:
         profile = self.document(identifier=identifier)
@@ -174,17 +172,29 @@ class CommonFacebook(Facebook):
             return name
         return str(identifier.address)
 
-    def __waiting_meta(self, identifier: ID) -> bool:
+    def is_waiting_meta(self, identifier: ID) -> bool:
+        """ Check whether meta not found """
         if identifier.is_broadcast:
+            # broadcast entity has no meta
             return False
         return self.meta(identifier=identifier) is None
 
+    def is_empty_group(self, group: ID) -> bool:
+        """ Check whether group info empty (owner or members not found) """
+        if group.is_broadcast:
+            # broadcast group's owner/members are constant defined
+            return False
+        if self.owner(identifier=group) is None:
+            return True
+        members = self.members(identifier=group)
+        return members is None or len(members) == 0
+
     def create_user(self, identifier: ID) -> Optional[User]:
-        if not self.__waiting_meta(identifier=identifier):
+        if not self.is_waiting_meta(identifier=identifier):
             return super().create_user(identifier=identifier)
 
     def create_group(self, identifier: ID) -> Optional[Group]:
-        if not self.__waiting_meta(identifier=identifier):
+        if not self.is_waiting_meta(identifier=identifier):
             return super().create_group(identifier=identifier)
 
     #
