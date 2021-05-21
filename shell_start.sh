@@ -7,7 +7,7 @@ time=$(date +%Y%m%d-%H%M%S)
 
 function start() {
     res=$(pgrep -f "${exec} .*$2")
-    if [[ ${#res[*]} -eq 0 ]]
+    if [ "${res}" == "" ]
     then
         log=${logs}/$1-${time}.log
         echo "starting $2 >> ${log}"
