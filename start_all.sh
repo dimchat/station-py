@@ -1,53 +1,53 @@
 #!/usr/bin/env bash
 
 root=$(cd "$(dirname "$0")" || exit;pwd)
-restart=${root}/shell_restart.sh
 
-echo ""
-echo ">>> Starting DIM Station ..."
-echo ""
-${restart} dims "${root}/station/start.py"
+start=${root}/shell_start.sh
+stop=${root}/shell_stop.sh
+
+# restart "name" "path/to/script.py"
+function restart() {
+    ${stop} "${root}/$2"
+    sleep 1
+    ${start} "$1" "${root}/$2"
+}
+
+function title() {
+    echo ""
+    echo "    >>> $1 <<<"
+    echo ""
+}
+
+
+title "DIM Station"
+restart dims "station/start.py"
 
 sleep 2
 
-echo ""
-echo ">>> Starting DIM Station Bridge ..."
-echo ""
-${restart} octopus "${root}/robots/sbot_octopus.py"
+title "DIM Station Bridge"
+restart octopus "robots/sbot_octopus.py"
 
 sleep 5
 
-echo ""
-echo ">>> Starting DIM Search Engine ..."
-echo ""
-${restart} search "${root}/robots/sbot_archivist.py"
+title "DIM Search Engine"
+restart search "robots/sbot_archivist.py"
 
-#echo ""
-#echo ">>> Starting DIM Group Assistant ..."
-#echo ""
-#${restart} group "${root}/robots/gbot_assistant.py"
+#title "DIM Group Assistant"
+#restart group "robots/gbot_assistant.py"
 #
-#echo ""
-#echo ">>> Starting DIM Chat Bots ..."
-#echo ""
-#${restart} ling "${root}/robots/chatbot_ling.py"
-#${restart} xiao "${root}/robots/chatbot_xiao.py"
+#title "DIM Chat Bots"
+#restart ling "robots/chatbot_ling.py"
+#restart xiao "robots/chatbot_xiao.py"
 #
-#echo ""
-#echo ">>> Starting DIM Chat Room ..."
-#echo ""
-#${restart} chatroom "${root}/robots/chatroom_admin.py"
+#title "DIM Chat Room"
+#restart chatroom "robots/chatroom_admin.py"
 #
-#echo ""
-#echo ">>> Starting Web Server ..."
-#echo ""
-#${restart} www "${root}/webserver/httpd.py"
+#title "DIM Web Server"
+#restart www "webserver/httpd.py"
 #
-#echo ""
-#echo ">>> Starting Notification Pusher ..."
-#echo ""
-#${restart} pusher "${root}/station/pusher.py"
+#title "Notification Pusher"
+#restart pusher "station/pusher.py"
 
 echo ""
-echo ">>> Done."
+echo "    >>> Done <<<"
 echo ""
