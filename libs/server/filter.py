@@ -86,7 +86,7 @@ class Filter:
 
     def __check_login(self) -> Optional[Content]:
         session = self.messenger.current_session
-        if session.identifier is None:
+        if session.identifier is None or not session.active:
             return HandshakeCommand.ask(session=session.key)
 
     #

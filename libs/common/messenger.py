@@ -103,14 +103,6 @@ class CommonMessenger(Messenger, Logging):
         from .processor import CommonProcessor
         return CommonProcessor(messenger=self)
 
-    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]) -> bool:
-        if isinstance(msg, ReliableMessage):
-            # check meta & document
-            meta = self.facebook.meta(identifier=msg.sender)
-            if meta is not None:
-                self.facebook.document(identifier=msg.sender)
-        return super().suspend_message(msg=msg)
-
     def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
         try:
             return super().deserialize_content(data=data, key=key, msg=msg)

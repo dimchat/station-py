@@ -119,11 +119,11 @@ class CommonProcessor(MessageProcessor, Logging):
             return None
         try:
             return super().process_content(content=content, r_msg=r_msg)
-        except LookupError as e:
+        except Exception as e:
             error = '%s' % e
             if error.find('failed to get meta') >= 0:
-                # TODO: suspend message to wait meta
-                # self.suspend_message(msg=msg)
+                # suspend message to wait meta
+                self.messenger.suspend_message(msg=r_msg)
                 self.info(error)
             else:
                 traceback.print_exc()
