@@ -6,9 +6,18 @@ logs=/tmp
 time=$(date +%Y%m%d-%H%M%S)
 
 function start() {
-    log=${logs}/$1-${time}.log
-    echo "starting $2 >> ${log}"
-    ${exec} "$2" >> "${log}" 2>&1 &
+    res=$(pgrep -f "${exec} .*$2")
+    if [[ ${#res[*]} -eq 0 ]]
+    then
+        log=${logs}/$1-${time}.log
+        echo "starting $2 >> ${log}"
+        ${exec} "$2" >> "${log}" 2>&1 &
+    else
+        for pid in ${res[*]}
+        do
+            echo "process exists: $2 ($((pid)))"
+        done
+    fi
 }
 
 
