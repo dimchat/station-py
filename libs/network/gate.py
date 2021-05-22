@@ -80,7 +80,7 @@ class TCPGate(StarGate, ConnectionDelegate):
     def running(self) -> bool:
         if super().running:
             # connection not closed or still have data unprocessed
-            return self.__conn.alive or self.__conn.available > 0
+            return self.__conn.running  # or self.__conn.available > 0
 
     @property
     def expired(self) -> bool:
@@ -97,7 +97,7 @@ class TCPGate(StarGate, ConnectionDelegate):
 
     # Override
     def send(self, data: bytes) -> bool:
-        if self.__conn.alive:
+        if self.__conn.running:
             return self.__conn.send(data=data) == len(data)
 
     # Override
