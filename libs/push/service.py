@@ -23,11 +23,15 @@
 # SOFTWARE.
 # ==============================================================================
 
+from typing import Set, Dict
 
 from dimp import ID
 
+from ..utils import Singleton
+from ..utils import NotificationCenter, NotificationObserver, Notification
 
-class PushNotificationService:
+
+class PushService:
 
     def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
         """
@@ -39,3 +43,57 @@ class PushNotificationService:
         :return: False on error
         """
         raise NotImplemented
+
+
+@Singleton
+class NotificationPusher(PushService, NotificationObserver):
+
+    def __init__(self):
+        super().__init__()
+        # push services
+        self.__services: Set[PushService] = set()
+        # counting offline messages
+        self.__badges: Dict[ID, int] = {}
+        # observing notifications
+        nc = NotificationCenter()
+        nc.add(observer=self, name='user_online')
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name='user_online')
+
+    def add_service(self, service: PushService):
+        self.__services.add(service)
+
+    def get_badge(self, identifier: ID) -> int:
+        num = self.__badges.get(identifier)
+        if num is None:
+            num = 1
+        else:
+            num += 1
+        self.__badges[identifier] = num
+        return num
+
+    #
+    #    Notification Observer
+    #
+
+    # Override
+    def received_notification(self, notification: Notification):
+        info = notification.info
+        identifier = ID.parse(identifier=info.get('ID'))
+        # clean badges with ID
+        assert identifier is not None, 'notification error: %s' % info
+        self.__badges.pop(identifier, None)
+
+    #
+    #   PushService
+    #
+
+    # Override
+    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
+        sent = 0
+        for service in self.__services:
+            if service.push_notification(sender=sender, receiver=receiver, message=message):
+                sent += 1
+        return sent > 0

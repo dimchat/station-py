@@ -43,7 +43,7 @@ from dimp import ContentType, Content, TextContent
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
-from ..push import PushNotificationService
+from ..push import PushService
 from ..common import NotificationNames
 from ..common import Database, SharedFacebook
 from ..common import msg_receipt, msg_traced
@@ -82,12 +82,12 @@ class Dispatcher(NotificationObserver):
         nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     @property
-    def push_service(self) -> Optional[PushNotificationService]:
+    def push_service(self) -> Optional[PushService]:
         if self.__push_service is not None:
             return self.__push_service()
 
     @push_service.setter
-    def push_service(self, service: PushNotificationService):
+    def push_service(self, service: PushService):
         self.__push_service = weakref.ref(service)
 
     def start(self):

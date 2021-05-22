@@ -34,6 +34,7 @@
 #  Common Libs
 #
 from libs.utils import Log
+from libs.push import NotificationPusher
 from libs.push import ApplePushNotificationService
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
@@ -59,24 +60,26 @@ g_facebook.messenger = g_messenger
 
 
 """
+    Push Notification Service
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+g_pusher = NotificationPusher()
+if apns_credentials is not None:
+    apns = ApplePushNotificationService(credentials=apns_credentials, use_sandbox=apns_use_sandbox)
+    apns.topic = apns_topic
+    apns.delegate = g_database
+    apns.pusher = g_pusher
+    g_pusher.add_service(service=apns)
+
+
+"""
     Message Dispatcher
     ~~~~~~~~~~~~~~~~~~
 
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-
-
-"""
-    Push Notification Service
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-if apns_credentials is not None:
-    g_push_service = ApplePushNotificationService(credentials=apns_credentials,
-                                                  use_sandbox=apns_use_sandbox)
-    g_push_service.topic = apns_topic
-    g_push_service.delegate = g_database
-    g_dispatcher.push_service = g_push_service
+g_dispatcher.push_service = g_pusher
 
 
 """

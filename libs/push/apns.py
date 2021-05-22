@@ -47,10 +47,10 @@ from dimp import ID
 
 from ..utils import Logging
 
-from .service import PushNotificationService
+from .service import PushService, NotificationPusher
 
 
-class ApplePushNotificationService(PushNotificationService, Logging):
+class ApplePushNotificationService(PushService, Logging):
 
     class Delegate(ABC):
         """
@@ -80,8 +80,8 @@ class ApplePushNotificationService(PushNotificationService, Logging):
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
         self.__delegate: Optional[weakref.ReferenceType] = None  # APNs Delegate
-        # counting offline messages
-        self.badge_table = {}
+        # push server
+        self.pusher: Optional[NotificationPusher] = None
 
     @property
     def delegate(self) -> Delegate:
@@ -92,19 +92,8 @@ class ApplePushNotificationService(PushNotificationService, Logging):
     def delegate(self, value: Delegate):
         self.__delegate = weakref.ref(value)
 
-    def badge(self, identifier: ID) -> int:
-        num = self.badge_table.get(identifier)
-        if num is None:
-            num = 1
-        else:
-            num = num + 1
-        self.badge_table[identifier] = num
-        return num
-
-    def clear_badge(self, identifier: ID) -> bool:
-        if identifier in self.badge_table:
-            self.badge_table.pop(identifier)
-            return True
+    def get_badge(self, identifier: ID) -> int:
+        return self.pusher.get_badge(identifier=identifier)
 
     def connect(self) -> bool:
         try:
@@ -137,7 +126,7 @@ class ApplePushNotificationService(PushNotificationService, Logging):
             return -400  # Bad Request
 
     #
-    #   PushNotificationService
+    #   PushService
     #
 
     # Override
@@ -148,7 +137,7 @@ class ApplePushNotificationService(PushNotificationService, Logging):
             self.error('cannot get device token for user %s' % receiver)
             return False
         # 2. send
-        badge = self.badge(receiver)
+        badge = self.get_badge(identifier=receiver)
         payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:

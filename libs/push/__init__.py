@@ -29,13 +29,15 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from .service import PushNotificationService
+from .service import PushService
+from .service import NotificationPusher
 
 from .apns import ApplePushNotificationService
 from .push_message_service import PushMessageService
 
 __all__ = [
-    'PushNotificationService',
+    'PushService',
+    'NotificationPusher',
 
     'ApplePushNotificationService',
     'PushMessageService',
