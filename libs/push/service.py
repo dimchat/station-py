@@ -33,13 +33,14 @@ from ..utils import NotificationCenter, NotificationObserver, Notification
 
 class PushService:
 
-    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
         """
         Push Notification from sender to receiver
 
         :param sender:   sender ID
         :param receiver: receiver ID
         :param message:  notification text
+        :param badge:    offline messages count
         :return: False on error
         """
         raise NotImplemented
@@ -65,14 +66,13 @@ class NotificationPusher(PushService, NotificationObserver):
     def add_service(self, service: PushService):
         self.__services.add(service)
 
-    def get_badge(self, identifier: ID) -> int:
-        num = self.__badges.get(identifier)
-        if num is None:
-            num = 1
-        else:
-            num += 1
+    def __increase_badge(self, identifier: ID) -> int:
+        num = self.__badges.get(identifier, 0) + 1
         self.__badges[identifier] = num
         return num
+
+    def __clean_badge(self, identifier: ID):
+        self.__badges.pop(identifier, None)
 
     #
     #    Notification Observer
@@ -84,16 +84,19 @@ class NotificationPusher(PushService, NotificationObserver):
         identifier = ID.parse(identifier=info.get('ID'))
         # clean badges with ID
         assert identifier is not None, 'notification error: %s' % info
-        self.__badges.pop(identifier, None)
+        self.__clean_badge(identifier=identifier)
 
     #
     #   PushService
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
+        # increase offline message counter
+        badge = self.__increase_badge(identifier=receiver)
+        # push via all services
         sent = 0
         for service in self.__services:
-            if service.push_notification(sender=sender, receiver=receiver, message=message):
+            if service.push_notification(sender=sender, receiver=receiver, message=message, badge=badge):
                 sent += 1
         return sent > 0

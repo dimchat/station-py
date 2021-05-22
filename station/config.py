@@ -60,26 +60,27 @@ g_facebook.messenger = g_messenger
 
 
 """
-    Push Notification Service
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_pusher = NotificationPusher()
-if apns_credentials is not None:
-    apns = ApplePushNotificationService(credentials=apns_credentials, use_sandbox=apns_use_sandbox)
-    apns.topic = apns_topic
-    apns.delegate = g_database
-    apns.pusher = g_pusher
-    g_pusher.add_service(service=apns)
-
-
-"""
     Message Dispatcher
     ~~~~~~~~~~~~~~~~~~
 
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-g_dispatcher.push_service = g_pusher
+
+
+"""
+    Push Notification Service
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+if apns_credentials is not None:
+    # APNs
+    apns = ApplePushNotificationService(credentials=apns_credentials, use_sandbox=apns_use_sandbox)
+    apns.topic = apns_topic
+    apns.delegate = g_database
+    # Pusher
+    g_pusher = NotificationPusher()
+    g_pusher.add_service(service=apns)
+    g_dispatcher.push_service = g_pusher
 
 
 """

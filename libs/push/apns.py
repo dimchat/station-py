@@ -45,11 +45,12 @@ from apns2.payload import Payload
 
 from dimp import ID
 
-from ..utils import Logging
+from ..utils import Singleton, Logging
 
-from .service import PushService, NotificationPusher
+from .service import PushService
 
 
+@Singleton
 class ApplePushNotificationService(PushService, Logging):
 
     class Delegate(ABC):
@@ -80,8 +81,6 @@ class ApplePushNotificationService(PushService, Logging):
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
         self.__delegate: Optional[weakref.ReferenceType] = None  # APNs Delegate
-        # push server
-        self.pusher: Optional[NotificationPusher] = None
 
     @property
     def delegate(self) -> Delegate:
@@ -91,9 +90,6 @@ class ApplePushNotificationService(PushService, Logging):
     @delegate.setter
     def delegate(self, value: Delegate):
         self.__delegate = weakref.ref(value)
-
-    def get_badge(self, identifier: ID) -> int:
-        return self.pusher.get_badge(identifier=identifier)
 
     def connect(self) -> bool:
         try:
@@ -130,14 +126,13 @@ class ApplePushNotificationService(PushService, Logging):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
         # 1. check
         tokens = self.delegate.device_tokens(identifier=receiver)
         if tokens is None:
             self.error('cannot get device token for user %s' % receiver)
             return False
         # 2. send
-        badge = self.get_badge(identifier=receiver)
         payload = Payload(alert=message, badge=badge, sound='default')
         success = 0
         for token in tokens:

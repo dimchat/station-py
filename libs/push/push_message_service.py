@@ -5,14 +5,16 @@ from dimp import ID
 
 from ..utils import Singleton
 
+from .service import PushService
+
 
 @Singleton
-class PushMessageService:
+class PushMessageService(PushService):
 
     queue_key = "dim_push_message"
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
         try:
 
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
