@@ -45,7 +45,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log, Logging
+from libs.utils import Logging
 from libs.common import msg_traced, is_broadcast_message
 from libs.client import Server, Terminal, ClientMessenger
 
@@ -231,13 +231,17 @@ class Octopus(Logging):
         # local station
         self.__home.stop()
 
+    def set_home(self, station: ID) -> bool:
+        assert station == g_station.identifier, 'home station ID error: %s, %s' % (station, g_station)
+        if self.__home is None:
+            # worker for local station
+            self.info('bridge for local station: %s' % g_station)
+            self.__home = Worker(client=Terminal(), server=g_station, messenger=InnerMessenger())
+            return True
+
     def add_neighbor(self, station: ID) -> bool:
-        if station == g_station.identifier:
-            if self.__home is None:
-                # worker for local station
-                self.__home = Worker(client=Terminal(), server=g_station, messenger=InnerMessenger())
-                return True
-        elif self.__neighbors.get(station) is None:
+        assert station != g_station.identifier, 'neighbor station ID error: %s, %s' % (station, g_station)
+        if self.__neighbors.get(station) is None:
             # create remote station
             server = g_facebook.user(identifier=station)
             assert isinstance(server, Station), 'station error: %s' % station
@@ -245,6 +249,7 @@ class Octopus(Logging):
                 server = Server(identifier=station, host=server.host, port=server.port)
                 g_facebook.cache_user(user=server)
             # worker for remote station
+            self.info('bridge for neighbor station: %s' % server)
             self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=OuterMessenger())
             return True
 
@@ -303,19 +308,31 @@ class Octopus(Logging):
         return None
 
 
+def update_neighbors(station: ID, neighbors: List[Station]) -> bool:
+    neighbors = [str(item.identifier) for item in neighbors]
+    profile = g_facebook.document(identifier=station)
+    assert profile is not None, 'failed to get profile: %s' % station
+    private_key = g_facebook.private_key_for_visa_signature(identifier=station)
+    assert private_key is not None, 'failed to get private key: %s' % station
+    profile.set_property(key='neighbors', value=neighbors)
+    profile.sign(private_key=private_key)
+    return g_facebook.save_document(document=profile)
+
+
 if __name__ == '__main__':
+
+    # update for neighbor stations
+    update_neighbors(station=g_station.identifier, neighbors=neighbor_stations)
 
     # set current user
     g_facebook.current_user = g_station
 
     octopus = Octopus()
     # set local station
-    octopus.add_neighbor(station=g_station.identifier)
-    Log.info('bridge for local station: %s' % g_station)
+    octopus.set_home(station=g_station.identifier)
     # add neighbors
     for node in neighbor_stations:
         assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
         octopus.add_neighbor(station=node.identifier)
-        Log.info('bridge for neighbor station: %s' % node)
     # start all
     octopus.start()
