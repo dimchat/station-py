@@ -56,7 +56,7 @@ class MTPUtils:
             if keys is not None:
                 assert isinstance(keys, dict), 'reliable message keys error: %s' % keys
                 # DMTP store both 'keys' and 'key' in 'key'
-                info['key'] = b'KEYS:' + cls.__build_keys(keys=keys)
+                info['key'] = b'KEYS:' + build_keys(keys=keys)
         else:
             assert isinstance(key, str), 'reliable message key error: %s' % key
             info['key'] = base64_decode(string=key)
@@ -68,11 +68,11 @@ class MTPUtils:
             # dict to JSON
             assert isinstance(meta, dict), 'meta error: %s' % meta
             info['meta'] = json.dumps(meta).encode('utf-8')
-        profile = info.get('profile')
-        if profile is not None:
+        visa = info.get('visa')
+        if visa is not None:
             # dict to JSON
-            assert isinstance(profile, dict), 'profile error: %s' % profile
-            info['profile'] = json.dumps(profile).encode('utf-8')
+            assert isinstance(visa, dict), 'visa error: %s' % visa
+            info['visa'] = json.dumps(visa).encode('utf-8')
 
         # create as message
         msg = Message.new(info=info)
@@ -92,7 +92,7 @@ class MTPUtils:
             'time': msg.time,
         }
         msg_type = msg.type
-        if msg_type > 0:
+        if msg_type is not None and msg_type > 0:
             info['type'] = msg_type
         group = msg.group
         if group is not None:
@@ -102,7 +102,6 @@ class MTPUtils:
         #
         content = msg.content
         if content is not None:
-            content = content.get_bytes()
             if content.startswith(b'{'):
                 # JsON
                 info['data'] = content.decode('utf-8')
@@ -111,62 +110,59 @@ class MTPUtils:
                 info['data'] = base64_encode(data=content)
         signature = msg.signature
         if signature is not None:
-            info['signature'] = base64_encode(data=signature.get_bytes())
+            info['signature'] = base64_encode(data=signature)
         # symmetric key/keys
         key = msg.key
-        if key is not None and key.length > 5:
-            starts = key.slice(end=5).get_bytes()
-            if starts == b'KEYS:':
-                info['keys'] = cls.__parse_keys(data=key.slice(start=5))
+        if key is not None and len(key) > 5:
+            if key[:5] == b'KEYS:':
+                info['keys'] = parse_keys(data=key[5:])
             else:
-                info['key'] = base64_encode(data=key.get_bytes())
+                info['key'] = base64_encode(data=key)
         #
         #  attachments
         #
         meta = msg.meta
-        if meta is not None and meta.length > 0:
+        if meta is not None and len(meta) > 0:
             # JSON to dict
-            meta = meta.get_bytes().decode('utf-8')
             info['meta'] = json.loads(meta)
-        profile = msg.profile
-        if profile is not None and profile.length > 0:
+        visa = msg.visa
+        if visa is not None and len(visa) > 0:
             # JSON to dict
-            profile = profile.get_bytes().decode('utf-8')
-            info['profile'] = json.loads(profile)
+            info['visa'] = json.loads(visa)
 
         # create reliable message
         return ReliableMessage.parse(msg=info)
 
-    @classmethod
-    def __parse_keys(cls, data: ByteArray) -> dict:
-        keys = {}
-        while data.length > 0:
-            # get key length
-            size = VarIntData.from_data(data=data)
-            data = data.slice(start=size.size)
-            # get key name
-            name = StringValue.parse(data=data.slice(end=size.value))
-            data = data.slice(start=size.value)
-            # get value length
-            size = VarIntData.from_data(data=data)
-            data = data.slice(start=size.size)
-            # get value
-            value = BinaryValue(data=data.slice(end=size.value))
-            data = data.slice(start=size.value)
-            assert name.length > 0, 'key name empty'
-            if value.size > 0:
-                keys[name.string] = base64_encode(data=value.get_bytes())
-        return keys
 
-    @classmethod
-    def __build_keys(cls, keys: dict) -> bytes:
-        data = MutableData(capacity=512)
-        for (identifier, base64) in keys.items():
-            id_value = StringValue.new(string=identifier)
-            if id_value.size > 0 and base64 is not None and len(base64) > 0:
-                key_value = BinaryValue(data=base64_decode(string=base64))
-                data.append(VarIntData.from_int(value=id_value.size))
-                data.append(id_value)
-                data.append(VarIntData.from_int(value=key_value.size))
-                data.append(key_value)
-        return data.get_bytes()
+def parse_keys(data: ByteArray) -> dict:
+    keys = {}
+    while data.length > 0:
+        # get key length
+        size = VarIntData.from_data(data=data)
+        data = data.slice(start=size.size)
+        # get key name
+        name = StringValue.parse(data=data.slice(end=size.value))
+        data = data.slice(start=size.value)
+        # get value length
+        size = VarIntData.from_data(data=data)
+        data = data.slice(start=size.size)
+        # get value
+        value = BinaryValue(data=data.slice(end=size.value))
+        data = data.slice(start=size.value)
+        assert name.length > 0, 'key name empty'
+        if value.size > 0:
+            keys[name.string] = base64_encode(data=value.get_bytes())
+    return keys
+
+
+def build_keys(keys: dict) -> bytes:
+    data = MutableData(capacity=512)
+    for (identifier, base64) in keys.items():
+        id_value = StringValue.new(string=identifier)
+        if id_value.size > 0 and base64 is not None and len(base64) > 0:
+            key_value = BinaryValue(data=base64_decode(string=base64))
+            data.append(VarIntData.from_int(value=id_value.size))
+            data.append(id_value)
+            data.append(VarIntData.from_int(value=key_value.size))
+            data.append(key_value)
+    return data.get_bytes()

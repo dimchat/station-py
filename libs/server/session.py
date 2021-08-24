@@ -70,7 +70,7 @@ class Session(BaseSession):
 
     def __str__(self):
         clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%d />' % (clazz, self.key,
+        return '<%s:%s %s|%s active=%s />' % (clazz, self.key,
                                               self.client_address, self.identifier,
                                               self.active)
 

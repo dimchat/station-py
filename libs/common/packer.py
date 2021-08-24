@@ -99,7 +99,11 @@ class CommonPacker(MessagePacker):
             return super().deserialize_message(data=data)
         else:
             # D-MTP
-            return MTPUtils.deserialize_message(data=data)
+            msg = MTPUtils.deserialize_message(data=data)
+            if msg is not None:
+                # FIXME: just change it when first package received
+                self.mtp_format = self.MTP_DMTP
+                return msg
 
     def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
         s_msg = super().encrypt_message(msg=msg)

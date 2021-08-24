@@ -160,11 +160,12 @@ class MarsDocker(StarDocker):
         pack_len = head.length + body_len
         # 2. receive data with 'head.length + body.length'
         buffer = self.gate.receive(length=pack_len, remove=False)
-        if len(buffer) < pack_len:
+        if buffer is None or len(buffer) < pack_len:
             # waiting for more data
             return None
-        # receive package (remove from gate)
-        buffer = self.gate.receive(length=pack_len, remove=True)
+        else:
+            # remove from gate
+            self.gate.receive(length=pack_len, remove=True)
         if body_len > 0:
             body = buffer[head.length:]
         else:
