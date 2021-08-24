@@ -29,7 +29,7 @@ import sys
 import time
 from typing import Optional
 
-from mkm import ID
+from dimp import ID
 from dimp import Content, TextContent
 from dimp import ReliableMessage
 

@@ -32,11 +32,13 @@ import threading
 import time
 from typing import Optional
 
-from dmtp.mtp.tlv import Data
+from udp.ba import ByteArray
+from udp import Hub, ConnectionState
+
 from dmtp import Field
-from dmtp import LocationValue, TimestampValue, BinaryValue
+from dmtp import TimestampValue, BinaryValue
 from dmtp import SourceAddressValue, MappedAddressValue, RelayedAddressValue
-from dmtp import Peer
+from dmtp import LocationValue
 
 
 class Contact:
@@ -149,7 +151,7 @@ class Contact:
     #
 
     @classmethod
-    def __get_sign_data(cls, location: LocationValue) -> Optional[Data]:
+    def __get_sign_data(cls, location: LocationValue) -> Optional[ByteArray]:
         mapped_address = location.get(Field.MAPPED_ADDRESS)
         if mapped_address is None:
             return None
@@ -197,49 +199,45 @@ class Contact:
         # TODO: verify data and signature with public key
         return True
 
-    def purge(self, peer: Peer):
+    def purge(self, hub: Hub):
         with self.__locations_lock:
             pos = len(self.__locations)
             while pos > 0:
                 pos -= 1
                 item = self.__locations[pos]
                 assert isinstance(item, LocationValue), 'location error: %s' % item
-                if self.is_expired(location=item, peer=peer):
+                if self.is_location_expired(location=item, hub=hub):
                     self.__locations.pop(pos)
 
     @classmethod
-    def is_expired(cls, location: LocationValue, peer: Peer = None) -> bool:
+    def is_location_expired(cls, location: LocationValue, hub: Optional[Hub] = None) -> bool:
         """
         Check connection for client node; check timestamp for server node
 
         :param location: user's location info
-        :param peer:     node peer
+        :param hub:      node peer
         :return: true to remove location
         """
-        if peer is None:
+        if hub is None:
             # check timestamp
             timestamp = location.timestamp
             if timestamp <= 0:
                 return True
             return time.time() > (timestamp + cls.EXPIRES)
-        # check connections
-        error1 = False
-        error2 = False
-        now = time.time()
-        # check source-address
-        source_address = location.source_address
-        if source_address is None:
-            error1 = True
         else:
-            conn = peer.get_connection(remote_address=source_address)
-            if conn is not None and conn.is_error(now=now):
-                error1 = True
-        # check mapped-address
-        mapped_address = location.mapped_address
-        if mapped_address is None:
-            error2 = True
-        else:
-            conn = peer.get_connection(remote_address=mapped_address)
-            if conn is not None:
-                return conn.is_error(now=now)
-        return error1 and error2
+            # if source-address's connection exists and not error,
+            #    location not expired;
+            s = location.source_address
+            # if mapped-address's connection exists and not error,
+            #    location not expired too.
+            m = location.mapped_address
+            return cls.is_address_expired(address=s, hub=hub) and cls.is_address_expired(address=m, hub=hub)
+
+    @classmethod
+    def is_address_expired(cls, address: Optional[tuple], hub: Hub) -> bool:
+        if address is None:
+            return True
+        conn = hub.get_connection(remote=address, local=None)
+        if conn is None:
+            return True
+        return conn.state == ConnectionState.ERROR

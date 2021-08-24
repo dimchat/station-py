@@ -80,12 +80,12 @@ class Immortals(UserDataSource):
         profile = self.__load_profile(filename=identifier.name + '_profile.js')
         self.cache_profile(profile=profile, identifier=identifier)
 
-    @staticmethod
-    def __load_meta(filename: str) -> Optional[Meta]:
+    # noinspection PyMethodMayBeStatic
+    def __load_meta(self, filename: str) -> Optional[Meta]:
         return Meta.parse(meta=load_resource_file(filename=filename))
 
-    @staticmethod
-    def __load_private_key(filename: str) -> Optional[PrivateKey]:
+    # noinspection PyMethodMayBeStatic
+    def __load_private_key(self, filename: str) -> Optional[PrivateKey]:
         return PrivateKey.parse(key=load_resource_file(filename=filename))
 
     def __load_profile(self, filename: str) -> Optional[Document]:

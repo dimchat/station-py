@@ -32,8 +32,10 @@ import socket
 import threading
 from typing import Optional
 
-from tcp import Connection, ConnectionStatus, ConnectionDelegate
-from tcp import BaseConnection, ActiveConnection
+from tcp import Connection, ConnectionState, ConnectionDelegate
+from tcp import StreamChannel, BaseConnection, ActiveConnection
+
+from udp.ba import ByteArray, Data
 
 from startrek import GateStatus, StarGate
 from startrek import Docker
@@ -43,16 +45,16 @@ from .mtp import MTPDocker
 from .mars import MarsDocker
 
 
-def gate_status(status: ConnectionStatus) -> GateStatus:
+def gate_status(state: ConnectionState) -> GateStatus:
     """ Convert Connection Status to Star Gate Status """
-    if status in [ConnectionStatus.Connected, ConnectionStatus.Maintaining, ConnectionStatus.Expired]:
+    if state in [ConnectionState.CONNECTED, ConnectionState.MAINTAINING, ConnectionState.EXPIRED]:
         return GateStatus.Connected
-    if status == ConnectionStatus.Connecting:
+    elif state == ConnectionState.CONNECTING:
         return GateStatus.Connecting
-    if status == ConnectionStatus.Error:
+    elif state == ConnectionState.ERROR:
         return GateStatus.Error
-    # Default
-    return GateStatus.Init
+    else:
+        return GateStatus.Init
 
 
 class TCPGate(StarGate, ConnectionDelegate):
@@ -60,7 +62,7 @@ class TCPGate(StarGate, ConnectionDelegate):
     def __init__(self, connection: Connection):
         super().__init__()
         self.__conn = connection
-        self.__chunks: Optional[bytes] = None
+        self.__chunks: Optional[ByteArray] = None
 
     @property
     def connection(self) -> Connection:
@@ -79,17 +81,18 @@ class TCPGate(StarGate, ConnectionDelegate):
     @property
     def running(self) -> bool:
         if super().running:
-            # connection not closed or still have data unprocessed
-            return self.__conn.running  # or self.__conn.available > 0
+            # 1. StarGate not stopped
+            # 2. Connection not closed
+            return self.__conn.opened
 
     @property
     def expired(self) -> bool:
-        return self.__conn.status == ConnectionStatus.Expired
+        return self.__conn.state == ConnectionState.EXPIRED
 
     # Override
     @property
     def status(self) -> GateStatus:
-        return gate_status(status=self.__conn.status)
+        return gate_status(state=self.__conn.state)
 
     #
     #   Connection
@@ -97,41 +100,44 @@ class TCPGate(StarGate, ConnectionDelegate):
 
     # Override
     def send(self, data: bytes) -> bool:
-        if self.__conn.running:
-            return self.__conn.send(data=data) == len(data)
+        if not self.__conn.opened or not self.__conn.connected:
+            return False
+        try:
+            return self.__conn.send(data=data) != -1
+        except socket.error:
+            return False
 
     # Override
     def receive(self, length: int, remove: bool) -> Optional[bytes]:
         fragment = self.__receive(length=length)
-        if fragment is not None:
-            if len(fragment) > length:
-                if remove:
-                    self.__chunks = fragment[length:]
-                return fragment[:length]
-            elif remove:
-                # assert len(fragment) == length, 'fragment length error'
-                self.__chunks = None
-            return fragment
+        if fragment is None:
+            return None
+        elif fragment.size > length:
+            if remove:
+                # fragment[length:]
+                self.__chunks = fragment.slice(start=length)
+            # fragment[:length]
+            fragment = fragment.slice(start=0, end=length)
+        elif remove:
+            # assert len(fragment) == length, 'fragment length error'
+            self.__chunks = None
+        return fragment.get_bytes()
 
-    def __receive(self, length: int) -> Optional[bytes]:
-        cached = 0
-        if self.__chunks is not None:
-            cached = len(self.__chunks)
-        while cached < length:
-            # check available length from connection
-            available = self.__conn.available
-            if available <= 0:
-                break
+    def __receive(self, length: int) -> Optional[ByteArray]:
+        if self.__chunks is None:
+            size = 0
+        else:
+            size = self.__chunks.size
+        prev = -1
+        while prev < size < length:
+            prev = size
             # try to receive data from connection
-            data = self.__conn.receive(max_length=available)
-            if data is None:
-                break
-            # append data
+            self.__conn.tick()
+            # get next received data size
             if self.__chunks is None:
-                self.__chunks = data
+                size = 0
             else:
-                self.__chunks += data
-            cached += len(data)
+                size = self.__chunks.size
         return self.__chunks
 
     #
@@ -139,35 +145,27 @@ class TCPGate(StarGate, ConnectionDelegate):
     #
 
     # Override
-    # noinspection PyUnusedLocal
-    def connection_changed(self, connection, old_status: ConnectionStatus, new_status: ConnectionStatus):
-        s1 = gate_status(status=old_status)
-        s2 = gate_status(status=new_status)
+    def connection_state_changing(self, connection: Connection, current_state, next_state):
+        s1 = gate_status(state=current_state)
+        s2 = gate_status(state=next_state)
         if s1 != s2:
             delegate = self.delegate
             if delegate is not None:
                 delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
 
     # Override
-    def connection_received(self, connection, data: bytes):
-        # received data will be processed in run loop (StarDocker::handle),
-        # do nothing here
-        pass
-
-
-class StarTrek(TCPGate):
-
-    @classmethod
-    def create(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
-        if address is None:
-            conn = BaseConnection(sock=sock)
+    def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload: bytes):
+        if payload is None or len(payload) == 0:
+            return
+        if self.__chunks is None:
+            self.__chunks = Data(buffer=payload)
         else:
-            conn = ActiveConnection(address=address, sock=sock)
-        gate = StarTrek(connection=conn)
-        conn.delegate = gate
-        return gate
+            self.__chunks = self.__chunks.concat(payload)
 
-    def __init__(self, connection: BaseConnection):
+
+class LockedGate(TCPGate):
+
+    def __init__(self, connection: Connection):
         super().__init__(connection=connection)
         self.__send_lock = threading.RLock()
         self.__receive_lock = threading.RLock()
@@ -182,12 +180,43 @@ class StarTrek(TCPGate):
         with self.__receive_lock:
             return super().receive(length=length, remove=remove)
 
-    # Override
-    def setup(self):
+
+class StarTrek(LockedGate):
+
+    def __init__(self, connection: Connection):
+        super().__init__(connection=connection)
+
+    @classmethod
+    def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
+        if address is None:
+            # create channel with socket
+            channel = StreamChannel(sock=sock)
+            channel.configure_blocking(blocking=False)
+            # create connection with channel
+            remote = channel.remote_address
+            local = channel.local_address
+            conn = BaseConnection(remote=remote, local=local, channel=channel)
+        else:
+            # create channel with remote address
+            channel = StreamChannel(remote=address)
+            channel.configure_blocking(blocking=False)
+            # create connection with channel
+            conn = ActiveConnection(remote=address, local=None, channel=channel)
+        # create gate with connection
+        gate = StarTrek(connection=conn)
+        conn.delegate = gate
+        return gate
+
+    def start(self):
         conn = self.connection
         assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-        threading.Thread(target=conn.run).start()
-        super().setup()
+        conn.start()
+        threading.Thread(target=self.run).start()
+
+    # Override
+    def process(self) -> bool:
+        self.connection.tick()
+        return super().process()
 
     # Override
     def finish(self):

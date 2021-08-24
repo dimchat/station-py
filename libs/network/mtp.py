@@ -35,11 +35,8 @@ from startrek import Ship, ShipDelegate
 from startrek import StarShip
 from startrek import StarDocker
 
-from dmtp.mtp.tlv import Data
-from dmtp.mtp import Package, Header
-from dmtp.mtp import Command as MTPCommand, CommandRespond as MTPCommandRespond
-from dmtp.mtp import MessageFragment as MTPMessageFragment
-from dmtp.mtp import Message as MTPMessage, MessageRespond as MTPMessageRespond
+from udp.ba import Data
+from udp.mtp import Package, Header, DataType
 
 
 class MTPShip(StarShip):
@@ -79,7 +76,7 @@ class MTPDocker(StarDocker):
 
     @classmethod
     def parse_head(cls, buffer: bytes) -> Optional[Header]:
-        data = Data(data=buffer)
+        data = Data(buffer=buffer)
         head = Header.parse(data=data)
         if head is not None:
             if head.body_length < 0:
@@ -93,10 +90,9 @@ class MTPDocker(StarDocker):
             return cls.parse_head(buffer=buffer) is not None
 
     # Override
-    # noinspection PyMethodMayBeStatic
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        req = Data(data=payload)
-        mtp = Package.new(data_type=MTPMessage, body_length=req.length, body=req)
+        req = Data(buffer=payload)
+        mtp = Package.new(data_type=DataType.MESSAGE, body_length=req.size, body=req)
         return MTPShip(mtp=mtp, priority=priority, delegate=delegate)
 
     def __seek_header(self) -> Optional[Header]:
@@ -129,7 +125,7 @@ class MTPDocker(StarDocker):
             return None
         body_len = head.body_length
         assert body_len >= 0, 'body length error: %d' % body_len
-        pack_len = head.length + body_len
+        pack_len = head.size + body_len
         # 2. receive data with 'head.length + body.length'
         buffer = self.gate.receive(length=pack_len, remove=False)
         if len(buffer) < pack_len:
@@ -137,8 +133,8 @@ class MTPDocker(StarDocker):
             return None
         # receive package (remove from gate)
         buffer = self.gate.receive(length=pack_len, remove=True)
-        data = Data(data=buffer)
-        body = data.slice(start=head.length)
+        data = Data(buffer=buffer)
+        body = data.slice(start=head.size)
         return Package(data=data, head=head, body=body)
 
     # Override
@@ -155,21 +151,21 @@ class MTPDocker(StarDocker):
         body = mtp.body
         # 1. check data type
         data_type = head.data_type
-        if data_type == MTPCommand:
+        if data_type == DataType.COMMAND:
             # respond for Command directly
             if body == ping_body:  # 'PING'
                 res = pong_body    # 'PONG'
-                mtp = Package.new(data_type=MTPCommandRespond, sn=head.sn, body_length=res.length, body=res)
+                mtp = Package.new(data_type=DataType.COMMAND_RESPONSE, sn=head.sn, body_length=res.size, body=res)
                 return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
             return None
-        elif data_type == MTPCommandRespond:
+        elif data_type == DataType.COMMAND_RESPONSE:
             # just ignore
             return None
-        elif data_type == MTPMessageFragment:
+        elif data_type == DataType.MESSAGE_FRAGMENT:
             # just ignore
             return None
-        elif data_type == MTPMessageRespond:
-            if body.length == 0 or body == ok_body:
+        elif data_type == DataType.MESSAGE_RESPONSE:
+            if body.size == 0 or body == ok_body:
                 # just ignore
                 return None
             elif body == again_body:
@@ -177,19 +173,19 @@ class MTPDocker(StarDocker):
                 return None
         # 2. process payload by delegate
         delegate = self.gate.delegate
-        if body.length > 0 and delegate is not None:
+        if body.size > 0 and delegate is not None:
             res = delegate.gate_received(gate=self.gate, ship=income)
         else:
             res = None
         # 3. response
-        if data_type == MTPMessage:
+        if data_type == DataType.MESSAGE:
             # respond for Message
             if res is None or len(res) == 0:
                 res = ok_body
             else:
-                res = Data(data=res)
+                res = Data(buffer=res)
             # pack MessageRespond
-            mtp = Package.new(data_type=MTPMessageRespond, sn=head.sn, body_length=res.length, body=res)
+            mtp = Package.new(data_type=DataType.MESSAGE_RESPONSE, sn=head.sn, body_length=res.size, body=res)
             return MTPShip(mtp=mtp)
         elif res is not None and len(res) > 0:
             # pack as new Message and put into waiting queue
@@ -198,7 +194,7 @@ class MTPDocker(StarDocker):
     # Override
     def remove_linked_ship(self, income: Ship):
         assert isinstance(income, MTPShip), 'income ship error: %s' % income
-        if income.mtp.head.data_type == MTPMessageRespond:
+        if income.mtp.head.data_type == DataType.MESSAGE_RESPONSE:
             super().remove_linked_ship(income=income)
 
     # Override
@@ -207,7 +203,7 @@ class MTPDocker(StarDocker):
         if income is None and isinstance(outgo, MTPShip):
             # if retries == 0, means this ship is first time to be sent,
             # and it would be removed from the dock.
-            if outgo.retries == 0 and outgo.mtp.head.data_type == MTPMessage:
+            if outgo.retries == 0 and outgo.mtp.head.data_type == DataType.MESSAGE:
                 # put back for waiting response
                 self.gate.park_ship(ship=outgo)
         return outgo
@@ -215,7 +211,7 @@ class MTPDocker(StarDocker):
     # Override
     # noinspection PyMethodMayBeStatic
     def get_heartbeat(self) -> Optional[StarShip]:
-        mtp = Package.new(data_type=MTPCommand, body_length=ping_body.length, body=ping_body)
+        mtp = Package.new(data_type=DataType.COMMAND, body_length=ping_body.size, body=ping_body)
         return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
 
 
@@ -223,7 +219,7 @@ class MTPDocker(StarDocker):
 #  const
 #
 
-ping_body = Data(data=b'PING')
-pong_body = Data(data=b'PONG')
-again_body = Data(data=b'AGAIN')
-ok_body = Data(data=b'OK')
+ping_body = Data(buffer=b'PING')
+pong_body = Data(buffer=b'PONG')
+again_body = Data(buffer=b'AGAIN')
+ok_body = Data(buffer=b'OK')

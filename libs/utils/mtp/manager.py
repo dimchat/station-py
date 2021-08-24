@@ -28,19 +28,24 @@
 # SOFTWARE.
 # ==============================================================================
 
+import base64
 import json
 import threading
 import time
 from typing import Optional, Union
 from weakref import WeakValueDictionary
 
-from dmtp.mtp.tlv.utils import base64_encode
-from dmtp.mtp.tlv import IntegerData
+from udp.ba import IntegerData
+from udp import Hub
+
 from dmtp import LocationValue, StringValue, BinaryValue
 from dmtp import LocationDelegate
-from dmtp import Peer
 
 from .contact import Contact
+
+
+def base64_encode(data: bytes) -> str:
+    return base64.b64encode(data).decode('utf-8')
 
 
 class FieldValueEncoder(json.JSONEncoder):
@@ -63,6 +68,12 @@ class Session:
         self.__location = location
         self.__address = address
 
+    def __str__(self) -> str:
+        return '%s@%s' % (self.__location.identifier, self.__address)
+
+    def __repr__(self) -> str:
+        return '%s@%s' % (self.__location.identifier, self.__address)
+
     @property
     def location(self) -> LocationValue:
         return self.__location
@@ -74,14 +85,14 @@ class Session:
 
 class ContactManager(LocationDelegate):
 
-    def __init__(self, peer: Peer):
+    def __init__(self, hub: Hub, local: tuple):
         super().__init__()
-        self.identifier: str = None
+        self.identifier: str = ''
         self.nat: str = 'Unknown'
-        self.__source_address: tuple = peer.local_address
-        self.__peer: Peer = peer
+        self.__source_address = local
+        self.__hub = hub
         # contacts
-        self.__contacts = {}  # ID -> Contact
+        self.__contacts = {}  # str(ID) -> Contact
         self.__contacts_lock = threading.Lock()
         # locations
         self.__locations = WeakValueDictionary()  # (IP, port) -> LocationValue
@@ -90,7 +101,7 @@ class ContactManager(LocationDelegate):
     def _create_contact(self, identifier: str) -> Contact:
         return Contact(identifier=identifier)
 
-    def get_contact(self, identifier: Union[str, StringValue]) -> Contact:
+    def __get_contact(self, identifier: Union[str, StringValue]) -> Contact:
         if isinstance(identifier, StringValue):
             identifier = identifier.string
         with self.__contacts_lock:
@@ -110,7 +121,7 @@ class ContactManager(LocationDelegate):
             # location ID not found
             return False
         # store by contact
-        contact = self.get_contact(identifier=identifier)
+        contact = self.__get_contact(identifier=identifier)
         if not contact.store_location(location=location):
             # location error
             return False
@@ -129,7 +140,7 @@ class ContactManager(LocationDelegate):
             # location ID not found
             return False
         # store by contact
-        contact = self.get_contact(identifier=identifier)
+        contact = self.__get_contact(identifier=identifier)
         if not contact.clear_location(location=location):
             # location error
             return False
@@ -145,7 +156,7 @@ class ContactManager(LocationDelegate):
     def current_location(self) -> Optional[LocationValue]:
         if self.identifier is None:
             return None
-        contact = self.get_contact(identifier=self.identifier)
+        contact = self.__get_contact(identifier=self.identifier)
         # contact.purge(peer=self.__peer)
         return contact.get_location(address=self.__source_address)
 
@@ -153,13 +164,13 @@ class ContactManager(LocationDelegate):
         location = self.__locations.get(address)
         if location is None:
             return None
-        if Contact.is_expired(location=location, peer=self.__peer):
+        if Contact.is_location_expired(location=location, hub=self.__hub):
             return None
         return location
 
     def get_locations(self, identifier: str) -> list:
-        contact = self.get_contact(identifier=identifier)
-        contact.purge(peer=self.__peer)
+        contact = self.__get_contact(identifier=identifier)
+        contact.purge(hub=self.__hub)
         return contact.locations
 
     def sign_location(self, location: LocationValue) -> Optional[LocationValue]:
@@ -169,10 +180,10 @@ class ContactManager(LocationDelegate):
         # timestamp
         now = int(time.time())
         # location value to be signed
-        value = LocationValue.new(identifier=self.identifier,
+        value = LocationValue.new(identifier=location.identifier,
                                   source_address=self.__source_address,
                                   mapped_address=location.mapped_address,
                                   relayed_address=location.relayed_address,
                                   timestamp=now, nat=self.nat)
-        contact = self.get_contact(identifier=self.identifier)
+        contact = self.__get_contact(identifier=self.identifier)
         return contact.sign_location(location=value)

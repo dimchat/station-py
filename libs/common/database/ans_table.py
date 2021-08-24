@@ -36,7 +36,7 @@ class AddressNameTable(Storage):
     def __init__(self):
         super().__init__()
         # memory caches
-        self.__caches: Dict[str, ID] = None
+        self.__caches: Optional[Dict[str, ID]] = None
 
     """
         Address Name Service

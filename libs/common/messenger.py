@@ -189,5 +189,5 @@ class MessageDataSource(MessengerDataSource, Logging):
         return True
 
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
-        self.info('TODO: suspending msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
+        self.warning('TODO: suspending msg: %s -> %s | %s' % (msg.sender, msg.receiver, msg.get('traces')))
         return True

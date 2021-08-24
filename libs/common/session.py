@@ -182,8 +182,10 @@ class MessageQueue:
 def create_gate(delegate: GateDelegate,
                 address: Optional[tuple] = None,
                 sock: Optional[socket.socket] = None) -> StarGate:
-    gate = StarTrek.create(address=address, sock=sock)
+    gate = StarTrek.create_gate(address=address, sock=sock)
     gate.delegate = delegate
+    assert isinstance(gate, StarTrek), 'gate error: %s' % gate
+    gate.start()
     return gate
 
 
@@ -296,9 +298,11 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             return False
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        if not self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
+        if self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
+            return True
+        else:
             wrapper.fail()
-        return True
+            return False
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.active:
