@@ -191,8 +191,7 @@ def create_gate(delegate: GateDelegate,
 
 class BaseSession(threading.Thread, GateDelegate, Logging):
 
-    def __init__(self, messenger: CommonMessenger,
-                 address: Optional[tuple] = None, sock: Optional[socket.socket] = None):
+    def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
         self.__queue = MessageQueue()
         self.__messenger = weakref.ref(messenger)

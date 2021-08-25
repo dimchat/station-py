@@ -49,8 +49,8 @@ from ...common import BaseSession
 
 class Session(BaseSession):
 
-    def __init__(self, messenger: CommonMessenger, host: str, port: int):
-        super().__init__(messenger=messenger, address=(host, port))
+    def __init__(self, messenger: CommonMessenger, address: tuple):
+        super().__init__(messenger=messenger, address=address)
         self.gate.docker = MTPDocker(gate=self.gate)
 
     def setup(self):
@@ -86,7 +86,7 @@ class Server(Station, MessengerDelegate, Logging):
 
     def connect(self) -> Session:
         if self.__session is None:
-            session = Session(messenger=self.messenger, host=self.host, port=self.port)
+            session = Session(messenger=self.messenger, address=(self.host, self.port))
             session.start()
             self.__session = session
         return self.__session

@@ -33,7 +33,7 @@ import threading
 from typing import Optional
 
 from tcp import Connection, ConnectionState, ConnectionDelegate
-from tcp import StreamChannel, BaseConnection, ActiveConnection
+from tcp import StreamChannel, BaseConnection
 
 from udp.ba import ByteArray, Data
 
@@ -188,7 +188,14 @@ class StarTrek(LockedGate):
 
     @classmethod
     def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
-        if address is None:
+        if sock is None:
+            # FIXME: create ActiveConnection for client
+            # create channel with remote address
+            channel = StreamChannel(remote=address)
+            channel.configure_blocking(blocking=False)
+            # create connection with channel
+            conn = BaseConnection(remote=address, local=None, channel=channel)
+        else:
             # create channel with socket
             channel = StreamChannel(sock=sock)
             channel.configure_blocking(blocking=False)
@@ -196,12 +203,6 @@ class StarTrek(LockedGate):
             remote = channel.remote_address
             local = channel.local_address
             conn = BaseConnection(remote=remote, local=local, channel=channel)
-        else:
-            # create channel with remote address
-            channel = StreamChannel(remote=address)
-            channel.configure_blocking(blocking=False)
-            # create connection with channel
-            conn = ActiveConnection(remote=address, local=None, channel=channel)
         # create gate with connection
         gate = StarTrek(connection=conn)
         conn.delegate = gate
