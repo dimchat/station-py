@@ -133,7 +133,9 @@ class TCPGate(StarGate, ConnectionDelegate):
         while prev < size < length:
             prev = size
             # try to receive data from connection
-            self.__conn.tick()
+            conn = self.__conn
+            assert isinstance(conn, StreamConnection) or isinstance(conn, ActiveStreamConnection)
+            conn.drive()
             # get next received data size
             if self.__chunks is None:
                 size = 0
@@ -158,10 +160,11 @@ class TCPGate(StarGate, ConnectionDelegate):
     def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload: bytes):
         if payload is None or len(payload) == 0:
             return
-        if self.__chunks is None:
+        fragment = self.__chunks
+        if fragment is None or fragment.size == 0:
             self.__chunks = Data(buffer=payload)
         else:
-            self.__chunks = self.__chunks.concat(payload)
+            self.__chunks = fragment.concat(payload)
 
 
 class LockedGate(TCPGate):
@@ -197,7 +200,7 @@ class StarTrek(LockedGate):
             channel = StreamChannel(sock=sock)
             channel.configure_blocking(blocking=False)
             # create connection with channel
-            conn = BaseConnection(remote=channel.remote_address, local=channel.local_address, channel=channel)
+            conn = StreamConnection(remote=channel.remote_address, local=channel.local_address, channel=channel)
         # create gate with connection
         gate = StarTrek(connection=conn)
         conn.delegate = gate
@@ -222,8 +225,28 @@ class StarTrek(LockedGate):
         conn.stop()
 
 
+class StreamConnection(BaseConnection):
+    """ Stream Connection """
+
+    def drive(self):
+        if self.opened:
+            # try to receive data when connection open
+            try:
+                self._process()
+            except socket.error as error:
+                print('[NET] failed to process: %s' % error)
+
+
 class ActiveStreamConnection(ActiveConnection):
     """ Active Stream Connection """
+
+    def drive(self):
+        if self.opened:
+            # try to receive data when connection open
+            try:
+                self._process()
+            except socket.error as error:
+                print('[NET] failed to process: %s' % error)
 
     def connect(self, remote: tuple, local: Optional[tuple] = None) -> Channel:
         channel = StreamChannel(remote=remote, local=local)

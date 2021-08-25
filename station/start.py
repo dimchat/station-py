@@ -85,7 +85,7 @@ if __name__ == '__main__':
         TCPServer.allow_reuse_address = True
         server = ThreadingTCPServer(server_address=(g_station.host, g_station.port),
                                     RequestHandlerClass=RequestHandler)
-        Log.info('server (%s:%s) is listening...' % (g_station.host, g_station.port))
+        Log.info('>>> TCP server (%s:%s) is listening...' % (g_station.host, g_station.port))
         server.serve_forever()
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)
