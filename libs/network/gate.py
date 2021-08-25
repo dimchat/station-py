@@ -32,8 +32,9 @@ import socket
 import threading
 from typing import Optional
 
+from tcp import Channel, StreamChannel
 from tcp import Connection, ConnectionState, ConnectionDelegate
-from tcp import StreamChannel, BaseConnection
+from tcp import BaseConnection, ActiveConnection
 
 from udp.ba import ByteArray, Data
 
@@ -189,20 +190,14 @@ class StarTrek(LockedGate):
     @classmethod
     def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
         if sock is None:
-            # FIXME: create ActiveConnection for client
-            # create channel with remote address
-            channel = StreamChannel(remote=address)
-            channel.configure_blocking(blocking=False)
-            # create connection with channel
-            conn = BaseConnection(remote=address, local=None, channel=channel)
+            # create ActiveConnection for client
+            conn = ActiveStreamConnection(remote=address, local=None)
         else:
             # create channel with socket
             channel = StreamChannel(sock=sock)
             channel.configure_blocking(blocking=False)
             # create connection with channel
-            remote = channel.remote_address
-            local = channel.local_address
-            conn = BaseConnection(remote=remote, local=local, channel=channel)
+            conn = BaseConnection(remote=channel.remote_address, local=channel.local_address, channel=channel)
         # create gate with connection
         gate = StarTrek(connection=conn)
         conn.delegate = gate
@@ -225,3 +220,12 @@ class StarTrek(LockedGate):
         conn = self.connection
         assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
         conn.stop()
+
+
+class ActiveStreamConnection(ActiveConnection):
+    """ Active Stream Connection """
+
+    def connect(self, remote: tuple, local: Optional[tuple] = None) -> Channel:
+        channel = StreamChannel(remote=remote, local=local)
+        channel.configure_blocking(blocking=False)
+        return channel
