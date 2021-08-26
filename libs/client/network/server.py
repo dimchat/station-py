@@ -135,7 +135,8 @@ class Server(Station, MessengerDelegate, Logging):
         # send out directly
         self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
         # Urgent Command
-        self.__session.send_payload(payload=data, priority=StarShip.URGENT)
+        session = self.connect()
+        session.send_payload(payload=data, priority=StarShip.URGENT)
 
     def handshake_success(self):
         user = self.facebook.current_user
@@ -150,7 +151,8 @@ class Server(Station, MessengerDelegate, Logging):
     #
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         """ Send out a data package onto network """
-        if self.__session.send_payload(payload=data, priority=priority):
+        session = self.connect()
+        if session.send_payload(payload=data, priority=priority):
             if handler is not None:
                 handler.success()
             return True

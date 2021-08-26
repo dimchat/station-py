@@ -63,6 +63,7 @@ class TCPGate(StarGate, ConnectionDelegate):
     def __init__(self, connection: Connection):
         super().__init__()
         self.__conn = connection
+        self.__occupied = False
         self.__chunks: Optional[ByteArray] = None
 
     @property
@@ -110,7 +111,12 @@ class TCPGate(StarGate, ConnectionDelegate):
 
     # Override
     def receive(self, length: int, remove: bool) -> Optional[bytes]:
-        fragment = self.__receive(length=length)
+        if self.__occupied:
+            return None
+        else:
+            self.__occupied = True
+            fragment = self.__receive(length=length)
+            self.__occupied = False
         if fragment is None:
             return None
         elif fragment.size > length:
@@ -132,10 +138,8 @@ class TCPGate(StarGate, ConnectionDelegate):
         prev = -1
         while prev < size < length:
             prev = size
-            # try to receive data from connection
-            conn = self.__conn
-            assert isinstance(conn, StreamConnection) or isinstance(conn, ActiveStreamConnection)
-            conn.drive()
+            # drive the connection to receive data
+            self.__conn.tick()
             # get next received data size
             if self.__chunks is None:
                 size = 0
@@ -193,14 +197,10 @@ class StarTrek(LockedGate):
     @classmethod
     def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
         if sock is None:
-            # create ActiveConnection for client
-            conn = ActiveStreamConnection(remote=address, local=None)
+            assert address is not None, 'remote address should not be emtpy'
+            conn = ActiveStreamConnection(remote=address)
         else:
-            # create channel with socket
-            channel = StreamChannel(sock=sock)
-            channel.configure_blocking(blocking=False)
-            # create connection with channel
-            conn = StreamConnection(remote=channel.remote_address, local=channel.local_address, channel=channel)
+            conn = StreamConnection(sock=sock)
         # create gate with connection
         gate = StarTrek(connection=conn)
         conn.delegate = gate
@@ -228,25 +228,18 @@ class StarTrek(LockedGate):
 class StreamConnection(BaseConnection):
     """ Stream Connection """
 
-    def drive(self):
-        if self.opened:
-            # try to receive data when connection open
-            try:
-                self._process()
-            except socket.error as error:
-                print('[NET] failed to process: %s' % error)
+    def __init__(self, sock: socket.socket):
+        # create channel with socket
+        channel = StreamChannel(sock=sock)
+        channel.configure_blocking(blocking=False)
+        super().__init__(remote=channel.remote_address, local=channel.local_address, channel=channel)
 
 
 class ActiveStreamConnection(ActiveConnection):
     """ Active Stream Connection """
 
-    def drive(self):
-        if self.opened:
-            # try to receive data when connection open
-            try:
-                self._process()
-            except socket.error as error:
-                print('[NET] failed to process: %s' % error)
+    def __init__(self, remote: tuple):
+        super().__init__(remote=remote, local=None, channel=None)
 
     def connect(self, remote: tuple, local: Optional[tuple] = None) -> Channel:
         channel = StreamChannel(remote=remote, local=local)
