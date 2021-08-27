@@ -152,21 +152,21 @@ class TCPGate(StarGate, ConnectionDelegate):
     #
 
     # Override
-    def connection_state_changing(self, connection: Connection, current_state, next_state):
-        s1 = gate_status(state=current_state)
-        s2 = gate_status(state=next_state)
+    def connection_state_changed(self, connection: Connection, previous, current):
+        s1 = gate_status(state=previous)
+        s2 = gate_status(state=current)
         if s1 != s2:
             delegate = self.delegate
             if delegate is not None:
                 delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
 
     # Override
-    def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload: bytes):
-        if payload is None or len(payload) == 0:
-            return
+    def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload):
+        if not isinstance(payload, ByteArray):
+            payload = Data(buffer=payload)
         fragment = self.__chunks
         if fragment is None or fragment.size == 0:
-            self.__chunks = Data(buffer=payload)
+            self.__chunks = payload
         else:
             self.__chunks = fragment.concat(payload)
 
@@ -196,6 +196,7 @@ class StarTrek(LockedGate):
 
     @classmethod
     def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
+        print('!!! create gate: (%s) %s' % (address, sock))
         if sock is None:
             assert address is not None, 'remote address should not be emtpy'
             conn = ActiveStreamConnection(remote=address)

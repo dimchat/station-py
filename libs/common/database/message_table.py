@@ -172,7 +172,7 @@ class MessageTable(Storage):
                 msg = json_decode(data=utf8_encode(string=msg))
                 msg = ReliableMessage.parse(msg=msg)
             except Exception as error:
-                self.error('message package error %s, %s' % (error, line))
+                self.error('message package error %s, %s\n file content: %s' % (error, line, text))
                 continue
             if isinstance(msg, ReliableMessage):
                 if msg.time < expires:

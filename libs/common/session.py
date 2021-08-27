@@ -336,7 +336,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                 if res is not None and len(res) > 0:
                     data += res + b'\n'
             except Exception as error:
-                self.error('parse message failed: %s, %s' % (error, pack))
+                self.error('parse message failed: %s, %s\n payload: %s' % (error, pack, payload))
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)

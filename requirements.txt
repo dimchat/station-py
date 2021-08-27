@@ -10,8 +10,8 @@ base58>=1.0.3
 ecdsa>=0.16.1
 
 startrek==0.1.8
-tcp>=0.2.3
-udp>=0.4.5
+tcp>=0.2.5
+udp>=0.4.6
 stun>=0.2.2
 dmtp==0.3.3
 
