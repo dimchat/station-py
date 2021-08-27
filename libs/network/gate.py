@@ -207,11 +207,12 @@ class StarTrek(LockedGate):
         conn.delegate = gate
         return gate
 
-    def start(self):
+    # Override
+    def setup(self):
         conn = self.connection
         assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
         conn.start()
-        threading.Thread(target=self.run).start()
+        super().setup()
 
     # Override
     def process(self) -> bool:

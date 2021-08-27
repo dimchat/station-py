@@ -61,7 +61,7 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
     Current Station
     ~~~~~~~~~~~~~~~
 """
-Log.info('-------- Current station: %s' % station_id)
+Log.info('-------- Current station: %s (%s:%d)' % (station_id, local_host, local_port))
 g_station = Server(identifier=station_id, host=local_host, port=local_port)
 g_facebook.cache_user(user=g_station)
 

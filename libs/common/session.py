@@ -184,8 +184,6 @@ def create_gate(delegate: GateDelegate,
                 sock: Optional[socket.socket] = None) -> StarGate:
     gate = StarTrek.create_gate(address=address, sock=sock)
     gate.delegate = delegate
-    assert isinstance(gate, StarTrek), 'gate error: %s' % gate
-    gate.start()
     return gate
 
 
