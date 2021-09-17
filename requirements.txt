@@ -9,13 +9,13 @@ pycryptodome>=3.7.3
 base58>=1.0.3
 ecdsa>=0.16.1
 
-startrek==0.1.8
-tcp>=0.2.5
-udp>=0.4.6
-stun>=0.2.2
+startrek  # 0.2.1
+tcp       # 0.2.7
+udp       # 0.4.9
+stun      # 0.2.3
 dmtp==0.3.3
 
-mkm>=0.10.15
-dkd>=0.10.15
-dimp>=0.10.16
+mkm       # 0.10.15
+dkd       # 0.10.15
+dimp      # 0.10.16
 dimsdk==0.5.13

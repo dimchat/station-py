@@ -28,199 +28,193 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, Union, List
 
-from startrek import Gate
-from startrek import Ship, ShipDelegate
-from startrek import StarShip
-from startrek import StarDocker
+from startrek import ShipDelegate, StarGate
+from startrek import Arrival, Departure, DeparturePriority
 
-from udp.ba import Data
-from udp.mtp import Package, Header, DataType
+from udp.ba import ByteArray, Data
+from udp.mtp import DataType, TransactionID, Header, Package
+from udp import PackageArrival, PackageDeparture, PackageDocker
 
 
-class MTPShip(StarShip):
-    """ Star Ship with MTP Package """
+class PackUtils:
 
-    def __init__(self, mtp: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__(priority=priority, delegate=delegate)
-        self.__mtp = mtp
+    @classmethod
+    def parse_head(cls, data: Union[bytes, ByteArray]) -> Optional[Header]:
+        if not isinstance(data, ByteArray):
+            data = Data(buffer=data)
+        return Header.parse(data=data)
 
-    @property
-    def mtp(self) -> Package:
-        """ Get request will be sent to remote star """
-        return self.__mtp
+    @classmethod
+    def parse(cls, data: Union[bytes, ByteArray]) -> Optional[Package]:
+        if not isinstance(data, ByteArray):
+            data = Data(buffer=data)
+        return Package.parse(data=data)
 
-    @property
-    def package(self) -> bytes:
-        return self.__mtp.get_bytes()
+    @classmethod
+    def create_command(cls, body: Union[bytes, ByteArray]) -> Package:
+        if not isinstance(body, ByteArray):
+            body = Data(buffer=body)
+        return Package.new(data_type=DataType.COMMAND,
+                           body_length=body.size, body=body)
+
+    @classmethod
+    def create_message(cls, body: Union[bytes, ByteArray]) -> Package:
+        if not isinstance(body, ByteArray):
+            body = Data(buffer=body)
+        return Package.new(data_type=DataType.MESSAGE,
+                           body_length=body.size, body=body)
+
+    @classmethod
+    def respond_command(cls, sn: TransactionID, body: Union[bytes, ByteArray]) -> Package:
+        if not isinstance(body, ByteArray):
+            body = Data(buffer=body)
+        return Package.new(data_type=DataType.COMMAND_RESPONSE,
+                           sn=sn, body_length=body.size, body=body)
+
+    @classmethod
+    def respond_message(cls, sn: TransactionID, pages: int, index: int, body: Union[bytes, ByteArray]) -> Package:
+        if not isinstance(body, ByteArray):
+            body = Data(buffer=body)
+        return Package.new(data_type=DataType.MESSAGE_RESPONSE,
+                           sn=sn, pages=pages, index=index, body_length=body.size, body=body)
+
+
+""" MTP Stream Arrival Ship """
+MTPStreamArrival = PackageArrival
+
+
+class MTPStreamDeparture(PackageDeparture):
+    """ MTP Stream Departure Ship """
 
     # Override
-    @property
-    def sn(self) -> bytes:
-        return self.__mtp.head.sn.get_bytes()
-
-    # Override
-    @property
-    def payload(self) -> bytes:
-        return self.__mtp.body.get_bytes()
+    def _split_package(self, pack: Package) -> List[Package]:
+        # stream docker will not separate packages
+        return [pack]
 
 
-class MTPDocker(StarDocker):
+class MTPStreamDocker(PackageDocker):
     """ Docker for MTP packages """
 
     MAX_HEAD_LENGTH = 24
 
-    def __init__(self, gate: Gate):
-        super().__init__(gate=gate)
-
-    @classmethod
-    def parse_head(cls, buffer: bytes) -> Optional[Header]:
-        data = Data(buffer=buffer)
-        head = Header.parse(data=data)
-        if head is not None:
-            if head.body_length < 0:
-                return None
-            return head
-
-    @classmethod
-    def check(cls, gate: Gate) -> bool:
-        buffer = gate.receive(length=cls.MAX_HEAD_LENGTH, remove=False)
-        if buffer is not None:
-            return cls.parse_head(buffer=buffer) is not None
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
+        super().__init__(remote=remote, local=local, gate=gate)
+        self.__chunks = Data.ZERO
+        self.__processing = 0
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        req = Data(buffer=payload)
-        mtp = Package.new(data_type=DataType.MESSAGE, body_length=req.size, body=req)
-        return MTPShip(mtp=mtp, priority=priority, delegate=delegate)
-
-    def __seek_header(self) -> Optional[Header]:
-        buffer = self.gate.receive(length=512, remove=False)
-        if buffer is None:
-            # received nothing
+    def _parse_package(self, data: Optional[bytes]) -> Optional[Package]:
+        self.__processing += 1
+        if self.__processing > 1:
+            # it's already in processing now,
+            # append the data to the tail of memory cache
+            if data is not None and len(data) > 0:
+                # assert isinstance(self.__chunks, ByteArray)
+                self.__chunks = self.__chunks.concat(data)
+            self.__processing -= 1
             return None
-        head = self.parse_head(buffer=buffer)
+        # append the data to the memory cache
+        if data is not None and len(data) > 0:
+            buffer = self.__chunks.concat(data)
+        else:
+            buffer = self.__chunks
+        self.__chunks = Data.ZERO
+        assert isinstance(buffer, ByteArray)
+        # check header
+        head = PackUtils.parse_head(data=buffer)
         if head is None:
-            buf_len = len(buffer)
-            # not a MTP package?
-            if buf_len < self.MAX_HEAD_LENGTH:
-                # wait for more data
-                return None
-            # locate next header
-            pos = buffer.find(Header.MAGIC_CODE, 1)  # MAGIC_CODE_OFFSET = 0
+            # header error, seeking for next header
+            pos = buffer.find(Header.MAGIC_CODE, start=1)
             if pos > 0:
-                # found next head(starts with 'DIM'), skip data before it
-                self.gate.receive(length=pos, remove=True)
-            elif buf_len > 500:
-                # skip the whole buffer
-                self.gate.receive(length=buf_len, remove=True)
-        return head
-
-    def __receive_package(self) -> Optional[Package]:
-        # 1. seek header in received data
-        head = self.__seek_header()
-        if head is None:
-            # header not found
-            return None
-        body_len = head.body_length
-        assert body_len >= 0, 'body length error: %d' % body_len
-        pack_len = head.size + body_len
-        # 2. receive data with 'head.length + body.length'
-        buffer = self.gate.receive(length=pack_len, remove=False)
-        if buffer is None or len(buffer) < pack_len:
+                # found, drop all data before it
+                buffer = buffer.slice(start=pos)
+                if buffer.size > 0:
+                    # join to the memory cache
+                    if self.__chunks.size > 0:
+                        self.__chunks = buffer.concat(self.__chunks)
+                    else:
+                        self.__chunks = buffer
+                if self.__chunks.size > 0:
+                    # try again
+                    self.__processing -= 1
+                    return self._parse_package(data=None)
             # waiting for more data
+            self.__processing -= 1
             return None
+        # header ok, check body length
+        data_len = buffer.size
+        head_len = head.size
+        body_len = head.body_length
+        if body_len == -1:
+            pack_len = data_len
         else:
-            # remove from gate
-            self.gate.receive(length=pack_len, remove=True)
-        data = Data(buffer=buffer)
-        body = data.slice(start=head.size)
-        return Package(data=data, head=head, body=body)
-
-    # Override
-    def get_income_ship(self) -> Optional[Ship]:
-        income = self.__receive_package()
-        if income is not None:
-            return MTPShip(mtp=income)
-
-    # Override
-    def process_income_ship(self, income: Ship) -> Optional[StarShip]:
-        assert isinstance(income, MTPShip), 'income ship error: %s' % income
-        mtp = income.mtp
-        head = mtp.head
-        body = mtp.body
-        # 1. check data type
-        data_type = head.data_type
-        if data_type == DataType.COMMAND:
-            # respond for Command directly
-            if body == ping_body:  # 'PING'
-                res = pong_body    # 'PONG'
-                mtp = Package.new(data_type=DataType.COMMAND_RESPONSE, sn=head.sn, body_length=res.size, body=res)
-                return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
-            return None
-        elif data_type == DataType.COMMAND_RESPONSE:
-            # just ignore
-            return None
-        elif data_type == DataType.MESSAGE_FRAGMENT:
-            # just ignore
-            return None
-        elif data_type == DataType.MESSAGE_RESPONSE:
-            if body.size == 0 or body == ok_body:
-                # just ignore
-                return None
-            elif body == again_body:
-                # TODO: mission failed, send the message again
-                return None
-        # 2. process payload by delegate
-        delegate = self.gate.delegate
-        if body.size > 0 and delegate is not None:
-            res = delegate.gate_received(gate=self.gate, ship=income)
-        else:
-            res = None
-        # 3. response
-        if data_type == DataType.MESSAGE:
-            # respond for Message
-            if res is None or len(res) == 0:
-                res = ok_body
+            pack_len = head_len + body_len
+        if data_len > pack_len:
+            # cut the tail and put it back to the memory cache
+            if self.__chunks.size > 0:
+                self.__chunks = buffer.slice(start=pack_len).concat(self.__chunks)
             else:
-                res = Data(buffer=res)
-            # pack MessageRespond
-            mtp = Package.new(data_type=DataType.MESSAGE_RESPONSE, sn=head.sn, body_length=res.size, body=res)
-            return MTPShip(mtp=mtp)
-        elif res is not None and len(res) > 0:
-            # pack as new Message and put into waiting queue
-            return self.pack(payload=res, priority=StarShip.SLOWER)
+                self.__chunks = buffer.slice(start=pack_len)
+            buffer = buffer.slice(start=0, end=pack_len)
+        # OK
+        self.__processing -= 1
+        return Package(data=buffer, head=head, body=buffer.slice(start=head_len))
 
     # Override
-    def remove_linked_ship(self, income: Ship):
-        assert isinstance(income, MTPShip), 'income ship error: %s' % income
-        if income.mtp.head.data_type == DataType.MESSAGE_RESPONSE:
-            super().remove_linked_ship(income=income)
+    def _create_arrival(self, pack: Package) -> Arrival:
+        return MTPStreamArrival(pack=pack)
 
     # Override
-    def get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
-        outgo = super().get_outgo_ship(income=income)
-        if income is None and isinstance(outgo, MTPShip):
-            # if retries == 0, means this ship is first time to be sent,
-            # and it would be removed from the dock.
-            if outgo.retries == 0 and outgo.mtp.head.data_type == DataType.MESSAGE:
-                # put back for waiting response
-                self.gate.park_ship(ship=outgo)
-        return outgo
+    def _create_departure(self, pack: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
+        return MTPStreamDeparture(pack=pack, priority=priority, delegate=delegate)
 
     # Override
-    # noinspection PyMethodMayBeStatic
-    def get_heartbeat(self) -> Optional[StarShip]:
-        mtp = Package.new(data_type=DataType.COMMAND, body_length=ping_body.size, body=ping_body)
-        return MTPShip(mtp=mtp, priority=StarShip.SLOWER)
+    def _respond_command(self, sn: TransactionID, body: bytes):
+        pack = PackUtils.respond_command(sn=sn, body=body)
+        self.send_package(pack=pack)
+
+    # Override
+    def _respond_message(self, sn: TransactionID, pages: int, index: int):
+        pack = PackUtils.respond_message(sn=sn, pages=pages, index=index, body=OK)
+        self.send_package(pack=pack)
+
+    # Override
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
+        pkg = PackUtils.create_message(body=payload)
+        return self._create_departure(pack=pkg, priority=priority, delegate=delegate)
+
+    # Override
+    def heartbeat(self):
+        pkg = PackUtils.create_command(body=PING)
+        outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
+        self.append_departure(ship=outgo)
+
+    @classmethod
+    def check(cls, advance_party: List[bytes]) -> bool:
+        if advance_party is None:
+            count = 0
+        else:
+            count = len(advance_party)
+        if count == 0:
+            return False
+        elif count == 1:
+            data = Data(buffer=advance_party[0])
+        else:
+            data = Data(buffer=advance_party[0])
+            for i in range(1, count):
+                data = data.concat(advance_party[i])
+        head = PackUtils.parse_head(data=data)
+        return head is not None
 
 
 #
 #  const
 #
 
-ping_body = Data(buffer=b'PING')
-pong_body = Data(buffer=b'PONG')
-again_body = Data(buffer=b'AGAIN')
-ok_body = Data(buffer=b'OK')
+PING = b'PING'
+PONG = b'PONG'
+NOOP = b'NOOP'
+OK = b'OK'
+AGAIN = b'AGAIN'

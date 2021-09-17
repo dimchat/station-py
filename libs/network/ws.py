@@ -28,140 +28,178 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, List
 
-from startrek import Gate
-from startrek import Ship, ShipDelegate
-from startrek import StarShip
-from startrek import StarDocker
+from startrek import ShipDelegate, Arrival, Departure
+from startrek import ArrivalShip, DepartureShip, DeparturePriority
+from startrek import StarGate
+
+from tcp import PlainDocker
 
 from .protocol import WebSocket
 
 
-def seq_to_sn(seq: int) -> bytes:
-    return seq.to_bytes(length=4, byteorder='big')
+class WSArrival(ArrivalShip):
 
-
-class WSShip(StarShip):
-    """ Star Ship with WebSocket Package """
-
-    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__(priority=priority, delegate=delegate)
+    def __init__(self, package: bytes, payload: bytes):
+        super().__init__()
         self.__package = package
         self.__payload = payload
 
     @property
     def package(self) -> bytes:
-        """ Get request will be sent to remote star """
         return self.__package
 
-    # Override
-    @property
-    def sn(self) -> bytes:
-        return self.__payload
-
-    # Override
     @property
     def payload(self) -> bytes:
         return self.__payload
 
+    @property  # Override
+    def sn(self) -> bytes:
+        return self.__payload
 
-class WSDocker(StarDocker):
+    # Override
+    def assemble(self, ship):
+        assert ship is self, 'arrival ship error: %s, %s' % (ship, self)
+        return ship
+
+
+class WSDeparture(DepartureShip):
+
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None):
+        super().__init__(priority=priority, delegate=delegate)
+        self.__fragments = [package]
+        self.__package = package
+        self.__payload = payload
+
+    @property
+    def package(self) -> bytes:
+        return self.__package
+
+    @property
+    def payload(self) -> bytes:
+        return self.__payload
+
+    @property  # Override
+    def sn(self) -> bytes:
+        return self.__payload
+
+    @property  # Override
+    def fragments(self) -> List[bytes]:
+        return self.__fragments
+
+    # Override
+    def check_response(self, ship: Arrival) -> bool:
+        assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
+        assert ship.sn == self.sn, 'SN not match: %s, %s' % (ship.sn, self.sn)
+        self.__fragments.clear()
+        return True
+
+
+class WSDocker(PlainDocker):
     """ Docker for WebSocket packages """
 
     MAX_PACK_LENGTH = 65536  # 64 KB
 
-    def __init__(self, gate: Gate):
-        super().__init__(gate=gate)
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
+        super().__init__(remote=remote, local=local, gate=gate)
+        self.__cached = None
+        self.__handshaking = True
 
-    @classmethod
-    def check(cls, gate: Gate) -> bool:
-        buffer = gate.receive(length=cls.MAX_PACK_LENGTH, remove=False)
-        if buffer is not None:
-            return WebSocket.is_handshake(stream=buffer)
-
-    # Override
-    def setup(self):
-        buffer = self.gate.receive(length=self.MAX_PACK_LENGTH, remove=True)
-        if buffer is not None:
-            # response for handshake
-            res = WebSocket.handshake(stream=buffer)
-            self.gate.send(data=res)
-
-    # Override
     # noinspection PyMethodMayBeStatic
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        req_pack = WebSocket.pack(payload=payload)
-        return WSShip(package=req_pack, payload=payload, priority=priority, delegate=delegate)
-
-    def __receive_package(self) -> (Optional[bytes], Optional[bytes]):
-        # 1. check received data
-        buffer = self.gate.receive(length=self.MAX_PACK_LENGTH, remove=False)
-        if buffer is None:
-            # received nothing
-            return None, None
-        payload, remaining = WebSocket.parse(stream=buffer)
-        old_len = len(buffer)
-        new_len = len(remaining)
-        if new_len < old_len:
-            # 2. cut for received package
-            pack = self.gate.receive(length=old_len-new_len, remove=True)
-            return pack, payload
-        else:
-            return None, None
+    def __handshake(self, data: bytes) -> Optional[Departure]:
+        res = WebSocket.handshake(stream=data)
+        if res is not None:
+            return WSDeparture(package=res, payload=b'')
 
     # Override
-    def get_income_ship(self) -> Optional[Ship]:
-        income, payload = self.__receive_package()
-        if income is not None:
-            return WSShip(package=income, payload=payload)
+    def get_arrival(self, data: bytes) -> Optional[Arrival]:
+        # check cached data
+        chunks = self.__cached
+        if chunks is not None:
+            data = chunks + data
+            self.__cached = None
+        # check for first request
+        if self.__handshaking:
+            ship = self.__handshake(data=data)
+            if ship is not None:
+                self.append_departure(ship=ship)
+                self.__handshaking = False
+            elif len(data) < self.MAX_PACK_LENGTH:
+                # waiting for more data
+                self.__cached = data
+            return None
+        # try to fetch a package
+        payload, remaining = WebSocket.parse(stream=data)
+        if len(remaining) > 0:
+            # put the remaining data back to memory cache
+            self.__cached = remaining
+        if payload is None:
+            # data empty?
+            return None
+        data_len = len(data)
+        pack_len = data_len - len(remaining)
+        if pack_len > 0:
+            pack = data[:pack_len]
+            return WSArrival(package=pack, payload=payload)
 
     # Override
-    def process_income_ship(self, income: Ship) -> Optional[StarShip]:
-        assert isinstance(income, WSShip), 'income ship error: %s' % income
-        body = income.payload
+    def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+        assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
+        body = ship.payload
+        body_len = len(body)
         # 1. check command
-        if body is None or len(body) == 0:
-            # no more package now
+        if body_len == 0:
+            # data empty
             return None
-        elif body == ping_body:
-            # respond Command: 'PONG' -> 'PING'
-            return self.pack(payload=pong_body, priority=StarShip.SLOWER)
-        elif income == pong_body:
-            # just ignore
+        elif body_len == 4:
+            if body == PING:
+                # 'PING' -> 'PONG'
+                ship = self.pack(payload=PONG, priority=DeparturePriority.SLOWER)
+                self.append_departure(ship=ship)
+                return None
+            elif body == PONG or body == NOOP:
+                # ignore
+                return None
+        elif body == OK:
+            # should not happen
             return None
-        elif income == noop_body:
-            # just ignore
-            return None
-        # 2. process payload by delegate
-        delegate = self.gate.delegate
-        if delegate is not None:
-            res = delegate.gate_received(gate=self.gate, ship=income)
-        else:
-            res = None
-        # 3. response
-        if res is None or len(res) == 0:
-            res = ok_body
-        req_pack = WebSocket.pack(payload=res)
-        return WSShip(package=req_pack, payload=res, priority=StarShip.NORMAL)
+        # NOTICE: the delegate must respond to client in current request,
+        #         cause it's a HTTP connection
+        return ship
 
     # Override
-    def remove_linked_ship(self, income: Ship):
-        # do nothing
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
+        req_pack = WebSocket.pack(payload=payload)
+        return WSDeparture(package=req_pack, payload=payload, priority=priority, delegate=delegate)
+
+    # Override
+    def heartbeat(self):
+        # heartbeat by client
         pass
 
-    # Override
-    # noinspection PyMethodMayBeStatic
-    def get_heartbeat(self) -> Optional[StarShip]:
-        req_pack = WebSocket.pack(payload=noop_body)
-        return WSShip(package=req_pack, payload=noop_body, priority=StarShip.NORMAL)
+    @classmethod
+    def check(cls, advance_party: List[bytes]) -> bool:
+        if advance_party is None:
+            count = 0
+        else:
+            count = len(advance_party)
+        if count == 0:
+            return False
+        elif count == 1:
+            data = advance_party[0]
+        else:
+            data = advance_party[0]
+            for i in range(1, count):
+                data = data + advance_party[i]
+        return WebSocket.is_handshake(stream=data)
 
 
 #
 #  const
 #
 
-ping_body = b'PING'
-pong_body = b'PONG'
-noop_body = b'NOOP'
-ok_body = b'OK'
+PING = b'PING'
+PONG = b'PONG'
+NOOP = b'NOOP'
+OK = b'OK'

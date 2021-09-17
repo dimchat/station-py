@@ -28,222 +28,121 @@
 # SOFTWARE.
 # ==============================================================================
 
-import socket
 import threading
-from typing import Optional
+import time
+from abc import ABC
+from typing import Generic, TypeVar, Optional, List
 
-from tcp import Channel, StreamChannel
-from tcp import Connection, ConnectionState, ConnectionDelegate
-from tcp import BaseConnection, ActiveConnection
+from startrek.fsm import Runnable
+from startrek import Connection, ConnectionState
+from startrek import GateDelegate, Docker
+from startrek import StarGate
 
-from udp.ba import ByteArray, Data
-
-from startrek import GateStatus, StarGate
-from startrek import Docker
-
+from .mtp import MTPStreamDocker
+from .mars import MarsStreamDocker
 from .ws import WSDocker
-from .mtp import MTPDocker
-from .mars import MarsDocker
 
 
-def gate_status(state: ConnectionState) -> GateStatus:
-    """ Convert Connection Status to Star Gate Status """
-    if state in [ConnectionState.CONNECTED, ConnectionState.MAINTAINING, ConnectionState.EXPIRED]:
-        return GateStatus.Connected
-    elif state == ConnectionState.CONNECTING:
-        return GateStatus.Connecting
-    elif state == ConnectionState.ERROR:
-        return GateStatus.Error
-    else:
-        return GateStatus.Init
+H = TypeVar('H')
 
 
-class TCPGate(StarGate, ConnectionDelegate):
+class CommonGate(StarGate, Runnable, Generic[H], ABC):
+    """ Gate with Hub for connections """
 
-    def __init__(self, connection: Connection):
-        super().__init__()
-        self.__conn = connection
-        self.__occupied = False
-        self.__chunks: Optional[ByteArray] = None
+    def __init__(self, delegate: GateDelegate):
+        super().__init__(delegate=delegate)
+        self.__running = False
+        self.__hub: H = None
 
     @property
-    def connection(self) -> Connection:
-        return self.__conn
+    def hub(self) -> H:
+        return self.__hub
 
-    # Override
-    def _create_docker(self) -> Optional[Docker]:
-        # override to customize Docker
-        if MTPDocker.check(gate=self):
-            return MTPDocker(gate=self)
-        if MarsDocker.check(gate=self):
-            return MarsDocker(gate=self)
-        if WSDocker.check(gate=self):
-            return WSDocker(gate=self)
+    @hub.setter
+    def hub(self, h: H):
+        self.__hub = h
+
+    def start(self):
+        threading.Thread(target=self.run).start()
+
+    def stop(self):
+        self.__running = False
 
     @property
     def running(self) -> bool:
-        if super().running:
-            # 1. StarGate not stopped
-            # 2. Connection not closed
-            return self.__conn.opened
-
-    @property
-    def expired(self) -> bool:
-        return self.__conn.state == ConnectionState.EXPIRED
+        return self.__running
 
     # Override
-    @property
-    def status(self) -> GateStatus:
-        return gate_status(state=self.__conn.state)
+    def run(self):
+        self.__running = True
+        while self.running:
+            if not self.process():
+                self._idle()
 
-    #
-    #   Connection
-    #
-
-    # Override
-    def send(self, data: bytes) -> bool:
-        if not self.__conn.opened or not self.__conn.connected:
-            return False
-        try:
-            return self.__conn.send(data=data) != -1
-        except socket.error:
-            return False
+    # noinspection PyMethodMayBeStatic
+    def _idle(self):
+        time.sleep(0.125)
 
     # Override
-    def receive(self, length: int, remove: bool) -> Optional[bytes]:
-        if self.__occupied:
-            return None
+    def process(self):
+        hub = self.hub
+        # from tcp import Hub
+        # assert isinstance(hub, Hub)
+        incoming = hub.process()
+        outgoing = super().process()
+        return incoming or outgoing
+
+    # Override
+    def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
+        hub = self.hub
+        # from tcp import Hub
+        # assert isinstance(hub, Hub)
+        return hub.connect(remote=remote, local=local)
+
+    # Override
+    def cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
+                            connection: Connection) -> List[bytes]:
+        # TODO: cache the advance party before decide which docker to use
+        if data is None:
+            return []
         else:
-            self.__occupied = True
-            fragment = self.__receive(length=length)
-            self.__occupied = False
-        if fragment is None:
-            return None
-        elif fragment.size > length:
-            if remove:
-                # fragment[length:]
-                self.__chunks = fragment.slice(start=length)
-            # fragment[:length]
-            fragment = fragment.slice(start=0, end=length)
-        elif remove:
-            # assert len(fragment) == length, 'fragment length error'
-            self.__chunks = None
-        return fragment.get_bytes()
-
-    def __receive(self, length: int) -> Optional[ByteArray]:
-        if self.__chunks is None:
-            size = 0
-        else:
-            size = self.__chunks.size
-        prev = -1
-        while prev < size < length:
-            prev = size
-            # drive the connection to receive data
-            self.__conn.tick()
-            # get next received data size
-            if self.__chunks is None:
-                size = 0
-            else:
-                size = self.__chunks.size
-        return self.__chunks
-
-    #
-    #   ConnectionDelegate
-    #
+            return [data]
 
     # Override
-    def connection_state_changed(self, connection: Connection, previous, current):
-        s1 = gate_status(state=previous)
-        s2 = gate_status(state=current)
-        if s1 != s2:
-            delegate = self.delegate
-            if delegate is not None:
-                delegate.gate_status_changed(gate=self, old_status=s1, new_status=s2)
+    def clear_advance_party(self, source: tuple, destination: Optional[tuple], connection: Connection):
+        # TODO: remove advance party for this connection
+        pass
 
     # Override
-    def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload):
-        if not isinstance(payload, ByteArray):
-            payload = Data(buffer=payload)
-        fragment = self.__chunks
-        if fragment is None or fragment.size == 0:
-            self.__chunks = payload
-        else:
-            self.__chunks = fragment.concat(payload)
+    def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
+        super().connection_state_changed(previous=previous, current=current, connection=connection)
+        self.info('connection state changed: %s -> %s, %s' % (previous, current, connection))
 
-
-class LockedGate(TCPGate):
-
-    def __init__(self, connection: Connection):
-        super().__init__(connection=connection)
-        self.__send_lock = threading.RLock()
-        self.__receive_lock = threading.RLock()
-
-    # Override
-    def send(self, data: bytes) -> bool:
-        with self.__send_lock:
-            return super().send(data=data)
-
-    # Override
-    def receive(self, length: int, remove: bool) -> Optional[bytes]:
-        with self.__receive_lock:
-            return super().receive(length=length, remove=remove)
-
-
-class StarTrek(LockedGate):
-
-    def __init__(self, connection: Connection):
-        super().__init__(connection=connection)
+    def send_payload(self, payload: bytes, source: Optional[tuple], destination: tuple):
+        worker = self.get_docker(remote=destination, local=source, advance_party=[])
+        if worker is not None:
+            ship = worker.pack(payload=payload)
+            worker.append_departure(ship=ship)
 
     @classmethod
-    def create_gate(cls, address: Optional[tuple] = None, sock: Optional[socket.socket] = None) -> StarGate:
-        print('!!! create gate: (%s) %s' % (address, sock))
-        if sock is None:
-            assert address is not None, 'remote address should not be emtpy'
-            conn = ActiveStreamConnection(remote=address)
-        else:
-            conn = StreamConnection(sock=sock)
-        # create gate with connection
-        gate = StarTrek(connection=conn)
-        conn.delegate = gate
-        return gate
+    def info(cls, msg: str):
+        now = time.time()
+        prefix = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
+        print('[%s] %s' % (prefix, msg))
+
+    @classmethod
+    def error(cls, msg: str):
+        print('[ERROR] ', msg)
+
+
+class TCPGate(CommonGate, Generic[H]):
 
     # Override
-    def setup(self):
-        conn = self.connection
-        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-        conn.start()
-        super().setup()
-
-    # Override
-    def process(self) -> bool:
-        self.connection.tick()
-        return super().process()
-
-    # Override
-    def finish(self):
-        super().finish()
-        conn = self.connection
-        assert isinstance(conn, BaseConnection), 'connection error: %s' % conn
-        conn.stop()
-
-
-class StreamConnection(BaseConnection):
-    """ Stream Connection """
-
-    def __init__(self, sock: socket.socket):
-        # create channel with socket
-        channel = StreamChannel(sock=sock)
-        channel.configure_blocking(blocking=False)
-        super().__init__(remote=channel.remote_address, local=channel.local_address, channel=channel)
-
-
-class ActiveStreamConnection(ActiveConnection):
-    """ Active Stream Connection """
-
-    def __init__(self, remote: tuple):
-        super().__init__(remote=remote, local=None, channel=None)
-
-    def connect(self, remote: tuple, local: Optional[tuple] = None) -> Channel:
-        channel = StreamChannel(remote=remote, local=local)
-        channel.configure_blocking(blocking=False)
-        return channel
+    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        # check data format before creating docker
+        if MTPStreamDocker.check(advance_party=advance_party):
+            return MTPStreamDocker(remote=remote, local=local, gate=self)
+        if MarsStreamDocker.check(advance_party=advance_party):
+            return MarsStreamDocker(remote=remote, local=local, gate=self)
+        if WSDocker.check(advance_party=advance_party):
+            return WSDocker(remote=remote, local=local, gate=self)

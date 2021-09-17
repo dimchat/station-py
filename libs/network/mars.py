@@ -28,12 +28,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, List
 
-from startrek import Gate
-from startrek import Ship, ShipDelegate
-from startrek import StarShip
-from startrek import StarDocker
+from startrek import ShipDelegate, Arrival, Departure
+from startrek import ArrivalShip, DepartureShip
+from startrek import StarGate
+
+from tcp import PlainDocker
 
 from .protocol import NetMsg, NetMsgHead, NetMsgSeq
 
@@ -49,32 +50,116 @@ def fetch_sn(body: bytes) -> Optional[bytes]:
         return body[8:pos]
 
 
-class MarsShip(StarShip):
-    """ Star Ship with Mars Package """
+def get_sn(mars: NetMsg) -> bytes:
+    sn = fetch_sn(body=mars.body)
+    if sn is None:
+        sn = seq_to_sn(seq=mars.head.seq)
+    return sn
 
-    def __init__(self, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__(priority=priority, delegate=delegate)
+
+def create(cmd: int, seq: int, payload: bytes) -> NetMsg:
+    if seq == 0:
+        seq = NetMsgSeq.generate()
+        body = payload
+    else:
+        # pack 'sn + payload'
+        sn = seq.to_bytes(length=4, byteorder='big')
+        body = b'Mars SN:' + sn + b'\n' + payload
+    head = NetMsgHead.new(cmd=cmd, seq=seq, body_len=len(body))
+    return NetMsg.new(head=head, body=body)
+
+
+def parse_head(data: bytes) -> Optional[NetMsgHead]:
+    head = NetMsgHead.parse(data=data)
+    if head is not None:
+        if head.version != 200:
+            return None
+        if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
+            return None
+        if head.body_length < 0:
+            return None
+        return head
+
+
+class PackUtils:
+
+    MAGIC_CODE = NetMsgHead.MAGIC_CODE
+    MAGIC_CODE_OFFSET = NetMsgHead.MAGIC_CODE_OFFSET
+
+    MAX_HEAD_LENGTH = NetMsgHead.MIN_HEAD_LEN + 12  # FIXME: len(options) > 12?
+
+    @classmethod
+    def seek_header(cls, data: bytes) -> (Optional[NetMsgHead], int):
+        head = parse_head(data=data)
+        if head is not None:
+            # got it (offset=0)
+            return head, 0
+        data_len = len(data)
+        if data_len < cls.MAX_HEAD_LENGTH:
+            # waiting for more data
+            return None, 0
+        # locate next header
+        pos = data.find(cls.MAGIC_CODE, cls.MAGIC_CODE_OFFSET + 1)
+        if pos > cls.MAGIC_CODE_OFFSET:
+            # found next header, skip data before it
+            pos -= cls.MAGIC_CODE_OFFSET
+            data = data[pos:]
+            return parse_head(data=data), pos
+        if data_len > 512:
+            # skip the whole buffer
+            return None, -1
+        # waiting for more data
+        return None, 0
+
+    @classmethod
+    def parse(cls, data: bytes) -> (Optional[NetMsg], int):
+        # 1. seek header in received data
+        head, offset = cls.seek_header(data=data)
+        if offset < 0:
+            # data error, ignore the whole buffer
+            return None, -1
+        if head is None:
+            # header not found
+            return None, offset
+        # 2. check length
+        body_len = head.body_length
+        assert body_len >= 0, 'body length error: %d' % body_len
+        pack_len = head.length + body_len
+        data_len = len(data)
+        if data_len < pack_len:
+            # package not completed, waiting for more data
+            return None, offset
+        if data_len > pack_len:
+            data = data[:pack_len]
+        if body_len > 0:
+            body = data[head.length:]
+        else:
+            body = None
+        return NetMsg(data=data, head=head, body=body), offset
+
+    @classmethod
+    def respond(cls, head: NetMsgHead, payload: bytes) -> NetMsg:
+        """ create respond message """
+        return create(cmd=head.cmd, seq=head.seq, payload=payload)
+
+    @classmethod
+    def create(cls, payload: bytes) -> NetMsg:
+        """ create for PUSH_MESSAGE """
+        return create(cmd=NetMsgHead.PUSH_MESSAGE, seq=0, payload=payload)
+
+
+class MarsStreamArrival(ArrivalShip):
+    """ Mars Stream Arrival Ship """
+
+    def __init__(self, mars: NetMsg):
+        super().__init__()
         self.__mars = mars
+        self.__sn = get_sn(mars=self.__mars)
 
     @property
-    def mars(self) -> NetMsg:
-        """ Get request will be sent to remote star """
+    def package(self) -> NetMsg:
         return self.__mars
 
-    @property
-    def package(self) -> bytes:
-        return self.__mars.data
-
-    # Override
-    @property
-    def sn(self) -> bytes:
-        sn = fetch_sn(body=self.__mars.body)
-        if sn is None:
-            return seq_to_sn(seq=self.__mars.head.seq)
-        else:
-            return sn
-
-    # Override
     @property
     def payload(self) -> bytes:
         body = self.__mars.body
@@ -87,101 +172,84 @@ class MarsShip(StarShip):
             skip = 8 + len(sn) + 1
             return body[skip:]
 
+    @property  # Override
+    def sn(self) -> bytes:
+        return self.__sn
 
-class MarsDocker(StarDocker):
+    # Override
+    def assemble(self, ship):
+        assert self is ship, 'mars arrival error: %s, %s' % (ship, self)
+        return ship
+
+
+class MarsStreamDeparture(DepartureShip):
+    """ Mars Stream Departure Ship """
+
+    def __init__(self, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
+        super().__init__(priority=priority, delegate=delegate)
+        self.__mars = mars
+        self.__sn = get_sn(mars=self.__mars)
+        self.__fragments = [mars.data]
+
+    @property
+    def package(self) -> NetMsg:
+        return self.__mars
+
+    @property  # Override
+    def sn(self) -> bytes:
+        return self.__sn
+
+    @property  # Override
+    def fragments(self) -> List[bytes]:
+        return self.__fragments
+
+    # Override
+    def check_response(self, ship: Arrival) -> bool:
+        assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
+        assert ship.sn == self.sn, 'SN not match: %s, %s' % (ship.sn, self.sn)
+        self.__fragments.clear()
+        return True
+
+
+class MarsStreamDocker(PlainDocker):
     """ Docker for Mars packages """
 
-    MAX_HEAD_LENGTH = NetMsgHead.MIN_HEAD_LEN + 12  # FIXME: len(options) > 12?
-
-    def __init__(self, gate: Gate):
-        super().__init__(gate=gate)
-
-    @classmethod
-    def parse_head(cls, buffer: bytes) -> Optional[NetMsgHead]:
-        head = NetMsgHead.parse(data=buffer)
-        if head is not None:
-            if head.version != 200:
-                return None
-            if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
-                return None
-            if head.body_length < 0:
-                return None
-            return head
-
-    @classmethod
-    def check(cls, gate: Gate) -> bool:
-        buffer = gate.receive(length=cls.MAX_HEAD_LENGTH, remove=False)
-        if buffer is not None:
-            return cls.parse_head(buffer=buffer) is not None
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
+        super().__init__(remote=remote, local=local, gate=gate)
+        self.__cached = None
 
     # Override
-    # noinspection PyMethodMayBeStatic
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> StarShip:
-        seq = NetMsgSeq.generate()
-        sn = seq.to_bytes(length=4, byteorder='big')
-        body = b'Mars SN:' + sn + b'\n' + payload
-        # pack sn + payload
-        head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(body))
-        mars = NetMsg.new(head=head, body=body)
-        return MarsShip(mars=mars, priority=priority, delegate=delegate)
-
-    def __seek_header(self) -> Optional[NetMsgHead]:
-        buffer = self.gate.receive(length=512, remove=False)
-        if buffer is None:
-            # received nothing
+    def get_arrival(self, data: bytes) -> Optional[Arrival]:
+        # check cached data
+        chunks = self.__cached
+        if chunks is not None:
+            data = chunks + data
+            self.__cached = None
+        # try to fetch a package
+        mars, offset = PackUtils.parse(data=data)
+        if offset < 0:
+            # data error
             return None
-        head = self.parse_head(buffer=buffer)
-        if head is None:
-            buf_len = len(buffer)
-            # not a Mars package?
-            if buf_len < self.MAX_HEAD_LENGTH:
-                # wait for more data
-                return None
-            # locate next header
-            pos = buffer.find(NetMsgHead.MAGIC_CODE, NetMsgHead.MAGIC_CODE_OFFSET+1)
-            if pos > NetMsgHead.MAGIC_CODE_OFFSET:
-                # found next head, skip data before it
-                self.gate.receive(length=pos-NetMsgHead.MAGIC_CODE_OFFSET, remove=True)
-            elif buf_len > 500:
-                # skip the whole buffer
-                self.gate.receive(length=buf_len, remove=True)
-        return head
-
-    def __receive_package(self) -> Optional[NetMsg]:
-        # 1. seek header in received data
-        head = self.__seek_header()
-        if head is None:
-            # # take it as NOOP
-            # head = NetMsgHead.new(cmd=NetMsgHead.NOOP)
-            # return NetMsg.new(head=head)
-            return None
-        body_len = head.body_length
-        assert body_len >= 0, 'body length error: %d' % body_len
-        pack_len = head.length + body_len
-        # 2. receive data with 'head.length + body.length'
-        buffer = self.gate.receive(length=pack_len, remove=False)
-        if buffer is None or len(buffer) < pack_len:
-            # waiting for more data
-            return None
+        # 'error part' + 'mars package' + 'remaining data'
+        if mars is None:
+            if offset == 0:
+                # cache the incomplete data
+                self.__cached = data
+            elif offset < len(data):
+                # skip error part
+                self.__cached = data[offset:]
         else:
-            # remove from gate
-            self.gate.receive(length=pack_len, remove=True)
-        if body_len > 0:
-            body = buffer[head.length:]
-        else:
-            body = None
-        return NetMsg(data=buffer, head=head, body=body)
+            offset += mars.length
+            if offset < len(data):
+                # cache the remaining tail
+                self.__cached = data[offset:]
+            # OK
+            return MarsStreamArrival(mars=mars)
 
     # Override
-    def get_income_ship(self) -> Optional[Ship]:
-        income = self.__receive_package()
-        if income is not None:
-            return MarsShip(mars=income)
-
-    # Override
-    def process_income_ship(self, income: Ship) -> Optional[StarShip]:
-        assert isinstance(income, MarsShip), 'income ship error: %s' % income
-        mars = income.mars
+    def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+        assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
+        mars = ship.package
         head = mars.head
         body = mars.body
         if body is None:
@@ -195,60 +263,63 @@ class MarsDocker(StarDocker):
                 return None
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
-            if len(body) == 0 or body == noop_body:
-                return income
-        # 2. process payload by delegate
-        res = None
-        if body == ping_body:
-            res = pong_body
-        elif body == pong_body:
-            # FIXME: client should not send 'PONG' to server
-            return None
-        elif body == noop_body:
-            # FIXME: 'NOOP' can only sent by NOOP cmd
-            return None
-        else:
-            delegate = self.gate.delegate
-            if delegate is not None:
-                res = delegate.gate_received(gate=self.gate, ship=income)
-        if res is None:
-            res = b''
-        # 3. response
-        if cmd in [NetMsgHead.NOOP, NetMsgHead.SEND_MSG]:
-            # pack with request.seq
-            head = NetMsgHead.new(cmd=cmd, seq=head.seq, body_len=len(res))
-            mars = NetMsg.new(head=head, body=res)
-            return MarsShip(mars=mars)
-        else:
-            # pack and put into waiting queue
-            return self.pack(payload=res, priority=StarShip.SLOWER)
+            if len(body) == 0 or body == NOOP:
+                return None
+        # 2. check body
+        if len(body) == 4:
+            if body == PING:
+                self.__respond(payload=PONG, head=head)
+                return None
+            elif body == PONG:
+                # FIXME: client should not sent 'PONG' to server
+                return None
+            elif body == NOOP:
+                # FIXME: 'NOOP' can only sent by NOOP cmd
+                return None
+        # 3. check for response
+        self.check_response(ship=ship)
+        # NOTICE: the delegate mast respond mars package with same cmd & seq,
+        #         otherwise the connection will be closed by client
+        return ship
+
+    def __respond(self, payload: bytes, head: NetMsgHead):
+        mars = PackUtils.respond(head=head, payload=payload)
+        ship = MarsStreamDeparture(mars=mars)
+        self.append_departure(ship=ship)
 
     # Override
-    def remove_linked_ship(self, income: Ship):
-        assert isinstance(income, MarsShip), 'income ship error: %s' % income
-        if income.mars.head.cmd == NetMsgHead.SEND_MSG:
-            super().remove_linked_ship(income=income)
+    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
+        mars = PackUtils.create(payload=payload)
+        return MarsStreamDeparture(mars=mars, priority=priority, delegate=delegate)
 
     # Override
-    def get_outgo_ship(self, income: Optional[Ship] = None) -> Optional[StarShip]:
-        outgo = super().get_outgo_ship(income=income)
-        if income is None and isinstance(outgo, MarsShip):
-            # if retries == 0, means this ship is first time to be sent,
-            # and it would be removed from the dock.
-            if outgo.retries == 0 and outgo.mars.head.cmd == NetMsgHead.PUSH_MESSAGE:
-                # put back for waiting response
-                self.gate.park_ship(ship=outgo)
-        return outgo
-
-    # Override
-    def get_heartbeat(self) -> Optional[StarShip]:
+    def heartbeat(self):
+        # heartbeat by client
         pass
+
+    @classmethod
+    def check(cls, advance_party: List[bytes]) -> bool:
+        if advance_party is None:
+            count = 0
+        else:
+            count = len(advance_party)
+        if count == 0:
+            return False
+        elif count == 1:
+            data = advance_party[0]
+        else:
+            data = advance_party[0]
+            for i in range(1, count):
+                data = data + advance_party[i]
+        head = PackUtils.seek_header(data=data)
+        return head is not None
 
 
 #
 #  const
 #
 
-ping_body = b'PING'
-pong_body = b'PONG'
-noop_body = b'NOOP'
+PING = b'PING'
+PONG = b'PONG'
+NOOP = b'NOOP'
+OK = b'OK'
