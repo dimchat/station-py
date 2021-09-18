@@ -38,7 +38,7 @@ from udp.mtp import DataType, TransactionID, Header, Package
 from udp import PackageArrival, PackageDeparture, PackageDocker
 
 
-class PackUtils:
+class MTPHelper:
 
     MAGIC_CODE = Header.MAGIC_CODE
     MAGIC_CODE_OFFSET = 0
@@ -58,6 +58,9 @@ class PackUtils:
         # locate next header
         offset = data.find(sub=cls.MAGIC_CODE, start=(cls.MAGIC_CODE_OFFSET + 1))
         if offset == -1:
+            if data_len < 65536:
+                # waiting for more data
+                return None, 0
             # skip the whole buffer
             return None, -1
         assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
@@ -77,6 +80,9 @@ class PackUtils:
         if head is None:
             # header not found
             return None, offset
+        if offset > 0:
+            # drop the error part
+            data = data.slice(start=offset)
         # 2. check length
         data_len = data.size
         head_len = head.size
@@ -179,7 +185,7 @@ class MTPStreamDocker(PackageDocker):
         # join the data to the memory cache
         buffer = self.__join_cache(data=data)
         # try to fetch a package
-        pack, offset = PackUtils.parse(data=buffer)
+        pack, offset = MTPHelper.parse(data=buffer)
         if offset < 0:
             # data error
             self.__processing -= 1
@@ -196,6 +202,18 @@ class MTPStreamDocker(PackageDocker):
         return pack
 
     # Override
+    def process_received(self, data: bytes):
+        # the cached data maybe contain sticky packages,
+        # so we need to process them circularly here
+        old_len = 0
+        new_len = len(data)
+        while new_len > 0 and new_len != old_len:
+            old_len = len(self.__chunks)
+            super().process_received(data=data)
+            new_len = len(self.__chunks)
+            data = b''
+
+    # Override
     def _create_arrival(self, pack: Package) -> Arrival:
         return MTPStreamArrival(pack=pack)
 
@@ -205,28 +223,28 @@ class MTPStreamDocker(PackageDocker):
 
     # Override
     def _respond_command(self, sn: TransactionID, body: bytes):
-        pack = PackUtils.respond_command(sn=sn, body=body)
+        pack = MTPHelper.respond_command(sn=sn, body=body)
         self.send_package(pack=pack)
 
     # Override
     def _respond_message(self, sn: TransactionID, pages: int, index: int):
-        pack = PackUtils.respond_message(sn=sn, pages=pages, index=index, body=OK)
+        pack = MTPHelper.respond_message(sn=sn, pages=pages, index=index, body=OK)
         self.send_package(pack=pack)
 
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        pkg = PackUtils.create_message(body=payload)
+        pkg = MTPHelper.create_message(body=payload)
         return self._create_departure(pack=pkg, priority=priority, delegate=delegate)
 
     # Override
     def heartbeat(self):
-        pkg = PackUtils.create_command(body=PING)
+        pkg = MTPHelper.create_command(body=PING)
         outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
         self.append_departure(ship=outgo)
 
     @classmethod
     def check(cls, data: bytes) -> bool:
-        head, offset = PackUtils.seek_header(data=Data(buffer=data))
+        head, offset = MTPHelper.seek_header(data=Data(buffer=data))
         return head is not None
 
 

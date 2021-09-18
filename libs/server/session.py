@@ -108,15 +108,15 @@ class Session(BaseSession):
             self.__scan(bundle=bundle)
 
     def __scan(self, bundle: MessageBundle):
-        self.debug('scanning messages for: %s' % self.identifier)
+        # self.debug('scanning messages for: %s' % self.identifier)
         messages = bundle.all()
         total = len(messages)
-        self.info('%d message(s) loaded for: %s' % (total, self.identifier))
+        # self.info('%d message(s) loaded for: %s' % (total, self.identifier))
         success = 0
         for msg in messages:
             if self.push_message(msg=msg):
                 success += 1
-        self.info('%d/%d message(s) pushed to %s' % (success, total, self.identifier))
+        # self.info('%d/%d message(s) pushed to %s' % (success, total, self.identifier))
 
 
 @Singleton

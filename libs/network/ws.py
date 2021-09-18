@@ -103,8 +103,23 @@ class WSDocker(PlainDocker):
 
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
-        self.__cached = None
         self.__handshaking = True
+        self.__chunks = None
+        self.__processing = 0
+
+    def __append_cache(self, data: bytes):
+        """ Append the data to the tail of memory cache """
+        self.__chunks = self.__chunks + data
+
+    def __join_cache(self, data: bytes) -> bytes:
+        """ Join the memory cache and new data """
+        chunks = self.__chunks + data
+        self.__chunks = b''
+        return chunks
+
+    def __push_back(self, data: bytes):
+        """ Put the remaining data back to memory cache """
+        self.__chunks = data + self.__chunks
 
     # noinspection PyMethodMayBeStatic
     def __handshake(self, data: bytes) -> Optional[Departure]:
@@ -113,12 +128,28 @@ class WSDocker(PlainDocker):
             return WSDeparture(package=res, payload=b'')
 
     # Override
+    def process_received(self, data: bytes):
+        # the cached data maybe contain sticky packages,
+        # so we need to process them circularly here
+        old_len = 0
+        new_len = len(data)
+        while new_len > 0 and new_len != old_len:
+            old_len = len(self.__chunks)
+            super().process_received(data=data)
+            new_len = len(self.__chunks)
+            data = b''
+
+    # Override
     def get_arrival(self, data: bytes) -> Optional[Arrival]:
-        # check cached data
-        chunks = self.__cached
-        if chunks is not None:
-            data = chunks + data
-            self.__cached = None
+        self.__processing += 1
+        if self.__processing > 1:
+            # it's already in processing now,
+            # append the data to the tail of memory cache
+            self.__append_cache(data=data)
+            self.__processing -= 1
+            return None
+        # join the data to the memory cache
+        data = self.__join_cache(data=data)
         # check for first request
         if self.__handshaking:
             ship = self.__handshake(data=data)
@@ -127,13 +158,13 @@ class WSDocker(PlainDocker):
                 self.__handshaking = False
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data
-                self.__cached = data
+                self.__push_back(data=data)
             return None
         # try to fetch a package
         payload, remaining = WebSocket.parse(stream=data)
         if len(remaining) > 0:
             # put the remaining data back to memory cache
-            self.__cached = remaining
+            self.__push_back(data=remaining)
         if payload is None:
             # data empty?
             return None

@@ -30,7 +30,7 @@
 
 from typing import Optional, List
 
-from startrek import ShipDelegate, Arrival, Departure
+from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
 from startrek import ArrivalShip, DepartureShip
 from startrek import StarGate
 
@@ -57,18 +57,6 @@ def get_sn(mars: NetMsg) -> bytes:
     return sn
 
 
-def create(cmd: int, seq: int, payload: bytes) -> NetMsg:
-    if seq == 0:
-        seq = NetMsgSeq.generate()
-        body = payload
-    else:
-        # pack 'sn + payload'
-        sn = seq.to_bytes(length=4, byteorder='big')
-        body = b'Mars SN:' + sn + b'\n' + payload
-    head = NetMsgHead.new(cmd=cmd, seq=seq, body_len=len(body))
-    return NetMsg.new(head=head, body=body)
-
-
 def parse_head(data: bytes) -> Optional[NetMsgHead]:
     head = NetMsgHead.parse(data=data)
     if head is not None:
@@ -81,7 +69,7 @@ def parse_head(data: bytes) -> Optional[NetMsgHead]:
         return head
 
 
-class PackUtils:
+class MarsHelper:
 
     MAGIC_CODE = NetMsgHead.MAGIC_CODE
     MAGIC_CODE_OFFSET = NetMsgHead.MAGIC_CODE_OFFSET
@@ -101,6 +89,9 @@ class PackUtils:
         # locate next header
         offset = data.find(cls.MAGIC_CODE, cls.MAGIC_CODE_OFFSET + 1)
         if offset == -1:
+            if data_len < 65536:
+                # waiting for more data
+                return None, 0
             # skip the whole buffer
             return None, -1
         assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
@@ -120,6 +111,9 @@ class PackUtils:
         if head is None:
             # header not found
             return None, offset
+        if offset > 0:
+            # drop the error part
+            data = data[offset:]
         # 2. check length
         data_len = len(data)
         head_len = head.length
@@ -141,14 +135,25 @@ class PackUtils:
         return NetMsg(data=data, head=head, body=body), offset
 
     @classmethod
-    def respond(cls, head: NetMsgHead, payload: bytes) -> NetMsg:
-        """ create respond message """
-        return create(cmd=head.cmd, seq=head.seq, payload=payload)
+    def create_respond(cls, head: NetMsgHead, payload: bytes) -> NetMsg:
+        """ create for SEND_MSG, NOOP """
+        cmd = head.cmd
+        seq = head.seq
+        assert cmd in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP], 'cmd error: %s' % cmd
+        body = payload
+        head = NetMsgHead.new(cmd=cmd, seq=seq, body_len=len(body))
+        return NetMsg.new(head=head, body=body)
 
     @classmethod
-    def create(cls, payload: bytes) -> NetMsg:
+    def create_push(cls, payload: bytes) -> NetMsg:
         """ create for PUSH_MESSAGE """
-        return create(cmd=NetMsgHead.PUSH_MESSAGE, seq=0, payload=payload)
+        cmd = NetMsgHead.PUSH_MESSAGE
+        seq = NetMsgSeq.generate()
+        # pack 'sn + payload'
+        sn = seq.to_bytes(length=4, byteorder='big')
+        body = b'Mars SN:' + sn + b'\n' + payload
+        head = NetMsgHead.new(cmd=cmd, body_len=len(body))
+        return NetMsg.new(head=head, body=body)
 
 
 class MarsStreamArrival(ArrivalShip):
@@ -245,9 +250,9 @@ class MarsStreamDocker(PlainDocker):
             self.__processing -= 1
             return None
         # join the data to the memory cache
-        buffer = self.__join_cache(data=data)
+        data = self.__join_cache(data=data)
         # try to fetch a package
-        pack, offset = PackUtils.parse(data=buffer)
+        pack, offset = MarsHelper.parse(data=data)
         if offset < 0:
             # data error
             self.__processing -= 1
@@ -256,18 +261,33 @@ class MarsStreamDocker(PlainDocker):
         if pack is not None:
             offset += pack.length
         if offset == 0:
-            self.__push_back(data=buffer)
-        elif offset < len(buffer):
-            buffer = buffer[offset:]
-            self.__push_back(data=buffer)
+            self.__push_back(data=data)
+        elif offset < len(data):
+            data = data[offset:]
+            self.__push_back(data=data)
         self.__processing -= 1
         return pack
 
     # Override
+    def process_received(self, data: bytes):
+        # the cached data maybe contain sticky packages,
+        # so we need to process them circularly here
+        old_len = 0
+        new_len = len(data)
+        while new_len > 0 and new_len != old_len:
+            old_len = len(self.__chunks)
+            super().process_received(data=data)
+            new_len = len(self.__chunks)
+            data = b''
+
+    # Override
     def get_arrival(self, data: bytes) -> Optional[Arrival]:
         pack = self.__parse_package(data=data)
-        if pack is not None and pack.body is not None:
-            return MarsStreamArrival(mars=pack)
+        if pack is None:
+            return None
+        # if pack.body is None:
+        #     return None
+        return MarsStreamArrival(mars=pack)
 
     # Override
     def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
@@ -287,11 +307,15 @@ class MarsStreamDocker(PlainDocker):
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
             if len(body) == 0 or body == NOOP:
+                ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
+                self.append_departure(ship=ship)
                 return None
         # 2. check body
         if len(body) == 4:
             if body == PING:
-                self.__respond(payload=PONG, head=head)
+                mars = MarsHelper.create_respond(head=head, payload=PONG)
+                ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
+                self.append_departure(ship=ship)
                 return None
             elif body == PONG:
                 # FIXME: client should not sent 'PONG' to server
@@ -305,14 +329,9 @@ class MarsStreamDocker(PlainDocker):
         #         otherwise the connection will be closed by client
         return ship
 
-    def __respond(self, payload: bytes, head: NetMsgHead):
-        mars = PackUtils.respond(head=head, payload=payload)
-        ship = self.create_departure(mars=mars)
-        self.append_departure(ship=ship)
-
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        mars = PackUtils.create(payload=payload)
+        mars = MarsHelper.create_push(payload=payload)
         return self.create_departure(mars=mars, priority=priority, delegate=delegate)
 
     # Override
@@ -326,7 +345,7 @@ class MarsStreamDocker(PlainDocker):
 
     @classmethod
     def check(cls, data: bytes) -> bool:
-        head, offset = PackUtils.seek_header(data=data)
+        head, offset = MarsHelper.seek_header(data=data)
         return head is not None
 
 

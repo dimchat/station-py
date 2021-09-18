@@ -195,6 +195,7 @@ def create_hub(delegate: ConnectionDelegate,
         assert address is not None, 'remote address empty'
         hub.connect(remote=address)
     else:
+        sock.setblocking(False)
         if address is None:
             address = sock.getpeername()
         channel = StreamChannel(sock=sock, remote=address, local=None)
@@ -348,7 +349,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
-        if current == GateStatus.READY:
+        if current is None or current == GateStatus.ERROR:
+            self.active = False
+            self.stop()
+        elif current == GateStatus.READY:
             self.messenger.connected()
 
     def gate_received(self, ship: Arrival,
