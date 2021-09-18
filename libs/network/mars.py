@@ -298,19 +298,7 @@ class MarsStreamDocker(PlainDocker):
         pass
 
     @classmethod
-    def check(cls, advance_party: List[bytes]) -> bool:
-        if advance_party is None:
-            count = 0
-        else:
-            count = len(advance_party)
-        if count == 0:
-            return False
-        elif count == 1:
-            data = advance_party[0]
-        else:
-            data = advance_party[0]
-            for i in range(1, count):
-                data = data + advance_party[i]
+    def check(cls, data: bytes) -> bool:
         head = PackUtils.seek_header(data=data)
         return head is not None
 

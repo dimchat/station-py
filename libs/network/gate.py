@@ -37,6 +37,7 @@ from startrek.fsm import Runnable
 from startrek import Connection, ConnectionState
 from startrek import GateDelegate, Docker
 from startrek import StarGate
+from udp import PackageDocker
 
 from .mtp import MTPStreamDocker
 from .mars import MarsStreamDocker
@@ -139,10 +140,34 @@ class TCPGate(CommonGate, Generic[H]):
 
     # Override
     def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        if advance_party is None:
+            return None
+        count = len(advance_party)
+        if count == 0:
+            return None
+        data = advance_party[0]
+        for i in range(1, count):
+            data = data + advance_party[i]
+        if len(data) == 0:
+            return None
         # check data format before creating docker
-        if MTPStreamDocker.check(advance_party=advance_party):
+        if MTPStreamDocker.check(data=data):
             return MTPStreamDocker(remote=remote, local=local, gate=self)
-        if MarsStreamDocker.check(advance_party=advance_party):
+        if MarsStreamDocker.check(data=data):
             return MarsStreamDocker(remote=remote, local=local, gate=self)
-        if WSDocker.check(advance_party=advance_party):
+        if WSDocker.check(data=data):
             return WSDocker(remote=remote, local=local, gate=self)
+
+
+class UDPGate(CommonGate, Generic[H]):
+
+    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        if advance_party is None:
+            return None
+        count = len(advance_party)
+        if count == 0:
+            return None
+        data = advance_party[count - 1]
+        # check data format before creating docker
+        if MTPStreamDocker.check(data=data):
+            return PackageDocker(remote=remote, local=local, gate=self)

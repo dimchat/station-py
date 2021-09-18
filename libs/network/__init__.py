@@ -44,7 +44,7 @@ from .protocol import WebSocket, NetMsg, NetMsgHead, NetMsgSeq
 from .ws import WSArrival, WSDeparture, WSDocker
 from .mars import MarsStreamArrival, MarsStreamDeparture, MarsStreamDocker
 from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
-from .gate import TCPGate
+from .gate import TCPGate, UDPGate
 
 
 __all__ = [
@@ -85,5 +85,5 @@ __all__ = [
     'WSArrival', 'WSDeparture', 'WSDocker',
     'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamDocker',
     'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamDocker',
-    'TCPGate',
+    'TCPGate', 'UDPGate',
 ]

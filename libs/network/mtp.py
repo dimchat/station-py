@@ -192,19 +192,7 @@ class MTPStreamDocker(PackageDocker):
         self.append_departure(ship=outgo)
 
     @classmethod
-    def check(cls, advance_party: List[bytes]) -> bool:
-        if advance_party is None:
-            count = 0
-        else:
-            count = len(advance_party)
-        if count == 0:
-            return False
-        elif count == 1:
-            data = Data(buffer=advance_party[0])
-        else:
-            data = Data(buffer=advance_party[0])
-            for i in range(1, count):
-                data = data.concat(advance_party[i])
+    def check(cls, data: bytes) -> bool:
         head = PackUtils.parse_head(data=data)
         return head is not None
 
