@@ -41,33 +41,35 @@ from dimsdk import Station
 from dimsdk import MessengerDelegate, CompletionHandler
 
 from ...utils import Logging
-from ...network import GateStatus, StarShip
-from ...network import MTPDocker
+from ...network import Gate, GateStatus, DeparturePriority
+
 from ...common import CommonMessenger, CommonFacebook
 from ...common import BaseSession
 
 
 class Session(BaseSession):
 
-    def __init__(self, messenger: CommonMessenger, address: tuple):
-        super().__init__(messenger=messenger, address=address)
-        self.gate.docker = MTPDocker(gate=self.gate)
+    # def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
+    #     super().__init__(messenger=messenger, address=address, sock=sock)
 
     def setup(self):
-        self.active = True
+        # self.active = True
+        self._set_active(True)
         super().setup()
 
     def finish(self):
-        self.active = False
+        # self.active = False
+        self._set_active(False)
         super().finish()
 
     #
     #   GateDelegate
     #
 
-    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
-        super().gate_status_changed(gate=gate, old_status=old_status, new_status=new_status)
-        if new_status == GateStatus.Connected:
+    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
+                            remote: tuple, local: Optional[tuple], gate: Gate):
+        super().gate_status_changed(previous=previous, current=current, remote=remote, local=local, gate=gate)
+        if current == GateStatus.READY:
             delegate = self.messenger.delegate
             if isinstance(delegate, Server):
                 delegate.handshake()
@@ -136,7 +138,7 @@ class Server(Station, MessengerDelegate, Logging):
         self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
         # Urgent Command
         session = self.connect()
-        session.send_payload(payload=data, priority=StarShip.URGENT)
+        session.send_payload(payload=data, priority=DeparturePriority.URGENT)
 
     def handshake_success(self):
         user = self.facebook.current_user

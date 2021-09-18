@@ -2,15 +2,14 @@
 
 import json
 import socket
-import threading
-import time
 import traceback
-from typing import Optional, Dict
+from typing import Optional
 
-from udp.ba import ByteArray, Data
-from udp.mtp import Header
-from udp import Channel, Connection, ConnectionDelegate
-from udp import DiscreteChannel, PackageHub
+from udp.mtp import Package, DataType
+
+from ...network import Connection, Gate, GateStatus, GateDelegate
+from ...network import Arrival, Departure, ShipDelegate
+from ...network import PackageArrival, PackageDocker, PackageHub, UDPGate
 
 import dmtp
 
@@ -19,48 +18,27 @@ from ...utils import Log
 from .manager import ContactManager, FieldValueEncoder
 
 
-class ServerHub(PackageHub):
-
-    def __init__(self, delegate: ConnectionDelegate):
-        super().__init__(delegate=delegate)
-        self.__connections: Dict[tuple, Connection] = {}
-        self.__sockets: Dict[tuple, socket.socket] = {}
-
-    def bind(self, local: tuple) -> Connection:
-        sock = self.__sockets.get(local)
-        if sock is None:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            sock.bind(local)
-            sock.setblocking(False)
-            self.__sockets[local] = sock
-        return self.connect(remote=None, local=local)
-
-    # Override
-    def create_connection(self, remote: Optional[tuple], local: Optional[tuple]) -> Connection:
-        conn = self.__connections.get(local)
-        if conn is None:
-            conn = super().create_connection(remote=None, local=local)
-            self.__connections[local] = conn
-        return conn
-
-    # Override
-    def create_channel(self, remote: Optional[tuple], local: Optional[tuple]) -> Channel:
-        sock = self.__sockets.get(local)
-        if sock is not None:
-            return DiscreteChannel(sock=sock)
-        else:
-            raise LookupError('failed to get channel: %s -> %s' % (remote, local))
-
-
-class Server(dmtp.Server, ConnectionDelegate):
+class Server(dmtp.Server, GateDelegate):
 
     def __init__(self, host: str, port: int):
         super().__init__()
         self.__local_address = (host, port)
-        self.__hub = ServerHub(delegate=self)
+        gate = UDPGate(delegate=self)
+        gate.hub = PackageHub(delegate=gate)
+        self.__gate = gate
         self.__db: Optional[ContactManager] = None
-        self.__running = False
+
+    @property
+    def local_address(self) -> tuple:
+        return self.__local_address
+
+    @property
+    def gate(self) -> UDPGate:
+        return self.__gate
+
+    @property
+    def hub(self) -> PackageHub:
+        return self.gate.hub
 
     @property
     def database(self) -> ContactManager:
@@ -78,6 +56,10 @@ class Server(dmtp.Server, ConnectionDelegate):
     def identifier(self, uid: str):
         self.__db.identifier = uid
 
+    def start(self):
+        self.hub.bind(address=self.local_address)
+        self.gate.start()
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
@@ -87,21 +69,27 @@ class Server(dmtp.Server, ConnectionDelegate):
     # Override
     def _connect(self, remote: tuple):
         try:
-            self.__hub.connect(remote=remote, local=self.__local_address)
+            self.hub.connect(remote=remote, local=self.__local_address)
         except socket.error as error:
             self.error('failed to connect to %s: %s' % (remote, error))
 
     # Override
-    def connection_state_changed(self, connection: Connection, previous, current):
-        self.info('!!! connection (%s, %s) state changed: %s -> %s'
-                  % (connection.local_address, connection.remote_address, previous, current))
+    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
+                            remote: tuple, local: Optional[tuple], gate: Gate):
+        self.info('!!! connection (%s, %s) state changed: %s -> %s' % (remote, local, previous, current))
 
     # Override
-    def connection_data_received(self, connection: Connection, remote: tuple, wrapper, payload):
-        assert isinstance(wrapper, Header), 'Header error: %s' % wrapper
-        if not isinstance(payload, ByteArray):
-            payload = Data(buffer=payload)
-        self._received(head=wrapper, body=payload, source=remote)
+    def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
+        assert isinstance(ship, PackageArrival), 'arrival ship error: %s' % ship
+        pack = ship.package
+        if pack is not None:
+            self._received(head=pack.head, body=pack.body, source=source)
+
+    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        pass
+
+    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        pass
 
     # Override
     def _process_command(self, cmd: dmtp.Command, source: tuple) -> bool:
@@ -123,24 +111,22 @@ class Server(dmtp.Server, ConnectionDelegate):
     # Override
     def send_command(self, cmd: dmtp.Command, destination: tuple) -> bool:
         self.info('sending cmd to %s:\n\t%s' % (destination, cmd))
-        try:
-            body = cmd.get_bytes()
-            source = self.__local_address
-            self.__hub.send_command(body=body, source=source, destination=destination)
-            return True
-        except socket.error as error:
-            self.error('failed to send command: %s' % error)
+        pack = Package.new(data_type=DataType.COMMAND, body=cmd)
+        return self.send_package(pack=pack, destination=destination)
 
     # Override
     def send_message(self, msg: dmtp.Message, destination: tuple) -> bool:
         self.info('sending msg to %s:\n\t%s' % (destination, json.dumps(msg, cls=FieldValueEncoder)))
-        try:
-            body = msg.get_bytes()
-            source = self.__local_address
-            self.__hub.send_message(body=body, source=source, destination=destination)
-            return True
-        except socket.error as error:
-            self.error('failed to send message: %s' % error)
+        pack = Package.new(data_type=DataType.MESSAGE, body=msg)
+        return self.send_package(pack=pack, destination=destination)
+
+    def send_package(self, pack: Package, destination: tuple,
+                     priority: Optional[int] = 0, delegate: Optional[ShipDelegate] = None):
+        source = self.__local_address
+        worker = self.gate.get_docker(remote=destination, local=source, advance_party=[])
+        assert isinstance(worker, PackageDocker), 'package docker error: %s' % worker
+        worker.send_package(pack=pack, priority=priority, delegate=delegate)
+        return True
 
     #
     #   Server actions
@@ -153,13 +139,3 @@ class Server(dmtp.Server, ConnectionDelegate):
         cmd = dmtp.Command.hello_command(identifier=self.identifier)
         self.send_command(cmd=cmd, destination=destination)
         return True
-
-    def start(self):
-        self.__hub.bind(local=self.__local_address)
-        self.__running = True
-        threading.Thread(target=self.run).start()
-
-    def run(self):
-        while self.__running:
-            self.__hub.tick()
-            time.sleep(0.128)

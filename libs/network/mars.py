@@ -92,24 +92,23 @@ class PackUtils:
     def seek_header(cls, data: bytes) -> (Optional[NetMsgHead], int):
         head = parse_head(data=data)
         if head is not None:
-            # got it (offset=0)
+            # got it (offset = 0)
             return head, 0
         data_len = len(data)
         if data_len < cls.MAX_HEAD_LENGTH:
             # waiting for more data
             return None, 0
         # locate next header
-        pos = data.find(cls.MAGIC_CODE, cls.MAGIC_CODE_OFFSET + 1)
-        if pos > cls.MAGIC_CODE_OFFSET:
-            # found next header, skip data before it
-            pos -= cls.MAGIC_CODE_OFFSET
-            data = data[pos:]
-            return parse_head(data=data), pos
-        if data_len > 512:
+        offset = data.find(cls.MAGIC_CODE, cls.MAGIC_CODE_OFFSET + 1)
+        if offset == -1:
             # skip the whole buffer
             return None, -1
-        # waiting for more data
-        return None, 0
+        assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
+        # found next header, skip data before it
+        offset -= cls.MAGIC_CODE_OFFSET
+        data = data[offset:]
+        # try again from new offset
+        return parse_head(data=data), offset
 
     @classmethod
     def parse(cls, data: bytes) -> (Optional[NetMsg], int):
@@ -122,17 +121,21 @@ class PackUtils:
             # header not found
             return None, offset
         # 2. check length
-        body_len = head.body_length
-        assert body_len >= 0, 'body length error: %d' % body_len
-        pack_len = head.length + body_len
         data_len = len(data)
+        head_len = head.length
+        body_len = head.body_length
+        if body_len < 0:
+            pack_len = data_len
+        else:
+            pack_len = head_len + body_len
         if data_len < pack_len:
             # package not completed, waiting for more data
             return None, offset
-        if data_len > pack_len:
+        elif data_len > pack_len:
+            # cut the tail
             data = data[:pack_len]
-        if body_len > 0:
-            body = data[head.length:]
+        if head_len < pack_len:
+            body = data[head_len:]
         else:
             body = None
         return NetMsg(data=data, head=head, body=body), offset
@@ -216,35 +219,55 @@ class MarsStreamDocker(PlainDocker):
 
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
-        self.__cached = None
+        self.__chunks = b''
+        self.__processing = 0
+
+    def __append_cache(self, data: bytes):
+        """ Append the data to the tail of memory cache """
+        self.__chunks = self.__chunks + data
+
+    def __join_cache(self, data: bytes) -> bytes:
+        """ Join the memory cache and new data """
+        chunks = self.__chunks + data
+        self.__chunks = b''
+        return chunks
+
+    def __push_back(self, data: bytes):
+        """ Put the remaining data back to memory cache """
+        self.__chunks = data + self.__chunks
+
+    def __parse_package(self, data: bytes) -> Optional[NetMsg]:
+        self.__processing += 1
+        if self.__processing > 1:
+            # it's already in processing now,
+            # append the data to the tail of memory cache
+            self.__append_cache(data=data)
+            self.__processing -= 1
+            return None
+        # join the data to the memory cache
+        buffer = self.__join_cache(data=data)
+        # try to fetch a package
+        pack, offset = PackUtils.parse(data=buffer)
+        if offset < 0:
+            # data error
+            self.__processing -= 1
+            return None
+        # 'error part' + 'mars package' + 'remaining data
+        if pack is not None:
+            offset += pack.length
+        if offset == 0:
+            self.__push_back(data=buffer)
+        elif offset < len(buffer):
+            buffer = buffer[offset:]
+            self.__push_back(data=buffer)
+        self.__processing -= 1
+        return pack
 
     # Override
     def get_arrival(self, data: bytes) -> Optional[Arrival]:
-        # check cached data
-        chunks = self.__cached
-        if chunks is not None:
-            data = chunks + data
-            self.__cached = None
-        # try to fetch a package
-        mars, offset = PackUtils.parse(data=data)
-        if offset < 0:
-            # data error
-            return None
-        # 'error part' + 'mars package' + 'remaining data'
-        if mars is None:
-            if offset == 0:
-                # cache the incomplete data
-                self.__cached = data
-            elif offset < len(data):
-                # skip error part
-                self.__cached = data[offset:]
-        else:
-            offset += mars.length
-            if offset < len(data):
-                # cache the remaining tail
-                self.__cached = data[offset:]
-            # OK
-            return MarsStreamArrival(mars=mars)
+        pack = self.__parse_package(data=data)
+        if pack is not None and pack.body is not None:
+            return MarsStreamArrival(mars=pack)
 
     # Override
     def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
@@ -284,13 +307,13 @@ class MarsStreamDocker(PlainDocker):
 
     def __respond(self, payload: bytes, head: NetMsgHead):
         mars = PackUtils.respond(head=head, payload=payload)
-        ship = MarsStreamDeparture(mars=mars)
+        ship = self.create_departure(mars=mars)
         self.append_departure(ship=ship)
 
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
         mars = PackUtils.create(payload=payload)
-        return MarsStreamDeparture(mars=mars, priority=priority, delegate=delegate)
+        return self.create_departure(mars=mars, priority=priority, delegate=delegate)
 
     # Override
     def heartbeat(self):
@@ -298,8 +321,12 @@ class MarsStreamDocker(PlainDocker):
         pass
 
     @classmethod
+    def create_departure(cls, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
+        return MarsStreamDeparture(mars=mars, priority=priority, delegate=delegate)
+
+    @classmethod
     def check(cls, data: bytes) -> bool:
-        head = PackUtils.seek_header(data=data)
+        head, offset = PackUtils.seek_header(data=data)
         return head is not None
 
 

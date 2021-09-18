@@ -40,17 +40,59 @@ from udp import PackageArrival, PackageDeparture, PackageDocker
 
 class PackUtils:
 
-    @classmethod
-    def parse_head(cls, data: Union[bytes, ByteArray]) -> Optional[Header]:
-        if not isinstance(data, ByteArray):
-            data = Data(buffer=data)
-        return Header.parse(data=data)
+    MAGIC_CODE = Header.MAGIC_CODE
+    MAGIC_CODE_OFFSET = 0
+
+    MAX_HEAD_LENGTH = 24
 
     @classmethod
-    def parse(cls, data: Union[bytes, ByteArray]) -> Optional[Package]:
-        if not isinstance(data, ByteArray):
-            data = Data(buffer=data)
-        return Package.parse(data=data)
+    def seek_header(cls, data: ByteArray) -> (Optional[Header], int):
+        head = Header.parse(data=data)
+        if head is not None:
+            # got it (offset = 0)
+            return head, 0
+        data_len = data.size
+        if data_len < cls.MAX_HEAD_LENGTH:
+            # waiting for more data
+            return None, 0
+        # locate next header
+        offset = data.find(sub=cls.MAGIC_CODE, start=(cls.MAGIC_CODE_OFFSET + 1))
+        if offset == -1:
+            # skip the whole buffer
+            return None, -1
+        assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
+        # found next header, skip data before it
+        offset -= cls.MAGIC_CODE_OFFSET
+        data = data.slice(start=offset)
+        # try again from new offset
+        return Header.parse(data=data), offset
+
+    @classmethod
+    def parse(cls, data: ByteArray) -> (Optional[Package], int):
+        # 1. seek header in received data
+        head, offset = cls.seek_header(data=data)
+        if offset < 0:
+            # data error, ignore the whole buffer
+            return None, -1
+        if head is None:
+            # header not found
+            return None, offset
+        # 2. check length
+        data_len = data.size
+        head_len = head.size
+        body_len = head.body_length
+        if body_len < 0:
+            pack_len = data_len
+        else:
+            pack_len = head_len + body_len
+        if data_len < pack_len:
+            # package not completed, waiting for more data
+            return None, offset
+        elif data_len > pack_len:
+            # cut the tail
+            data = data.slice(start=0, end=pack_len)
+        body = data.slice(start=head_len)
+        return Package(data=data, head=head, body=body), offset
 
     @classmethod
     def create_command(cls, body: Union[bytes, ByteArray]) -> Package:
@@ -60,11 +102,10 @@ class PackUtils:
                            body_length=body.size, body=body)
 
     @classmethod
-    def create_message(cls, body: Union[bytes, ByteArray]) -> Package:
+    def create_message(cls, body: Union[bytes, ByteArray], sn: Optional[TransactionID] = None) -> Package:
         if not isinstance(body, ByteArray):
             body = Data(buffer=body)
-        return Package.new(data_type=DataType.MESSAGE,
-                           body_length=body.size, body=body)
+        return Package.new(data_type=DataType.MESSAGE, sn=sn, body_length=body.size, body=body)
 
     @classmethod
     def respond_command(cls, sn: TransactionID, body: Union[bytes, ByteArray]) -> Package:
@@ -81,8 +122,16 @@ class PackUtils:
                            sn=sn, pages=pages, index=index, body_length=body.size, body=body)
 
 
-""" MTP Stream Arrival Ship """
-MTPStreamArrival = PackageArrival
+class MTPStreamArrival(PackageArrival):
+    """ MTP Stream Arrival Ship """
+
+    @property
+    def payload(self) -> bytes:
+        pack = self.package
+        if pack is not None:
+            body = pack.body
+            if body is not None:
+                return body.get_bytes()
 
 
 class MTPStreamDeparture(PackageDeparture):
@@ -104,63 +153,47 @@ class MTPStreamDocker(PackageDocker):
         self.__chunks = Data.ZERO
         self.__processing = 0
 
+    def __append_cache(self, data: bytes):
+        """ Append the data to the tail of memory cache """
+        self.__chunks = self.__chunks.concat(data)
+
+    def __join_cache(self, data: bytes) -> ByteArray:
+        """ Join the memory cache and new data """
+        chunks = self.__chunks.concat(data)
+        self.__chunks = Data.ZERO
+        return chunks
+
+    def __push_back(self, data: ByteArray):
+        """ Put the remaining data back to memory cache """
+        self.__chunks = data.concat(self.__chunks)
+
     # Override
-    def _parse_package(self, data: Optional[bytes]) -> Optional[Package]:
+    def _parse_package(self, data: bytes) -> Optional[Package]:
         self.__processing += 1
         if self.__processing > 1:
             # it's already in processing now,
             # append the data to the tail of memory cache
-            if data is not None and len(data) > 0:
-                # assert isinstance(self.__chunks, ByteArray)
-                self.__chunks = self.__chunks.concat(data)
+            self.__append_cache(data=data)
             self.__processing -= 1
             return None
-        # append the data to the memory cache
-        if data is not None and len(data) > 0:
-            buffer = self.__chunks.concat(data)
-        else:
-            buffer = self.__chunks
-        self.__chunks = Data.ZERO
-        assert isinstance(buffer, ByteArray)
-        # check header
-        head = PackUtils.parse_head(data=buffer)
-        if head is None:
-            # header error, seeking for next header
-            pos = buffer.find(Header.MAGIC_CODE, start=1)
-            if pos > 0:
-                # found, drop all data before it
-                buffer = buffer.slice(start=pos)
-                if buffer.size > 0:
-                    # join to the memory cache
-                    if self.__chunks.size > 0:
-                        self.__chunks = buffer.concat(self.__chunks)
-                    else:
-                        self.__chunks = buffer
-                if self.__chunks.size > 0:
-                    # try again
-                    self.__processing -= 1
-                    return self._parse_package(data=None)
-            # waiting for more data
+        # join the data to the memory cache
+        buffer = self.__join_cache(data=data)
+        # try to fetch a package
+        pack, offset = PackUtils.parse(data=buffer)
+        if offset < 0:
+            # data error
             self.__processing -= 1
             return None
-        # header ok, check body length
-        data_len = buffer.size
-        head_len = head.size
-        body_len = head.body_length
-        if body_len == -1:
-            pack_len = data_len
-        else:
-            pack_len = head_len + body_len
-        if data_len > pack_len:
-            # cut the tail and put it back to the memory cache
-            if self.__chunks.size > 0:
-                self.__chunks = buffer.slice(start=pack_len).concat(self.__chunks)
-            else:
-                self.__chunks = buffer.slice(start=pack_len)
-            buffer = buffer.slice(start=0, end=pack_len)
-        # OK
+        # 'error part' + 'MTP package' + 'remaining data
+        if pack is not None:
+            offset += pack.size
+        if offset == 0:
+            self.__push_back(data=buffer)
+        elif offset < buffer.size:
+            buffer = buffer.slice(start=offset)
+            self.__push_back(data=buffer)
         self.__processing -= 1
-        return Package(data=buffer, head=head, body=buffer.slice(start=head_len))
+        return pack
 
     # Override
     def _create_arrival(self, pack: Package) -> Arrival:
@@ -193,7 +226,7 @@ class MTPStreamDocker(PackageDocker):
 
     @classmethod
     def check(cls, data: bytes) -> bool:
-        head = PackUtils.parse_head(data=data)
+        head, offset = PackUtils.seek_header(data=Data(buffer=data))
         return head is not None
 
 

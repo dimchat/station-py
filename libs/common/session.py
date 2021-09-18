@@ -47,8 +47,13 @@ from dimsdk import Callback as MessengerCallback
 
 from ..utils import NotificationCenter, Logging
 
-from ..network import GateStatus, GateDelegate, StarGate, StarTrek
-from ..network import Ship, ShipDelegate
+from ..network import Connection, ConnectionDelegate
+from ..network import Gate, GateStatus, GateDelegate
+from ..network import ShipDelegate
+from ..network import Arrival, Departure
+from ..network import StreamChannel, ClientHub
+from ..network import TCPGate
+from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 
 from .notification import NotificationNames
 from .database import Database
@@ -107,17 +112,19 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #
     #   ShipDelegate
     #
-    def ship_sent(self, ship, error: Optional[OSError] = None):
-        if error is None:
-            # success, remove message
-            msg = self.__msg
-            if isinstance(msg, ReliableMessage):
-                NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
-                g_database.erase_message(msg=msg)
-            self.__msg = None
-        else:
-            # failed
-            self.__time = -1
+
+    def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
+        pass
+
+    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        msg = self.__msg
+        if isinstance(msg, ReliableMessage):
+            NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
+            g_database.erase_message(msg=msg)
+        self.__msg = None
+
+    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        self.__time = -1
 
     #
     #   Callback
@@ -179,11 +186,28 @@ class MessageQueue:
                     return wrapper
 
 
+def create_hub(delegate: ConnectionDelegate,
+               address: Optional[tuple] = None,
+               sock: Optional[socket.socket] = None) -> ClientHub:
+    """ Create TPC client hub """
+    hub = ClientHub(delegate=delegate)
+    if sock is None:
+        assert address is not None, 'remote address empty'
+        hub.connect(remote=address)
+    else:
+        if address is None:
+            address = sock.getpeername()
+        channel = StreamChannel(sock=sock, remote=address, local=None)
+        hub.put_channel(channel=channel)
+    return hub
+
+
 def create_gate(delegate: GateDelegate,
                 address: Optional[tuple] = None,
-                sock: Optional[socket.socket] = None) -> StarGate:
-    gate = StarTrek.create_gate(address=address, sock=sock)
-    gate.delegate = delegate
+                sock: Optional[socket.socket] = None) -> TCPGate:
+    """ Create TCP gate """
+    gate = TCPGate(delegate=delegate)
+    gate.hub = create_hub(delegate=gate, address=address, sock=sock)
     return gate
 
 
@@ -194,6 +218,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         self.__queue = MessageQueue()
         self.__messenger = weakref.ref(messenger)
         self.__gate = create_gate(delegate=self, address=address, sock=sock)
+        self.__remote = address
         # session status
         self.__active = False
         self.__running = False
@@ -230,7 +255,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         return self.__messenger()
 
     @property
-    def gate(self) -> StarGate:
+    def gate(self) -> TCPGate:
         return self.__gate
 
     @property
@@ -239,6 +264,9 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     @active.setter
     def active(self, value: bool):
+        self.__active = value
+
+    def _set_active(self, value: bool):
         self.__active = value
 
     def run(self):
@@ -253,11 +281,11 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def setup(self):
         self.__running = True
-        self.__gate.setup()
+        self.__gate.start()
 
     def finish(self):
         self.__running = False
-        self.__gate.finish()
+        self.__gate.stop()
         self.__flush()
 
     @property
@@ -302,8 +330,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             return False
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+        gate = self.gate
         if self.active:
-            return self.__gate.send_payload(payload=payload, priority=priority, delegate=delegate)
+            return gate.send_payload(payload=payload, local=None, remote=self.__remote,
+                                     priority=priority, delegate=delegate)
         else:
             self.error('session inactive, cannot send message (%d) now' % len(payload))
 
@@ -316,12 +346,22 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     #   GateDelegate
     #
 
-    def gate_status_changed(self, gate, old_status: GateStatus, new_status: GateStatus):
-        if new_status == GateStatus.Connected:
+    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
+                            remote: tuple, local: Optional[tuple], gate: Gate):
+        if current == GateStatus.READY:
             self.messenger.connected()
 
-    def gate_received(self, gate, ship: Ship) -> Optional[bytes]:
-        payload = ship.payload
+    def gate_received(self, ship: Arrival,
+                      source: tuple, destination: Optional[tuple], connection: Connection):
+        if isinstance(ship, MTPStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, MarsStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, WSArrival):
+            payload = ship.payload
+        else:
+            raise ValueError('unknown arrival ship: %s' % ship)
+        # check payload
         if payload.startswith(b'{'):
             # JsON in lines
             packages = payload.splitlines()
@@ -341,4 +381,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         # station MUST respond something to client request
         if len(data) > 0:
             data = data[:-1]  # remove last '\n'
-        return data
+        self.gate.send_response(payload=data, ship=ship, remote=source, local=destination)
+
+    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        pass
+
+    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+        pass

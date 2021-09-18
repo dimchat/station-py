@@ -35,12 +35,12 @@ from typing import Generic, TypeVar, Optional, List
 
 from startrek.fsm import Runnable
 from startrek import Connection, ConnectionState
-from startrek import GateDelegate, Docker
-from startrek import StarGate
+from startrek import GateDelegate, Docker, StarGate
+from startrek import Arrival
 from udp import PackageDocker
 
-from .mtp import MTPStreamDocker
-from .mars import MarsStreamDocker
+from .mtp import MTPStreamDocker, PackUtils as MTPUtils
+from .mars import MarsStreamArrival, MarsStreamDocker, PackUtils as MarsUtils
 from .ws import WSDocker
 
 
@@ -64,6 +64,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         self.__hub = h
 
     def start(self):
+        self.__running = True
         threading.Thread(target=self.run).start()
 
     def stop(self):
@@ -119,11 +120,30 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
         self.info('connection state changed: %s -> %s, %s' % (previous, current, connection))
 
-    def send_payload(self, payload: bytes, source: Optional[tuple], destination: tuple):
-        worker = self.get_docker(remote=destination, local=source, advance_party=[])
+    def send_payload(self, payload: bytes, local: Optional[tuple], remote: tuple,
+                     priority: int = 0, delegate: Optional[GateDelegate] = None):
+        worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if worker is not None:
-            ship = worker.pack(payload=payload)
+            ship = worker.pack(payload=payload, priority=priority, delegate=delegate)
             worker.append_departure(ship=ship)
+        else:
+            raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
+
+    def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]):
+        worker = self.get_docker(remote=remote, local=local, advance_party=[])
+        if isinstance(worker, MTPStreamDocker):
+            pack = MTPUtils.create_message(body=payload, sn=ship.sn)
+            worker.send_package(pack=pack)
+        elif isinstance(worker, MarsStreamDocker):
+            assert isinstance(ship, MarsStreamArrival), 'responding ship error: %s' % ship
+            mars = MarsUtils.respond(head=ship.package.head, payload=payload)
+            ship = MarsStreamDocker.create_departure(mars=mars)
+            worker.send_departure(ship=ship)
+        elif isinstance(worker, WSDocker):
+            ship = worker.pack(payload=payload)
+            worker.send_departure(ship=ship)
+        else:
+            raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
 
     @classmethod
     def info(cls, msg: str):
@@ -140,11 +160,9 @@ class TCPGate(CommonGate, Generic[H]):
 
     # Override
     def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        if advance_party is None:
-            return None
         count = len(advance_party)
         if count == 0:
-            return None
+            return MTPStreamDocker(remote=remote, local=local, gate=self)
         data = advance_party[0]
         for i in range(1, count):
             data = data + advance_party[i]
@@ -162,11 +180,9 @@ class TCPGate(CommonGate, Generic[H]):
 class UDPGate(CommonGate, Generic[H]):
 
     def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        if advance_party is None:
-            return None
         count = len(advance_party)
         if count == 0:
-            return None
+            return PackageDocker(remote=remote, local=local, gate=self)
         data = advance_party[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
