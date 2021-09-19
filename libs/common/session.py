@@ -51,8 +51,9 @@ from ..network import Connection, ConnectionDelegate
 from ..network import Gate, GateStatus, GateDelegate
 from ..network import ShipDelegate
 from ..network import Arrival, Departure
-from ..network import StreamChannel, ClientHub
-from ..network import TCPGate
+from ..network import StreamChannel
+from ..network import Hub, StreamHub, ClientHub
+from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 
 from .notification import NotificationNames
@@ -186,43 +187,40 @@ class MessageQueue:
                     return wrapper
 
 
-def create_hub(delegate: ConnectionDelegate,
-               address: Optional[tuple] = None,
-               sock: Optional[socket.socket] = None) -> ClientHub:
-    """ Create TPC client hub """
-    hub = ClientHub(delegate=delegate)
-    if sock is None:
-        assert address is not None, 'remote address empty'
-        hub.connect(remote=address)
-    else:
-        sock.setblocking(False)
-        if address is None:
-            address = sock.getpeername()
-        channel = StreamChannel(sock=sock, remote=address, local=None)
-        hub.put_channel(channel=channel)
-    return hub
-
-
-def create_gate(delegate: GateDelegate,
-                address: Optional[tuple] = None,
-                sock: Optional[socket.socket] = None) -> TCPGate:
-    """ Create TCP gate """
-    gate = TCPGate(delegate=delegate)
-    gate.hub = create_hub(delegate=gate, address=address, sock=sock)
-    return gate
-
-
 class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
         self.__queue = MessageQueue()
         self.__messenger = weakref.ref(messenger)
-        self.__gate = create_gate(delegate=self, address=address, sock=sock)
+        self.__gate = self._create_gate(address=address, sock=sock)
         self.__remote = address
         # session status
         self.__active = False
         self.__running = False
+
+    def _create_gate(self, address: tuple, sock: Optional[socket.socket]) -> CommonGate:
+        if sock is None:
+            gate = TCPClientGate(delegate=self)
+        else:
+            gate = TCPServerGate(delegate=self)
+        gate.hub = self._create_hub(delegate=gate, address=address, sock=sock)
+        return gate
+
+    # noinspection PyMethodMayBeStatic
+    def _create_hub(self, delegate: ConnectionDelegate, address: tuple, sock: Optional[socket.socket]) -> Hub:
+        if sock is None:
+            assert address is not None, 'remote address empty'
+            hub = ClientHub(delegate=delegate)
+            hub.connect(remote=address)
+        else:
+            sock.setblocking(False)
+            if address is None:
+                address = sock.getpeername()
+            channel = StreamChannel(sock=sock, remote=address, local=None)
+            hub = StreamHub(delegate=delegate)
+            hub.put_channel(channel=channel)
+        return hub
 
     def __del__(self):
         # store stranded messages
@@ -256,7 +254,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         return self.__messenger()
 
     @property
-    def gate(self) -> TCPGate:
+    def gate(self) -> CommonGate:
         return self.__gate
 
     @property
@@ -306,6 +304,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if self.__gate.process():
             # processed income/outgo packages
             return True
+        # FIXME: message will be reloaded after stored into files
         self.__clean()
         if not self.active:
             # inactive

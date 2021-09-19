@@ -9,7 +9,7 @@ from udp.mtp import Package, DataType
 
 from ...network import Connection, Gate, GateStatus, GateDelegate
 from ...network import Arrival, Departure, ShipDelegate
-from ...network import PackageArrival, PackageDocker, PackageHub, UDPGate
+from ...network import PackageArrival, PackageDocker, PackageHub, UDPServerGate
 
 import dmtp
 
@@ -23,7 +23,7 @@ class Server(dmtp.Server, GateDelegate):
     def __init__(self, host: str, port: int):
         super().__init__()
         self.__local_address = (host, port)
-        gate = UDPGate(delegate=self)
+        gate = UDPServerGate(delegate=self)
         gate.hub = PackageHub(delegate=gate)
         self.__gate = gate
         self.__db: Optional[ContactManager] = None
@@ -33,7 +33,7 @@ class Server(dmtp.Server, GateDelegate):
         return self.__local_address
 
     @property
-    def gate(self) -> UDPGate:
+    def gate(self) -> UDPServerGate:
         return self.__gate
 
     @property

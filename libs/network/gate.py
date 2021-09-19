@@ -155,7 +155,12 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         print('[ERROR] ', msg)
 
 
-class TCPGate(CommonGate, Generic[H]):
+#
+#   Server Gates
+#
+
+
+class TCPServerGate(CommonGate, Generic[H]):
 
     # Override
     def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
@@ -177,8 +182,9 @@ class TCPGate(CommonGate, Generic[H]):
             return WSDocker(remote=remote, local=local, gate=self)
 
 
-class UDPGate(CommonGate, Generic[H]):
+class UDPServerGate(CommonGate, Generic[H]):
 
+    # Override
     def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
         count = len(advance_party)
         if count == 0:
@@ -188,3 +194,22 @@ class UDPGate(CommonGate, Generic[H]):
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
             return PackageDocker(remote=remote, local=local, gate=self)
+
+
+#
+#   Client Gates
+#
+
+
+class TCPClientGate(CommonGate, Generic[H]):
+
+    # Override
+    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        return MTPStreamDocker(remote=remote, local=local, gate=self)
+
+
+class UDPClientGate(CommonGate, Generic[H]):
+
+    # Override
+    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        return PackageDocker(remote=remote, local=local, gate=self)
