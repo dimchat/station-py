@@ -137,10 +137,10 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
             assert isinstance(ship, MarsStreamArrival), 'responding ship error: %s' % ship
             mars = MarsHelper.create_respond(head=ship.package.head, payload=payload)
             ship = MarsStreamDocker.create_departure(mars=mars)
-            worker.send_departure(ship=ship)
+            worker.send_ship(ship=ship)
         elif isinstance(worker, WSDocker):
             ship = worker.pack(payload=payload)
-            worker.send_departure(ship=ship)
+            worker.send_ship(ship=ship)
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
 

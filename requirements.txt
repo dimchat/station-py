@@ -13,7 +13,7 @@ startrek  # 0.2.1
 tcp       # 0.2.7
 udp       # 0.4.9
 stun      # 0.2.3
-dmtp==0.3.3
+dmtp==0.3.4
 
 mkm       # 0.10.15
 dkd       # 0.10.15
