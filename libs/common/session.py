@@ -40,151 +40,27 @@ import threading
 import time
 import traceback
 import weakref
-from typing import Optional, List
+from typing import Optional
 
 from dimp import ReliableMessage
-from dimsdk import Callback as MessengerCallback
 
-from ..utils import NotificationCenter, Logging
+from ..utils import Logging
 
 from ..network import Connection, ConnectionDelegate
 from ..network import Gate, GateStatus, GateDelegate
 from ..network import ShipDelegate
-from ..network import Arrival, Departure
+from ..network import Arrival, Departure, DepartureShip
 from ..network import StreamChannel
 from ..network import Hub, StreamHub, ClientHub
 from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 
-from .notification import NotificationNames
 from .database import Database
 from .messenger import CommonMessenger
+from .queue import MessageQueue
 
 
 g_database = Database()
-
-
-def is_broadcast_message(msg: ReliableMessage):
-    if msg.receiver.is_broadcast:
-        return True
-    group = msg.group
-    return group is not None and group.is_broadcast
-
-
-class MessageWrapper(ShipDelegate, MessengerCallback):
-
-    EXPIRES = 600  # 10 minutes
-
-    def __init__(self, msg: ReliableMessage):
-        super().__init__()
-        self.__time = 0
-        self.__msg = msg
-
-    @property
-    def priority(self) -> int:
-        msg = self.__msg
-        if msg is not None:
-            if is_broadcast_message(msg=msg):
-                return 1  # SLOWER
-        return 0  # NORMAL
-
-    @property
-    def msg(self) -> Optional[ReliableMessage]:
-        return self.__msg
-
-    def mark(self):
-        self.__time = 1
-
-    def fail(self):
-        self.__time = -1
-
-    @property
-    def virgin(self) -> bool:
-        return self.__time == 0
-
-    @property
-    def failed(self) -> bool:
-        if self.__time == -1:
-            return True
-        if self.__time > 1:
-            delta = int(time.time()) - self.__time
-            return delta > self.EXPIRES
-
-    #
-    #   ShipDelegate
-    #
-
-    def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
-        pass
-
-    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
-        msg = self.__msg
-        if isinstance(msg, ReliableMessage):
-            NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
-            g_database.erase_message(msg=msg)
-        self.__msg = None
-
-    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
-        self.__time = -1
-
-    #
-    #   Callback
-    #
-    def finished(self, result, error=None):
-        if error is None:
-            # this message was assigned to the worker of StarGate,
-            # update sent time
-            self.__time = int(time.time())
-        else:
-            # failed
-            self.__time = -1
-
-
-class MessageQueue:
-
-    def __init__(self):
-        super().__init__()
-        self.__wrappers: List[MessageWrapper] = []
-        self.__lock = threading.Lock()
-
-    @property
-    def length(self) -> int:
-        with self.__lock:
-            return len(self.__wrappers)
-
-    def append(self, msg: ReliableMessage) -> bool:
-        with self.__lock:
-            # check duplicated
-            signature = msg.get('signature')
-            for wrapper in self.__wrappers:
-                item = wrapper.msg
-                if item is not None and item.get('signature') == signature:
-                    return True
-            # append with wrapper
-            wrapper = MessageWrapper(msg=msg)
-            self.__wrappers.append(wrapper)
-            return True
-
-    def pop(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            if len(self.__wrappers) > 0:
-                return self.__wrappers.pop(0)
-
-    def next(self) -> Optional[MessageWrapper]:
-        """ Get next new message """
-        with self.__lock:
-            for wrapper in self.__wrappers:
-                if wrapper.virgin:
-                    wrapper.mark()  # mark sent
-                    return wrapper
-
-    def eject(self) -> Optional[MessageWrapper]:
-        """ Get any message sent or failed """
-        with self.__lock:
-            for wrapper in self.__wrappers:
-                if wrapper.msg is None or wrapper.failed:
-                    self.__wrappers.remove(wrapper)
-                    return wrapper
 
 
 class BaseSession(threading.Thread, GateDelegate, Logging):
@@ -259,7 +135,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     @property
     def active(self) -> bool:
-        return self.__active and self.__gate.running
+        return self.__active and self.gate.running
 
     @active.setter
     def active(self, value: bool):
@@ -280,16 +156,16 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def setup(self):
         self.__running = True
-        self.__gate.start()
+        self.gate.start()
 
     def finish(self):
+        self.gate.stop()
         self.__running = False
-        self.__gate.stop()
         self.__flush()
 
     @property
     def running(self) -> bool:
-        return self.__running and self.__gate.running
+        return self.__running and self.gate.running
 
     def handle(self):
         while self.running:
@@ -301,7 +177,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         time.sleep(0.1)
 
     def process(self) -> bool:
-        if self.__gate.process():
+        if self.gate.process():
             # processed income/outgo packages
             return True
         # FIXME: message will be reloaded after stored into files
@@ -330,10 +206,9 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             return False
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        gate = self.gate
         if self.active:
-            return gate.send_payload(payload=payload, local=None, remote=self.__remote,
-                                     priority=priority, delegate=delegate)
+            return self.gate.send_payload(payload=payload, local=None, remote=self.__remote,
+                                          priority=priority, delegate=delegate)
         else:
             self.error('session inactive, cannot send message (%d) now' % len(payload))
 
@@ -387,7 +262,17 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         self.gate.send_response(payload=data, ship=ship, remote=source, local=destination)
 
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
-        pass
+        delegate = None
+        if isinstance(ship, DepartureShip):
+            delegate = ship.delegate
+        # callback to MessageWrapper
+        if delegate is not None and delegate != self:
+            delegate.gate_sent(ship=ship, source=source, destination=destination, connection=connection)
 
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
-        pass
+        delegate = None
+        if isinstance(ship, DepartureShip):
+            delegate = ship.delegate
+        # callback to MessageWrapper
+        if delegate is not None and delegate != self:
+            delegate.gate_error(error=error, ship=ship, source=source, destination=destination, connection=connection)

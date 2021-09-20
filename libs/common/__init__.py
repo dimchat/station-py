@@ -36,9 +36,10 @@ from dimsdk import ReceiptCommand
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
 from .database import Storage, Database, MessageBundle
+from .database.message_table import is_broadcast_message
 
 from .notification import NotificationNames
-from .session import BaseSession, is_broadcast_message
+from .session import BaseSession
 
 from .ans import AddressNameServer
 

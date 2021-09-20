@@ -122,10 +122,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
                 handler.failed(error=error)
             return False
 
-    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
+    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
         # upload encrypted file data
-        pass
+        self.info('upload %d bytes for: %s' % (len(data), msg.content))
+        return None
 
     def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         # download encrypted file data
-        pass
+        self.info('download %s for: %s' % (url, msg.content))
+        return None
