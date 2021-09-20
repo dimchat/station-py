@@ -104,10 +104,10 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
 
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         msg = self.__msg
+        self.__msg = None
         if isinstance(msg, ReliableMessage):
             NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
             g_database.erase_message(msg=msg)
-        self.__msg = None
 
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         self.__time = -1

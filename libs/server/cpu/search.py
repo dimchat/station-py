@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, List
+from typing import Optional, List, Set
 
 from dimp import ID, Meta
 from dimp import ReliableMessage
@@ -46,7 +46,7 @@ g_session_server = SessionServer()
 g_database = Database()
 
 
-def online_users(facebook, start: int, limit: int) -> (list, dict):
+def online_users(facebook, start: int, limit: int) -> (Set[ID], dict):
     users = g_session_server.active_users(start=start, limit=limit)
     results = {}
     for item in users:
@@ -79,15 +79,25 @@ class SearchCommandProcessor(CommandProcessor):
         else:
             # let search bot (archivist) to do the job
             return None
-        station = facebook.current_user
-        # respond
+        # extra info
         info = cmd.copy_dictionary(False)
+        info.pop('type', None)
         info.pop('sn', None)
         info.pop('time', None)
-        cmd = SearchCommand(cmd=info)
-        cmd.station = station.identifier
+        info.pop('command', None)
+        info.pop('keywords', None)
+        info.pop('users', None)
+        info.pop('results', None)
+        # respond
+        cmd = SearchCommand()
+        for key, value in info.items():
+            cmd[key] = value
+        cmd.keywords = keywords
         cmd.users = users
         cmd.results = results
+        # station ID
+        station = facebook.current_user
+        cmd.station = station.identifier
         return cmd
 
 
