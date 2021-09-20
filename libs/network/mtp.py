@@ -28,6 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, Union, List
 
 from startrek import ShipDelegate, StarGate
@@ -37,68 +38,20 @@ from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
 from udp import PackageArrival, PackageDeparture, PackageDocker
 
+from .seeker import MTPPackageSeeker
+
 
 class MTPHelper:
 
-    MAGIC_CODE = Header.MAGIC_CODE
-    MAGIC_CODE_OFFSET = 0
-
-    MAX_HEAD_LENGTH = 24
+    seeker = MTPPackageSeeker()
 
     @classmethod
     def seek_header(cls, data: ByteArray) -> (Optional[Header], int):
-        head = Header.parse(data=data)
-        if head is not None:
-            # got it (offset = 0)
-            return head, 0
-        data_len = data.size
-        if data_len < cls.MAX_HEAD_LENGTH:
-            # waiting for more data
-            return None, 0
-        # locate next header
-        offset = data.find(sub=cls.MAGIC_CODE, start=(cls.MAGIC_CODE_OFFSET + 1))
-        if offset == -1:
-            if data_len < 65536:
-                # waiting for more data
-                return None, 0
-            # skip the whole buffer
-            return None, -1
-        assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
-        # found next header, skip data before it
-        offset -= cls.MAGIC_CODE_OFFSET
-        data = data.slice(start=offset)
-        # try again from new offset
-        return Header.parse(data=data), offset
+        return cls.seeker.seek_header(data=data)
 
     @classmethod
-    def parse(cls, data: ByteArray) -> (Optional[Package], int):
-        # 1. seek header in received data
-        head, offset = cls.seek_header(data=data)
-        if offset < 0:
-            # data error, ignore the whole buffer
-            return None, -1
-        if head is None:
-            # header not found
-            return None, offset
-        if offset > 0:
-            # drop the error part
-            data = data.slice(start=offset)
-        # 2. check length
-        data_len = data.size
-        head_len = head.size
-        body_len = head.body_length
-        if body_len < 0:
-            pack_len = data_len
-        else:
-            pack_len = head_len + body_len
-        if data_len < pack_len:
-            # package not completed, waiting for more data
-            return None, offset
-        elif data_len > pack_len:
-            # cut the tail
-            data = data.slice(start=0, end=pack_len)
-        body = data.slice(start=head_len)
-        return Package(data=data, head=head, body=body), offset
+    def seek_package(cls, data: ByteArray) -> (Optional[Package], int):
+        return cls.seeker.seek_package(data=data)
 
     @classmethod
     def create_command(cls, body: Union[bytes, ByteArray]) -> Package:
@@ -152,65 +105,40 @@ class MTPStreamDeparture(PackageDeparture):
 class MTPStreamDocker(PackageDocker):
     """ Docker for MTP packages """
 
-    MAX_HEAD_LENGTH = 24
-
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
         self.__chunks = Data.ZERO
-        self.__processing = 0
-
-    def __append_cache(self, data: bytes):
-        """ Append the data to the tail of memory cache """
-        self.__chunks = self.__chunks.concat(data)
-
-    def __join_cache(self, data: bytes) -> ByteArray:
-        """ Join the memory cache and new data """
-        chunks = self.__chunks.concat(data)
-        self.__chunks = Data.ZERO
-        return chunks
-
-    def __push_back(self, data: ByteArray):
-        """ Put the remaining data back to memory cache """
-        self.__chunks = data.concat(self.__chunks)
+        self.__chunks_lock = threading.RLock()
+        self.__package_received = False
 
     # Override
     def _parse_package(self, data: bytes) -> Optional[Package]:
-        self.__processing += 1
-        if self.__processing > 1:
-            # it's already in processing now,
-            # append the data to the tail of memory cache
-            self.__append_cache(data=data)
-            self.__processing -= 1
-            return None
-        # join the data to the memory cache
-        buffer = self.__join_cache(data=data)
-        # try to fetch a package
-        pack, offset = MTPHelper.parse(data=buffer)
-        if offset < 0:
-            # data error
-            self.__processing -= 1
-            return None
-        # 'error part' + 'MTP package' + 'remaining data
-        if pack is not None:
-            offset += pack.size
-        if offset == 0:
-            self.__push_back(data=buffer)
-        elif offset < buffer.size:
-            buffer = buffer.slice(start=offset)
-            self.__push_back(data=buffer)
-        self.__processing -= 1
-        return pack
+        with self.__chunks_lock:
+            # join the data to the memory cache
+            data = self.__chunks.concat(data)
+            self.__chunks = Data.ZERO
+            # try to fetch a package
+            pack, offset = MTPHelper.seek_package(data=data)
+            self.__package_received = pack is not None
+            if offset >= 0:
+                # 'error part' + 'MTP package' + 'remaining data
+                if pack is not None:
+                    offset += pack.size
+                if offset == 0:
+                    self.__chunks = data.concat(self.__chunks)
+                elif offset < data.size:
+                    data = data.slice(start=offset)
+                    self.__chunks = data.concat(self.__chunks)
+            return pack
 
     # Override
     def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
-        old_len = 0
-        new_len = len(data)
-        while new_len > 0 and new_len != old_len:
-            old_len = len(self.__chunks)
+        self.__package_received = True
+        while self.__package_received:
+            self.__package_received = False
             super().process_received(data=data)
-            new_len = len(self.__chunks)
             data = b''
 
     # Override

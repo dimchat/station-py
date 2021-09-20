@@ -207,8 +207,9 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.active:
-            return self.gate.send_payload(payload=payload, local=None, remote=self.__remote,
-                                          priority=priority, delegate=delegate)
+            self.gate.send_payload(payload=payload, local=None, remote=self.__remote,
+                                   priority=priority, delegate=delegate)
+            return True
         else:
             self.error('session inactive, cannot send message (%d) now' % len(payload))
 

@@ -36,6 +36,7 @@
 
 import hashlib
 import struct
+from typing import Optional
 
 from dimp import base64_encode
 
@@ -55,10 +56,14 @@ class WebSocket:
     ws_suffix = b'\r\n\r\n'
 
     @classmethod
-    def handshake(cls, stream: bytes) -> bytes:
+    def handshake(cls, stream: bytes) -> Optional[bytes]:
         pos1 = stream.find(b'Sec-WebSocket-Key:')
+        if pos1 < 0:
+            return None
         pos1 += len('Sec-WebSocket-Key:')
         pos2 = stream.find(b'\r\n', pos1)
+        if pos2 < 0:
+            return None
         key = stream[pos1:pos2].strip()
         sec = hashlib.sha1(key + cls.ws_magic).digest()
         sec = base64_encode(sec)

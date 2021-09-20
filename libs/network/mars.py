@@ -28,15 +28,18 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, List
 
 from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
 from startrek import ArrivalShip, DepartureShip
 from startrek import StarGate
 
+from udp.ba import Data
 from tcp import PlainDocker
 
 from .protocol import NetMsg, NetMsgHead, NetMsgSeq
+from .seeker import MarsPackageSeeker
 
 
 def seq_to_sn(seq: int) -> bytes:
@@ -71,68 +74,17 @@ def parse_head(data: bytes) -> Optional[NetMsgHead]:
 
 class MarsHelper:
 
-    MAGIC_CODE = NetMsgHead.MAGIC_CODE
-    MAGIC_CODE_OFFSET = NetMsgHead.MAGIC_CODE_OFFSET
-
-    MAX_HEAD_LENGTH = NetMsgHead.MIN_HEAD_LEN + 12  # FIXME: len(options) > 12?
+    seeker = MarsPackageSeeker()
 
     @classmethod
     def seek_header(cls, data: bytes) -> (Optional[NetMsgHead], int):
-        head = parse_head(data=data)
-        if head is not None:
-            # got it (offset = 0)
-            return head, 0
-        data_len = len(data)
-        if data_len < cls.MAX_HEAD_LENGTH:
-            # waiting for more data
-            return None, 0
-        # locate next header
-        offset = data.find(cls.MAGIC_CODE, cls.MAGIC_CODE_OFFSET + 1)
-        if offset == -1:
-            if data_len < 65536:
-                # waiting for more data
-                return None, 0
-            # skip the whole buffer
-            return None, -1
-        assert offset > cls.MAGIC_CODE_OFFSET, 'magic code error: %s' % data
-        # found next header, skip data before it
-        offset -= cls.MAGIC_CODE_OFFSET
-        data = data[offset:]
-        # try again from new offset
-        return parse_head(data=data), offset
+        data = Data(buffer=data)
+        return cls.seeker.seek_header(data=data)
 
     @classmethod
-    def parse(cls, data: bytes) -> (Optional[NetMsg], int):
-        # 1. seek header in received data
-        head, offset = cls.seek_header(data=data)
-        if offset < 0:
-            # data error, ignore the whole buffer
-            return None, -1
-        if head is None:
-            # header not found
-            return None, offset
-        if offset > 0:
-            # drop the error part
-            data = data[offset:]
-        # 2. check length
-        data_len = len(data)
-        head_len = head.length
-        body_len = head.body_length
-        if body_len < 0:
-            pack_len = data_len
-        else:
-            pack_len = head_len + body_len
-        if data_len < pack_len:
-            # package not completed, waiting for more data
-            return None, offset
-        elif data_len > pack_len:
-            # cut the tail
-            data = data[:pack_len]
-        if head_len < pack_len:
-            body = data[head_len:]
-        else:
-            body = None
-        return NetMsg(data=data, head=head, body=body), offset
+    def seek_package(cls, data: bytes) -> (Optional[NetMsg], int):
+        data = Data(buffer=data)
+        return cls.seeker.seek_package(data=data)
 
     @classmethod
     def create_respond(cls, head: NetMsgHead, payload: bytes) -> NetMsg:
@@ -225,64 +177,41 @@ class MarsStreamDocker(PlainDocker):
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
         self.__chunks = b''
-        self.__processing = 0
+        self.__chunks_lock = threading.RLock()
+        self.__package_received = False
 
-    def __append_cache(self, data: bytes):
-        """ Append the data to the tail of memory cache """
-        self.__chunks = self.__chunks + data
-
-    def __join_cache(self, data: bytes) -> bytes:
-        """ Join the memory cache and new data """
-        chunks = self.__chunks + data
-        self.__chunks = b''
-        return chunks
-
-    def __push_back(self, data: bytes):
-        """ Put the remaining data back to memory cache """
-        self.__chunks = data + self.__chunks
-
-    def __parse_package(self, data: bytes) -> Optional[NetMsg]:
-        self.__processing += 1
-        if self.__processing > 1:
-            # it's already in processing now,
-            # append the data to the tail of memory cache
-            self.__append_cache(data=data)
-            self.__processing -= 1
-            return None
-        # join the data to the memory cache
-        data = self.__join_cache(data=data)
-        # try to fetch a package
-        pack, offset = MarsHelper.parse(data=data)
-        if offset < 0:
-            # data error
-            self.__processing -= 1
-            return None
-        # 'error part' + 'mars package' + 'remaining data
-        if pack is not None:
-            offset += pack.length
-        if offset == 0:
-            self.__push_back(data=data)
-        elif offset < len(data):
-            data = data[offset:]
-            self.__push_back(data=data)
-        self.__processing -= 1
-        return pack
+    def _parse_package(self, data: bytes) -> Optional[NetMsg]:
+        with self.__chunks_lock:
+            # join the data to the memory cache
+            data = self.__chunks + data
+            self.__chunks = b''
+            # try to fetch a package
+            pack, offset = MarsHelper.seek_package(data=data)
+            self.__package_received = pack is not None
+            if offset >= 0:
+                # 'error part' + 'mars package' + 'remaining data
+                if pack is not None:
+                    offset += pack.length
+                if offset == 0:
+                    self.__chunks = data + self.__chunks
+                elif offset < len(data):
+                    data = data[offset:]
+                    self.__chunks = data + self.__chunks
+            return pack
 
     # Override
     def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
-        old_len = 0
-        new_len = len(data)
-        while new_len > 0 and new_len != old_len:
-            old_len = len(self.__chunks)
+        self.__package_received = True
+        while self.__package_received:
+            self.__package_received = False
             super().process_received(data=data)
-            new_len = len(self.__chunks)
             data = b''
 
     # Override
     def get_arrival(self, data: bytes) -> Optional[Arrival]:
-        pack = self.__parse_package(data=data)
+        pack = self._parse_package(data=data)
         if pack is None:
             return None
         # if pack.body is None:

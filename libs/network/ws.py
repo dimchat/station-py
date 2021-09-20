@@ -28,6 +28,7 @@
 # SOFTWARE.
 # ==============================================================================
 
+import threading
 from typing import Optional, List
 
 from startrek import ShipDelegate, Arrival, Departure
@@ -104,75 +105,60 @@ class WSDocker(PlainDocker):
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
         self.__handshaking = True
-        self.__chunks = None
-        self.__processing = 0
-
-    def __append_cache(self, data: bytes):
-        """ Append the data to the tail of memory cache """
-        self.__chunks = self.__chunks + data
-
-    def __join_cache(self, data: bytes) -> bytes:
-        """ Join the memory cache and new data """
-        chunks = self.__chunks + data
         self.__chunks = b''
-        return chunks
+        self.__chunks_lock = threading.RLock()
+        self.__package_received = False
 
-    def __push_back(self, data: bytes):
-        """ Put the remaining data back to memory cache """
-        self.__chunks = data + self.__chunks
-
-    # noinspection PyMethodMayBeStatic
-    def __handshake(self, data: bytes) -> Optional[Departure]:
-        res = WebSocket.handshake(stream=data)
-        if res is not None:
-            return WSDeparture(package=res, payload=b'')
+    def _parse_package(self, data: bytes) -> (Optional[bytes], Optional[bytes]):
+        with self.__chunks_lock:
+            # join the data to the memory cache
+            data = self.__chunks + data
+            self.__chunks = b''
+            # try to fetch a package
+            payload, remaining = WebSocket.parse(stream=data)
+            tail_len = len(remaining)
+            if tail_len > 0:
+                # put the remaining data back to memory cache
+                self.__chunks = remaining + self.__chunks
+            pack = None
+            if payload is not None:
+                data_len = len(data)
+                pack_len = data_len - tail_len
+                if pack_len > 0:
+                    pack = data[:pack_len]
+            return pack, payload
 
     # Override
     def process_received(self, data: bytes):
         # the cached data maybe contain sticky packages,
         # so we need to process them circularly here
-        old_len = 0
-        new_len = len(data)
-        while new_len > 0 and new_len != old_len:
-            old_len = len(self.__chunks)
+        self.__package_received = True
+        while self.__package_received:
+            self.__package_received = False
             super().process_received(data=data)
-            new_len = len(self.__chunks)
             data = b''
 
     # Override
     def get_arrival(self, data: bytes) -> Optional[Arrival]:
-        self.__processing += 1
-        if self.__processing > 1:
-            # it's already in processing now,
-            # append the data to the tail of memory cache
-            self.__append_cache(data=data)
-            self.__processing -= 1
-            return None
-        # join the data to the memory cache
-        data = self.__join_cache(data=data)
         # check for first request
         if self.__handshaking:
-            ship = self.__handshake(data=data)
-            if ship is not None:
+            # join the data to the memory cache
+            data = self.__chunks + data
+            self.__chunks = b''
+            # parse handshake
+            res = WebSocket.handshake(stream=data)
+            if res is not None:
+                ship = WSDeparture(package=res, payload=b'')
                 self.append_departure(ship=ship)
                 self.__handshaking = False
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data
-                self.__push_back(data=data)
-            return None
-        # try to fetch a package
-        payload, remaining = WebSocket.parse(stream=data)
-        if len(remaining) > 0:
-            # put the remaining data back to memory cache
-            self.__push_back(data=remaining)
-        if payload is None:
-            # data empty?
-            return None
-        data_len = len(data)
-        pack_len = data_len - len(remaining)
-        if pack_len > 0:
-            pack = data[:pack_len]
-            return WSArrival(package=pack, payload=payload)
+                self.__chunks = data + self.__chunks
+        else:
+            # normal state
+            pack, payload = self._parse_package(data=data)
+            if pack is not None:
+                return WSArrival(package=pack, payload=payload)
 
     # Override
     def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
