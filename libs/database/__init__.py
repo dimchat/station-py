@@ -37,7 +37,7 @@ from dimp import Command
 from dimp import ReliableMessage
 from dimsdk import LoginCommand
 
-from ...utils import Singleton
+from ..utils import Singleton
 
 from .storage import Storage
 from .private_table import PrivateKeyTable

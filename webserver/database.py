@@ -37,7 +37,7 @@ from dimp import ID, ANYONE
 from dimp import ReliableMessage
 from dimsdk import Facebook
 
-from libs.common import Storage
+from libs.database import Storage
 
 from webserver.config import usr_path, msg_path, usr_url
 

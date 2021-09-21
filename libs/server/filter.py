@@ -37,7 +37,8 @@ from dimp import Envelope, ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
-from ..common import Database, CommonFacebook, SharedFacebook
+from ..database import Database
+from ..common import CommonFacebook, SharedFacebook
 
 from .messenger import ServerMessenger
 

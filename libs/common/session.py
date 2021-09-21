@@ -45,6 +45,7 @@ from typing import Optional
 from dimp import ReliableMessage
 
 from ..utils import Logging
+from ..database import Database
 
 from ..network import Connection, ConnectionDelegate
 from ..network import Gate, GateStatus, GateDelegate
@@ -55,7 +56,6 @@ from ..network import Hub, StreamHub, ClientHub
 from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 
-from .database import Database
 from .messenger import CommonMessenger
 from .queue import MessageQueue
 

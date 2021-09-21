@@ -33,10 +33,10 @@
 from dimp import ID, Content, ReliableMessage
 from dimsdk import ReceiptCommand
 
+from ..database.message_table import is_broadcast_message
+
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *
-from .database import Storage, Database, MessageBundle
-from .database.message_table import is_broadcast_message
 
 from .notification import NotificationNames
 from .session import BaseSession
@@ -120,13 +120,6 @@ __all__ = [
     'MuteCommandProcessor',
     'BlockCommandProcessor',
     'StorageCommandProcessor',
-
-    #
-    #   Database module
-    #
-    'Storage',
-    'Database',
-    'MessageBundle',
 
     #
     #   Common libs

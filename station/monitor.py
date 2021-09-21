@@ -41,8 +41,8 @@ from dimp import ID, NetworkType
 from libs.utils.log import current_time
 from libs.utils import Singleton, Log, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
+from libs.database import Storage
 from libs.common import NotificationNames
-from libs.common import Storage
 from libs.server import Session
 
 

@@ -46,7 +46,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
-from libs.common import Storage
+from libs.database import Storage
 
 from libs.client import Terminal, ClientMessenger
 

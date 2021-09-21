@@ -46,7 +46,7 @@ from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
-from ..common import Database, MessageBundle
+from ..database import Database, MessageBundle
 from ..common import BaseSession
 from ..common import CommonMessenger
 

@@ -44,8 +44,9 @@ from dimp import ContentType, Content, TextContent
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushService
+from ..database import Database
 from ..common import NotificationNames
-from ..common import Database, SharedFacebook
+from ..common import SharedFacebook
 from ..common import msg_receipt, msg_traced
 
 from .session import Session, SessionServer

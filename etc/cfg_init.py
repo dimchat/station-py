@@ -7,8 +7,8 @@ from dimsdk import Station
 from dimsdk.ans import keywords as ans_keywords
 
 from libs.utils import Log
-from libs.common import Storage, Database, KeyStore
-from libs.common import SharedFacebook, AddressNameServer
+from libs.database import Storage, Database
+from libs.common import KeyStore, SharedFacebook, AddressNameServer
 
 from etc.config import base_dir
 from etc.config import gsp_conf

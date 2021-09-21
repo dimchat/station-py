@@ -39,7 +39,7 @@ from dimp import ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
 from ..utils import Singleton
-from .database import Database
+from ..database import Database
 
 
 class CommonFacebook(Facebook):

@@ -33,9 +33,9 @@ from typing import Optional
 from dimp import NetworkType
 from dimp import ReliableMessage
 
+from ..database import Database
 from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
-from ..common import Database
 
 from .session import SessionServer
 from .messenger import ServerMessenger

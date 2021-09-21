@@ -3,7 +3,7 @@
 import os
 
 from libs.utils import Log
-from libs.common import Storage
+from libs.database import Storage
 
 etc = os.path.abspath(os.path.dirname(__file__))
 

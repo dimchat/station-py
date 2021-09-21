@@ -49,7 +49,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.utils import JSONFile
-from libs.common import Storage
+from libs.database import Storage
 from libs.common import SearchCommand
 from libs.common import ChatTextContentProcessor
 from libs.common import CommonFacebook

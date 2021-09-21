@@ -38,7 +38,7 @@ from dimp import Command
 from dimsdk import ReceiptCommand, BlockCommand
 from dimsdk import CommandProcessor
 
-from ..database import Database
+from ...database import Database
 
 
 g_database = Database()

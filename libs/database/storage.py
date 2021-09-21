@@ -26,8 +26,8 @@
 import time
 from typing import Optional, Union
 
-from ...utils import File, TextFile, JSONFile
-from ...utils import Log
+from ..utils import File, TextFile, JSONFile
+from ..utils import Log
 
 
 def current_time() -> str:

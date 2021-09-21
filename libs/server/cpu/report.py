@@ -40,9 +40,9 @@ from dimsdk import ReceiptCommand
 from dimsdk import CommandProcessor
 
 from ...utils import NotificationCenter
+from ...database import Database
 from ...common import NotificationNames
 from ...common import ReportCommand
-from ...common import Database
 
 from ..session import Session
 from ..messenger import ServerMessenger

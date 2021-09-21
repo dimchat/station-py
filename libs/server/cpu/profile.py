@@ -39,7 +39,8 @@ from dimp import ForwardContent, Command, DocumentCommand
 from dimsdk import CommandProcessor
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
-from ...common import Database, CommonFacebook
+from ...database import Database
+from ...common import CommonFacebook
 
 from ..messenger import ServerMessenger
 

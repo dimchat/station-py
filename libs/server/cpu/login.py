@@ -39,8 +39,9 @@ from dimsdk import LoginCommand, ReceiptCommand
 from dimsdk import CommandProcessor
 
 from ...utils import NotificationCenter, Logging
+from ...database import Database
 from ...common import NotificationNames
-from ...common import Database, CommonFacebook
+from ...common import CommonFacebook
 
 
 g_database = Database()

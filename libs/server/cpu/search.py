@@ -36,8 +36,8 @@ from dimp import Content, TextContent
 from dimp import Command
 from dimsdk import CommandProcessor
 
+from ...database import Database
 from ...common import SearchCommand
-from ...common import Database
 
 from ..session import SessionServer
 

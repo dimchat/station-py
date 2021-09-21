@@ -43,14 +43,14 @@ from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import NotificationCenter
+from ..database import Database
+from ..database.message_table import is_broadcast_message
 
 from ..network import Connection
 from ..network import ShipDelegate
 from ..network import Arrival, Departure
 
 from .notification import NotificationNames
-from .database import Database
-from .database.message_table import is_broadcast_message
 
 
 g_database = Database()
