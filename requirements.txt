@@ -9,6 +9,8 @@ pycryptodome>=3.7.3
 base58>=1.0.3
 ecdsa>=0.16.1
 
+redis>=3.5.3
+
 startrek  # 0.2.1
 tcp       # 0.2.7
 udp       # 0.4.9

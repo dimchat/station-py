@@ -26,8 +26,13 @@
 import time
 from typing import Optional, Union
 
+from redis import Redis
+
 from ..utils import File, TextFile, JSONFile
 from ..utils import Log
+
+
+g_redis = Redis()
 
 
 def current_time() -> str:
@@ -38,6 +43,10 @@ def current_time() -> str:
 class Storage:
 
     root = '/tmp/.dim'
+
+    @property
+    def redis(self) -> Redis:
+        return g_redis
 
     @classmethod
     def exists(cls, path: str) -> bool:

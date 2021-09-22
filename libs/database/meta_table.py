@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ==============================================================================
-
+import json
 import os
 from typing import Optional, Dict
 
@@ -49,6 +49,36 @@ class MetaTable(Storage):
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'meta.js')
 
+    def __save_json(self, identifier: ID, dictionary: dict) -> bool:
+        path = self.__path(identifier=identifier)
+        self.info('Saving meta into: %s' % path)
+        return self.write_json(container=dictionary, path=path)
+
+    def __load_json(self, identifier: ID) -> Optional[Meta]:
+        path = self.__path(identifier=identifier)
+        self.info('Loading meta from: %s' % path)
+        dictionary = self.read_json(path=path)
+        if dictionary is not None:
+            return Meta.parse(meta=dictionary)
+
+    def __save_redis(self, identifier: ID, dictionary: dict):
+        info = json.dumps(dictionary)
+        self.redis.hset(name='mkm.metas', key=str(identifier), value=info)
+
+    def __load_redis(self, identifier: ID) -> Optional[Meta, dict]:
+        info = self.redis.hget(name='mkm.metas', key=str(identifier))
+        if info is None:
+            return None
+        dictionary = json.loads(info)
+        if dictionary is None:
+            return self.__empty
+        if 'type' not in dictionary and 'version' not in dictionary:
+            return self.__empty
+        if 'key' not in dictionary:
+            return self.__empty
+        # OK
+        return Meta.parse(meta=dictionary)
+
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         if not meta.match_identifier(identifier=identifier):
             # raise ValueError('meta not match: %s, %s' % (identifier, meta))
@@ -61,25 +91,32 @@ class MetaTable(Storage):
             return True
         # 1. store into memory cache
         self.__caches[identifier] = meta
-        # 2. save into local storage
-        path = self.__path(identifier=identifier)
-        self.info('Saving meta into: %s' % path)
-        return self.write_json(container=meta.dictionary, path=path)
+        # 2. store into redis server
+        dictionary = meta.dictionary
+        self.__save_redis(identifier=identifier, dictionary=dictionary)
+        # 3. save into local storage
+        return self.__save_json(identifier=identifier, dictionary=dictionary)
 
     def meta(self, identifier: ID) -> Optional[Meta]:
         # 1. try from memory cache
         info = self.__caches.get(identifier)
-        if info is None:
-            # 2. try from local storage
-            path = self.__path(identifier=identifier)
-            self.info('Loading meta from: %s' % path)
-            dictionary = self.read_json(path=path)
-            info = Meta.parse(meta=dictionary)
-            if info is None:
-                # 2.1. place an empty meta for cache
-                info = self.__empty
-            # 3. store into memory cache
-            self.__caches[identifier] = info
-        if info is not self.__empty:
+        if info is not None:
+            # got from memory cache
             return info
-        self.error('meta not found: %s' % identifier)
+        # 2. try from redis server
+        info = self.__load_redis(identifier=identifier)
+        if info is not None and info is not self.__empty:
+            # got from redis server, store it into memory cache now
+            self.__caches[identifier] = info
+            return info
+        # 3. try from local storage
+        info = self.__load_json(identifier=identifier)
+        if info is not None:
+            # got from local storage, store it into redis server & memory cache
+            self.__save_redis(identifier=identifier, dictionary=info.dictionary)
+            self.__caches[identifier] = info
+            return info
+        else:
+            # file not found, place an empty meta for cache
+            self.__save_redis(identifier=identifier, dictionary=self.__empty)
+            self.error('meta not found: %s' % identifier)

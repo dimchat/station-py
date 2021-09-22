@@ -23,12 +23,27 @@
 # SOFTWARE.
 # ==============================================================================
 
+import json
 import os
 from typing import Optional, List, Dict
 
 from dimp import ID, Document
 
 from .storage import Storage
+
+
+def parse_info(dictionary: dict, identifier: Optional[ID], doc_type: Optional[str] = '*') -> Optional[Document]:
+    dt = dictionary.get('type')
+    if dt is not None:
+        doc_type = dt
+    data = dictionary.get('data')
+    if data is None:
+        # compatible with v1.0
+        data = dictionary.get('profile')
+    signature = dictionary.get('signature')
+    assert identifier is not None and data is not None and signature is not None,\
+        'doc error: %s -> %s' % (identifier, dictionary)
+    return Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
 
 
 class DocumentTable(Storage):
@@ -38,6 +53,7 @@ class DocumentTable(Storage):
         # memory caches
         self.__caches: Dict[ID, Document] = {}
         self.__empty = {'desc': 'just to avoid loading non-exists file again'}
+        self.__scanned = False
 
     """
         Profile for Entities (User/Group)
@@ -48,6 +64,72 @@ class DocumentTable(Storage):
     """
     def __path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
+
+    def __save_json(self, identifier: ID, dictionary: dict) -> bool:
+        path = self.__path(identifier=identifier)
+        self.info('Saving document into: %s' % path)
+        return self.write_json(container=dictionary, path=path)
+
+    def __load_json(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        path = self.__path(identifier=identifier)
+        self.info('Loading document from: %s' % path)
+        dictionary = self.read_json(path=path)
+        if dictionary is not None:
+            return parse_info(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
+
+    def __scan_json(self) -> List[Document]:
+        documents = []
+        directory = os.path.join(self.root, 'public')
+        array = os.listdir(directory)
+        for item in array:
+            path = os.path.join(directory, item, 'profile.js')
+            self.info('Loading document from: %s' % path)
+            dictionary = self.read_json(path=path)
+            if dictionary is None:
+                self.error('document not exists: %s' % item)
+                continue
+            identifier = ID.parse(identifier=dictionary.get('ID'))
+            if identifier is None:
+                self.error('document error: %s' % dictionary)
+                continue
+            doc = parse_info(dictionary=dictionary, identifier=identifier)
+            if doc is not None:
+                documents.append(doc)
+        self.debug('Scanned %d documents(s) from %s' % (len(documents), directory))
+        return documents
+
+    def __save_redis(self, identifier: ID, dictionary: dict):
+        info = json.dumps(dictionary)
+        self.redis.hset(name='mkm.documents', key=str(identifier), value=info)
+
+    def __load_redis(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document, dict]:
+        info = self.redis.hget(name='mkm.documents', key=str(identifier))
+        if info is None:
+            return None
+        dictionary = json.loads(info)
+        if dictionary is None:
+            return self.__empty
+        if 'ID' not in dictionary:
+            return self.__empty
+        if 'data' not in dictionary and 'profile' not in dictionary:
+            return self.__empty
+        if 'signature' not in dictionary:
+            return self.__empty
+        # OK
+        return parse_info(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
+
+    def __scan_redis(self) -> List[Document]:
+        documents = []
+        keys = self.redis.hkeys(name='mkm.documents')
+        for item in keys:
+            i = ID.parse(identifier=item)
+            if i is None:
+                # should not happen
+                continue
+            doc = self.document(identifier=i)
+            if doc is not None:
+                documents.append(doc)
+        return documents
 
     def save_document(self, document: Document) -> bool:
         if not document.valid:
@@ -62,62 +144,52 @@ class DocumentTable(Storage):
             return False
         # 1. store into memory cache
         self.__caches[identifier] = document
-        # 2. save into local storage
-        path = self.__path(identifier=identifier)
-        self.info('Saving document into: %s' % path)
-        return self.write_json(container=document.dictionary, path=path)
+        # 2. store into redis server
+        dictionary = document.dictionary
+        self.__save_redis(identifier=identifier, dictionary=dictionary)
+        # 3. save into local storage
+        return self.__save_json(identifier=identifier, dictionary=dictionary)
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         # 1. try from memory cache
-        info = self.__caches.get(identifier)
-        if info is None:
-            # 2. try from local storage
-            path = self.__path(identifier=identifier)
-            self.info('Loading document from: %s' % path)
-            dictionary = self.read_json(path=path)
-            if dictionary is not None:
-                data = dictionary.get('data')
-                if data is None:
-                    # compatible with v1.0
-                    data = dictionary.get('profile')
-                signature = dictionary.get('signature')
-                info = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
-            if info is None:
-                # 2.1. place an empty meta for cache
-                info = self.__empty
-            # 3. store into memory cache
-            self.__caches[identifier] = info
-        if info is not self.__empty:
-            return info
-        self.info('document not found: %s' % identifier)
+        doc = self.__caches.get(identifier)
+        if doc is not None:
+            # got from memory cache
+            return doc
+        # 2. try from redis server
+        doc = self.__load_redis(identifier=identifier, doc_type=doc_type)
+        if doc is not None and doc is not self.__empty:
+            # got from redis server, store it into memory cache now
+            self.__caches[identifier] = doc
+            return doc
+        # 3. try from local storage
+        doc = self.__load_json(identifier=identifier, doc_type=doc_type)
+        if doc is not None:
+            # got from local storage, store it into redis server & memory cache
+            self.__save_redis(identifier=identifier, dictionary=doc.dictionary)
+            self.__caches[identifier] = doc
+            return doc
+        else:
+            # file not found. place an empty meta for cache
+            self.__save_redis(identifier=identifier, dictionary=self.__empty)
+            self.info('document not found: %s' % identifier)
 
     def scan_documents(self) -> List[Document]:
         """ Scan all documents from data directory """
-        documents = []
-        directory = os.path.join(self.root, 'public')
-        array = os.listdir(directory)
-        for item in array:
-            path = os.path.join(directory, item, 'profile.js')
-            self.info('Loading document from: %s' % path)
-            dictionary = self.read_json(path=path)
-            if dictionary is None:
-                self.error('document not exists: %s' % item)
+        if self.__scanned:
+            # already scanned from local storage and stored into redis server
+            return self.__scan_redis()
+        documents = self.__scan_json()
+        # got all documents from local storage, store them into redis server & memory cache
+        for doc in documents:
+            identifier = doc.identifier
+            if identifier is None:
+                self.error('document error: %s' % doc)
                 continue
-            identifier = ID.parse(identifier=dictionary.get('ID'))
-            doc_type = dictionary.get('type')
-            if doc_type is None:
-                doc_type = '*'
-            data = dictionary.get('data')
-            if data is None:
-                # compatible with v1.0
-                data = dictionary.get('profile')
-            signature = dictionary.get('signature')
-            doc = Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
-            if doc is not None:
-                self.__caches[identifier] = doc
-                documents.append(doc)
-        self.debug('Scanned %d documents(s) from %s' % (len(documents), directory))
-        return documents
+            self.__save_redis(identifier=identifier, dictionary=doc.dictionary)
+            self.__caches[identifier] = doc
+        # OK
+        self.__scanned = True
 
 
 class DeviceTable(Storage):
