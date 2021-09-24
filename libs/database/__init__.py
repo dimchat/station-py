@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional, List
+from typing import Optional, List, Set
 
 from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document
@@ -39,25 +39,28 @@ from dimsdk import LoginCommand
 
 from ..utils import Singleton
 
-from .storage import Storage
-from .private_table import PrivateKeyTable
-from .meta_table import MetaTable
-from .document_table import DocumentTable, DeviceTable
-from .user_table import UserTable
-from .group_table import GroupTable
-from .message_table import MessageTable, MessageBundle
-from .ans_table import AddressNameTable
-
-from .login_table import LoginTable
+from .cache import CacheHolder, CachePool
+from .table_ans import AddressNameTable
+from .table_private import PrivateKeyTable
+from .table_meta import MetaTable
+from .table_document import DocumentTable
+from .table_device import DeviceTable
+from .table_user import UserTable
+from .table_login import LoginTable
+from .table_group import GroupTable
+from .table_message import MessageTable
 
 
 __all__ = [
-    'Storage',
-    # 'MetaTable', 'DocumentTable', 'PrivateKeyTable',
-    # 'DeviceTable',
-    # 'MessageTable',
-    'MessageBundle',
-    # 'AddressNameTable',
+    'CacheHolder', 'CachePool',
+
+    'AddressNameTable',
+    'MetaTable',
+    'DocumentTable', 'DeviceTable',
+    'UserTable', 'PrivateKeyTable', 'LoginTable',
+    'GroupTable',
+    'MessageTable',
+
     'Database',
 ]
 
@@ -85,6 +88,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/private/{ADDRESS}/secret.js'
+        file path: '.dim/private/{ADDRESS}/secret_keys.js'
     """
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M'):
         return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
@@ -103,6 +107,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/public/{ADDRESS}/meta.js'
+        redis key: 'mkm.meta.{ID}'
     """
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
@@ -115,6 +120,8 @@ class Database:
         ~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/public/{ADDRESS}/profile.js'
+        redis key: 'mkm.document.{ID}'
+        redis key: 'mkm.docs.keys'
     """
     def save_document(self, document: Document) -> bool:
         if not document.valid:
@@ -131,11 +138,15 @@ class Database:
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Document:
         return self.__document_table.document(identifier=identifier, doc_type=doc_type)
 
+    def scan_documents(self) -> List[Document]:
+        return self.__document_table.scan_documents()
+
     """
         User contacts
         ~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/contacts.txt'
+        redis key: 'mkm.user.{ID}.contacts'
     """
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, user=user)
@@ -148,6 +159,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
+        redis key: 'mkm.user.{ID}.cmd.contacts'
     """
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         return self.__user_table.save_contacts_command(cmd=cmd, sender=sender)
@@ -160,6 +172,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/block_stored.js'
+        redis key: 'mkm.user.{ID}.cmd.block'
     """
     def save_block_command(self, cmd: Command, sender: ID) -> bool:
         return self.__user_table.save_block_command(cmd=cmd, sender=sender)
@@ -186,6 +199,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/mute_stored.js'
+        redis key: 'mkm.user.{ID}.cmd.mute'
     """
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         return self.__user_table.save_mute_command(cmd=cmd, sender=sender)
@@ -212,6 +226,7 @@ class Database:
         ~~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/device.js'
+        redis key: 'dim.user.{ID}.device'
     """
     def save_device_token(self, token: str, identifier: ID) -> bool:
         return self.__device_table.save_device_token(token=token, identifier=identifier)
@@ -227,6 +242,7 @@ class Database:
         ~~~~~~~~~~~~~
 
         file path: '.dim/protected/{ADDRESS}/members.txt'
+        redis key: 'mkm.group.{ID}.members'
     """
     def save_members(self, members: List[ID], group: ID) -> bool:
         return self.__group_table.save_members(members=members, group=group)
@@ -244,28 +260,24 @@ class Database:
         Reliable message for Receivers
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/public/{ADDRESS}/messages/*.msg'
+        redis key: 'dkd.msg.{ID}.{sig}'
+        redis key: 'dkd.msg.{ID}.messages'
     """
-    def message_bundle(self, identifier: ID) -> MessageBundle:
-        return self.__message_table.message_bundle(identifier=identifier)
+    def save_message(self, msg: ReliableMessage) -> bool:
+        return self.__message_table.save_message(msg=msg)
 
-    def store_message(self, msg: ReliableMessage) -> bool:
-        return self.__message_table.store_message(msg=msg)
+    def remove_message(self, msg: ReliableMessage) -> bool:
+        return self.__message_table.remove_message(msg=msg)
 
-    def erase_message(self, msg: ReliableMessage) -> bool:
-        return self.__message_table.erase_message(msg=msg)
-
-    """
-        Scan all documents from data directory
-    """
-    def scan_documents(self) -> List[Document]:
-        return self.__document_table.scan_documents()
+    def messages(self, receiver: ID) -> List[ReliableMessage]:
+        return self.__message_table.messages(receiver=receiver)
 
     """
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/ans.txt'
+        redis key: 'dim.ans'
     """
     def ans_save_record(self, name: str, identifier: ID) -> bool:
         return self.__ans_table.save_record(name=name, identifier=identifier)
@@ -273,7 +285,7 @@ class Database:
     def ans_record(self, name: str) -> ID:
         return self.__ans_table.record(name=name)
 
-    def ans_names(self, identifier: ID) -> List[str]:
+    def ans_names(self, identifier: ID) -> Set[str]:
         return self.__ans_table.names(identifier=identifier)
 
     """
@@ -281,6 +293,7 @@ class Database:
         ~~~~~~~~~~
         
         file path: '.dim/public/{ADDRESS}/login.js'
+        redis key: 'mkm.user.{ID}.login'
     """
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         return self.__login_table.save_login(cmd=cmd, msg=msg)

@@ -24,20 +24,14 @@
 # ==============================================================================
 
 import os
-from typing import Optional, List, Dict
+from typing import Dict
 
 from dimp import ID, ANYONE, EVERYONE
 
-from .storage import Storage
+from .base import Storage
 
 
-class AddressNameTable(Storage):
-
-    def __init__(self):
-        super().__init__()
-        # memory caches
-        self.__caches: Optional[Dict[str, ID]] = None
-
+class AddressNameStorage(Storage):
     """
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
@@ -47,7 +41,7 @@ class AddressNameTable(Storage):
     def __path(self) -> str:
         return os.path.join(self.root, 'ans.txt')
 
-    def __load_records(self) -> Dict[str, ID]:
+    def load_records(self) -> Dict[str, ID]:
         path = self.__path()
         self.info('Loading ANS records from: %s' % path)
         dictionary = {}
@@ -72,46 +66,13 @@ class AddressNameTable(Storage):
         dictionary['founder'] = ID.parse(identifier='moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ')  # 'Albert Moky'
         return dictionary
 
-    def __save_records(self, caches: Dict[str, ID]) -> bool:
+    def save_records(self, records: Dict[str, ID]) -> bool:
         text = ''
-        keys = caches.keys()
+        keys = records.keys()
         for k in keys:
-            v = caches.get(k)
+            v = records.get(k)
             if v is not None:
                 text = text + k + '\t' + v + '\n'
         path = self.__path()
         self.info('Saving ANS records(%d) into: %s' % (len(keys), path))
         return self.write_text(text=text, path=path)
-
-    def save_record(self, name: str, identifier: ID) -> bool:
-        """ Save ANS record """
-        if name is None or len(name) == 0 or identifier is None:
-            return False
-        if self.__caches is None:
-            self.__caches = self.__load_records()
-        # store into memory cache
-        self.__caches[name] = identifier
-        # store into local storage
-        return self.__save_records(caches=self.__caches.copy())
-
-    def record(self, name: str) -> Optional[ID]:
-        """ Get ID by short name """
-        if self.__caches is None:
-            self.__caches = self.__load_records()
-        return self.__caches.get(name)
-
-    def names(self, identifier: ID) -> List[str]:
-        """ Get all short names with this ID """
-        if self.__caches is None:
-            self.__caches = self.__load_records()
-        # all names
-        if '*' == identifier:
-            return list(self.__caches.keys())
-        # get keys with the same value
-        caches = self.__caches.copy()
-        array = []
-        for k in caches:
-            v = caches[k]
-            if v == identifier:
-                array.append(k)
-        return array

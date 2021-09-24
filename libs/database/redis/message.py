@@ -1,0 +1,114 @@
+# -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2021 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
+
+import time
+from typing import List, Optional
+
+from dimp import json_encode, json_decode
+from dimp import ID, NetworkType
+from dimp import ReliableMessage
+
+from .base import Cache
+
+
+class MessageCache(Cache):
+
+    # only relay cached messages within 7 days
+    EXPIRES = 3600 * 24 * 7  # seconds
+
+    @property  # Override
+    def database(self) -> Optional[str]:
+        return 'dkd'
+
+    @property  # Override
+    def table(self) -> str:
+        return 'msg'
+
+    """
+        Reliable message for Receivers
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        redis key: 'dkd.msg.{ID}.{sig}'
+        redis key: 'dkd.msg.{ID}.messages'
+    """
+    def __msg_key(self, identifier: ID, sig: str) -> str:
+        return '%s.%s.%s.%s' % (self.database, self.table, identifier, sig)
+
+    def __messages_key(self, identifier: ID) -> str:
+        return '%s.%s.%s.messages' % (self.database, self.table, identifier)
+
+    def save_message(self, msg: ReliableMessage) -> bool:
+        if is_broadcast_message(msg=msg):
+            # ignore broadcast message
+            return False
+        sender = msg.sender
+        receiver = msg.receiver
+        if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+            # ignore station message
+            return False
+        signature = msg.get('signature')
+        sig = signature[-8:]  # last 6 bytes (signature in base64)
+        data = json_encode(msg.dictionary)
+        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        self.set(name=msg_key, value=data, expires=self.EXPIRES)
+        # append msg.signature to an ordered set
+        messages_key = self.__messages_key(identifier=receiver)
+        self.zadd(messages_key, sig, msg.time)
+        return True
+
+    def remove_message(self, msg: ReliableMessage) -> bool:
+        receiver = msg.receiver
+        signature = msg.get('signature')
+        sig = signature[-8:]  # last 6 bytes (signature in base64)
+        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        self.delete(msg_key)
+        # delete msg.signature from the ordered set
+        messages_key = self.__messages_key(identifier=receiver)
+        self.zrem(messages_key, sig)
+        return True
+
+    def messages(self, receiver: ID) -> List[ReliableMessage]:
+        key = self.__messages_key(identifier=receiver)
+        expired = int(time.time()) - self.EXPIRES
+        self.zremrangebyscore(name=key, min_score=0, max_score=expired)
+        array = []
+        # get all messages in the last 7 days
+        signatures = self.zscan(name=key)
+        for sig in signatures:
+            msg_key = self.__msg_key(identifier=receiver, sig=str(sig))
+            info = self.get(name=msg_key)
+            if info is None:
+                continue
+            msg = json_decode(data=info)
+            msg = ReliableMessage.parse(msg=msg)
+            array.append(msg)
+        return array
+
+
+def is_broadcast_message(msg: ReliableMessage):
+    if msg.receiver.is_broadcast:
+        return True
+    group = msg.group
+    return group is not None and group.is_broadcast
