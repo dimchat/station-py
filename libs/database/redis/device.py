@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 from typing import List, Optional
 
+from dimp import json_encode, json_decode
 from dimp import ID
 
 from ..dos.device import append_device_token
@@ -56,16 +56,16 @@ class DeviceCache(Cache):
         return '%s.%s.%s.device' % (self.database, self.table, identifier)
 
     def save_device(self, device: dict, identifier: ID) -> bool:
-        info = json.dumps(device)
+        value = json_encode(o=device)
         name = self.__device_key(identifier=identifier)
-        self.set(name=name, value=bytes(info), expires=self.EXPIRES)
+        self.set(name=name, value=value, expires=self.EXPIRES)
         return True
 
     def device(self, identifier: ID) -> Optional[dict]:
         name = self.__device_key(identifier=identifier)
         value = self.get(name=name)
         if value is not None:
-            return json.loads(value)
+            return json_decode(data=value)
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID

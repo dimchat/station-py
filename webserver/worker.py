@@ -29,9 +29,9 @@
 
 """
 
-import json
 from typing import Optional
 
+from dimp import utf8_encode, json_decode
 from dimp import ID
 from dimp import Content, TextContent
 from dimsdk import Facebook
@@ -77,7 +77,9 @@ class Worker:
         content = msg.get('content')
         if content is None:
             data = msg['data']
-            content = Content.parse(content=json.loads(data))
+            data = utf8_encode(string=data)
+            content = json_decode(data=data)
+            content = Content.parse(content=content)
             assert isinstance(content, TextContent), 'content error: %s' % data
             msg['content'] = content.dictionary
         # message url

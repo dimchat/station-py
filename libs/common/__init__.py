@@ -33,7 +33,7 @@
 from dimp import ID, Content, ReliableMessage
 from dimsdk import ReceiptCommand
 
-from ..database.message_table import is_broadcast_message
+from ..database.redis.message import is_broadcast_message
 
 from .protocol import SearchCommand, ReportCommand
 from .cpu import *

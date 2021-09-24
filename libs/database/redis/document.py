@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 from typing import Optional, List
 
+from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID, Document
 
 from ..dos.document import parse_document
@@ -62,10 +62,11 @@ class DocumentCache(Cache):
     def save_document(self, document: Document) -> bool:
         identifier = document.identifier
         dictionary = document.dictionary
-        info = json.dumps(dictionary)
+        value = json_encode(o=dictionary)
         name = self.__key(identifier=identifier)
-        self.set(name=name, value=bytes(info), expires=self.EXPIRES)
-        self.sadd(self.__docs_keys(), bytes(str(identifier)))
+        self.set(name=name, value=value, expires=self.EXPIRES)
+        item = utf8_encode(string=str(identifier))
+        self.sadd(self.__docs_keys(), item)
         return True
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
@@ -73,7 +74,7 @@ class DocumentCache(Cache):
         value = self.get(name=name)
         if value is None:
             return None
-        dictionary = json.loads(value)
+        dictionary = json_decode(data=value)
         assert dictionary is not None, 'document error: %s' % value
         return parse_document(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
 
@@ -82,7 +83,7 @@ class DocumentCache(Cache):
         documents = []
         keys = self.smembers(name=self.__docs_keys())
         for item in keys:
-            i = ID.parse(identifier=str(item))
+            i = ID.parse(identifier=utf8_decode(data=item))
             if i is None:
                 # should not happen
                 continue

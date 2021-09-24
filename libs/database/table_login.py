@@ -39,7 +39,7 @@ class LoginTable:
         super().__init__()
         self.__redis = LoginCache()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[tuple]] = CachePool.get_caches('document')
+        self.__caches: Dict[ID, CacheHolder[tuple]] = CachePool.get_caches('login')
 
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         if self.__redis.save_login(cmd=cmd, msg=msg):
@@ -60,7 +60,7 @@ class LoginTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder(value=(None, None))
+            self.__caches[identifier] = CacheHolder(value=(None, None), life_span=16)
         # 2. check redis server
         cmd, msg = self.__redis.login_info(identifier=identifier)
         if cmd is not None or msg is not None:

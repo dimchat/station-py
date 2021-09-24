@@ -163,7 +163,7 @@ class Worker(threading.Thread, Logging):
             if msg is None:
                 break
             else:
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
 
     def handle(self):
         while self.__running:
@@ -193,7 +193,7 @@ class Worker(threading.Thread, Logging):
                 priority = 0  # NORMAL
             if not self.__messenger.send_message(msg=msg, priority=priority):
                 self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
             return True
 
     def _reconnect(self) -> bool:
@@ -296,7 +296,7 @@ class Octopus(Logging):
             msg.pop('target')
             if not self.__deliver_message(msg=msg, neighbor=target):
                 self.error('failed to deliver message to: %s, save roaming message' % target)
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
             else:
                 self.info('message redirect to neighbor station: %s' % target)
 
@@ -304,7 +304,7 @@ class Octopus(Logging):
         sid = g_station.identifier
         if not self.__deliver_message(msg=msg, neighbor=sid):
             self.error('failed to deliver income msg: %s -> %s, %s' % (msg.sender, msg.receiver, msg.get('traces')))
-            g_database.store_message(msg=msg)
+            g_database.save_message(msg=msg)
         return None
 
 

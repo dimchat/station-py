@@ -56,7 +56,7 @@ class DeviceTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder()
+            self.__caches[identifier] = CacheHolder(life_span=16)
         # 2. check redis server
         info = self.__redis.device(identifier=identifier)
         if info is not None:

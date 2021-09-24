@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 from typing import Optional
 
+from dimp import json_encode, json_decode
 from dimp import ID, Meta
 
 from .base import Cache
@@ -55,8 +55,7 @@ class MetaCache(Cache):
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         dictionary = meta.dictionary
-        info = json.dumps(dictionary)
-        value = bytes(info)
+        value = json_encode(o=dictionary)
         key = self.__key(identifier=identifier)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
@@ -66,6 +65,6 @@ class MetaCache(Cache):
         value = self.get(name=key)
         if value is None:
             return None
-        dictionary = json.loads(value)
+        dictionary = json_decode(data=value)
         assert dictionary is not None, 'meta error: %s' % value
         return Meta.parse(meta=dictionary)

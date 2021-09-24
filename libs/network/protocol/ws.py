@@ -38,7 +38,7 @@ import hashlib
 import struct
 from typing import Optional
 
-from dimp import base64_encode
+from dimp import base64_encode, utf8_encode
 
 
 class WebSocket:
@@ -66,8 +66,9 @@ class WebSocket:
             return None
         key = stream[pos1:pos2].strip()
         sec = hashlib.sha1(key + cls.ws_magic).digest()
-        sec = base64_encode(sec)
-        return cls.ws_prefix + bytes(sec, 'UTF-8') + cls.ws_suffix
+        sec = base64_encode(data=sec)
+        sec = utf8_encode(string=sec)
+        return cls.ws_prefix + sec + cls.ws_suffix
 
     @classmethod
     def is_handshake(cls, stream: bytes) -> bool:

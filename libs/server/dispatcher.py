@@ -208,7 +208,7 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
     # 3. store in local cache file
-    g_database.store_message(msg)
+    g_database.save_message(msg=msg)
     # check mute-list
     sender = msg.sender
     group = msg.group

@@ -25,17 +25,15 @@
 
 from typing import Optional, Dict, List
 
-from redis import Redis, ConnectionPool
+from redis import Redis
 
 
-g_pool = ConnectionPool()
-
-g_db_0 = Redis(db=0, connection_pool=g_pool)  # default
-g_db_1 = Redis(db=1, connection_pool=g_pool)  # mkm.meta
-g_db_2 = Redis(db=2, connection_pool=g_pool)  # mkm.document
-g_db_3 = Redis(db=3, connection_pool=g_pool)  # mkm.user
-g_db_4 = Redis(db=4, connection_pool=g_pool)  # mkm.group
-g_db_8 = Redis(db=8, connection_pool=g_pool)  # dkd.msg
+g_db_0 = Redis(db=0)  # default
+g_db_1 = Redis(db=1)  # mkm.meta
+g_db_2 = Redis(db=2)  # mkm.document
+g_db_3 = Redis(db=3)  # mkm.user
+g_db_4 = Redis(db=4)  # mkm.group
+g_db_8 = Redis(db=8)  # dkd.msg
 
 g_dbs = {
     'mkm.meta': g_db_1,
@@ -86,7 +84,7 @@ class Cache:
 
     def exists(self, *names) -> bool:
         """ Check whether value exists with name """
-        return self.redis.exists(names)
+        return self.redis.exists(*names)
 
     def delete(self, *names):
         """ Remove value with name """
@@ -114,11 +112,11 @@ class Cache:
 
     def sadd(self, name: str, *values):
         """ Add values into a hash set with name """
-        self.redis.sadd(name=name, *values)
+        self.redis.sadd(name, *values)
 
     def srem(self, name: str, *values):
         """ Remove values from the hash set with name """
-        self.redis.srem(name=name, *values)
+        self.redis.srem(name, *values)
 
     def smembers(self, name: str) -> List[bytes]:
         """ Get all items of the hash set with name """
@@ -128,13 +126,13 @@ class Cache:
     #   Ordered Set
     #
 
-    def zadd(self, name: str, *args, **kwargs):
+    def zadd(self, name: str, mapping: dict):
         """ Add value with score into an ordered set with name """
-        self.redis.zadd(name=name, *args, **kwargs)
+        self.redis.zadd(name=name, mapping=mapping)
 
     def zrem(self, name: str, *values):
         """ Remove values from the ordered set with name """
-        self.redis.zrem(name=name, *values)
+        self.redis.zrem(name, *values)
 
     def zremrangebyscore(self, name: str, min_score: int, max_score: int):
         """ Remove items with score range [min, max] """
@@ -142,7 +140,11 @@ class Cache:
 
     def zscan(self, name: str) -> List[bytes]:
         """ Get all item (ordered by scores) """
-        return self.redis.zscan(name=name)
+        values = []
+        res = self.redis.zscan(name=name)
+        for item in res[1]:
+            values.append(item[0])
+        return values
 
     def zrange(self, name: str, start: int = 0, end: int = -1, desc: bool = False) -> List[bytes]:
         """ Get items with range [start, end] """

@@ -38,7 +38,7 @@
 import urllib.request
 from typing import Optional
 
-from dimp import hex_encode, utf8_encode, sha1
+from dimp import hex_encode, utf8_encode, utf8_decode, sha1
 from dimsdk.plugins.aes import random_bytes
 
 from .chatbot import ChatBot
@@ -86,7 +86,7 @@ class XiaoI(ChatBot):
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
         if data is not None:
-            return data.decode('utf-8')
+            return utf8_decode(data=data)
 
     def __fetch(self, response: str) -> Optional[str]:
         # check blah blah

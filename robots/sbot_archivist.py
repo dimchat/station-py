@@ -199,14 +199,9 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
             self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
         # respond
-        info = cmd.copy_dictionary(False)
-        info.pop('sn', None)
-        info.pop('time', None)
-        cmd = SearchCommand(cmd=info)
-        cmd.station = g_station.identifier
-        cmd.users = users
-        cmd.results = results
-        return cmd
+        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
+        res.station = g_station.identifier
+        return res
 
     def query_online_users(self) -> bool:
         now = int(time.time())

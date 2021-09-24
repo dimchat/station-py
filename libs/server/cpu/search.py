@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, List, Set
+from typing import Optional, List
 
 from dimp import ID, Meta
 from dimp import ReliableMessage
@@ -46,14 +46,14 @@ g_session_server = SessionServer()
 g_database = Database()
 
 
-def online_users(facebook, start: int, limit: int) -> (Set[ID], dict):
+def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
     users = g_session_server.active_users(start=start, limit=limit)
     results = {}
     for item in users:
         meta = facebook.meta(identifier=item)
         if isinstance(meta, Meta):
             results[str(item)] = meta.dictionary
-    return users, results
+    return list(users), results
 
 
 # noinspection PyUnusedLocal
@@ -79,26 +79,10 @@ class SearchCommandProcessor(CommandProcessor):
         else:
             # let search bot (archivist) to do the job
             return None
-        # extra info
-        info = cmd.copy_dictionary(False)
-        info.pop('type', None)
-        info.pop('sn', None)
-        info.pop('time', None)
-        info.pop('command', None)
-        info.pop('keywords', None)
-        info.pop('users', None)
-        info.pop('results', None)
-        # respond
-        cmd = SearchCommand()
-        for key, value in info.items():
-            cmd[key] = value
-        cmd.keywords = keywords
-        cmd.users = users
-        cmd.results = results
-        # station ID
+        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
         station = facebook.current_user
-        cmd.station = station.identifier
-        return cmd
+        res.station = station.identifier
+        return res
 
 
 # register

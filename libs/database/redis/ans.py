@@ -25,6 +25,7 @@
 
 from typing import Optional, Set
 
+from dimp import utf8_encode, utf8_decode
 from dimp import ID
 
 from .base import Cache
@@ -50,13 +51,13 @@ class AddressNameCache(Cache):
         return '%s.%s' % (self.database, self.table)
 
     def save_record(self, name: str, identifier: ID):
-        value = bytes(str(identifier))
+        value = utf8_encode(string=str(identifier))
         self.hset(name=self.__key(), key=name, value=value)
 
     def record(self, name: str) -> Optional[ID]:
         value = self.hget(name=self.__key(), key=name)
         if value is not None:
-            return ID.parse(identifier=str(value))
+            return ID.parse(identifier=utf8_decode(data=value))
 
     def names(self, identifier: ID) -> Set[str]:
         strings = set()

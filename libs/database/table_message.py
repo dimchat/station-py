@@ -63,7 +63,7 @@ class MessageTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[receiver] = CacheHolder(value=[])
+            self.__caches[receiver] = CacheHolder(value=[], life_span=16)
         # check redis server
         array = self.__redis.messages(receiver=receiver)
         if len(array) > 0:

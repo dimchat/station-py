@@ -25,6 +25,7 @@
 
 from typing import Optional, List
 
+from dimp import utf8_encode, utf8_decode
 from dimp import ID
 
 from .base import Cache
@@ -55,7 +56,7 @@ class GroupCache(Cache):
     def save_members(self, members: List[ID], group: ID) -> bool:
         members = ID.revert(members=members)
         text = '\n'.join(members)
-        value = bytes(text)
+        value = utf8_encode(string=text)
         key = self.__members_key(identifier=group)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
@@ -65,7 +66,7 @@ class GroupCache(Cache):
         value = self.get(name=key)
         if value is None:
             return []
-        text = str(value)
+        text = utf8_decode(data=value)
         return ID.convert(members=text.splitlines())
 
     def founder(self, group: ID) -> ID:

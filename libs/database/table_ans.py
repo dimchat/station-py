@@ -60,7 +60,7 @@ class AddressNameTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[name] = CacheHolder()
+            self.__caches[name] = CacheHolder(life_span=16)
         # 2. check redis server
         identifier = self.__redis.record(name=name)
         if identifier is not None:

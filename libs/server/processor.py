@@ -79,7 +79,7 @@ class ServerProcessor(CommonProcessor):
                 return messenger.deliver_message(msg=msg)
             else:
                 self.info('store cycled msg: %s, %s -> %s' % (station, sender, receiver))
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
                 return None
         # 1.2. check broadcast/group message
         if receiver.is_broadcast:

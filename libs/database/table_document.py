@@ -67,7 +67,7 @@ class DocumentTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder()
+            self.__caches[identifier] = CacheHolder(life_span=16)
         # 2. check redis server
         doc = self.__redis.document(identifier=identifier, doc_type=doc_type)
         if doc is not None:

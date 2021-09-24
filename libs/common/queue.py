@@ -43,8 +43,9 @@ from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import NotificationCenter
+
+from ..database.redis.message import is_broadcast_message
 from ..database import Database
-from ..database.message_table import is_broadcast_message
 
 from ..network import Connection
 from ..network import ShipDelegate
@@ -106,8 +107,8 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
         msg = self.__msg
         self.__msg = None
         if isinstance(msg, ReliableMessage):
+            g_database.remove_message(msg=msg)
             NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
-            g_database.erase_message(msg=msg)
 
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         self.__time = -1

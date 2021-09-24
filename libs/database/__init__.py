@@ -39,6 +39,8 @@ from dimsdk import LoginCommand
 
 from ..utils import Singleton
 
+from .dos import Storage
+
 from .cache import CacheHolder, CachePool
 from .table_ans import AddressNameTable
 from .table_private import PrivateKeyTable
@@ -52,6 +54,8 @@ from .table_message import MessageTable
 
 
 __all__ = [
+    'Storage',
+
     'CacheHolder', 'CachePool',
 
     'AddressNameTable',

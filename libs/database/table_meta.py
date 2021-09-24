@@ -49,7 +49,7 @@ class MetaTable:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
         if holder is None or holder.value is None:
-            self.__caches[identifier] = CacheHolder(value=meta)
+            self.__caches[identifier] = CacheHolder(value=meta, life_span=36000)
         # 2. check redis server
         old = self.__redis.meta(identifier=identifier)
         if old is None:
@@ -64,20 +64,20 @@ class MetaTable:
     def meta(self, identifier: ID) -> Optional[Meta]:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
-        if holder is not None and holder.alive:
+        if holder is not None and holder.value is not None:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder()
+            self.__caches[identifier] = CacheHolder(life_span=16)
         # 2. check redis server
         info = self.__redis.meta(identifier=identifier)
         if info is not None:
             # update memory cache
-            self.__caches[identifier] = CacheHolder(value=info)
+            self.__caches[identifier] = CacheHolder(value=info, life_span=36000)
             return info
         # 3. check local storage
         info = self.__dos.meta(identifier=identifier)
         if info is not None:
             # update memory cache & redis server
-            self.__caches[identifier] = CacheHolder(value=info)
+            self.__caches[identifier] = CacheHolder(value=info, life_span=36000)
             self.__redis.save_meta(meta=info, identifier=identifier)
             return info

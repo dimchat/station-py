@@ -46,7 +46,7 @@ from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
-from ..database import Database, MessageBundle
+from ..database import Database
 from ..common import BaseSession
 from ..common import CommonMessenger
 
@@ -65,7 +65,6 @@ class Session(BaseSession):
         self.__client_address = address  # sock.getpeername()
         self.__key = generate_session_key()
         self.__identifier = None
-        self.__bundle = None
         self.__scan_time = 0
 
     def __str__(self):
@@ -89,34 +88,21 @@ class Session(BaseSession):
 
     @identifier.setter
     def identifier(self, value: ID):
-        if self.__identifier != value:
-            self.__identifier = value
-            if value is None:
-                self.__bundle = None
-            else:
-                self.__bundle = g_database.message_bundle(identifier=value)
+        self.__identifier = value
 
     # Override
     def _idle(self):
-        bundle = self.__bundle
         now = int(time.time())
-        if bundle is None or now < self.__scan_time or not self.active:
+        if now < self.__scan_time or not self.active:
             super()._idle()
         else:
-            # TODO: set a 'dirty' flag to reduce local storage scanning
-            self.__scan_time = now + 16  # scan after 16 seconds
-            self.__scan(bundle=bundle)
-
-    def __scan(self, bundle: MessageBundle):
-        # self.debug('scanning messages for: %s' % self.identifier)
-        messages = bundle.all()
-        total = len(messages)
-        # self.info('%d message(s) loaded for: %s' % (total, self.identifier))
-        success = 0
-        for msg in messages:
-            if self.push_message(msg=msg):
-                success += 1
-        # self.info('%d/%d message(s) pushed to %s' % (success, total, self.identifier))
+            # set next scan time
+            self.__scan_time = now + 300  # scan after 5 minutes
+            # get all messages from redis server
+            messages = g_database.messages(receiver=self.identifier)
+            self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
+            for msg in messages:
+                self.push_message(msg=msg)
 
 
 @Singleton

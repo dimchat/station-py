@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 from typing import List, Optional
 
+from dimp import utf8_decode, json_encode, json_decode
 from dimp import ID, Command
 
 from .base import Cache
@@ -56,10 +56,9 @@ class UserCache(Cache):
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
         contacts = ID.revert(members=contacts)
-        text = '\n'.join(contacts)
-        value = bytes(text)
+        text = b'\n'.join(contacts)
         key = self.__contacts_key(identifier=user)
-        self.set(name=key, value=value, expires=self.EXPIRES)
+        self.set(name=key, value=text, expires=self.EXPIRES)
         return True
 
     def contacts(self, user: ID) -> List[ID]:
@@ -67,7 +66,7 @@ class UserCache(Cache):
         value = self.get(name=key)
         if value is None:
             return []
-        text = str(value)
+        text = utf8_decode(data=value)
         return ID.convert(members=text.splitlines())
 
     """
@@ -80,17 +79,16 @@ class UserCache(Cache):
         return '%s.%s.%s.cmd.contacts' % (self.database, self.table, identifier)
 
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
-        key = self.__contacts_key(identifier=sender)
+        key = self.__contacts_command_key(identifier=sender)
         return self.__save_command(key=key, cmd=cmd)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
-        key = self.__contacts_key(identifier=identifier)
+        key = self.__contacts_command_key(identifier=identifier)
         return self.__load_command(key=key)
 
     def __save_command(self, key: str, cmd: Command) -> bool:
         dictionary = cmd.dictionary
-        info = json.dumps(dictionary)
-        value = bytes(info)
+        value = json_encode(o=dictionary)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
@@ -98,7 +96,7 @@ class UserCache(Cache):
         value = self.get(name=key)
         if value is None:
             return None
-        dictionary = json.loads(value)
+        dictionary = json_decode(data=value)
         assert dictionary is not None, 'cmd error: %s' % value
         return Command(dictionary)
 

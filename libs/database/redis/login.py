@@ -23,10 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-import json
 import time
 from typing import Optional
 
+from dimp import json_encode, json_decode
 from dimp import NetworkType, ID, ReliableMessage
 from dimsdk import LoginCommand
 
@@ -57,8 +57,7 @@ class LoginCache(Cache):
 
     def __save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
-        info = json.dumps(dictionary)
-        value = bytes(info)
+        value = json_encode(o=dictionary)
         key = self.__login_key(identifier=msg.sender)
         return self.set(name=key, value=value, expires=self.EXPIRES)
 
@@ -68,7 +67,7 @@ class LoginCache(Cache):
         if value is None:
             # data not exists
             return None, None
-        dictionary = json.loads(value)
+        dictionary = json_decode(data=value)
         cmd = dictionary.get('cmd')
         msg = dictionary.get('msg')
         if cmd is not None:

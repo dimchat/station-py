@@ -26,7 +26,7 @@
 import time
 from typing import List, Optional
 
-from dimp import json_encode, json_decode
+from dimp import utf8_decode, json_encode, json_decode
 from dimp import ID, NetworkType
 from dimp import ReliableMessage
 
@@ -37,6 +37,10 @@ class MessageCache(Cache):
 
     # only relay cached messages within 7 days
     EXPIRES = 3600 * 24 * 7  # seconds
+
+    # only cache last 4096 messages for one user
+    # (it's about 2MB at least)
+    LIMIT = 4096
 
     @property  # Override
     def database(self) -> Optional[str]:
@@ -60,44 +64,58 @@ class MessageCache(Cache):
         return '%s.%s.%s.messages' % (self.database, self.table, identifier)
 
     def save_message(self, msg: ReliableMessage) -> bool:
-        if is_broadcast_message(msg=msg):
-            # ignore broadcast message
-            return False
-        sender = msg.sender
-        receiver = msg.receiver
-        if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-            # ignore station message
+        if ignore_message(msg=msg):
             return False
         signature = msg.get('signature')
         sig = signature[-8:]  # last 6 bytes (signature in base64)
-        data = json_encode(msg.dictionary)
-        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        data = json_encode(o=msg.dictionary)
+        msg_key = self.__msg_key(identifier=msg.receiver, sig=sig)
         self.set(name=msg_key, value=data, expires=self.EXPIRES)
         # append msg.signature to an ordered set
-        messages_key = self.__messages_key(identifier=receiver)
-        self.zadd(messages_key, sig, msg.time)
+        messages_key = self.__messages_key(identifier=msg.receiver)
+        self.zadd(name=messages_key, mapping={sig: msg.time})
         return True
 
     def remove_message(self, msg: ReliableMessage) -> bool:
+        if ignore_message(msg=msg):
+            return False
         receiver = msg.receiver
         signature = msg.get('signature')
         sig = signature[-8:]  # last 6 bytes (signature in base64)
-        msg_key = self.__msg_key(identifier=receiver, sig=sig)
-        self.delete(msg_key)
-        # delete msg.signature from the ordered set
-        messages_key = self.__messages_key(identifier=receiver)
-        self.zrem(messages_key, sig)
+        self.__remove(receiver=receiver, sig=sig)
         return True
 
+    def __remove(self, receiver: ID, sig: str):
+        # 1. delete msg.dictionary from redis server
+        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        self.delete(msg_key)
+        # 2. delete msg.signature from the ordered set
+        messages_key = self.__messages_key(identifier=receiver)
+        self.zrem(messages_key, sig)
+
+    def __tidy(self, signatures: List[bytes], receiver: ID) -> List[bytes]:
+        count = len(signatures) - self.LIMIT
+        if count <= 0:
+            return signatures
+        # drop messages before
+        for i in range(count):
+            sig = signatures[i]
+            self.__remove(receiver=receiver, sig=utf8_decode(data=sig))
+        # only return last 4096 messages
+        return signatures[count:]
+
     def messages(self, receiver: ID) -> List[ReliableMessage]:
+        # clear expired messages (7 days ago)
         key = self.__messages_key(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
         self.zremrangebyscore(name=key, min_score=0, max_score=expired)
         array = []
         # get all messages in the last 7 days
         signatures = self.zscan(name=key)
+        signatures = self.__tidy(signatures=signatures, receiver=receiver)
+        # get messages by receiver & signature
         for sig in signatures:
-            msg_key = self.__msg_key(identifier=receiver, sig=str(sig))
+            msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
             info = self.get(name=msg_key)
             if info is None:
                 continue
@@ -112,3 +130,15 @@ def is_broadcast_message(msg: ReliableMessage):
         return True
     group = msg.group
     return group is not None and group.is_broadcast
+
+
+def ignore_message(msg: ReliableMessage) -> bool:
+    if is_broadcast_message(msg=msg):
+        # ignore broadcast message
+        return True
+    if msg.sender.type == NetworkType.STATION:
+        # ignore message from station
+        return True
+    if msg.receiver.type == NetworkType.STATION:
+        # ignore message to station
+        return True

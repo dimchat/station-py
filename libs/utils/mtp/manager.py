@@ -28,12 +28,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-import base64
 import json
 import threading
 import time
 from typing import Optional, Union
 from weakref import WeakValueDictionary
+
+from dimp import base64_encode
 
 from udp.ba import IntegerData
 from udp import Hub
@@ -42,10 +43,6 @@ from dmtp import LocationValue, StringValue, BinaryValue
 from dmtp import LocationDelegate
 
 from .contact import Contact
-
-
-def base64_encode(data: bytes) -> str:
-    return base64.b64encode(data).decode('utf-8')
 
 
 class FieldValueEncoder(json.JSONEncoder):

@@ -167,6 +167,22 @@ class SearchCommand(Command):
         else:
             self['results'] = value
 
+    @classmethod
+    def respond(cls, request: Command, keywords: str, users: List[ID], results: dict):
+        cmd = SearchCommand(keywords=keywords, users=users, results=results)
+        # extra info
+        info = request.copy_dictionary(False)
+        info.pop('type', None)
+        info.pop('sn', None)
+        info.pop('time', None)
+        info.pop('command', None)
+        info.pop('keywords', None)
+        info.pop('users', None)
+        info.pop('results', None)
+        for key, value in info.items():
+            cmd[key] = value
+        return cmd
+
 
 # register
 Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))

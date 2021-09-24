@@ -35,11 +35,10 @@
     AI chat bot powered by Tuling
 """
 
-import json
 import urllib.request
 from typing import Optional
 
-from dimp import utf8_encode
+from dimp import json_encode, json_decode
 
 from .chatbot import ChatBot
 
@@ -56,8 +55,8 @@ class Tuling(ChatBot):
         # ignore codes
         self.ignores = [4003]
 
-    def __request(self, text: str) -> str:
-        return json.dumps({
+    def __request(self, text: str) -> bytes:
+        return json_encode(o={
             'perception': {
                 'inputText': {
                     'text': text,
@@ -78,12 +77,12 @@ class Tuling(ChatBot):
     def __post(self, text: str) -> dict:
         request = self.__request(text=text)
         headers = {'content-type': 'application/json'}
-        http_post = urllib.request.Request(self.api_url, data=utf8_encode(string=request), headers=headers)
+        http_post = urllib.request.Request(self.api_url, data=request, headers=headers)
         response = urllib.request.urlopen(http_post)
         data: bytes = response.read()
         if data is not None and len(data) > 0:
             # assert data[0] == ord('{') and data[-1] == ord('}'), 'response error: %s' % data
-            return json.loads(data)
+            return json_decode(data=data)
 
     def __fetch(self, response: dict) -> Optional[str]:
         # get code

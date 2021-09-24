@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import json
 from typing import Optional, Union
 
 from udp.ba import ByteArray, Data, MutableData, VarIntData
@@ -9,7 +8,7 @@ from udp.mtp import DataType, TransactionID, Header, Package
 from dmtp import Message
 from dmtp import StringValue, BinaryValue
 
-from dimp import base64_encode, base64_decode
+from dimp import base64_encode, base64_decode, utf8_decode, utf8_encode, json_encode, json_decode
 from dimp import ReliableMessage
 
 
@@ -41,7 +40,7 @@ class MTPUtils:
             assert isinstance(content, str), 'reliable message content error: %s' % content
             if content.startswith('{'):
                 # JsON
-                info['data'] = content.encode('utf-8')
+                info['data'] = utf8_encode(string=content)
             else:
                 # Base64
                 info['data'] = base64_decode(string=content)
@@ -67,12 +66,12 @@ class MTPUtils:
         if meta is not None:
             # dict to JSON
             assert isinstance(meta, dict), 'meta error: %s' % meta
-            info['meta'] = json.dumps(meta).encode('utf-8')
+            info['meta'] = json_encode(o=meta)
         visa = info.get('visa')
         if visa is not None:
             # dict to JSON
             assert isinstance(visa, dict), 'visa error: %s' % visa
-            info['visa'] = json.dumps(visa).encode('utf-8')
+            info['visa'] = json_encode(o=visa)
 
         # create as message
         msg = Message.new(info=info)
@@ -104,7 +103,7 @@ class MTPUtils:
         if content is not None:
             if content.startswith(b'{'):
                 # JsON
-                info['data'] = content.decode('utf-8')
+                info['data'] = utf8_decode(data=content)
             else:
                 # Base64
                 info['data'] = base64_encode(data=content)
@@ -124,11 +123,11 @@ class MTPUtils:
         meta = msg.meta
         if meta is not None and len(meta) > 0:
             # JSON to dict
-            info['meta'] = json.loads(meta)
+            info['meta'] = json_decode(data=meta)
         visa = msg.visa
         if visa is not None and len(visa) > 0:
             # JSON to dict
-            info['visa'] = json.loads(visa)
+            info['visa'] = json_decode(data=visa)
 
         # create reliable message
         return ReliableMessage.parse(msg=info)

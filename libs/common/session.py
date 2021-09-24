@@ -111,7 +111,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                 break
             msg = wrapper.msg
             if msg is not None:
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
 
     def __clean(self):
         # store expired messages
@@ -123,7 +123,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             if msg is not None:
                 # task failed
                 self.warning('clean expired msg: %s -> %s' % (msg.sender, msg.receiver))
-                g_database.store_message(msg=msg)
+                g_database.save_message(msg=msg)
 
     @property
     def messenger(self) -> Optional[CommonMessenger]:

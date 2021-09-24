@@ -56,7 +56,7 @@ class UserTable:
         if holder is not None and holder.alive:
             return holder.value
         else:  # place an empty holder to avoid frequent reading
-            self.__caches[user] = CacheHolder(value=[])
+            self.__caches[user] = CacheHolder(value=[], life_span=16)
         # 2. check redis server
         array = self.__redis.contacts(user=user)
         if array is not None and len(array) > 0:
