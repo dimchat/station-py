@@ -85,7 +85,11 @@ class UserTable:
         if cmd is not None:
             return cmd
         # check local storage
-        return self.__dos.contacts_command(identifier=identifier)
+        cmd = self.__dos.contacts_command(identifier=identifier)
+        if cmd is not None:
+            # update redis server
+            self.__redis.save_contacts_command(cmd=cmd, sender=identifier)
+            return cmd
 
     def save_block_command(self, cmd: Command, sender: ID) -> bool:
         # save to redis server
@@ -99,7 +103,11 @@ class UserTable:
         if cmd is not None:
             return cmd
         # check local storage
-        return self.__dos.block_command(identifier=identifier)
+        cmd = self.__dos.block_command(identifier=identifier)
+        if cmd is not None:
+            # update redis server
+            self.__redis.save_block_command(cmd=cmd, sender=identifier)
+            return cmd
 
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         # save to redis server
@@ -113,4 +121,8 @@ class UserTable:
         if cmd is not None:
             return cmd
         # check local storage
-        return self.__dos.mute_command(identifier=identifier)
+        cmd = self.__dos.mute_command(identifier=identifier)
+        if cmd is not None:
+            # update redis server
+            self.__redis.save_mute_command(cmd=cmd, sender=identifier)
+            return cmd
