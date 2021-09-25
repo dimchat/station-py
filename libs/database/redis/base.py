@@ -138,14 +138,6 @@ class Cache:
         """ Remove items with score range [min, max] """
         self.redis.zremrangebyscore(name=name, min=min_score, max=max_score)
 
-    def zscan(self, name: str) -> List[bytes]:
-        """ Get all item (ordered by scores) """
-        values = []
-        res = self.redis.zscan(name=name)
-        for item in res[1]:
-            values.append(item[0])
-        return values
-
     def zrange(self, name: str, start: int = 0, end: int = -1, desc: bool = False) -> List[bytes]:
         """ Get items with range [start, end] """
         return self.redis.zrange(name=name, start=start, end=end, desc=desc)

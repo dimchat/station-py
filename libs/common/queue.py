@@ -145,6 +145,7 @@ class MessageQueue:
             for wrapper in self.__wrappers:
                 item = wrapper.msg
                 if item is not None and item.get('signature') == signature:
+                    print('[QUEUE] duplicated message: %s' % signature)
                     return True
             # append with wrapper
             wrapper = MessageWrapper(msg=msg)

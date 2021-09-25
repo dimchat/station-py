@@ -32,7 +32,7 @@ import threading
 from typing import Optional, Union, List
 
 from startrek import ShipDelegate, StarGate
-from startrek import Arrival, Departure, DeparturePriority
+from startrek import Arrival, Departure, DeparturePriority, DepartureShip
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
@@ -140,6 +140,14 @@ class MTPStreamDocker(PackageDocker):
             self.__package_received = False
             super().process_received(data=data)
             data = b''
+
+    # Override
+    def next_departure(self, now: int) -> Optional[Departure]:
+        outgo = super().next_departure(now=now)
+        if outgo is not None and outgo.retries < DepartureShip.MAX_RETRIES:
+            # put back for next retry
+            self.append_departure(ship=outgo)
+        return outgo
 
     # Override
     def _create_arrival(self, pack: Package) -> Arrival:

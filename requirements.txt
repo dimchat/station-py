@@ -1,15 +1,15 @@
-Werkzeug>=1.0.1
-apns2>=0.4.1
-Flask>=1.1.2
-xmltodict>=0.12.0
-pika>=1.2.0
-jpush>=3.3.8
+Werkzeug   # 1.0.1
+apns2      # 0.4.1
+Flask      # 1.1.2
+xmltodict  # 0.12.0
+pika       # 1.2.0
+jpush      # 3.3.8
 
-pycryptodome>=3.7.3
-base58>=1.0.3
-ecdsa>=0.16.1
+pycryptodome  # 3.7.3
+base58        # 1.0.3
+ecdsa         # 0.16.1
 
-redis>=3.5.3
+redis      # 3.5.3
 
 startrek  # 0.2.1
 tcp       # 0.2.7

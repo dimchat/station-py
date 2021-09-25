@@ -38,9 +38,9 @@ class MessageCache(Cache):
     # only relay cached messages within 7 days
     EXPIRES = 3600 * 24 * 7  # seconds
 
-    # only cache last 4096 messages for one user
-    # (it's about 2MB at least)
-    LIMIT = 4096
+    # only scan no more than 2048 messages for one time
+    # (it's about 1MB at least)
+    LIMIT = 2048
 
     @property  # Override
     def database(self) -> Optional[str]:
@@ -93,35 +93,32 @@ class MessageCache(Cache):
         messages_key = self.__messages_key(identifier=receiver)
         self.zrem(messages_key, sig)
 
-    def __tidy(self, signatures: List[bytes], receiver: ID) -> List[bytes]:
-        count = len(signatures) - self.LIMIT
-        if count <= 0:
-            return signatures
-        # drop messages before
-        for i in range(count):
-            sig = signatures[i]
-            self.__remove(receiver=receiver, sig=utf8_decode(data=sig))
-        # only return last 4096 messages
-        return signatures[count:]
-
     def messages(self, receiver: ID) -> List[ReliableMessage]:
-        # clear expired messages (7 days ago)
+        # 0. clear expired messages (7 days ago)
         key = self.__messages_key(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
         self.zremrangebyscore(name=key, min_score=0, max_score=expired)
+        # 1. get number of messages
+        count = self.zcard(name=key)
+        if count < 1:
+            return []
+        if count > self.LIMIT:
+            count = self.LIMIT
         array = []
-        # get all messages in the last 7 days
-        signatures = self.zscan(name=key)
-        signatures = self.__tidy(signatures=signatures, receiver=receiver)
-        # get messages by receiver & signature
+        # 2. get all messages in the last 7 days
+        signatures = self.zrange(name=key, start=0, end=(count - 1))
         for sig in signatures:
+            # get messages by receiver & signature
             msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
             info = self.get(name=msg_key)
             if info is None:
                 continue
-            msg = json_decode(data=info)
-            msg = ReliableMessage.parse(msg=msg)
-            array.append(msg)
+            try:
+                msg = json_decode(data=info)
+                msg = ReliableMessage.parse(msg=msg)
+                array.append(msg)
+            except Exception as error:
+                print('[REDIS] message error: %s' % error)
         return array
 
 

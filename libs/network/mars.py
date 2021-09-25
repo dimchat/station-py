@@ -31,6 +31,8 @@
 import threading
 from typing import Optional, List
 
+from dimp import utf8_encode, utf8_decode, base64_encode, base64_decode
+
 from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
 from startrek import ArrivalShip, DepartureShip
 from startrek import StarGate
@@ -42,13 +44,23 @@ from .protocol import NetMsg, NetMsgHead, NetMsgSeq
 from .seeker import MarsPackageSeeker
 
 
+def encode_sn(sn: bytes) -> bytes:
+    """ Encode to Base-64 """
+    return utf8_encode(string=base64_encode(data=sn))
+
+
+def decode_sn(sn: bytes) -> bytes:
+    """ Decode from Base-64 """
+    return base64_decode(string=utf8_decode(data=sn))
+
+
 def seq_to_sn(seq: int) -> bytes:
     return seq.to_bytes(length=4, byteorder='big')
 
 
 def fetch_sn(body: bytes) -> Optional[bytes]:
     if body is not None and body.startswith(b'Mars SN:'):
-        pos = body.find(b'\n')
+        pos = body.find(b'\n', 8)
         assert pos > 8, 'Mars SN error: %s' % body
         return body[8:pos]
 
@@ -57,6 +69,8 @@ def get_sn(mars: NetMsg) -> bytes:
     sn = fetch_sn(body=mars.body)
     if sn is None:
         sn = seq_to_sn(seq=mars.head.seq)
+    else:
+        sn = decode_sn(sn=sn)
     return sn
 
 
@@ -99,12 +113,12 @@ class MarsHelper:
     @classmethod
     def create_push(cls, payload: bytes) -> NetMsg:
         """ create for PUSH_MESSAGE """
-        cmd = NetMsgHead.PUSH_MESSAGE
         seq = NetMsgSeq.generate()
+        sn = seq_to_sn(seq=seq)
+        sn = encode_sn(sn=sn)
         # pack 'sn + payload'
-        sn = seq.to_bytes(length=4, byteorder='big')
         body = b'Mars SN:' + sn + b'\n' + payload
-        head = NetMsgHead.new(cmd=cmd, body_len=len(body))
+        head = NetMsgHead.new(cmd=NetMsgHead.PUSH_MESSAGE, body_len=len(body))
         return NetMsg.new(head=head, body=body)
 
 
@@ -121,7 +135,7 @@ class MarsStreamArrival(ArrivalShip):
         return self.__mars
 
     @property
-    def payload(self) -> bytes:
+    def payload(self) -> Optional[bytes]:
         body = self.__mars.body
         sn = fetch_sn(body=body)
         if sn is None:
@@ -148,7 +162,7 @@ class MarsStreamDeparture(DepartureShip):
     def __init__(self, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
         super().__init__(priority=priority, delegate=delegate)
         self.__mars = mars
-        self.__sn = get_sn(mars=self.__mars)
+        self.__sn = get_sn(mars=mars)
         self.__fragments = [mars.data]
 
     @property
@@ -221,35 +235,37 @@ class MarsStreamDocker(PlainDocker):
     # Override
     def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
+        payload = ship.payload
+        if payload is None:
+            body_len = 0
+        else:
+            body_len = len(payload)
         mars = ship.package
         head = mars.head
-        body = mars.body
-        if body is None:
-            body = b''
         # 1. check head cmd
         cmd = head.cmd
         if cmd == NetMsgHead.SEND_MSG:
             # handle SEND_MSG request
-            if len(body) == 0:
+            if mars.body is None:
                 # FIXME: should not happen
                 return None
         elif cmd == NetMsgHead.NOOP:
             # handle NOOP request
-            if len(body) == 0 or body == NOOP:
+            if body_len == 0 or payload == NOOP:
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
                 self.append_departure(ship=ship)
                 return None
         # 2. check body
-        if len(body) == 4:
-            if body == PING:
+        if body_len == 4:
+            if payload == PING:
                 mars = MarsHelper.create_respond(head=head, payload=PONG)
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
                 self.append_departure(ship=ship)
                 return None
-            elif body == PONG:
+            elif payload == PONG:
                 # FIXME: client should not sent 'PONG' to server
                 return None
-            elif body == NOOP:
+            elif payload == NOOP:
                 # FIXME: 'NOOP' can only sent by NOOP cmd
                 return None
         # 3. check for response
@@ -257,6 +273,14 @@ class MarsStreamDocker(PlainDocker):
         # NOTICE: the delegate mast respond mars package with same cmd & seq,
         #         otherwise the connection will be closed by client
         return ship
+
+    # Override
+    def next_departure(self, now: int) -> Optional[Departure]:
+        outgo = super().next_departure(now=now)
+        if outgo is not None and outgo.retries < DepartureShip.MAX_RETRIES:
+            # put back for next retry
+            self.append_departure(ship=outgo)
+        return outgo
 
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:

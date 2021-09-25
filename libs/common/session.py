@@ -189,21 +189,18 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         wrapper = self.__queue.next()
         if wrapper is None:
             # no more new message
-            msg = None
-        else:
-            # if msg in this wrapper is None (means sent successfully),
-            # it must have been cleaned already, so it should not be empty here.
-            msg = wrapper.msg
+            return False
+        # if msg in this wrapper is None (means sent successfully),
+        # it must have been cleaned already, so it should not be empty here.
+        msg = wrapper.msg
         if msg is None:
             # no more new message
-            return False
+            return True
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        if self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
-            return True
-        else:
+        if not self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
             wrapper.fail()
-            return False
+        return True
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         if self.active:
@@ -217,6 +214,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         """ Push message when session active """
         if self.active:
             return self.__queue.append(msg=msg)
+        else:
+            self.error('session inactive, cannot push msg now: %s -> %s' % (msg.sender, msg.receiver))
 
     #
     #   GateDelegate
