@@ -53,25 +53,25 @@ class GroupTable:
     def members(self, group: ID) -> List[ID]:
         # 1. check memory cache
         holder = self.__caches.get(group)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[group] = CacheHolder(value=[], life_span=16)
-        # 2. check redis server
-        array = self.__redis.members(group=group)
-        if array is not None and len(array) > 0:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[group] = CacheHolder(value=[], life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            array = self.__redis.members(group=group)
+            if len(array) == 0:
+                # 3. check local storage
+                array = self.__dos.members(group=group)
+                if len(array) > 0:
+                    # update redis server
+                    self.__redis.save_members(members=array, group=group)
             # update memory cache
-            self.__caches[group] = CacheHolder(value=array)
-            return array
-        # 3. check local storage
-        array = self.__dos.members(group=group)
-        if array is not None and len(array) > 0:
-            # update memory cache & redis server
-            self.__caches[group] = CacheHolder(value=array)
-            self.__redis.save_members(members=array, group=group)
-            return array
-        # member not found
-        return []
+            holder = CacheHolder(value=array)
+            self.__caches[group] = holder
+        # OK, return cached value
+        return holder.value
 
     def founder(self, group: ID) -> ID:
         # TODO: get founder

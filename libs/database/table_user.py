@@ -56,25 +56,25 @@ class UserTable:
     def contacts(self, user: ID) -> List[ID]:
         # 1. check memory cache
         holder = self.__contacts.get(user)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__contacts[user] = CacheHolder(value=[], life_span=16)
-        # 2. check redis server
-        array = self.__redis.contacts(user=user)
-        if array is not None and len(array) > 0:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__contacts[user] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            array = self.__redis.contacts(user=user)
+            if len(array) == 0:
+                # 3. check local storage
+                array = self.__dos.contacts(user=user)
+                if len(array) > 0:
+                    # update redis server
+                    self.__redis.save_contacts(contacts=array, user=user)
             # update memory cache
-            self.__contacts[user] = CacheHolder(value=array)
-            return array
-        # 3. check local storage
-        array = self.__dos.contacts(user=user)
-        if array is not None and len(array) > 0:
-            # update memory cache & redis server
-            self.__contacts[user] = CacheHolder(value=array)
-            self.__redis.save_contacts(contacts=array, user=user)
-            return array
-        # member not found
-        return []
+            holder = CacheHolder(value=array)
+            self.__contacts[user] = holder
+        # OK, return cached value
+        return holder.value
 
     def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
         # 1. update memory cache
@@ -87,23 +87,25 @@ class UserTable:
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
         holder = self.__cmd_contacts.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__cmd_contacts[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        cmd = self.__redis.contacts_command(identifier=identifier)
-        if cmd is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__cmd_contacts[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            cmd = self.__redis.contacts_command(identifier=identifier)
+            if cmd is None:
+                # 3. check local storage
+                cmd = self.__dos.contacts_command(identifier=identifier)
+                if cmd is not None:
+                    # update redis server
+                    self.__redis.save_contacts_command(cmd=cmd, sender=identifier)
             # update memory cache
-            self.__cmd_contacts[identifier] = CacheHolder(value=cmd)
-            return cmd
-        # 3. check local storage
-        cmd = self.__dos.contacts_command(identifier=identifier)
-        if cmd is not None:
-            # update memory cache & redis server
-            self.__cmd_contacts[identifier] = CacheHolder(value=cmd)
-            self.__redis.save_contacts_command(cmd=cmd, sender=identifier)
-            return cmd
+            holder = CacheHolder(value=cmd)
+            self.__cmd_contacts[identifier] = holder
+        # OK, return cached value
+        return holder.value
 
     def save_block_command(self, cmd: Command, sender: ID) -> bool:
         # 1. update memory cache
@@ -116,23 +118,25 @@ class UserTable:
     def block_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
         holder = self.__cmd_block.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__cmd_block[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        cmd = self.__redis.block_command(identifier=identifier)
-        if cmd is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__cmd_block[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            cmd = self.__redis.block_command(identifier=identifier)
+            if cmd is None:
+                # 3. check local storage
+                cmd = self.__dos.block_command(identifier=identifier)
+                if cmd is not None:
+                    # update redis server
+                    self.__redis.save_block_command(cmd=cmd, sender=identifier)
             # update memory cache
-            self.__cmd_block[identifier] = CacheHolder(value=cmd)
-            return cmd
-        # check local storage
-        cmd = self.__dos.block_command(identifier=identifier)
-        if cmd is not None:
-            # update memory cache & redis server
-            self.__cmd_block[identifier] = CacheHolder(value=cmd)
-            self.__redis.save_block_command(cmd=cmd, sender=identifier)
-            return cmd
+            holder = CacheHolder(value=cmd)
+            self.__cmd_block[identifier] = holder
+        # OK, return cached value
+        return holder.value
 
     def save_mute_command(self, cmd: Command, sender: ID) -> bool:
         # 1. update memory cache
@@ -145,20 +149,22 @@ class UserTable:
     def mute_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
         holder = self.__cmd_mute.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__cmd_mute[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        cmd = self.__redis.mute_command(identifier=identifier)
-        if cmd is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__cmd_mute[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            cmd = self.__redis.mute_command(identifier=identifier)
+            if cmd is None:
+                # 3. check local storage
+                cmd = self.__dos.mute_command(identifier=identifier)
+                if cmd is not None:
+                    # update redis server
+                    self.__redis.save_mute_command(cmd=cmd, sender=identifier)
             # update memory cache
-            self.__cmd_mute[identifier] = CacheHolder(value=cmd)
-            return cmd
-        # check local storage
-        cmd = self.__dos.mute_command(identifier=identifier)
-        if cmd is not None:
-            # update memory cache & redis server
-            self.__cmd_mute[identifier] = CacheHolder(value=cmd)
-            self.__redis.save_mute_command(cmd=cmd, sender=identifier)
-            return cmd
+            holder = CacheHolder(value=cmd)
+            self.__cmd_mute[identifier] = holder
+        # OK, return cached value
+        return holder.value

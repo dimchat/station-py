@@ -64,33 +64,64 @@ class DocumentTable:
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        doc = self.__redis.document(identifier=identifier, doc_type=doc_type)
-        if doc is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            doc = self.__redis.document(identifier=identifier, doc_type=doc_type)
+            if doc is None:
+                # 3. check local storage
+                doc = self.__dos.document(identifier=identifier, doc_type=doc_type)
+                if doc is not None:
+                    # update redis server
+                    self.__redis.save_document(document=doc)
             # update memory cache
-            self.__caches[identifier] = CacheHolder(value=doc)
-            return doc
-        # 3. check local storage
-        doc = self.__dos.document(identifier=identifier, doc_type=doc_type)
-        if doc is not None:
-            # update memory cache & redis server
-            self.__caches[identifier] = CacheHolder(value=doc)
-            self.__redis.save_document(document=doc)
-            return doc
+            holder = CacheHolder(value=doc)
+            self.__caches[identifier] = holder
+        # OK, return cached value
+        return holder.value
+
+    # def scan_documents(self) -> List[Document]:
+    #     """ Scan all documents """
+    #     holder = self.__scanned
+    #     if holder is None:
+    #         # place an empty holder to avoid frequent reading
+    #         self.__scanned = CacheHolder(life_span=3600)
+    #         # first time, scan from local storage
+    #         documents = self.__dos.scan_documents()
+    #         for doc in documents:
+    #             # update redis server
+    #             self.__redis.save_document(document=doc)
+    #         # update memory cache
+    #         holder = CacheHolder(value=documents)
+    #         self.__scanned = holder
+    #     elif not holder.alive:
+    #         # renewal the holder to avoid frequent reading
+    #         holder.renewal()
+    #         # not first time, only scan redis server
+    #         documents = self.__redis.scan_documents()
+    #         # update memory cache
+    #         holder = CacheHolder(value=documents)
+    #         self.__scanned = holder
+    #     # OK, return cached value
+    #     return holder.value
 
     def scan_documents(self) -> List[Document]:
         """ Scan all documents from data directory """
         holder = self.__scanned
-        if holder is not None and holder.alive:
-            return self.__redis.scan_documents()
-        else:
-            self.__scanned = CacheHolder()
-        # scan local storage
-        documents = self.__dos.scan_documents()
-        for doc in documents:
-            self.__redis.save_document(document=doc)
-        return documents
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__scanned = CacheHolder()
+            else:
+                holder.renewal(duration=3600)
+            # scan from local storage
+            documents = self.__dos.scan_documents()
+            # update memory cache
+            holder = CacheHolder(value=documents)
+            self.__scanned = holder
+        # OK, return cached value
+        return holder.value

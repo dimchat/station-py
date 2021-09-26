@@ -53,23 +53,25 @@ class DeviceTable:
     def device(self, identifier: ID) -> Optional[dict]:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        info = self.__redis.device(identifier=identifier)
-        if info is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            info = self.__redis.device(identifier=identifier)
+            if info is None:
+                # 3. check local storage
+                info = self.__dos.device(identifier=identifier)
+                if info is not None:
+                    # update redis server
+                    self.__redis.save_device(device=info, identifier=identifier)
             # update memory cache
-            self.__caches[identifier] = CacheHolder(value=info)
-            return info
-        # 3. check local storage
-        info = self.__dos.device(identifier=identifier)
-        if info is not None:
-            # update memory cache & redis server
-            self.__caches[identifier] = CacheHolder(value=info)
-            self.__redis.save_device(device=info, identifier=identifier)
-            return info
+            holder = CacheHolder(value=info)
+            self.__caches[identifier] = holder
+        # OK, return cached value
+        return holder.value
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # 1. update memory cache

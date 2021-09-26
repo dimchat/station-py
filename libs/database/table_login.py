@@ -57,12 +57,16 @@ class LoginTable:
     def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         # 1. check memory cache
         holder = self.__caches.get(identifier)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder(value=(None, None), life_span=16)
-        # 2. check redis server
-        cmd, msg = self.__redis.login_info(identifier=identifier)
-        if cmd is not None or msg is not None:
-            self.__caches[identifier] = CacheHolder(value=(cmd, msg))
-        return cmd, msg
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[identifier] = CacheHolder(value=(None, None), life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            cmd, msg = self.__redis.login_info(identifier=identifier)
+            # update memory cache
+            holder = CacheHolder(value=(cmd, msg))
+            self.__caches[identifier] = holder
+        # OK, return cached value
+        return holder.value

@@ -49,35 +49,40 @@ class MetaTable:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
         if holder is None or holder.value is None:
+            # save to memory cache
             self.__caches[identifier] = CacheHolder(value=meta, life_span=36000)
         # 2. check redis server
         old = self.__redis.meta(identifier=identifier)
         if old is None:
+            # save to redis server
             self.__redis.save_meta(meta=meta, identifier=identifier)
         # 3. check local storage
         old = self.meta(identifier=identifier)
-        if old is not None:
-            # meta will not changed, we DO NOT need to update it here
-            return True
-        return self.__dos.save_meta(meta=meta, identifier=identifier)
+        if old is None:
+            # save to local storage
+            return self.__dos.save_meta(meta=meta, identifier=identifier)
+        # meta will not changed, we DO NOT need to update it here
+        return True
 
     def meta(self, identifier: ID) -> Optional[Meta]:
         # 1. check memory cache
         holder = self.__caches.get(identifier)
-        if holder is not None and holder.value is not None:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[identifier] = CacheHolder(life_span=16)
-        # 2. check redis server
-        info = self.__redis.meta(identifier=identifier)
-        if info is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            info = self.__redis.meta(identifier=identifier)
+            if info is None:
+                # 3. check local storage
+                info = self.__dos.meta(identifier=identifier)
+                if info is not None:
+                    # update redis server
+                    self.__redis.save_meta(meta=info, identifier=identifier)
             # update memory cache
-            self.__caches[identifier] = CacheHolder(value=info, life_span=36000)
-            return info
-        # 3. check local storage
-        info = self.__dos.meta(identifier=identifier)
-        if info is not None:
-            # update memory cache & redis server
-            self.__caches[identifier] = CacheHolder(value=info, life_span=36000)
-            self.__redis.save_meta(meta=info, identifier=identifier)
-            return info
+            holder = CacheHolder(value=info, life_span=36000)
+            self.__caches[identifier] = holder
+        # OK, return cached value
+        return holder.value

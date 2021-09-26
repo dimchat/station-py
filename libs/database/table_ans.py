@@ -40,7 +40,8 @@ class AddressNameTable:
         self.__redis = AddressNameCache()
         self.__dos = AddressNameStorage()
         # memory caches
-        self.__caches: Dict[str, CacheHolder[ID]] = CachePool.get_caches('ans')
+        self.__caches: Dict[str, CacheHolder[ID]] = CachePool.get_caches('ans.record')
+        self.__names: Dict[ID, CacheHolder[Set[str]]] = CachePool.get_caches('ans.names')
 
     def save_record(self, name: str, identifier: ID) -> bool:
         # 1. update memory cache
@@ -49,25 +50,42 @@ class AddressNameTable:
         self.__redis.save_record(name=name, identifier=identifier)
         # 3. update local storage
         records = self.__dos.load_records()
-        if name in records:
-            return False
-        records[name] = identifier
+        if identifier is None:
+            records.pop(name, None)
+        else:
+            records[name] = identifier
         return self.__dos.save_records(records=records)
 
     def record(self, name: str) -> Optional[ID]:
         # 1. check memory cache
         holder = self.__caches.get(name)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[name] = CacheHolder(life_span=16)
-        # 2. check redis server
-        identifier = self.__redis.record(name=name)
-        if identifier is not None:
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[name] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            identifier = self.__redis.record(name=name)
             # update memory cache
+            holder = CacheHolder(value=identifier)
             self.__caches[name] = CacheHolder(value=identifier)
-            return identifier
+        # OK, return cached value
+        return holder.value
 
     def names(self, identifier: ID) -> Set[str]:
-        # TODO: cache to avoid frequent reading
-        return self.__redis.names(identifier=identifier)
+        # 1. check memory cache
+        holder = self.__names.get(identifier)
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__names[identifier] = CacheHolder(life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            aliases = self.__redis.names(identifier=identifier)
+            # update memory cache
+            holder = CacheHolder(value=aliases)
+            self.__names[identifier] = holder
+        # OK, return cached value
+        return holder.value

@@ -51,6 +51,9 @@ class CacheHolder(Generic[V]):
     def alive(self) -> bool:
         return int(time.time()) < self.__expired
 
+    def renewal(self, duration: int = 128):
+        self.__expired = int(time.time()) + duration
+
 
 class CachePool(Generic[K, V]):
 

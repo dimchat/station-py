@@ -58,14 +58,18 @@ class MessageTable:
             return True
 
     def messages(self, receiver: ID) -> List[ReliableMessage]:
-        # check memory cache
+        # 1. check memory cache
         holder = self.__caches.get(receiver)
-        if holder is not None and holder.alive:
-            return holder.value
-        else:  # place an empty holder to avoid frequent reading
-            self.__caches[receiver] = CacheHolder(value=[], life_span=16)
-        # check redis server
-        array = self.__redis.messages(receiver=receiver)
-        if len(array) > 0:
-            self.__caches[receiver] = CacheHolder(value=array)
-        return array
+        if holder is None or not holder.alive:
+            # renewal or place an empty holder to avoid frequent reading
+            if holder is None:
+                self.__caches[receiver] = CacheHolder(value=[], life_span=128)
+            else:
+                holder.renewal()
+            # 2. check redis server
+            array = self.__redis.messages(receiver=receiver)
+            # update memory cache
+            holder = CacheHolder(value=array)
+            self.__caches[receiver] = holder
+        # OK, return cached value
+        return holder.value
