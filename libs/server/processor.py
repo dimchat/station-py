@@ -76,6 +76,7 @@ class ServerProcessor(CommonProcessor):
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
                 self.info('deliver cycled msg: %s, %s -> %s' % (station, sender, receiver))
+                g_database.save_message(msg=msg)
                 return messenger.deliver_message(msg=msg)
             else:
                 self.info('store cycled msg: %s, %s -> %s' % (station, sender, receiver))
@@ -93,9 +94,11 @@ class ServerProcessor(CommonProcessor):
             # or, if this is is an ordinary group message,
             # just deliver it to the group assistant
             # and return the response to the sender.
+            g_database.save_message(msg=msg)
             return messenger.deliver_message(msg=msg)
         elif receiver.type != NetworkType.STATION:
             # receiver not station, deliver it
+            g_database.save_message(msg=msg)
             return messenger.deliver_message(msg=msg)
         #
         # 2. process message
@@ -108,6 +111,7 @@ class ServerProcessor(CommonProcessor):
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
+                g_database.save_message(msg=msg)
                 return messenger.deliver_message(msg=msg)
             else:
                 raise error

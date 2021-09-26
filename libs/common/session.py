@@ -98,33 +98,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             hub.put_channel(channel=channel)
         return hub
 
-    def __del__(self):
-        # store stranded messages
-        self.__flush()
-
-    def __flush(self):
-        # store all messages
-        self.info('saving %d unsent message(s)' % self.__queue.length)
-        while True:
-            wrapper = self.__queue.pop()
-            if wrapper is None:
-                break
-            msg = wrapper.msg
-            if msg is not None:
-                g_database.save_message(msg=msg)
-
-    def __clean(self):
-        # store expired messages
-        while True:
-            wrapper = self.__queue.eject()
-            if wrapper is None:
-                break
-            msg = wrapper.msg
-            if msg is not None:
-                # task failed
-                self.warning('clean expired msg: %s -> %s' % (msg.sender, msg.receiver))
-                g_database.save_message(msg=msg)
-
     @property
     def messenger(self) -> Optional[CommonMessenger]:
         return self.__messenger()
@@ -161,7 +134,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def finish(self):
         self.gate.stop()
         self.__running = False
-        self.__flush()
 
     @property
     def running(self) -> bool:
@@ -180,8 +152,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if self.gate.process():
             # processed income/outgo packages
             return True
-        # FIXME: message will be reloaded after stored into files
-        self.__clean()
         if not self.active:
             # inactive
             return False

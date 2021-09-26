@@ -171,7 +171,7 @@ class SearchCommand(Command):
     def respond(cls, request: Command, keywords: str, users: List[ID], results: dict):
         cmd = SearchCommand(keywords=keywords, users=users, results=results)
         # extra info
-        info = request.copy_dictionary(False)
+        info = request.copy_dictionary()
         info.pop('type', None)
         info.pop('sn', None)
         info.pop('time', None)

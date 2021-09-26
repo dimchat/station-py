@@ -107,6 +107,9 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
         msg = self.__msg
         self.__msg = None
         if isinstance(msg, ReliableMessage):
+            signature = msg.get('signature')
+            sig = signature[-8:]  # last 6 bytes (signature in base64)
+            print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
             g_database.remove_message(msg=msg)
             NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
 

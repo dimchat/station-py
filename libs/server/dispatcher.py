@@ -188,7 +188,9 @@ def _redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
     cnt = _push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
         Log.warning('remote station (%s) not connected, trying bridge (%s)...' % (neighbor, bridge))
-        msg['target'] = str(neighbor)
+        clone = msg.copy_dictionary()
+        clone['target'] = str(neighbor)
+        msg = ReliableMessage.parse(msg=clone)
         cnt = _push_message(msg=msg, receiver=bridge)
         if cnt == 0:
             Log.error('station bridge (%s) not connected, cannot redirect.' % bridge)
@@ -207,9 +209,7 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
         cnt += _redirect_message(msg=msg, neighbor=sid, bridge=station)
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
-    # 3. store in local cache file
-    g_database.save_message(msg=msg)
-    # check mute-list
+    # 3. check mute-list
     sender = msg.sender
     group = msg.group
     msg_type = msg.type
