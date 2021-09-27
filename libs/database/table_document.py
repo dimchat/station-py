@@ -115,7 +115,7 @@ class DocumentTable:
         if holder is None or not holder.alive:
             # renewal or place an empty holder to avoid frequent reading
             if holder is None:
-                self.__scanned = CacheHolder()
+                self.__scanned = CacheHolder(value=[])
             else:
                 holder.renewal(duration=3600)
             # scan from local storage

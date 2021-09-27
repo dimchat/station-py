@@ -35,7 +35,7 @@ import sys
 import os
 import threading
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -60,56 +60,79 @@ from etc.cfg_init import all_stations, g_database
 #
 #   User Info Cache
 #
-g_cached_user_info = {}     # user ID -> user info
-g_cached_online_users = {}  # station ID -> user list
+g_cached_user_info: Dict[ID, str] = {}          # user ID -> user info
+g_cached_online_users: Dict[ID, List[ID]] = {}  # station ID -> user list
+
+g_info = {
+    'users': [],  # user ID list
+    'loading': False,
+}
+
+user_id_types = [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]
 
 
-def reload():
+def reload_user_info():
+    """ Scan all users """
+    if g_info.get('loading'):
+        return False
+    g_info['loading'] = True
     users = []
     documents = g_database.scan_documents()
     for doc in documents:
+        # get ID
         identifier = doc.identifier
-        info = str(identifier).lower()
+        if identifier is None or identifier.type not in user_id_types:
+            # ignore
+            continue
+        # get name
         name = doc.name
-        if name is not None:
-            info += ' ' + name.lower()
-        g_cached_user_info[identifier] = info
+        if name is None:
+            info = str(identifier)
+        else:
+            info = '%s %s' % (identifier, name)
+        # cache
+        g_cached_user_info[identifier] = info.lower()
         users.append(identifier)
-    g_cached_user_info['users'] = users
+    g_info['users'] = users
+    g_info['loading'] = False
 
 
-def search(keywords: List[str], start: int, limit: int) -> (list, dict):
+def search(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
+    users: List[ID] = []
     results = {}
     if limit <= 0:
         end = 1024
     else:
         end = start + limit
     index = -1
-    users = g_cached_user_info.get('users', [])
-    for identifier in users:
-        if not isinstance(identifier, ID):
-            # 'expired'
-            continue
-        if identifier.type not in [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]:
-            # ignore
-            continue
+    all_users = g_info.get('users')
+    for identifier in all_users:
         match = True
+        # 1. check each keyword with user info
         info = g_cached_user_info.get(identifier, '')
         for kw in keywords:
             if len(kw) > 0 > info.find(kw):
                 match = False
                 break
-        if match:
-            meta = g_facebook.meta(identifier=identifier)
-            if meta is not None:
-                index += 1
-                if index >= end:
-                    # mission accomplished
-                    break
-                elif index >= start:
-                    # got it
-                    results[str(identifier)] = meta.dictionary
-    return list(results.keys()), results
+        if not match:
+            continue
+        # 2. check user meta
+        meta = g_facebook.meta(identifier=identifier)
+        if meta is None:
+            # user meta not found, skip
+            continue
+        # 3. check limit
+        index += 1
+        if index < start:
+            # skip
+            continue
+        elif index >= end:
+            # mission accomplished
+            break
+        # got it
+        users.append(identifier)
+        results[str(identifier)] = meta.dictionary
+    return users, results
 
 
 def recent_users(start: int, limit: int) -> (list, dict):
@@ -241,7 +264,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         if now > self.__scan_expired:
             self.__scan_expired = now + 1800  # expired 30 minutes at least
             self.info('scanning documents...')
-            threading.Thread(target=reload).start()
+            threading.Thread(target=reload_user_info).start()
             return True
 
 

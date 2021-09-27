@@ -74,7 +74,7 @@ class PrivateKeyTable:
             private_keys = self.__dos.private_keys_for_decryption(identifier=identifier)
             # the 'ID key' could be used for encrypting message too (RSA),
             # so we append it to the decrypt keys here
-            id_key = self.private_key_for_signature(identifier=identifier)
+            id_key = self.private_key_for_visa_signature(identifier=identifier)
             if isinstance(id_key, DecryptKey) and id_key not in private_keys:
                 private_keys = private_keys.copy()
                 private_keys.append(id_key)
