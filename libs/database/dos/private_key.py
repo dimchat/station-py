@@ -106,7 +106,7 @@ class PrivateKeyStorage(Storage):
         return keys
 
 
-def insert_private_key(key: PrivateKey, private_keys: List[PrivateKey]) -> Optional[List[PrivateKey]]:
+def insert_private_key(key: PrivateKey, private_keys: list) -> Optional[List[PrivateKey]]:
     index = find(item=key, array=private_keys)
     if index == 0:
         return None  # nothing changed
