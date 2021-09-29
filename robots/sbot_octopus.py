@@ -39,7 +39,7 @@ import traceback
 from typing import Optional, Dict, List
 
 from dimp import ID, ReliableMessage
-from dimsdk import Station
+from dimsdk import Station, HandshakeCommand
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -68,6 +68,12 @@ class OctopusMessenger(ClientMessenger):
         # super().connected()
         self.__accepted = False
 
+    def _is_handshaking(self, msg: ReliableMessage) -> bool:
+        i_msg = self.decrypt_message(msg=msg)
+        if i_msg is not None:
+            return isinstance(i_msg.content, HandshakeCommand)
+
+    # Override
     def handshake_accepted(self, server: Server):
         self.__accepted = True
         self.info('start bridge for: %s' % self.server)
@@ -80,8 +86,13 @@ class InnerMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if msg.receiver == g_station.identifier:
-            # handshaking
-            return super().process_reliable_message(msg=msg)
+            if self._is_handshaking(msg=msg):
+                self.info('inner handshaking: %s' % msg.sender)
+                return super().process_reliable_message(msg=msg)
+            else:
+                traces = msg.get('traces')
+                self.error('drop inner msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
+                return None
         # handshake accepted, delivering message
         self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:
@@ -95,11 +106,13 @@ class OuterMessenger(OctopusMessenger):
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         if msg.sender == msg.receiver:
-            self.error('drop msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
+            traces = msg.get('traces')
+            self.error('drop outer msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
             return None
-        elif not self.accepted and msg.receiver == g_station.identifier:
-            # handshaking
-            return super().process_reliable_message(msg=msg)
+        if msg.receiver == g_station.identifier:
+            if self._is_handshaking(msg=msg):
+                self.info('outer handshaking: %s' % msg.sender)
+                return super().process_reliable_message(msg=msg)
         # handshake accepted, receiving message
         self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:

@@ -30,9 +30,10 @@
 
 from typing import Optional
 
+from dimp import NetworkType
 from dimp import InstantMessage, ReliableMessage
 from dimp import Envelope, Content
-from dimsdk import HandshakeCommand
+from dimsdk import HandshakeCommand, ReceiptCommand
 
 from ..common import CommonProcessor
 
@@ -45,15 +46,14 @@ class ClientProcessor(CommonProcessor):
         if res is None:
             # respond nothing
             return None
-        if isinstance(res, HandshakeCommand):
+        elif isinstance(res, HandshakeCommand):
             # urgent command
             return res
-        # if isinstance(i_msg.content, ReceiptCommand):
-        #     receiver = msg.receiver
-        #     if receiver.type == NetworkID.Station:
-        #         # no need to respond receipt to station
-        #         return None
-
+        elif isinstance(res, ReceiptCommand):
+            receiver = r_msg.receiver
+            if receiver.type == NetworkType.STATION:
+                # no need to respond receipt to station
+                return None
         # check receiver
         receiver = r_msg.receiver
         user = self.facebook.select_user(receiver=receiver)
