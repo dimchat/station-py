@@ -28,6 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
+import time
 from typing import Optional
 
 from dimp import NetworkType
@@ -53,6 +54,9 @@ class ClientProcessor(CommonProcessor):
             receiver = r_msg.receiver
             if receiver.type == NetworkType.STATION:
                 # no need to respond receipt to station
+                sender = r_msg.sender
+                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
+                self.info('drop receipt [%s]: %s -> %s' % (when, sender, receiver))
                 return None
         # check receiver
         receiver = r_msg.receiver

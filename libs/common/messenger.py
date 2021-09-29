@@ -183,7 +183,7 @@ class MessageDataSource(MessengerDataSource, Logging):
     def save_message(self, msg: InstantMessage) -> bool:
         sender = msg.sender
         receiver = msg.receiver
-        when = time.strftime('%Y%m%d', time.localtime(msg.time))
+        when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
         content = msg.content
         command = content.get('command')
         text = content.get('text')
@@ -195,7 +195,7 @@ class MessageDataSource(MessengerDataSource, Logging):
     def suspend_message(self, msg: Union[InstantMessage, ReliableMessage]) -> bool:
         sender = msg.sender
         receiver = msg.receiver
-        when = time.strftime('%Y%m%d', time.localtime(msg.time))
+        when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
         traces = msg.get('traces')
         self.warning('TODO: suspending msg: %s -> %s [%s] | %s' % (sender, receiver, when, traces))
         return True
