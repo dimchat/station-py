@@ -32,7 +32,8 @@ import time
 from typing import Optional
 
 from dimp import NetworkType
-from dimp import Content, ReliableMessage
+from dimp import ReliableMessage
+from dimp import Content, TextContent
 from dimsdk import ReceiptCommand
 
 from ..database import Database
@@ -135,13 +136,24 @@ class ServerProcessor(CommonProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
         res = super().process_content(content=content, r_msg=r_msg)
-        if isinstance(res, ReceiptCommand):
+        if res is None:
+            # respond nothing
+            return None
+        elif isinstance(res, ReceiptCommand):
             receiver = r_msg.receiver
             if receiver.type == NetworkType.STATION:
                 # no need to respond receipt to station
                 sender = r_msg.sender
                 when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
                 self.info('drop receipt [%s]: %s -> %s' % (when, sender, receiver))
+                return None
+        elif isinstance(res, TextContent):
+            receiver = r_msg.receiver
+            if receiver.type == NetworkType.STATION:
+                # no need to respond text message to station
+                sender = r_msg.sender
+                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
+                self.info('drop text content [%s]: %s -> %s' % (when, sender, receiver))
                 return None
         # OK
         return res

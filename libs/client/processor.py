@@ -33,7 +33,7 @@ from typing import Optional
 
 from dimp import NetworkType
 from dimp import InstantMessage, ReliableMessage
-from dimp import Envelope, Content
+from dimp import Envelope, Content, TextContent
 from dimsdk import HandshakeCommand, ReceiptCommand
 
 from ..common import CommonProcessor
@@ -57,6 +57,14 @@ class ClientProcessor(CommonProcessor):
                 sender = r_msg.sender
                 when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
                 self.info('drop receipt [%s]: %s -> %s' % (when, sender, receiver))
+                return None
+        elif isinstance(res, TextContent):
+            receiver = r_msg.receiver
+            if receiver.type == NetworkType.STATION:
+                # no need to respond text message to station
+                sender = r_msg.sender
+                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
+                self.info('drop text content [%s]: %s -> %s' % (when, sender, receiver))
                 return None
         # check receiver
         receiver = r_msg.receiver

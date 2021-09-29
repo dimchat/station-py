@@ -188,7 +188,7 @@ class MessageDataSource(MessengerDataSource, Logging):
         command = content.get('command')
         text = content.get('text')
         traces = msg.get('traces')
-        self.info('TODO: saving msg: %s -> %s\n time=%s type=%d, command=%s, text=%s\n %s' %
+        self.info('TODO: saving msg: %s -> %s\n time=[%s] type=%d, command=%s, text=%s traces=%s' %
                   (sender, receiver, when, content.type, command, text, traces))
         return True
 
@@ -197,5 +197,5 @@ class MessageDataSource(MessengerDataSource, Logging):
         receiver = msg.receiver
         when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
         traces = msg.get('traces')
-        self.warning('TODO: suspending msg: %s -> %s [%s] | %s' % (sender, receiver, when, traces))
+        self.warning('TODO: suspending msg: %s -> %s\n time=[%s] traces=%s' % (sender, receiver, when, traces))
         return True
