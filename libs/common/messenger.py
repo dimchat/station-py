@@ -49,7 +49,8 @@ from .facebook import CommonFacebook
 
 class CommonMessenger(Messenger, Logging):
 
-    EXPIRES = 120  # query expires (2 minutes)
+    # each query will be expired after 1 hour
+    QUERY_EXPIRES = 3600  # seconds
 
     def __init__(self):
         super().__init__()
@@ -135,10 +136,10 @@ class CommonMessenger(Messenger, Logging):
 
     def query_meta(self, identifier: ID) -> bool:
         now = time.time()
-        last = self.__meta_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
+        expired = self.__meta_queries.get(identifier, 0)
+        if now < expired:
             return False
-        self.__meta_queries[identifier] = now
+        self.__meta_queries[identifier] = now + self.QUERY_EXPIRES
         # query from DIM network
         self.info('querying meta for %s' % identifier)
         cmd = MetaCommand(identifier=identifier)
@@ -146,10 +147,10 @@ class CommonMessenger(Messenger, Logging):
 
     def query_document(self, identifier: ID) -> bool:
         now = time.time()
-        last = self.__document_queries.get(identifier, 0)
-        if (now - last) < self.EXPIRES:
+        expired = self.__document_queries.get(identifier, 0)
+        if now < expired:
             return False
-        self.__document_queries[identifier] = now
+        self.__document_queries[identifier] = now + self.QUERY_EXPIRES
         # query from DIM network
         self.info('querying document for %s' % identifier)
         cmd = DocumentCommand(identifier=identifier)
@@ -158,12 +159,12 @@ class CommonMessenger(Messenger, Logging):
     # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: List[ID]) -> bool:
         now = time.time()
-        last = self.__group_queries.get(group, 0)
-        if (now - last) < self.EXPIRES:
+        expired = self.__group_queries.get(group, 0)
+        if now < expired:
             return False
         if len(users) == 0:
             return False
-        self.__group_queries[group] = now
+        self.__group_queries[group] = now + self.QUERY_EXPIRES
         # current user ID
         current = self.facebook.current_user.identifier
         # query from users

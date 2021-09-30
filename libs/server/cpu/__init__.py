@@ -33,7 +33,7 @@
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
 from .report import ReportCommandProcessor
-from .profile import DocumentCommandProcessor
+from .document import DocumentCommandProcessor
 from .search import SearchCommandProcessor
 
 

@@ -116,7 +116,7 @@ class Database:
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
-    def meta(self, identifier: ID) -> Meta:
+    def meta(self, identifier: ID) -> Optional[Meta]:
         return self.__meta_table.meta(identifier=identifier)
 
     """
@@ -139,7 +139,7 @@ class Database:
                 return False
         return self.__document_table.save_document(document=document)
 
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Document:
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         return self.__document_table.document(identifier=identifier, doc_type=doc_type)
 
     def scan_documents(self) -> List[Document]:

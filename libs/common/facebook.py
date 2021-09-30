@@ -30,7 +30,6 @@
     Barrack for cache entities
 """
 
-import time
 import weakref
 from typing import Optional, List
 
@@ -124,23 +123,6 @@ class CommonFacebook(Facebook):
             return False
         return self.__db.save_document(document=document)
 
-    EXPIRES = 3600  # profile expires (1 hour)
-    EXPIRES_KEY = 'expires'
-
-    def is_expired_document(self, document: Document, reset: bool = True) -> bool:
-        # check expired time
-        now = time.time()
-        expires = document.get(self.EXPIRES_KEY)
-        if expires is None:
-            # set expired time
-            document[self.EXPIRES_KEY] = now + self.EXPIRES
-            return False
-        if now > expires:
-            if reset:
-                # update expired time
-                document[self.EXPIRES_KEY] = now + self.EXPIRES
-            return True
-
     #
     #   Relationship
     #
@@ -162,9 +144,9 @@ class CommonFacebook(Facebook):
         return assistants is not None and member in assistants
 
     def name(self, identifier: ID) -> str:
-        profile = self.document(identifier=identifier)
-        if profile is not None:
-            name = profile.name
+        doc = self.document(identifier=identifier)
+        if doc is not None:
+            name = doc.name
             if name is not None and len(name) > 0:
                 return name
         name = identifier.name
@@ -220,7 +202,7 @@ class CommonFacebook(Facebook):
             return None
         # try from database
         info = self.__db.document(identifier=identifier, doc_type=doc_type)
-        if info is None or self.is_expired_document(document=info):
+        if info is None:
             # query from DIM network
             messenger = self.messenger
             if messenger is not None:
