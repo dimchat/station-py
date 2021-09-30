@@ -324,7 +324,7 @@ class Worker(threading.Thread, Logging):
                 while self.__running:
                     msg = self.pop_msg()
                     if msg is None:
-                        time.sleep(0.1)
+                        time.sleep(0.25)
                         break
                     res = self.deliver(msg=msg)
                     if res is not None:
@@ -335,7 +335,7 @@ class Worker(threading.Thread, Logging):
                 traceback.print_exc()
             finally:
                 # sleep for next loop
-                time.sleep(0.1)
+                time.sleep(0.25)
         self.info('dispatcher exit!')
 
     def stop(self):

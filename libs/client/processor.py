@@ -51,20 +51,18 @@ class ClientProcessor(CommonProcessor):
             # urgent command
             return res
         elif isinstance(res, ReceiptCommand):
-            receiver = r_msg.receiver
-            if receiver.type == NetworkType.STATION:
+            sender = r_msg.sender
+            if sender.type == NetworkType.STATION:
                 # no need to respond receipt to station
-                sender = r_msg.sender
-                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
-                self.info('drop receipt [%s]: %s -> %s' % (when, sender, receiver))
+                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
+                self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
                 return None
         elif isinstance(res, TextContent):
-            receiver = r_msg.receiver
-            if receiver.type == NetworkType.STATION:
+            sender = r_msg.sender
+            if sender.type == NetworkType.STATION:
                 # no need to respond text message to station
-                sender = r_msg.sender
-                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(content.time))
-                self.info('drop text content [%s]: %s -> %s' % (when, sender, receiver))
+                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
+                self.info('drop text msg responding to %s, origin msg time=[%s]' % (sender, when))
                 return None
         # check receiver
         receiver = r_msg.receiver

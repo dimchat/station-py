@@ -162,9 +162,9 @@ class Worker(threading.Thread, Logging):
                 # check handshake
                 if self.__messenger.accepted:
                     break
-                else:
-                    self.error('not handshake yet, trying to reconnect')
-                    self._reconnect()
+                elif not self._reconnect():
+                    self.error('not handshake yet, failed to reconnect')
+                    self._idle()
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.__server, error))
                 traceback.print_exc()
@@ -188,7 +188,7 @@ class Worker(threading.Thread, Logging):
                             # waiting queue empty, have a rest
                             self._idle()
                     elif not self._reconnect():
-                        # reconnect failed, have a rest
+                        self.error('failed to reconnect')
                         self._idle()
             except Exception as error:
                 self.error('octopus error: %s -> %s' % (self.client.server, error))
@@ -218,7 +218,7 @@ class Worker(threading.Thread, Logging):
 
     # noinspection PyMethodMayBeStatic
     def _idle(self):
-        time.sleep(0.1)
+        time.sleep(0.25)
 
 
 class Octopus(Logging):

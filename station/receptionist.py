@@ -133,7 +133,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
             self.error('value error %s' % error)
         finally:
             # sleep for next loop
-            time.sleep(0.1)
+            time.sleep(0.25)
 
     def run(self):
         self.info('receptionist starting...')
@@ -146,7 +146,7 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
                 traceback.print_exc()
             finally:
                 # sleep for next loop
-                time.sleep(0.1)
+                time.sleep(0.25)
         self.info('receptionist exit!')
 
     def stop(self):

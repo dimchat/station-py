@@ -81,7 +81,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
 
     # noinspection PyMethodMayBeStatic
     def _idle(self):
-        time.sleep(0.125)
+        time.sleep(0.25)
 
     # Override
     def process(self):

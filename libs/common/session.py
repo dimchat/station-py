@@ -146,7 +146,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     # noinspection PyMethodMayBeStatic
     def _idle(self):
-        time.sleep(0.1)
+        time.sleep(0.25)
 
     def process(self) -> bool:
         if self.gate.process():
