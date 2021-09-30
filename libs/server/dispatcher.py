@@ -365,15 +365,27 @@ class BroadcastDispatcher(Worker):
     """ broadcast (split and deliver) to everyone """
 
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        self.info('broadcasting message: %s -> %s, %s' % (msg.sender, msg.receiver, msg.group))
+        sender = msg.sender
         receiver = msg.receiver
+        group = msg.group
         # check for group bots: assistants
         if receiver in ['assistant@anywhere', 'assistants@everywhere']:
+            msg_type = msg.type
+            if msg_type is None:
+                msg_type = 'unknown'
+            else:
+                msg_type = '%d' % msg_type
+            self.info('forward group message(type=%s): %s -> %s, %s' % (msg_type, sender, receiver, group))
             return self.__deliver_to_assistants(msg=msg)
         # check for search engine: 'archivist'
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
+            self.info('forward search command: %s -> %s, %s' % (sender, receiver, group))
             return self.__deliver_to_archivist(msg=msg)
+        if sender.type == NetworkType.STATION and sender != self.station:
+            self.warning('drop broadcast message from other station: %s -> %s, %s' % (sender, receiver, group))
+            return None
         # push to all neighbour stations
+        self.info('broadcasting message: %s -> %s, %s' % (sender, receiver, group))
         return self.__deliver_to_neighbors(msg=msg)
 
     def __deliver_to_assistants(self, msg: ReliableMessage) -> Optional[Content]:
@@ -410,7 +422,11 @@ class BroadcastDispatcher(Worker):
         for sid in neighbors:
             # check traces
             if msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
-                self.info('ignore traced msg: %s in %s' % (sid, msg.get('traces')))
+                sig = msg.get('signature')
+                if sig is not None and len(sig) > 8:
+                    sig = sig[-8:]
+                self.info('ignore traced msg [%s]: %s -> %s\n neighbor %s in %s' %
+                          (sig, msg.sender, msg.receiver, sid, msg.get('traces')))
                 continue
             assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             # push to neighbor station

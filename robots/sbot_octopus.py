@@ -302,7 +302,7 @@ class Octopus(Logging):
                 elif not self.__deliver_message(msg=msg, neighbor=sid):
                     self.error('failed to broadcast message to: %s' % sid)
                 else:
-                    sent_neighbors.append(sid)
+                    sent_neighbors.append(str(sid))
             self.info('message broadcast to neighbor stations: %s' % sent_neighbors)
         else:
             # redirect to single neighbor
