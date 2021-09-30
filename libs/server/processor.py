@@ -125,7 +125,7 @@ class ServerProcessor(CommonProcessor):
         if res is not None:
             group = msg.group
             if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
-                # if this message sent to 'station@anywhere', or with group ID 'station@everywhere',
+                # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
                 # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
                 # so respond them as message attachments.
                 user = self.facebook.user(identifier=res.sender)

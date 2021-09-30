@@ -37,7 +37,7 @@ import weakref
 from abc import abstractmethod
 from typing import Optional, List, Set
 
-from dimp import ID, NetworkType
+from dimp import NetworkType, ID, ANYONE, EVERYONE
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
@@ -368,25 +368,31 @@ class BroadcastDispatcher(Worker):
         sender = msg.sender
         receiver = msg.receiver
         group = msg.group
-        # check for group bots: assistants
-        if receiver in ['assistant@anywhere', 'assistants@everywhere']:
-            msg_type = msg.type
-            if msg_type is None:
-                msg_type = 'unknown'
-            else:
-                msg_type = '%d' % msg_type
-            self.info('forward group message(type=%s): %s -> %s, %s' % (msg_type, sender, receiver, group))
-            return self.__deliver_to_assistants(msg=msg)
         # check for search engine: 'archivist'
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
-            self.info('forward search command: %s -> %s, %s' % (sender, receiver, group))
-            return self.__deliver_to_archivist(msg=msg)
-        if sender.type == NetworkType.STATION and sender != self.station:
-            self.warning('drop broadcast message from other station: %s -> %s, %s' % (sender, receiver, group))
-            return None
-        # push to all neighbour stations
-        self.info('broadcasting message: %s -> %s, %s' % (sender, receiver, group))
-        return self.__deliver_to_neighbors(msg=msg)
+            self.info('forward search command to archivist: %s -> %s' % (sender, receiver))
+            return self.__deliver_to_archivists(msg=msg)
+        # check for group bots: assistants
+        if receiver in ['assistant@anywhere', 'assistants@everywhere']:
+            self.info('forward group message to assistants: %s -> %s, %s' % (sender, receiver, group))
+            return self.__deliver_to_assistants(msg=msg)
+        # check for neighbor stations
+        if receiver in ['station@anywhere', 'stations@everywhere', str(ANYONE), str(EVERYONE)]:
+            self.info('forward message to neighbors: %s -> %s, %s' % (sender, receiver, group))
+            return self.__deliver_to_neighbors(msg=msg)
+        # TODO: check for other broadcast IDs
+        self.warning('failed to deliver message: %s' % msg)
+
+    def __deliver_to_archivists(self, msg: ReliableMessage) -> Optional[Content]:
+        archivist = ID.parse(identifier='archivist')
+        if archivist is None:
+            self.error('failed to get search bot: archivist')
+        elif _push_message(msg=msg, receiver=archivist) > 0:
+            # response
+            text = 'Search command forward to archivist: ' % archivist
+            res = TextContent(text=text)
+            res.group = msg.group
+            return res
 
     def __deliver_to_assistants(self, msg: ReliableMessage) -> Optional[Content]:
         assistants = g_facebook.assistants(identifier=msg.receiver)
@@ -403,23 +409,12 @@ class BroadcastDispatcher(Worker):
         res.group = msg.group
         return res
 
-    def __deliver_to_archivist(self, msg: ReliableMessage) -> Optional[Content]:
-        archivist = ID.parse(identifier='archivist')
-        if archivist is None:
-            self.error('failed to get search bot: archivist')
-        elif _push_message(msg=msg, receiver=archivist) > 0:
-            # response
-            text = 'Search command forward to archivist: ' % archivist
-            res = TextContent(text=text)
-            res.group = msg.group
-            return res
-
     def __deliver_to_neighbors(self, msg: ReliableMessage) -> Optional[Content]:
-        # 1. push to all neighbors connected th current station
+        # 0. check neighbor stations
         neighbors = self.neighbors
-        sent_neighbors = []
-        success = 0
+        candidates = []
         for sid in neighbors:
+            assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
             # check traces
             if msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
                 sig = msg.get('signature')
@@ -427,10 +422,18 @@ class BroadcastDispatcher(Worker):
                     sig = sig[-8:]
                 self.info('ignore traced msg [%s]: %s -> %s\n neighbor %s in %s' %
                           (sig, msg.sender, msg.receiver, sid, msg.get('traces')))
-                continue
-            assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
+            else:
+                candidates.append(sid)
+        # split message for candidates
+        messages = msg.split(members=candidates)
+        # 1. push to all neighbors connected th current station
+        sent_neighbors = []
+        success = 0
+        for item in messages:
+            assert isinstance(item, ReliableMessage), 'split message error: %s' % item
+            sid = item.receiver
             # push to neighbor station
-            cnt = _push_message(msg=msg, receiver=sid)
+            cnt = _push_message(msg=item, receiver=sid)
             if cnt > 0:
                 sent_neighbors.append(str(sid))
                 success += 1

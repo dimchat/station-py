@@ -104,7 +104,7 @@ class ServerMessenger(CommonMessenger):
     #
     def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
-            receiver = ID.parse(identifier='station@everywhere')
+            receiver = ID.parse(identifier='stations@everywhere')
         srv = self.facebook.current_user
         env = Envelope.create(sender=srv.identifier, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=cmd)
