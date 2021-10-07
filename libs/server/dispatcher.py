@@ -155,8 +155,6 @@ class Dispatcher(NotificationObserver):
         sender = msg.sender
         if sender.type == NetworkType.STATION:
             # no need to respond receipt to station
-            when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
-            self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
             return None
         # # check roaming stations
         # stations = _roaming_stations(user=msg.sender)
