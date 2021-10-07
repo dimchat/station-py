@@ -46,7 +46,7 @@ class DocumentTable:
     def save_document(self, document: Document) -> bool:
         # 0. check document valid
         if not document.valid:
-            # raise ValueError('document not valid: %s' % profile)
+            # raise ValueError('document not valid: %s' % document)
             return False
         identifier = document.identifier
         # check old record with time
@@ -83,31 +83,6 @@ class DocumentTable:
             self.__caches[identifier] = holder
         # OK, return cached value
         return holder.value
-
-    # def scan_documents(self) -> List[Document]:
-    #     """ Scan all documents """
-    #     holder = self.__scanned
-    #     if holder is None:
-    #         # place an empty holder to avoid frequent reading
-    #         self.__scanned = CacheHolder(life_span=3600)
-    #         # first time, scan from local storage
-    #         documents = self.__dos.scan_documents()
-    #         for doc in documents:
-    #             # update redis server
-    #             self.__redis.save_document(document=doc)
-    #         # update memory cache
-    #         holder = CacheHolder(value=documents)
-    #         self.__scanned = holder
-    #     elif not holder.alive:
-    #         # renewal the holder to avoid frequent reading
-    #         holder.renewal()
-    #         # not first time, only scan redis server
-    #         documents = self.__redis.scan_documents()
-    #         # update memory cache
-    #         holder = CacheHolder(value=documents)
-    #         self.__scanned = holder
-    #     # OK, return cached value
-    #     return holder.value
 
     def scan_documents(self) -> List[Document]:
         """ Scan all documents from data directory """

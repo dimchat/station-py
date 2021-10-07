@@ -99,8 +99,8 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
             # the current user is a station,
             # it would not login to another station.
             return None
-        # post current profile to station
-        # post contacts(encrypted) to station
+        # TODO: post current document to station
+        # TODO: post contacts(encrypted) to station
         # broadcast login command
         login = LoginCommand(identifier=user.identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
