@@ -94,9 +94,13 @@ class LoginCache(Cache):
         old = self.login_command(identifier=sender)
         if old is not None:
             old_time = old.time
-            if old_time is not None and old_time >= login_time:
-                # expired command, drop it
-                return True
+            if old_time is not None:
+                if old_time > login_time:
+                    # expired command, drop it
+                    return False
+                elif old_time == login_time:
+                    # same command, return True to post notification
+                    return True
         # save into redis server
         return self.__save_login(cmd=cmd, msg=msg)
 
