@@ -145,19 +145,25 @@ class Dispatcher(NotificationObserver):
         receiver = msg.receiver
         if receiver.is_broadcast:
             self.__broadcast_worker.add_msg(msg=msg)
-            res = msg_receipt(msg=msg, text='Message broadcasting')
+            res = 'Message broadcasting'
         elif receiver.is_group:
             self.__group_worker.add_msg(msg=msg)
-            res = msg_receipt(msg=msg, text='Group Message delivering')
+            res = 'Group Message delivering'
         else:
             self.__single_worker.add_msg(msg=msg)
-            res = msg_receipt(msg=msg, text='Message delivering')
+            res = 'Message delivering'
+        sender = msg.sender
+        if sender.type == NetworkType.STATION:
+            # no need to respond receipt to station
+            when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
+            self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
+            return None
         # # check roaming stations
         # stations = _roaming_stations(user=msg.sender)
         # if self.station not in stations:
         #     # only respond to my own users
         #     return None
-        return res
+        return msg_receipt(msg=msg, text=res)
 
 
 def _roaming_stations(user: ID) -> List[ID]:
