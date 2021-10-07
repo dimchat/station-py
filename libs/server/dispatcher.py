@@ -152,10 +152,12 @@ class Dispatcher(NotificationObserver):
         else:
             self.__single_worker.add_msg(msg=msg)
             res = msg_receipt(msg=msg, text='Message delivering')
-        # only respond to my own users
-        stations = _roaming_stations(user=msg.sender)
-        if self.station in stations:
-            return res
+        # # check roaming stations
+        # stations = _roaming_stations(user=msg.sender)
+        # if self.station not in stations:
+        #     # only respond to my own users
+        #     return None
+        return res
 
 
 def _roaming_stations(user: ID) -> List[ID]:

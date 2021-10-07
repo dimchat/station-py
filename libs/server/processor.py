@@ -69,20 +69,23 @@ class ServerProcessor(CommonProcessor):
         # 1.1. check traces
         station = g_dispatcher.station
         if msg_traced(msg=msg, node=station, append=True):
-            self.info('cycled msg: %s in %s' % (station, msg.get('traces')))
+            sig = msg.get('signature')
+            if sig is not None and len(sig) > 8:
+                sig = sig[-8:]
+            self.info('cycled msg [%s]: %s in %s' % (sig, station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-                self.warning('ignore station msg: %s -> %s' % (sender, receiver))
+                self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
                 return None
             if is_broadcast_message(msg=msg):
-                self.warning('ignore traced broadcast msg: %s in %s' % (station, msg.get('traces')))
+                self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
                 return None
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
-                self.info('deliver cycled msg: %s, %s -> %s' % (station, sender, receiver))
+                self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
                 g_database.save_message(msg=msg)
                 return messenger.deliver_message(msg=msg)
             else:
-                self.info('store cycled msg: %s, %s -> %s' % (station, sender, receiver))
+                self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
                 g_database.save_message(msg=msg)
                 return None
         # 1.2. check broadcast/group message
@@ -151,7 +154,7 @@ class ServerProcessor(CommonProcessor):
             if sender.type == NetworkType.STATION:
                 # no need to respond text message to station
                 when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                self.info('drop text msg responding to %s, origin msg time=[%s]' % (sender, when))
+                self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
                 return None
         # OK
         return res

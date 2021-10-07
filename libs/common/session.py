@@ -60,6 +60,20 @@ from .messenger import CommonMessenger
 from .queue import MessageQueue
 
 
+def get_remote_address(sock: socket.socket) -> Optional[tuple]:
+    try:
+        return sock.getpeername()
+    except socket.error as error:
+        print('[SOCKET] failed to get remote address from socket %s: %s' % (sock, error))
+
+
+def get_local_address(sock: socket.socket) -> Optional[tuple]:
+    try:
+        return sock.getsockname()
+    except socket.error as error:
+        print('[SOCKET] failed to get local address from socket %s: %s' % (sock, error))
+
+
 g_database = Database()
 
 
@@ -92,8 +106,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         else:
             sock.setblocking(False)
             if address is None:
-                address = sock.getpeername()
-            channel = StreamChannel(sock=sock, remote=address, local=None)
+                address = get_remote_address(sock=sock)
+            channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
             hub = StreamHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
