@@ -323,13 +323,13 @@ class Octopus(Logging):
 
 def update_neighbors(station: ID, neighbors: List[Station]) -> bool:
     neighbors = [str(item.identifier) for item in neighbors]
-    profile = g_facebook.document(identifier=station)
-    assert profile is not None, 'failed to get profile: %s' % station
+    doc = g_facebook.document(identifier=station)
+    assert doc is not None, 'failed to get document: %s' % station
     private_key = g_facebook.private_key_for_visa_signature(identifier=station)
     assert private_key is not None, 'failed to get private key: %s' % station
-    profile.set_property(key='neighbors', value=neighbors)
-    profile.sign(private_key=private_key)
-    return g_facebook.save_document(document=profile)
+    doc.set_property(key='neighbors', value=neighbors)
+    doc.sign(private_key=private_key)
+    return g_facebook.save_document(document=doc)
 
 
 if __name__ == '__main__':

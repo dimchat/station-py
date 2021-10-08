@@ -108,13 +108,13 @@ class GroupManager:
         members = facebook.members(self.group)
         assert assistants is not None, 'failed to get assistants for group: %s' % self.group
 
-        # 0. send 'meta/profile' command to new members
+        # 0. send 'meta/document' command to new members
         meta = facebook.meta(self.group)
-        profile = facebook.document(identifier=self.group)
-        if profile is None or profile.get('data') is None:
+        doc = facebook.document(identifier=self.group)
+        if doc is None or doc.get('data') is None:
             cmd = MetaCommand.response(identifier=self.group, meta=meta)
         else:
-            cmd = DocumentCommand.response(document=profile, meta=meta, identifier=self.group)
+            cmd = DocumentCommand.response(document=doc, meta=meta, identifier=self.group)
         self.__send_group_command(cmd=cmd, members=invite_list)
 
         # 1. send 'invite' command with new members to existed members

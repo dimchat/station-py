@@ -49,10 +49,12 @@ g_database = Database()
 def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
     users = g_session_server.active_users(start=start, limit=limit)
     results = {}
-    for item in users:
-        meta = facebook.meta(identifier=item)
-        if isinstance(meta, Meta):
-            results[str(item)] = meta.dictionary
+    if limit > 0:
+        # get meta when limit is set
+        for item in users:
+            meta = facebook.meta(identifier=item)
+            if isinstance(meta, Meta):
+                results[str(item)] = meta.dictionary
     return list(users), results
 
 
