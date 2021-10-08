@@ -48,10 +48,6 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     def __init__(self):
         super().__init__()
         self.__terminal: Optional[weakref.ReferenceType] = None
-        # for checking duplicated queries
-        self.__meta_queries = {}      # ID -> time
-        self.__document_queries = {}  # ID -> time
-        self.__group_queries = {}     # ID -> time
 
     def _create_facebook(self) -> CommonFacebook:
         facebook = SharedFacebook()

@@ -36,7 +36,7 @@ from typing import Optional, Union, List
 
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content, Command, MetaCommand, DocumentCommand, GroupCommand
+from dimp import Content, Command, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
 from dimsdk import Messenger, MessengerDataSource
 
@@ -55,8 +55,6 @@ class CommonMessenger(Messenger, Logging):
     def __init__(self):
         super().__init__()
         # for checking duplicated queries
-        self.__meta_queries = {}      # ID -> time
-        self.__document_queries = {}  # ID -> time
         self.__group_queries = {}     # ID -> time
 
     def connected(self):
@@ -134,31 +132,9 @@ class CommonMessenger(Messenger, Logging):
     def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
         raise NotImplemented
 
-    def query_meta(self, identifier: ID) -> bool:
-        now = time.time()
-        expired = self.__meta_queries.get(identifier, 0)
-        if now < expired:
-            return False
-        self.__meta_queries[identifier] = now + self.QUERY_EXPIRES
-        # query from DIM network
-        self.info('querying meta for %s' % identifier)
-        cmd = MetaCommand(identifier=identifier)
-        return self._send_command(cmd=cmd)
-
-    def query_document(self, identifier: ID) -> bool:
-        now = time.time()
-        expired = self.__document_queries.get(identifier, 0)
-        if now < expired:
-            return False
-        self.__document_queries[identifier] = now + self.QUERY_EXPIRES
-        # query from DIM network
-        self.info('querying document for %s' % identifier)
-        cmd = DocumentCommand(identifier=identifier)
-        return self._send_command(cmd=cmd)
-
     # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: List[ID]) -> bool:
-        now = time.time()
+        now = int(time.time())
         expired = self.__group_queries.get(group, 0)
         if now < expired:
             return False

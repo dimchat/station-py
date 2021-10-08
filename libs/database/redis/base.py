@@ -114,6 +114,10 @@ class Cache:
         """ Add values into a hash set with name """
         self.redis.sadd(name, *values)
 
+    def spop(self, name: str, count: Optional[int] = None):
+        """ Remove and return a random member from the hash set with name """
+        return self.redis.spop(name=name, count=count)
+
     def srem(self, name: str, *values):
         """ Remove values from the hash set with name """
         self.redis.srem(name, *values)

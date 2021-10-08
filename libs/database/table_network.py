@@ -23,31 +23,27 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Database module
-    ~~~~~~~~~~~~~~~
-    Redis Client
-"""
+from typing import Optional
 
-from .network import NetworkCache
-from .ans import AddressNameCache
-from .meta import MetaCache
-from .document import DocumentCache
-from .device import DeviceCache
-from .user import UserCache
-from .login import LoginCache
-from .group import GroupCache
-from .message import MessageCache
+from dimp import ID
+
+from .redis import NetworkCache
 
 
-__all__ = [
+class NetworkTable:
 
-    'NetworkCache',
-    'AddressNameCache',
+    def __init__(self):
+        super().__init__()
+        self.__redis = NetworkCache()
 
-    'MetaCache',
-    'DocumentCache', 'DeviceCache',
-    'UserCache', 'LoginCache',
-    'GroupCache',
-    'MessageCache',
-]
+    def add_meta_query(self, identifier: ID):
+        self.__redis.add_meta_query(identifier=identifier)
+
+    def pop_meta_query(self) -> Optional[ID]:
+        return self.__redis.pop_meta_query()
+
+    def add_document_query(self, identifier: ID):
+        self.__redis.add_document_query(identifier=identifier)
+
+    def pop_document_query(self) -> Optional[ID]:
+        return self.__redis.pop_document_query()

@@ -187,24 +187,22 @@ class CommonFacebook(Facebook):
         if identifier.is_broadcast:
             # broadcast ID has no meta
             return None
-        messenger = self.messenger
         # try from database
         info = self.__db.meta(identifier=identifier)
-        if info is None and messenger is not None:
-            # query from DIM network when meta not found
-            messenger.query_meta(identifier=identifier)
+        if info is None:
+            # query from DIM network
+            self.__db.add_meta_query(identifier=identifier)
         return info
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         if identifier.is_broadcast:
             # broadcast ID has no document
             return None
-        messenger = self.messenger
         # try from database
         info = self.__db.document(identifier=identifier, doc_type=doc_type)
-        if messenger is not None:  # and info is None:
-            # query from DIM network (update after 1 hour)
-            messenger.query_document(identifier=identifier)
+        if info is None:
+            # query from DIM network
+            self.__db.add_document_query(identifier=identifier)
         return info
 
     #

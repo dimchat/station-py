@@ -40,7 +40,9 @@ from typing import Optional, List, Dict
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, TextContent, Command
+from dimp import MetaCommand, DocumentCommand
 from dimsdk import CommandProcessor
+from dimsdk import Station
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -54,7 +56,7 @@ from libs.client import Terminal, ClientMessenger, Server
 from robots.config import g_station
 from robots.config import dims_connect
 
-from etc.cfg_init import all_stations, g_database
+from etc.cfg_init import all_stations, neighbor_stations, g_database
 
 
 #
@@ -64,7 +66,8 @@ g_cached_user_info: Dict[ID, str] = {}          # user ID -> user info
 g_cached_online_users: Dict[ID, List[ID]] = {}  # station ID -> user list
 
 g_info = {
-    'users': [],  # user ID list
+    'neighbors': None,  # Station list
+    'users': [],        # user ID list
     'loading': False,
 }
 
@@ -191,12 +194,32 @@ def save_response(station: ID, users: List[ID], results: dict) -> Optional[Conte
         return None
 
 
+def send_command(cmd: Command, stations: List[Station], first: bool = False):
+    user = g_facebook.current_user
+    if first:
+        # first time, query stations with meta & visa as attachments
+        meta = user.meta
+        if meta is not None:
+            meta = meta.dictionary
+        visa = user.visa
+        if visa is not None:
+            visa = visa.dictionary
+    else:
+        meta = None
+        visa = None
+    for station in stations:
+        env = Envelope.create(sender=user.identifier, receiver=station.identifier)
+        msg = InstantMessage.create(head=env, body=cmd)
+        if meta is not None:
+            msg['meta'] = meta
+            msg['visa'] = visa
+        g_messenger.send_message(msg=msg)
+
+
 class SearchCommandProcessor(CommandProcessor, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__query_expired = 0
-        self.__scan_expired = 0
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
@@ -213,12 +236,9 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             # let the station to do the job
             return None
         elif keywords == 'all users':
-            # query all online users (last 5 minutes)
-            self.query_online_users()
             users, results = recent_users(start=cmd.start, limit=cmd.limit)
             self.info('Got %d recent online user(s)' % len(results))
         else:
-            self.scan_all_users()
             users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
             self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
         # respond
@@ -226,67 +246,115 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         res.station = g_station.identifier
         return res
 
-    def query_online_users(self) -> bool:
-        now = int(time.time())
-        if now < self.__query_expired:
-            return False
-        user = g_facebook.current_user
-        if self.__query_expired == 0:
-            # first time, query stations with meta & visa as attachments
-            meta = user.meta
-            meta = meta.dictionary
-            visa = user.visa
-            if visa is not None:
-                visa = visa.dictionary
-        else:
-            meta = None
-            visa = None
-        self.__query_expired = now + 120  # update next 2 minutes at least
-        # search command
-        cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
-        cmd.limit = -1
-        messenger = self.messenger
-        assert isinstance(messenger, ClientMessenger), 'messenger error: %s' % messenger
-        cnt = 0
-        for station in all_stations:
-            self.info('querying online users: %s' % station)
-            env = Envelope.create(sender=user.identifier, receiver=station.identifier)
-            msg = InstantMessage.create(head=env, body=cmd)
-            if meta is not None:
-                msg['meta'] = meta
-                msg['visa'] = visa
-            if messenger.send_message(msg=msg):
-                cnt += 1
-        return cnt > 0
-
-    def scan_all_users(self) -> bool:
-        now = int(time.time())
-        if now > self.__scan_expired:
-            self.__scan_expired = now + 1800  # expired 30 minutes at least
-            self.info('scanning documents...')
-            threading.Thread(target=reload_user_info).start()
-            return True
-
-
-# register
-spu = SearchCommandProcessor()
-CommandProcessor.register(command=SearchCommand.SEARCH, cpu=spu)
-CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=spu)
-
 
 class ArchivistMessenger(ClientMessenger):
 
+    def __init__(self):
+        super().__init__()
+        self.__running = False
+        self.__online = False
+        # timers
+        self.__scan_expired = 0
+        self.__query_expired = 0
+        self.__meta_queries: Dict[ID, int] = {}      # ID -> time
+        self.__document_queries: Dict[ID, int] = {}  # ID -> time
+
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
-        # refresh data
-        time.sleep(2)
-        spu.messenger = g_messenger
-        spu.query_online_users()
-        spu.scan_all_users()
+        self.online = True
+
+    @property
+    def running(self) -> bool:
+        return self.__running
+
+    @running.setter
+    def running(self, flag: bool):
+        self.__running = flag
+
+    @property
+    def online(self) -> bool:
+        return self.__online
+
+    @online.setter
+    def online(self, accepted: bool):
+        self.__online = accepted
+
+    def run(self):
+        self.__running = True
+        while self.running:
+            time.sleep(5)
+            self.__scan_all_users()
+            self.__query_online_users()
+            self.__query_all_metas()
+            self.__query_all_documents()
+
+    def __scan_all_users(self):
+        now = int(time.time())
+        if now < self.__scan_expired:
+            return False
+        self.__scan_expired = now + 1800  # scan after 30 minutes
+        self.info('scanning documents...')
+        reload_user_info()
+
+    def __query_online_users(self):
+        if not self.online:
+            return False
+        now = int(time.time())
+        if now < self.__query_expired:
+            return False
+        first = self.__query_expired == 0
+        self.__query_expired = now + 300  # query after 5 minutes
+        self.info('querying online users from %d station(s)' % len(all_stations))
+        cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
+        cmd.limit = -1
+        send_command(cmd=cmd, stations=all_stations, first=first)
+
+    def __query_all_metas(self):
+        while self.running and self.online:
+            identifier = g_database.pop_meta_query()
+            if identifier is None:
+                # no more task
+                break
+            self.__query_meta(identifier=identifier)
+
+    def __query_all_documents(self):
+        while self.running and self.online:
+            identifier = g_database.pop_document_query()
+            if identifier is None:
+                # no more task
+                break
+            self.__query_meta(identifier=identifier)
+
+    def __query_meta(self, identifier: ID):
+        now = int(time.time())
+        expired = self.__meta_queries.get(identifier, 0)
+        if now < expired:
+            return False
+        self.__meta_queries[identifier] = now + self.QUERY_EXPIRES
+        self.info('querying meta: %s from %d station(s)' % (identifier, len(neighbor_stations)))
+        cmd = MetaCommand(identifier=identifier)
+        send_command(cmd=cmd, stations=neighbor_stations)
+
+    def __query_document(self, identifier: ID):
+        now = int(time.time())
+        expired = self.__document_queries.get(identifier, 0)
+        if now < expired:
+            return False
+        self.__document_queries[identifier] = now + self.QUERY_EXPIRES
+        self.info('querying document: %s from %d station(s)' % (identifier, len(neighbor_stations)))
+        cmd = DocumentCommand(identifier=identifier)
+        send_command(cmd=cmd, stations=neighbor_stations)
 
 
 g_messenger = ArchivistMessenger()
 g_facebook = g_messenger.facebook
+
+g_spu = SearchCommandProcessor()
+g_spu.messenger = g_messenger
+
+# register
+CommandProcessor.register(command=SearchCommand.SEARCH, cpu=g_spu)
+CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=g_spu)
 
 
 if __name__ == '__main__':
@@ -298,3 +366,5 @@ if __name__ == '__main__':
     # create client and connect to the station
     client = Terminal()
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
+
+    threading.Thread(target=g_messenger.run).start()

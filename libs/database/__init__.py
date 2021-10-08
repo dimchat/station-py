@@ -42,6 +42,7 @@ from ..utils import Singleton
 from .dos import Storage
 
 from .cache import CacheHolder, CachePool
+from .table_network import NetworkTable
 from .table_ans import AddressNameTable
 from .table_private import PrivateKeyTable
 from .table_meta import MetaTable
@@ -58,7 +59,9 @@ __all__ = [
 
     'CacheHolder', 'CachePool',
 
+    'NetworkTable',
     'AddressNameTable',
+
     'MetaTable',
     'DocumentTable', 'DeviceTable',
     'UserTable', 'PrivateKeyTable', 'LoginTable',
@@ -82,6 +85,8 @@ class Database:
         self.__user_table = UserTable()
         self.__group_table = GroupTable()
         self.__message_table = MessageTable()
+        # Network
+        self.__network_table = NetworkTable()
         # ANS
         self.__ans_table = AddressNameTable()
         # login info
@@ -120,8 +125,8 @@ class Database:
         return self.__meta_table.meta(identifier=identifier)
 
     """
-        Profile for Accounts
-        ~~~~~~~~~~~~~~~~~~~~
+        Document for Accounts
+        ~~~~~~~~~~~~~~~~~~~~~
 
         file path: '.dim/public/{ADDRESS}/profile.js'
         redis key: 'mkm.document.{ID}'
@@ -296,7 +301,6 @@ class Database:
         Login Info
         ~~~~~~~~~~
         
-        file path: '.dim/public/{ADDRESS}/login.js'
         redis key: 'mkm.user.{ID}.login'
     """
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
@@ -310,3 +314,23 @@ class Database:
 
     def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         return self.__login_table.login_info(identifier=identifier)
+
+    """
+        Network Info
+        ~~~~~~~~~~~~
+        
+        redis key: 'dim.network.query.meta'
+        redis key: 'dim.network.query.document'
+    """
+
+    def add_meta_query(self, identifier: ID):
+        return self.__network_table.add_meta_query(identifier=identifier)
+
+    def pop_meta_query(self) -> Optional[ID]:
+        return self.__network_table.pop_meta_query()
+
+    def add_document_query(self, identifier: ID):
+        return self.__network_table.add_document_query(identifier=identifier)
+
+    def pop_document_query(self) -> Optional[ID]:
+        return self.__network_table.pop_document_query()
