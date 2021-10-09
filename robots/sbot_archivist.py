@@ -50,7 +50,6 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.common import SearchCommand
-from libs.database import Storage
 from libs.database import FrequencyChecker
 from libs.client import Terminal, ClientMessenger, Server
 
@@ -64,11 +63,9 @@ from etc.cfg_init import all_stations, neighbor_stations, g_database
 #   User Info Cache
 #
 g_cached_user_info: Dict[ID, str] = {}          # user ID -> user info
-g_cached_online_users: Dict[ID, List[ID]] = {}  # station ID -> user list
 
 g_info = {
-    'neighbors': None,  # Station list
-    'users': [],        # user ID list
+    'users': [],  # all user ID list
     'loading': False,
 }
 
@@ -83,7 +80,7 @@ def reload_user_info():
     users = []
     documents = g_database.scan_documents()
     for doc in documents:
-        # get ID
+        # check ID
         identifier = doc.identifier
         if identifier is None or identifier.type not in user_id_types:
             # ignore
@@ -142,7 +139,7 @@ def search(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
 def recent_users(start: int, limit: int) -> (list, dict):
     all_users = set()
     for station in all_stations:
-        users = load_users(station.identifier)
+        users = g_database.get_online_users(station=station.identifier)
         for item in users:
             all_users.add(item)
     # user ID list
@@ -156,43 +153,24 @@ def recent_users(start: int, limit: int) -> (list, dict):
     users = users[start:end]
     # user meta list
     results = {}
-    for item in users:
-        meta = g_facebook.meta(identifier=item)
-        if meta is not None:
-            results[str(item)] = meta.dictionary
+    if limit > 0:
+        # get meta when limit is set
+        for item in users:
+            meta = g_facebook.meta(identifier=item)
+            if meta is not None:
+                results[str(item)] = meta.dictionary
     return users, results
 
 
-def load_users(station: ID) -> List[ID]:
-    # path = os.path.join(Storage.root, 'protected', str(station.address), 'online_users.txt')
-    # text = Storage.read_text(path=path)
-    # if text is None:
-    #     return []
-    # else:
-    #     return ID.convert(members=text.splitlines())
-    return g_cached_online_users.get(station, [])
-
-
-def save_users(station: ID, users: List[ID]) -> bool:
-    g_cached_online_users[station] = users
-    """ Save online users in a text file
-        file path: '.dim/protected/{ADDRESS}/online_users.txt' """
-    array = ID.revert(members=users)
-    text = '\n'.join(array)
-    path = os.path.join(Storage.root, 'protected', str(station.address), 'online_users.txt')
-    return Storage.write_text(text=text, path=path)
-
-
-def save_response(station: ID, users: List[ID], results: dict) -> Optional[Content]:
+def save_response(station: ID, users: List[ID], results: dict):
     for key, value in results.items():
         identifier = ID.parse(identifier=key)
         meta = Meta.parse(meta=value)
         if identifier is not None and meta is not None:
             # assert meta.match_identifier(identifier=identifier), 'meta error'
             g_facebook.save_meta(meta=meta, identifier=identifier)
-    if save_users(station=station, users=users):
-        # respond nothing
-        return None
+    # store in redis server
+    g_database.set_online_users(station=station, users=users)
 
 
 def send_command(cmd: Command, stations: List[Station], first: bool = False):
@@ -248,7 +226,9 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         return res
 
 
-class ArchivistMessenger(ClientMessenger):
+class ArchivistWorker(threading.Thread, Logging):
+
+    QUERY_EXPIRES = ClientMessenger.QUERY_EXPIRES
 
     def __init__(self):
         super().__init__()
@@ -259,11 +239,6 @@ class ArchivistMessenger(ClientMessenger):
         self.__users_queries: FrequencyChecker[str] = FrequencyChecker()
         self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
-
-    def handshake_accepted(self, server: Server):
-        super().handshake_accepted(server=server)
-        # FIXME: what about offline?
-        self.__online = True
 
     @property
     def running(self) -> bool:
@@ -281,8 +256,12 @@ class ArchivistMessenger(ClientMessenger):
     def online(self, accepted: bool):
         self.__online = accepted
 
-    def run(self):
+    # Override
+    def start(self):
         self.__running = True
+        super().start()
+
+    def run(self):
         while self.running:
             time.sleep(5)
             self.__scan_all_users()
@@ -291,7 +270,7 @@ class ArchivistMessenger(ClientMessenger):
             self.__query_documents()
 
     def __scan_all_users(self):
-        if self.__users_queries.expired(key='local-users', expires=1800):
+        if self.__users_queries.expired(key='all-documents'):
             self.info('scanning documents...')
             reload_user_info()
 
@@ -327,8 +306,18 @@ class ArchivistMessenger(ClientMessenger):
                 send_command(cmd=cmd, stations=neighbor_stations)
 
 
+class ArchivistMessenger(ClientMessenger):
+
+    def handshake_accepted(self, server: Server):
+        super().handshake_accepted(server=server)
+        # FIXME: what about offline?
+        g_worker.online = True
+
+
 g_messenger = ArchivistMessenger()
 g_facebook = g_messenger.facebook
+
+g_worker = ArchivistWorker()
 
 g_spu = SearchCommandProcessor()
 g_spu.messenger = g_messenger
@@ -348,4 +337,4 @@ if __name__ == '__main__':
     client = Terminal()
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
 
-    threading.Thread(target=g_messenger.run).start()
+    g_worker.start()

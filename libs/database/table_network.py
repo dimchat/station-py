@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID
 
@@ -47,3 +47,9 @@ class NetworkTable:
 
     def pop_document_query(self) -> Optional[ID]:
         return self.__redis.pop_document_query()
+
+    def set_online_users(self, station: ID, users: List[ID]):
+        self.__redis.set_online_users(station=station, users=users)
+
+    def get_online_users(self, station: ID) -> List[ID]:
+        return self.__redis.get_online_users(station=station)

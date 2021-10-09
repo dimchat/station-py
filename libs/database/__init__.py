@@ -336,3 +336,9 @@ class Database:
 
     def pop_document_query(self) -> Optional[ID]:
         return self.__network_table.pop_document_query()
+
+    def set_online_users(self, station: ID, users: List[ID]):
+        self.__network_table.set_online_users(station=station, users=users)
+
+    def get_online_users(self, station: ID) -> List[ID]:
+        return self.__network_table.get_online_users(station=station)

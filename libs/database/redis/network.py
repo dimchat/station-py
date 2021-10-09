@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, List
 
-from dimp import utf8_encode, utf8_decode
+from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID
 
 from .base import Cache
@@ -51,29 +51,50 @@ class NetworkCache(Cache):
         return '%s.%s.%s' % (self.database, self.table, suffix)
 
     #
-    #   Query meta/document
+    #   Query Meta/Document
     #
 
     def add_meta_query(self, identifier: ID):
-        key = self.__key(suffix='query.meta')
+        key = self.__key(suffix='query-meta')
         value = utf8_encode(string=str(identifier))
         self.sadd(key, value)
 
     def pop_meta_query(self) -> Optional[ID]:
-        name = self.__key(suffix='query.meta')
+        name = self.__key(suffix='query-meta')
         value = self.spop(name=name)
         if value is not None:
             value = utf8_decode(data=value)
             return ID.parse(identifier=value)
 
     def add_document_query(self, identifier: ID):
-        key = self.__key(suffix='query.document')
+        key = self.__key(suffix='query-document')
         value = utf8_encode(string=str(identifier))
         self.sadd(key, value)
 
     def pop_document_query(self) -> Optional[ID]:
-        name = self.__key(suffix='query.document')
+        name = self.__key(suffix='query-document')
         value = self.spop(name=name)
         if value is not None:
             value = utf8_decode(data=value)
             return ID.parse(identifier=value)
+
+    #
+    #   Online Users
+    #
+
+    def set_online_users(self, station: ID, users: List[ID]):
+        users = ID.revert(users)
+        value = json_encode(o=users)
+        suffix = '%s.online-users' % station
+        name = self.__key(suffix=suffix)
+        self.set(name=name, value=value, expires=600)
+
+    def get_online_users(self, station: ID) -> List[ID]:
+        suffix = '%s.online-users' % station
+        name = self.__key(suffix=suffix)
+        value = self.get(name=name)
+        if value is None:
+            return []
+        else:
+            users = json_decode(data=value)
+            return ID.convert(users)
