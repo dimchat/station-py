@@ -213,7 +213,7 @@ class SessionServer:
         if limit > 0:
             end = start + limit
         else:
-            end = 1024
+            end = 10240
         index = -1
         for item in array:
             if self.is_active(identifier=item):

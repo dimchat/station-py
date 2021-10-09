@@ -23,9 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
+import time
 from typing import Optional, List
 
-from dimp import utf8_encode, utf8_decode, json_encode, json_decode
+from dimp import utf8_encode, utf8_decode
 from dimp import ID
 
 from .base import Cache
@@ -82,19 +83,34 @@ class NetworkCache(Cache):
     #   Online Users
     #
 
-    def set_online_users(self, station: ID, users: List[ID]):
-        users = ID.revert(users)
-        value = json_encode(o=users)
-        suffix = '%s.online-users' % station
-        name = self.__key(suffix=suffix)
-        self.set(name=name, value=value, expires=600)
+    def add_online_user(self, station: ID, user: ID, login_time: int = None):
+        key = self.__key(suffix=('%s.online-users' % station))
+        if login_time is None:
+            login_time = int(time.time())
+        # add user ID with login time
+        self.zadd(name=key, mapping={str(user): login_time})
 
-    def get_online_users(self, station: ID) -> List[ID]:
-        suffix = '%s.online-users' % station
-        name = self.__key(suffix=suffix)
-        value = self.get(name=name)
-        if value is None:
+    def get_online_users(self, station: ID, start: int = 0, limit: int = -1) -> List[ID]:
+        key = self.__key(suffix=('%s.online-users' % station))
+        # 0. clear expired users (5 minutes ago)
+        expired = int(time.time()) - 300
+        self.zremrangebyscore(name=key, min_score=0, max_score=expired)
+        # 1. get number of users
+        count = self.zcard(name=key)
+        if count <= start:
             return []
+        if 0 < limit < (count - start):
+            end = start + limit
         else:
-            users = json_decode(data=value)
-            return ID.convert(users)
+            end = count
+        # 2. get users with range [start, end)
+        users = []
+        values = self.zrange(name=key, start=start, end=(end - 1))
+        for item in values:
+            identifier = utf8_decode(data=item)
+            identifier = ID.parse(identifier=identifier)
+            if identifier is None:
+                # should not happen
+                continue
+            users.append(identifier)
+        return users

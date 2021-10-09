@@ -101,10 +101,10 @@ def reload_user_info():
 def search(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
     users: List[ID] = []
     results = {}
-    if limit <= 0:
-        end = 1024
-    else:
+    if limit > 0:
         end = start + limit
+    else:
+        end = 10240
     index = -1
     all_users = g_info.get('users')
     for identifier in all_users:
@@ -127,12 +127,15 @@ def search(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
         if index < start:
             # skip
             continue
+        elif index < end:
+            # got it
+            users.append(identifier)
+            if limit > 0:
+                # get meta when limit is set
+                results[str(identifier)] = meta.dictionary
         elif index >= end:
             # mission accomplished
             break
-        # got it
-        users.append(identifier)
-        results[str(identifier)] = meta.dictionary
     return users, results
 
 
@@ -170,7 +173,8 @@ def save_response(station: ID, users: List[ID], results: dict):
             # assert meta.match_identifier(identifier=identifier), 'meta error'
             g_facebook.save_meta(meta=meta, identifier=identifier)
     # store in redis server
-    g_database.set_online_users(station=station, users=users)
+    for item in users:
+        g_database.add_online_user(station=station, user=item)
 
 
 def send_command(cmd: Command, stations: List[Station], first: bool = False):
