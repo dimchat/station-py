@@ -42,6 +42,7 @@ from dimsdk import Messenger, MessengerDataSource
 
 from ..utils import Logging
 from ..utils import Singleton
+from ..database import FrequencyChecker
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook
@@ -55,7 +56,7 @@ class CommonMessenger(Messenger, Logging):
     def __init__(self):
         super().__init__()
         # for checking duplicated queries
-        self.__group_queries = {}     # ID -> time
+        self.__group_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
 
     def connected(self):
         pass
@@ -134,13 +135,8 @@ class CommonMessenger(Messenger, Logging):
 
     # FIXME: separate checking for querying each user
     def query_group(self, group: ID, users: List[ID]) -> bool:
-        now = int(time.time())
-        expired = self.__group_queries.get(group, 0)
-        if now < expired:
+        if len(users) == 0 or not self.__group_queries.expired(key=group):
             return False
-        if len(users) == 0:
-            return False
-        self.__group_queries[group] = now + self.QUERY_EXPIRES
         # current user ID
         current = self.facebook.current_user.identifier
         # query from users

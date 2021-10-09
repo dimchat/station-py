@@ -42,6 +42,7 @@ from ..utils import Singleton
 from .dos import Storage
 
 from .cache import CacheHolder, CachePool
+from .cache import FrequencyChecker
 from .table_network import NetworkTable
 from .table_ans import AddressNameTable
 from .table_private import PrivateKeyTable
@@ -58,6 +59,7 @@ __all__ = [
     'Storage',
 
     'CacheHolder', 'CachePool',
+    'FrequencyChecker',
 
     'NetworkTable',
     'AddressNameTable',

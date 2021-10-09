@@ -83,3 +83,20 @@ class CachePool(Generic[K, V]):
             # remove expired holders
             for key in expired:
                 caches.pop(key, None)
+
+
+class FrequencyChecker(Generic[K]):
+    """ Frequency checker for duplicated queries """
+
+    def __init__(self, expires: int = 3600):
+        super().__init__()
+        self.__expires = expires
+        self.__map: Dict[K, int] = {}
+
+    def expired(self, key: K, expires: int = None) -> bool:
+        if expires is None:
+            expires = self.__expires
+        now = int(time.time())
+        if now > self.__map.get(key, 0):
+            self.__map[key] = now + expires
+            return True

@@ -51,6 +51,7 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.common import SearchCommand
 from libs.database import Storage
+from libs.database import FrequencyChecker
 from libs.client import Terminal, ClientMessenger, Server
 
 from robots.config import g_station
@@ -253,15 +254,16 @@ class ArchivistMessenger(ClientMessenger):
         super().__init__()
         self.__running = False
         self.__online = False
-        # timers
-        self.__scan_expired = 0
-        self.__query_expired = 0
-        self.__meta_queries: Dict[ID, int] = {}      # ID -> time
-        self.__document_queries: Dict[ID, int] = {}  # ID -> time
+        self.__first = True
+        # for checking duplicated queries
+        self.__users_queries: FrequencyChecker[str] = FrequencyChecker()
+        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+        self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
 
     def handshake_accepted(self, server: Server):
         super().handshake_accepted(server=server)
-        self.online = True
+        # FIXME: what about offline?
+        self.__online = True
 
     @property
     def running(self) -> bool:
@@ -285,65 +287,44 @@ class ArchivistMessenger(ClientMessenger):
             time.sleep(5)
             self.__scan_all_users()
             self.__query_online_users()
-            self.__query_all_metas()
-            self.__query_all_documents()
+            self.__query_metas()
+            self.__query_documents()
 
     def __scan_all_users(self):
-        now = int(time.time())
-        if now < self.__scan_expired:
-            return False
-        self.__scan_expired = now + 1800  # scan after 30 minutes
-        self.info('scanning documents...')
-        reload_user_info()
+        if self.__users_queries.expired(key='local-users', expires=1800):
+            self.info('scanning documents...')
+            reload_user_info()
 
     def __query_online_users(self):
-        if not self.online:
-            return False
-        now = int(time.time())
-        if now < self.__query_expired:
-            return False
-        first = self.__query_expired == 0
-        self.__query_expired = now + 300  # query after 5 minutes
-        self.info('querying online users from %d station(s)' % len(all_stations))
-        cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
-        cmd.limit = -1
-        send_command(cmd=cmd, stations=all_stations, first=first)
+        if self.online and self.__users_queries.expired(key='online-users', expires=300):
+            first = self.__first
+            self.__first = False
+            self.info('querying online users from %d station(s)' % len(all_stations))
+            cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
+            cmd.limit = -1
+            send_command(cmd=cmd, stations=all_stations, first=first)
 
-    def __query_all_metas(self):
+    def __query_metas(self):
         while self.running and self.online:
             identifier = g_database.pop_meta_query()
             if identifier is None:
                 # no more task
                 break
-            self.__query_meta(identifier=identifier)
+            elif self.__meta_queries.expired(key=identifier):
+                self.info('querying meta: %s from %d station(s)' % (identifier, len(neighbor_stations)))
+                cmd = MetaCommand(identifier=identifier)
+                send_command(cmd=cmd, stations=neighbor_stations)
 
-    def __query_all_documents(self):
+    def __query_documents(self):
         while self.running and self.online:
             identifier = g_database.pop_document_query()
             if identifier is None:
                 # no more task
                 break
-            self.__query_meta(identifier=identifier)
-
-    def __query_meta(self, identifier: ID):
-        now = int(time.time())
-        expired = self.__meta_queries.get(identifier, 0)
-        if now < expired:
-            return False
-        self.__meta_queries[identifier] = now + self.QUERY_EXPIRES
-        self.info('querying meta: %s from %d station(s)' % (identifier, len(neighbor_stations)))
-        cmd = MetaCommand(identifier=identifier)
-        send_command(cmd=cmd, stations=neighbor_stations)
-
-    def __query_document(self, identifier: ID):
-        now = int(time.time())
-        expired = self.__document_queries.get(identifier, 0)
-        if now < expired:
-            return False
-        self.__document_queries[identifier] = now + self.QUERY_EXPIRES
-        self.info('querying document: %s from %d station(s)' % (identifier, len(neighbor_stations)))
-        cmd = DocumentCommand(identifier=identifier)
-        send_command(cmd=cmd, stations=neighbor_stations)
+            elif self.__document_queries.expired(key=identifier):
+                self.info('querying document: %s from %d station(s)' % (identifier, len(neighbor_stations)))
+                cmd = DocumentCommand(identifier=identifier)
+                send_command(cmd=cmd, stations=neighbor_stations)
 
 
 g_messenger = ArchivistMessenger()

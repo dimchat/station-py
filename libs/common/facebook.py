@@ -39,6 +39,7 @@ from dimsdk import Facebook
 
 from ..utils import Singleton
 from ..database import Database
+from ..database import FrequencyChecker
 
 
 class CommonFacebook(Facebook):
@@ -49,6 +50,9 @@ class CommonFacebook(Facebook):
         self.__db = Database()
         self.__local_users: Optional[List[User]] = None
         self.__group_assistants = []
+        # for checking duplicated queries
+        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=600)
+        self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=600)
 
     @property
     def messenger(self):  # -> CommonMessenger:
@@ -189,7 +193,7 @@ class CommonFacebook(Facebook):
             return None
         # try from database
         info = self.__db.meta(identifier=identifier)
-        if info is None:
+        if info is None and self.__meta_queries.expired(key=identifier):
             # query from DIM network
             self.__db.add_meta_query(identifier=identifier)
         return info
@@ -200,7 +204,7 @@ class CommonFacebook(Facebook):
             return None
         # try from database
         info = self.__db.document(identifier=identifier, doc_type=doc_type)
-        if info is None:
+        if self.__document_queries.expired(key=identifier):
             # query from DIM network
             self.__db.add_document_query(identifier=identifier)
         return info
