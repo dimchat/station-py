@@ -26,7 +26,7 @@
 import time
 from typing import List, Optional
 
-from dimp import utf8_decode, json_encode, json_decode
+from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID, NetworkType
 from dimp import ReliableMessage
 
@@ -82,16 +82,14 @@ class MessageCache(Cache):
         receiver = msg.receiver
         signature = msg.get('signature')
         sig = signature[-8:]  # last 6 bytes (signature in base64)
-        self.__remove(receiver=receiver, sig=sig)
-        return True
-
-    def __remove(self, receiver: ID, sig: str):
+        value = utf8_encode(string=sig)
         # 1. delete msg.dictionary from redis server
         msg_key = self.__msg_key(identifier=receiver, sig=sig)
         self.delete(msg_key)
         # 2. delete msg.signature from the ordered set
         messages_key = self.__messages_key(identifier=receiver)
-        self.zrem(messages_key, sig)
+        self.zrem(messages_key, value)
+        return True
 
     def messages(self, receiver: ID) -> List[ReliableMessage]:
         # 0. clear expired messages (7 days ago)

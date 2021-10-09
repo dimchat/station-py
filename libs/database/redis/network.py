@@ -90,12 +90,21 @@ class NetworkCache(Cache):
         # add user ID with login time
         self.zadd(name=key, mapping={str(user): login_time})
 
-    def get_online_users(self, station: ID, start: int = 0, limit: int = -1) -> List[ID]:
+    def remove_offline_users(self, station: ID, users: List[ID]):
         key = self.__key(suffix=('%s.online-users' % station))
         # 0. clear expired users (5 minutes ago)
         expired = int(time.time()) - 300
         self.zremrangebyscore(name=key, min_score=0, max_score=expired)
+        # 1. clear offline users one by one
+        for item in users:
+            value = utf8_encode(string=str(item))
+            self.zrem(key, value)
+
+    def get_online_users(self, station: ID, start: int = 0, limit: int = -1) -> List[ID]:
+        # 0. clear expired users
+        self.remove_offline_users(station=station, users=[])
         # 1. get number of users
+        key = self.__key(suffix=('%s.online-users' % station))
         count = self.zcard(name=key)
         if count <= start:
             return []

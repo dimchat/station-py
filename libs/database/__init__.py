@@ -340,5 +340,8 @@ class Database:
     def add_online_user(self, station: ID, user: ID, login_time: int = None):
         self.__network_table.add_online_user(station=station, user=user, login_time=login_time)
 
+    def remove_offline_users(self, station: ID, users: List[ID]):
+        self.__network_table.remove_offline_users(station=station, users=users)
+
     def get_online_users(self, station: ID, start: int = 0, limit: int = -1) -> List[ID]:
         return self.__network_table.get_online_users(station=station, start=start, limit=limit)
