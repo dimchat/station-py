@@ -41,7 +41,7 @@ from dimp import ID, NetworkType
 from libs.utils.log import current_time
 from libs.utils import Singleton, Log, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.database import Storage
+from libs.database import Storage, Database
 from libs.common import NotificationNames
 from libs.server import Session
 
@@ -172,23 +172,45 @@ class Recorder(threading.Thread, Logging):
         elif name == NotificationNames.USER_LOGIN:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
+            station = ID.parse(identifier=info.get('station'))
+            login_time = info.get('time')
             self.debug('user login: %s, %s' % (client_address, identifier))
             # counter
             self.__login_count += 1
             # check for new user to this station
             save_freshman(identifier=identifier)
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.add_online_user(station=station, user=identifier, login_time=login_time)
         elif name == NotificationNames.USER_ONLINE:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
             station = ID.parse(identifier=info.get('station'))
+            login_time = info.get('time')
             if client_address is None:
                 self.debug('user roaming: %s -> %s' % (identifier, station))
             else:
-                self.debug('user online: %s, %s' % (client_address, identifier))
+                self.debug('user online: %s, %s -> %s' % (identifier, client_address, station))
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.add_online_user(station=station, user=identifier, login_time=login_time)
         elif name == NotificationNames.USER_OFFLINE:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
+            station = ID.parse(identifier=info.get('station'))
             self.debug('user offline: %s, %s' % (client_address, identifier))
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.remove_offline_users(station=station, users=[identifier])
         elif name == NotificationNames.DELIVER_MESSAGE:
             sender = ID.parse(identifier=info.get('sender'))
             receiver = ID.parse(identifier=info.get('receiver'))

@@ -30,6 +30,7 @@
     Transform and send message
 """
 
+import time
 from typing import Optional
 
 from dimp import ID
@@ -126,9 +127,13 @@ class ServerMessenger(CommonMessenger):
         sender = session.identifier
         session_key = session.key
         client_address = session.client_address
+        sid = g_dispatcher.station
+        now = int(time.time())
         self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
         # post notification: USER_LOGIN
         NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
             'ID': sender,
             'client_address': client_address,
+            'station': sid,
+            'time': now,
         })

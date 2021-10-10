@@ -51,11 +51,11 @@ class LoginCommandProcessor(CommandProcessor, Logging):
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
-        sender = cmd.identifier
         # check roaming
         if not g_database.save_login(cmd=cmd, msg=msg):
             self.error('login command error/expired: %s' % cmd)
             return None
+        sender = cmd.identifier
         station = cmd.station
         assert isinstance(station, dict), 'login command error: %s' % cmd
         sid = ID.parse(identifier=station.get('ID'))
@@ -64,6 +64,7 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
             'ID': sender,
             'station': sid,
+            'time': cmd.time,
         })
         # check current station
         facebook = self.facebook

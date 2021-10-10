@@ -46,6 +46,7 @@ from ...common import ReportCommand
 
 from ..session import Session
 from ..messenger import ServerMessenger
+from ..dispatcher import Dispatcher
 
 
 g_database = Database()
@@ -66,7 +67,7 @@ class ReportCommandProcessor(CommandProcessor):
                     session.active = False
                 else:  # 'foreground'
                     session.active = True
-                _post_notification(session=session, sender=self)
+                _post_notification(cpu=self, cmd=cmd, session=session)
             return ReceiptCommand(message='Client state received')
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
@@ -87,15 +88,18 @@ class ReportCommandProcessor(CommandProcessor):
         return cpu.execute(cmd=cmd, msg=msg)
 
 
-def _post_notification(session: Session, sender):
+def _post_notification(cpu: ReportCommandProcessor, cmd: Command, session: Session):
     if session.active:
         notification = NotificationNames.USER_ONLINE
     else:
         notification = NotificationNames.USER_OFFLINE
+    sid = Dispatcher().station
     # post notification
-    NotificationCenter().post(name=notification, sender=sender, info={
+    NotificationCenter().post(name=notification, sender=cpu, info={
         'ID': session.identifier,
         'client_address': session.client_address,
+        'station': sid,
+        'time': cmd.time,
     })
 
 
@@ -120,7 +124,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         session = messenger.current_session
         if session is not None:
             session.active = True
-            _post_notification(session=session, sender=self)
+            _post_notification(cpu=self, cmd=cmd, session=session)
             # TODO: notification for pushing offline message(s) from 'last_time'
         return ReceiptCommand(message='Client online received')
 
@@ -135,7 +139,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = messenger.current_session
         if session is not None:
             session.active = False
-            _post_notification(session=session, sender=self)
+            _post_notification(cpu=self, cmd=cmd, session=session)
         return ReceiptCommand(message='Client offline received')
 
 

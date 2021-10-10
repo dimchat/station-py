@@ -172,11 +172,13 @@ def save_response(station: ID, users: List[ID], results: dict):
         if identifier is not None and meta is not None:
             # assert meta.match_identifier(identifier=identifier), 'meta error'
             g_facebook.save_meta(meta=meta, identifier=identifier)
-    # clear expired users
-    g_database.remove_offline_users(station=station, users=[])
     # store in redis server
     for item in users:
         g_database.add_online_user(station=station, user=item)
+    # clear expired users
+    g_database.remove_offline_users(station=station, users=[])
+    # NOTICE: online users will be updated by monitor
+    #         when login command or online/offline reports received
 
 
 def send_command(cmd: Command, stations: List[Station], first: bool = False):
