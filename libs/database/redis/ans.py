@@ -53,6 +53,7 @@ class AddressNameCache(Cache):
     def save_record(self, name: str, identifier: ID):
         value = utf8_encode(string=str(identifier))
         self.hset(name=self.__key(), key=name, value=value)
+        return True
 
     def record(self, name: str) -> Optional[ID]:
         value = self.hget(name=self.__key(), key=name)

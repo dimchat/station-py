@@ -59,7 +59,8 @@ class LoginCache(Cache):
         dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
         value = json_encode(o=dictionary)
         key = self.__login_key(identifier=msg.sender)
-        return self.set(name=key, value=value, expires=self.EXPIRES)
+        self.set(name=key, value=value, expires=self.EXPIRES)
+        return True
 
     def __load_login(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
         key = self.__login_key(identifier=identifier)

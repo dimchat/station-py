@@ -237,7 +237,7 @@ class Contact:
     def is_address_expired(cls, address: Optional[tuple], hub: Hub) -> bool:
         if address is None:
             return True
-        conn = hub.get_connection(remote=address, local=None)
+        conn = hub.connect(remote=address, local=None)
         if conn is None:
             return True
         return conn.state == ConnectionState.ERROR

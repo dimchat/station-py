@@ -59,6 +59,7 @@ class NetworkCache(Cache):
         key = self.__key(suffix='query-meta')
         value = utf8_encode(string=str(identifier))
         self.sadd(key, value)
+        return True
 
     def pop_meta_query(self) -> Optional[ID]:
         name = self.__key(suffix='query-meta')
@@ -71,6 +72,7 @@ class NetworkCache(Cache):
         key = self.__key(suffix='query-document')
         value = utf8_encode(string=str(identifier))
         self.sadd(key, value)
+        return True
 
     def pop_document_query(self) -> Optional[ID]:
         name = self.__key(suffix='query-document')
@@ -85,10 +87,12 @@ class NetworkCache(Cache):
 
     def add_online_user(self, station: ID, user: ID, login_time: int = None):
         key = self.__key(suffix=('%s.online-users' % station))
-        if login_time is None:
+        if login_time is None or login_time == 0:
             login_time = int(time.time())
+        value = utf8_encode(string=str(user))
         # add user ID with login time
-        self.zadd(name=key, mapping={str(user): login_time})
+        self.zadd(name=key, mapping={value: login_time})
+        return True
 
     def remove_offline_users(self, station: ID, users: List[ID]):
         key = self.__key(suffix=('%s.online-users' % station))
@@ -99,6 +103,7 @@ class NetworkCache(Cache):
         for item in users:
             value = utf8_encode(string=str(item))
             self.zrem(key, value)
+        return True
 
     def get_online_users(self, station: ID, start: int = 0, limit: int = -1) -> List[ID]:
         # 0. clear expired users

@@ -77,6 +77,7 @@ class Cache:
     def set(self, name: str, value: bytes, expires: Optional[int] = None):
         """ Set value with name """
         self.redis.set(name=name, value=value, ex=expires)
+        return True
 
     def get(self, name: str) -> Optional[bytes]:
         """ Get value with name """
@@ -89,6 +90,7 @@ class Cache:
     def delete(self, *names):
         """ Remove value with name """
         self.redis.delete(*names)
+        return True
 
     #
     #   Hash Mapping
@@ -97,6 +99,7 @@ class Cache:
     def hset(self, name: str, key: str, value: bytes):
         """ Set a value into a hash table with name & key """
         self.redis.hset(name=name, key=key, value=value)
+        return True
 
     def hget(self, name: str, key: str) -> Optional[bytes]:
         """ Get value from the hash table with name & key """
@@ -113,6 +116,7 @@ class Cache:
     def sadd(self, name: str, *values):
         """ Add values into a hash set with name """
         self.redis.sadd(name, *values)
+        return True
 
     def spop(self, name: str, count: Optional[int] = None):
         """ Remove and return a random member from the hash set with name """
@@ -121,6 +125,7 @@ class Cache:
     def srem(self, name: str, *values):
         """ Remove values from the hash set with name """
         self.redis.srem(name, *values)
+        return True
 
     def smembers(self, name: str) -> List[bytes]:
         """ Get all items of the hash set with name """
@@ -133,14 +138,17 @@ class Cache:
     def zadd(self, name: str, mapping: dict):
         """ Add value with score into an ordered set with name """
         self.redis.zadd(name=name, mapping=mapping)
+        return True
 
     def zrem(self, name: str, *values):
         """ Remove values from the ordered set with name """
         self.redis.zrem(name, *values)
+        return True
 
     def zremrangebyscore(self, name: str, min_score: int, max_score: int):
         """ Remove items with score range [min, max] """
         self.redis.zremrangebyscore(name=name, min=min_score, max=max_score)
+        return True
 
     def zrange(self, name: str, start: int = 0, end: int = -1, desc: bool = False) -> List[bytes]:
         """ Get items with range [start, end] """
