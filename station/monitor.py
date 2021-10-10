@@ -39,7 +39,7 @@ from typing import List, Optional
 from dimp import ID, NetworkType
 
 from libs.utils.log import current_time
-from libs.utils import Singleton, Log, Logging
+from libs.utils import Singleton, Logging
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.database import Storage, Database
 from libs.common import NotificationNames
@@ -83,26 +83,6 @@ class Monitor(NotificationObserver):
 
     def stop(self):
         self.__recorder.stop()
-
-
-def save_freshman(identifier: ID) -> bool:
-    """ Save freshman ID in a text file for the robot
-
-        file path: '.dim/freshmen.txt'
-    """
-    path = os.path.join(Storage.root, 'freshmen.txt')
-    # check whether ID exists
-    text = Storage.read_text(path=path)
-    if text is not None:
-        array = text.splitlines()
-        for item in array:
-            if item == identifier:
-                # already exists
-                return False
-    # append as new line
-    new_line = str(identifier) + '\n'
-    Log.info('Saving freshman: %s' % identifier)
-    return Storage.append_text(text=new_line, path=path)
 
 
 def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
@@ -177,8 +157,6 @@ class Recorder(threading.Thread, Logging):
             self.debug('user login: %s, %s' % (client_address, identifier))
             # counter
             self.__login_count += 1
-            # check for new user to this station
-            save_freshman(identifier=identifier)
             # update online users
             if identifier is None or station is None:
                 self.error('user/station empty: %s' % info)
