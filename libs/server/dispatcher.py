@@ -421,26 +421,21 @@ class BroadcastDispatcher(Worker):
         neighbors = self.neighbors
         candidates = []
         for sid in neighbors:
-            assert sid != self.station, 'neighbors error: %s, %s' % (self.station, neighbors)
-            # check traces
-            if msg_traced(msg=msg, node=sid):  # and is_broadcast_message(msg=msg):
+            # check station that traced
+            if not msg_traced(msg=msg, node=sid):
+                candidates.append(sid)
+            else:
                 sig = msg.get('signature')
                 if sig is not None and len(sig) > 8:
                     sig = sig[-8:]
                 self.info('ignore traced msg [%s]: %s -> %s\n neighbor %s in %s' %
                           (sig, msg.sender, msg.receiver, sid, msg.get('traces')))
-            else:
-                candidates.append(sid)
-        # split message for candidates
-        messages = msg.split(members=candidates)
         # 1. push to all neighbors connected th current station
         sent_neighbors = []
         success = 0
-        for item in messages:
-            assert isinstance(item, ReliableMessage), 'split message error: %s' % item
-            sid = item.receiver
+        for sid in candidates:
             # push to neighbor station
-            cnt = _push_message(msg=item, receiver=sid)
+            cnt = _push_message(msg=msg, receiver=sid)
             if cnt > 0:
                 sent_neighbors.append(str(sid))
                 success += 1
