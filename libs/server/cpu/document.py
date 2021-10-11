@@ -77,15 +77,20 @@ class DocumentCommandProcessor(SuperCommandProcessor):
         res = super().execute(cmd=cmd, msg=msg)
         if cmd.document is None and isinstance(res, DocumentCommand):
             # this is a request, and target document got.
+            sender = msg.sender
+            if sender.type == NetworkType.ROBOT:
+                # no need to respond LoginCommand message to a robot,
+                # just DocumentCommand is OK
+                return res
             # check login command message
-            login = self.__check_login(identifier=cmd.identifier, sender=msg.sender)
+            login = self.__check_login(identifier=cmd.identifier, sender=sender)
             if login is not None:
                 messenger = self.messenger
                 assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
                 # respond document
-                messenger.send_content(sender=None, receiver=msg.sender, content=res)
+                messenger.send_content(sender=None, receiver=sender, content=res)
                 # respond login command
-                messenger.send_content(sender=None, receiver=msg.sender, content=ForwardContent(message=login))
+                messenger.send_content(sender=None, receiver=sender, content=ForwardContent(message=login))
                 return None
         return res
 

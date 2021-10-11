@@ -32,7 +32,7 @@ import time
 from typing import Optional
 
 from dimp import NetworkType
-from dimp import InstantMessage, ReliableMessage
+from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Envelope, Content, TextContent
 from dimsdk import HandshakeCommand, ReceiptCommand
 
@@ -40,6 +40,17 @@ from ..common import CommonProcessor
 
 
 class ClientProcessor(CommonProcessor):
+
+    # Override
+    def process_secure_message(self, msg: SecureMessage, r_msg: ReliableMessage) -> Optional[SecureMessage]:
+        try:
+            return super().process_secure_message(msg=msg, r_msg=r_msg)
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                # not mine? ignore it
+                return None
+            else:
+                raise error
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
