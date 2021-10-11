@@ -43,7 +43,7 @@ class LoginTable:
 
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         if self.__redis.save_login(cmd=cmd, msg=msg):
-            self.__caches[msg.sender] = CacheHolder(value=(cmd, msg))
+            self.__caches[msg.sender] = CacheHolder(value=(cmd, msg), life_span=300)
             return True
 
     def login_command(self, identifier: ID) -> Optional[LoginCommand]:
@@ -66,7 +66,7 @@ class LoginTable:
             # 2. check redis server
             cmd, msg = self.__redis.login_info(identifier=identifier)
             # update memory cache
-            holder = CacheHolder(value=(cmd, msg))
+            holder = CacheHolder(value=(cmd, msg), life_span=300)
             self.__caches[identifier] = holder
         # OK, return cached value
         return holder.value

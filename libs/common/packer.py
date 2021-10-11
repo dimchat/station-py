@@ -82,6 +82,7 @@ class CommonPacker(MessagePacker):
         keys['digest'] = base64[pos:]
         msg['keys'] = keys
 
+    # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         self.__attach_key_digest(msg=msg)
         if self.mtp_format == self.MTP_JSON:
@@ -91,6 +92,7 @@ class CommonPacker(MessagePacker):
             # D-MTP
             return MTPUtils.serialize_message(msg=msg)
 
+    # Override
     def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
             return None
@@ -105,6 +107,7 @@ class CommonPacker(MessagePacker):
                 self.mtp_format = self.MTP_DMTP
                 return msg
 
+    # Override
     def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
         s_msg = super().encrypt_message(msg=msg)
         receiver = msg.receiver
@@ -115,6 +118,15 @@ class CommonPacker(MessagePacker):
         # TODO: reuse personal message key?
         return s_msg
 
+    # Override
+    def sign_message(self, msg: SecureMessage) -> ReliableMessage:
+        if isinstance(msg, ReliableMessage):
+            # already signed
+            return msg
+        else:
+            return super().sign_message(msg=msg)
+
+    # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         s_msg = super().verify_message(msg=msg)
         if s_msg is None:

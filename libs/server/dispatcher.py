@@ -165,18 +165,19 @@ class Dispatcher(NotificationObserver):
 
 
 def _roaming_stations(user: ID) -> List[ID]:
-    stations = []
+    # check from login command
     cmd = g_database.login_command(identifier=user)
     if cmd is not None:
         station = cmd.station
-        last_time = cmd.time
-        if isinstance(station, dict) and isinstance(last_time, int):
-            # check time expires
-            if (time.time() - last_time) < (3600 * 24 * 7):
-                sid = ID.parse(identifier=station.get('ID'))
-                if sid is not None:
-                    stations.append(sid)
-    return stations
+        if station is not None:
+            sid = station.get('ID')
+            sid = ID.parse(identifier=sid)
+            if sid is not None:
+                return [sid]
+    # TODO: check from Redis
+    #       with key - 'dim.network.{StationID}.online-users'
+    #       or key - 'dim.network.{UserID}.login-stations'?
+    return []
 
 
 def _push_message(msg: ReliableMessage, receiver: ID) -> int:

@@ -35,8 +35,8 @@ from .base import Cache
 
 class LoginCache(Cache):
 
-    # login info cached in Redis Server will be removed after a week
-    EXPIRES = 3600 * 24 * 7  # seconds
+    # login info cached in Redis Server will be expired after 5 minutes
+    EXPIRES = 300  # seconds
 
     @property  # Override
     def database(self) -> Optional[str]:

@@ -34,7 +34,7 @@ from typing import Optional
 from dimp import NetworkType
 from dimp import ReliableMessage
 from dimp import Content, TextContent
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, HandshakeCommand
 
 from ..database import Database
 from ..common import msg_traced, is_broadcast_message
@@ -52,10 +52,15 @@ g_dispatcher = Dispatcher()
 
 class ServerProcessor(CommonProcessor):
 
+    @property
+    def messenger(self) -> ServerMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
+        return transceiver
+
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         sender = msg.sender
         receiver = msg.receiver
         #
@@ -138,6 +143,15 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
+        # check login before process content
+        messenger = self.messenger
+        session = messenger.current_session
+        if session.identifier is None or not session.active:
+            if not isinstance(content, HandshakeCommand):
+                # handshake first
+                messenger.suspend_message(msg=r_msg)
+                return HandshakeCommand.ask(session=session.key)
+        # now process content
         res = super().process_content(content=content, r_msg=r_msg)
         if res is None:
             # respond nothing
