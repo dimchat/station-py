@@ -143,32 +143,35 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
-        # check login before process content
+        # 0. process first
+        res = super().process_content(content=content, r_msg=r_msg)
+        handshake = None
         messenger = self.messenger
+        sender = r_msg.sender
+        # 1. check login
         session = messenger.current_session
         if session.identifier is None or not session.active:
+            # not login yet, force to handshake again
             if not isinstance(content, HandshakeCommand):
-                # handshake first
-                messenger.suspend_message(msg=r_msg)
-                return HandshakeCommand.ask(session=session.key)
-        # now process content
-        res = super().process_content(content=content, r_msg=r_msg)
+                handshake = HandshakeCommand.ask(session=session.key)
+        # 2. check response
         if res is None:
             # respond nothing
-            return None
+            return handshake
         elif isinstance(res, ReceiptCommand):
-            sender = r_msg.sender
             if sender.type == NetworkType.STATION:
                 # no need to respond receipt to station
                 when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                 self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
-                return None
+                return handshake
         elif isinstance(res, TextContent):
-            sender = r_msg.sender
             if sender.type == NetworkType.STATION:
                 # no need to respond text message to station
                 when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                 self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
-                return None
+                return handshake
+        # force to handshake again
+        if handshake is not None:
+            messenger.send_content(sender=None, receiver=sender, content=handshake)
         # OK
         return res

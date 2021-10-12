@@ -89,20 +89,17 @@ class CommonMessenger(Messenger, Logging):
         assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
         return barrack
 
-    def _create_facebook(self) -> CommonFacebook:
-        # facebook = SharedFacebook()
-        # facebook.messenger = self
-        # return facebook
-        raise AssertionError('set facebook first')
-
+    # Override
     def _create_packer(self) -> Packer:
         from .packer import CommonPacker
         return CommonPacker(messenger=self)
 
+    # Override
     def _create_processor(self) -> Processor:
         from .processor import CommonProcessor
         return CommonProcessor(messenger=self)
 
+    # Override
     def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
         try:
             return super().deserialize_content(data=data, key=key, msg=msg)
@@ -112,6 +109,8 @@ class CommonMessenger(Messenger, Logging):
     #
     #   Reuse message key
     #
+
+    # Override
     def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
         reused = key.get('reused')
         if reused is not None:

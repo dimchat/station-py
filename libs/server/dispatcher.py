@@ -419,11 +419,11 @@ class BroadcastDispatcher(Worker):
     def __deliver_to_neighbors(self, msg: ReliableMessage) -> Optional[Content]:
         # 0. check neighbor stations
         neighbors = self.neighbors
-        candidates = []
+        candidates = set()
         for sid in neighbors:
             # check station that traced
             if not msg_traced(msg=msg, node=sid):
-                candidates.append(sid)
+                candidates.add(sid)
             else:
                 sig = msg.get('signature')
                 if sig is not None and len(sig) > 8:
