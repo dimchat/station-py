@@ -90,8 +90,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 # respond document
                 messenger.send_content(sender=None, receiver=sender, content=res)
                 # respond login command
-                messenger.send_content(sender=None, receiver=sender, content=ForwardContent(message=login))
-                return None
+                return ForwardContent(message=login)
         return res
 
 
