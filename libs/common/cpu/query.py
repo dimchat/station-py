@@ -36,7 +36,7 @@
     2. any existed member or assistant can query group members-list
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -48,7 +48,7 @@ from dimsdk import CommandProcessor, GroupCommandProcessor
 
 class QueryCommandProcessor(GroupCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, QueryCommand), 'group command error: %s' % cmd
         facebook = self.facebook
         group: ID = cmd.group
@@ -60,14 +60,15 @@ class QueryCommandProcessor(GroupCommandProcessor):
         members = facebook.members(identifier=group)
         if members is None or len(members) == 0:
             text = 'Group members not found: %s' % group
-            return TextContent(text=text)
+            return [TextContent(text=text)]
         # 3. response group members for sender
         user = facebook.current_user
         assert user is not None, 'current user not set'
         if facebook.is_owner(member=user.identifier, group=group):
-            return GroupCommand.reset(group=group, members=members)
+            res = GroupCommand.reset(group=group, members=members)
         else:
-            return GroupCommand.invite(group=group, members=members)
+            res = GroupCommand.invite(group=group, members=members)
+        return [res]
 
 
 # register

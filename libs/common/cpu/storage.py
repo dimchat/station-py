@@ -30,7 +30,7 @@
     storage protocol: post/get contacts, private_key, ...
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -46,7 +46,7 @@ g_database = Database()
 
 class StorageCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, StorageCommand), 'command error: %s' % cmd
         title = cmd.title
         if title == StorageCommand.CONTACTS:
@@ -55,18 +55,19 @@ class StorageCommandProcessor(CommandProcessor):
                 stored = g_database.contacts_command(identifier=msg.sender)
                 # response
                 if stored is None:
-                    return TextContent(text='Sorry, contacts of %s not found.' % msg.sender)
+                    res = TextContent(text='Sorry, contacts of %s not found.' % msg.sender)
                 else:
                     # response the stored contacts command directly
-                    return stored
+                    res = stored
             else:
                 # upload contacts, save it
                 if g_database.save_contacts_command(cmd=cmd, sender=msg.sender):
-                    return ReceiptCommand(message='Contacts of %s received!' % msg.sender)
+                    res = ReceiptCommand(message='Contacts of %s received!' % msg.sender)
                 else:
-                    return TextContent(text='Contacts not stored %s!' % cmd)
-        # error
-        return TextContent(text='Storage command (title: %s) not support yet!' % title)
+                    res = TextContent(text='Contacts not stored %s!' % cmd)
+        else:
+            res = TextContent(text='Storage command (title: %s) not support yet!' % title)
+        return [res]
 
 
 # register

@@ -31,7 +31,7 @@
 """
 
 import time
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -70,7 +70,7 @@ class ServerMessenger(CommonMessenger):
         from .processor import ServerProcessor
         return ServerProcessor(messenger=self)
 
-    def deliver_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
         # FIXME: check deliver permission
         res = self.__filter.check_deliver(msg=msg)
@@ -78,16 +78,18 @@ class ServerMessenger(CommonMessenger):
             # delivering is allowed, call dispatcher to deliver this message
             res = g_dispatcher.deliver(msg=msg)
         # pack response
-        if res is not None:
-            if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
-                self.info('waiting visa key for: %s' % msg.sender)
-                return None
-            user = self.facebook.current_user
-            env = Envelope.create(sender=user.identifier, receiver=msg.sender)
-            i_msg = InstantMessage.create(head=env, body=res)
-            s_msg = self.encrypt_message(msg=i_msg)
-            assert s_msg is not None, 'failed to respond to: %s' % msg.sender
-            return self.sign_message(msg=s_msg)
+        if res is None:
+            return []
+        if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
+            self.info('waiting visa key for: %s' % msg.sender)
+            return []
+        user = self.facebook.current_user
+        env = Envelope.create(sender=user.identifier, receiver=msg.sender)
+        i_msg = InstantMessage.create(head=env, body=res)
+        s_msg = self.encrypt_message(msg=i_msg)
+        assert s_msg is not None, 'failed to respond to: %s' % msg.sender
+        r_msg = self.sign_message(msg=s_msg)
+        return [r_msg]
 
     #
     #   Session

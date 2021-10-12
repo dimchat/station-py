@@ -27,7 +27,7 @@
 import os
 import sys
 import time
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import Content, TextContent
@@ -71,7 +71,7 @@ g_facebook.cache_user(user=g_station)
 
 class TestMessenger(ClientMessenger):
 
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         self.info('received content: %s -> %s' % (r_msg.sender, content))
         return super().process_content(content=content, r_msg=r_msg)
 

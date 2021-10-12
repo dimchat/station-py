@@ -30,7 +30,7 @@
     Handshake Protocol
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ReliableMessage
 from dimp import Content
@@ -41,16 +41,17 @@ from dimsdk import CommandProcessor
 
 class HandshakeCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
         message = cmd.message
         if 'DIM?' == message:
             # station ask client to handshake again
-            return HandshakeCommand.restart(session=cmd.session)
+            return [HandshakeCommand.restart(session=cmd.session)]
         elif 'DIM!' == message:
             # handshake accepted by station
             server = self.messenger.server
             server.handshake_success()
+            return []
 
 
 # register

@@ -84,7 +84,7 @@ class InnerMessenger(OctopusMessenger):
     """ Messenger for processing message from local station """
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         if msg.receiver == g_station.identifier:
             if self._is_handshaking(msg=msg):
                 self.info('inner handshaking: %s' % msg.sender)
@@ -92,23 +92,27 @@ class InnerMessenger(OctopusMessenger):
             else:
                 traces = msg.get('traces')
                 self.error('drop inner msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
-                return None
+                return []
         # handshake accepted, delivering message
         self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:
             msg.delegate = self
-        return octopus.departure(msg=msg)
+        r_msg = octopus.departure(msg=msg)
+        if r_msg is None:
+            return []
+        else:
+            return [r_msg]
 
 
 class OuterMessenger(OctopusMessenger):
     """ Messenger for processing message from remote station """
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         if msg.sender == msg.receiver:
             traces = msg.get('traces')
             self.error('drop outer msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
-            return None
+            return []
         if msg.receiver == g_station.identifier:
             if self._is_handshaking(msg=msg):
                 self.info('outer handshaking: %s' % msg.sender)
@@ -117,7 +121,11 @@ class OuterMessenger(OctopusMessenger):
         self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:
             msg.delegate = self
-        return octopus.arrival(msg=msg)
+        r_msg = octopus.arrival(msg=msg)
+        if r_msg is None:
+            return []
+        else:
+            return [r_msg]
 
 
 class Worker(threading.Thread, Logging):

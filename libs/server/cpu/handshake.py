@@ -30,7 +30,7 @@
     Handshake Protocol
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -64,16 +64,20 @@ class HandshakeCommandProcessor(CommandProcessor):
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.key)
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
         message = cmd.message
         if message in ['DIM?', 'DIM!']:
             # S -> C
-            return TextContent(text='Handshake command error: %s' % message)
+            res = TextContent(text='Handshake command error: %s' % message)
         else:
             # C -> S: Hello world!
             assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
-            return self.__offer(session_key=cmd.session, sender=msg.sender)
+            res = self.__offer(session_key=cmd.session, sender=msg.sender)
+        if res is None:
+            return []
+        else:
+            return [res]
 
 
 # register

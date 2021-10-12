@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Optional, List
+from typing import List
 
 from dimp import ID, Meta
 from dimp import ReliableMessage
@@ -59,14 +59,14 @@ def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
 
 
 # noinspection PyUnusedLocal
-def save_response(facebook, station: ID, users: List[ID], results: dict) -> Optional[Content]:
+def save_response(facebook, station: ID, users: List[ID], results: dict) -> List[Content]:
     # TODO: Save online users in a text file
-    pass
+    return []
 
 
 class SearchCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         if cmd.users is not None or cmd.results is not None:
             # this is a response
@@ -75,16 +75,16 @@ class SearchCommandProcessor(CommandProcessor):
         facebook = self.facebook
         keywords = cmd.keywords
         if keywords is None:
-            return TextContent(text='Search command error')
+            return [TextContent(text='Search command error')]
         elif keywords == SearchCommand.ONLINE_USERS:
             users, results = online_users(facebook, start=cmd.start, limit=cmd.limit)
         else:
             # let search bot (archivist) to do the job
-            return None
+            return []
         res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
         station = facebook.current_user
         res.station = station.identifier
-        return res
+        return [res]
 
 
 # register

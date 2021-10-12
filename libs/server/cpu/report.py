@@ -30,7 +30,7 @@
     Report protocol
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -54,23 +54,24 @@ g_database = Database()
 
 class ReportCommandProcessor(CommandProcessor):
 
-    def __process_old_report(self, cmd: ReportCommand, sender: ID) -> Optional[Content]:
+    def __process_old_report(self, cmd: ReportCommand, sender: ID) -> List[Content]:
         # compatible with v1.0
         state = cmd.get('state')
-        if state is not None:
-            messenger = self.messenger
-            assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-            session = messenger.current_session
-            if session is not None:
-                assert session.identifier == sender, 'session ID not match: %s, %s' % (sender, session)
-                if 'background' == state:
-                    session.active = False
-                else:  # 'foreground'
-                    session.active = True
-                _post_notification(cpu=self, cmd=cmd, session=session)
-            return ReceiptCommand(message='Client state received')
+        if state is None:
+            return []
+        messenger = self.messenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        session = messenger.current_session
+        if session is not None:
+            assert session.identifier == sender, 'session ID not match: %s, %s' % (sender, session)
+            if 'background' == state:
+                session.active = False
+            else:  # 'foreground'
+                session.active = True
+            _post_notification(cpu=self, cmd=cmd, session=session)
+        return [ReceiptCommand(message='Client state received')]
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'report command error: %s' % cmd
         # report title
         title = cmd.title
@@ -80,7 +81,7 @@ class ReportCommandProcessor(CommandProcessor):
         cpu = self.processor_for_name(command=title)
         # check and run
         if cpu is None:
-            return TextContent(text='Report command (title: %s) not support yet!' % title)
+            return [TextContent(text='Report command (title: %s) not support yet!' % title)]
         elif cpu is self:
             raise AssertionError('Dead cycle! report cmd: %s' % cmd)
         assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
@@ -105,18 +106,19 @@ def _post_notification(cpu: ReportCommandProcessor, cmd: Command, session: Sessi
 
 class APNsCommandProcessor(ReportCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, Command), 'command error: %s' % cmd
         # submit device token for APNs
         token = cmd.get('device_token')
-        if token is not None and len(token) > 0:
-            g_database.save_device_token(token=token, identifier=msg.sender)
-            return ReceiptCommand(message='Token received')
+        if token is None or len(token) == 0:
+            return []
+        g_database.save_device_token(token=token, identifier=msg.sender)
+        return [ReceiptCommand(message='Token received')]
 
 
 class OnlineCommandProcessor(ReportCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
         messenger = self.messenger
@@ -126,12 +128,12 @@ class OnlineCommandProcessor(ReportCommandProcessor):
             session.active = True
             _post_notification(cpu=self, cmd=cmd, session=session)
             # TODO: notification for pushing offline message(s) from 'last_time'
-        return ReceiptCommand(message='Client online received')
+        return [ReceiptCommand(message='Client online received')]
 
 
 class OfflineCommandProcessor(ReportCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
         # goodbye!
         messenger = self.messenger
@@ -140,7 +142,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         if session is not None:
             session.active = False
             _post_notification(cpu=self, cmd=cmd, session=session)
-        return ReceiptCommand(message='Client offline received')
+        return [ReceiptCommand(message='Client offline received')]
 
 
 # register

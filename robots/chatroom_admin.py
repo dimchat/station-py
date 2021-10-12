@@ -35,7 +35,7 @@ import sys
 import os
 import time
 from enum import IntEnum
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -66,9 +66,9 @@ from robots.config import dims_connect
 #
 class ReceiptCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
-        return client.room.receipt(cmd=cmd, sender=msg.sender)
+        return [client.room.receipt(cmd=cmd, sender=msg.sender)]
 
 
 #
@@ -79,7 +79,7 @@ class ForwardContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
         r_msg = content.message
 
@@ -90,10 +90,14 @@ class ForwardContentProcessor(ContentProcessor):
         if s_msg is None:
             # TODO: save this message in a queue to wait meta response
             # raise ValueError('failed to verify message: %s' % r_msg)
-            return None
+            return []
 
         # call client to process it
-        return client.room.forward(content=content, sender=msg.sender)
+        res = client.room.forward(content=content, sender=msg.sender)
+        if res is None:
+            return []
+        else:
+            return [res]
 
 
 #
@@ -104,11 +108,11 @@ class TextContentProcessor(ChatTextContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
         res = client.room.receive(content=content, sender=msg.sender)
         if res is not None:
-            return res
+            return [res]
         return super().process(content=content, msg=msg)
 
 

@@ -30,7 +30,7 @@
     Mute protocol
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -46,26 +46,26 @@ g_database = Database()
 
 class MuteCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, MuteCommand), 'command error: %s' % cmd
         if 'list' in cmd:
             # upload mute-list, save it
             if g_database.save_mute_command(cmd=cmd, sender=msg.sender):
-                return ReceiptCommand(message='Mute command of %s received!' % msg.sender)
+                return [ReceiptCommand(message='Mute command of %s received!' % msg.sender)]
             else:
-                return TextContent(text='Sorry, mute-list not stored %s!' % cmd)
+                return [TextContent(text='Sorry, mute-list not stored %s!' % cmd)]
         else:
             # query mute-list, load it
             stored: Command = g_database.mute_command(identifier=msg.sender)
             if stored is not None:
                 # response the stored mute command directly
-                return stored
+                return [stored]
             else:
                 # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
                 # TODO: here should response an empty HistoryCommand: 'mute'
                 res = Command(command=MuteCommand.MUTE)
                 res['list'] = []
-                return res
+                return [res]
 
 
 # register

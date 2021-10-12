@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID, NetworkType
 from dimp import ReliableMessage
@@ -41,8 +41,6 @@ from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...database import Database
 from ...common import CommonFacebook
-
-from ..messenger import ServerMessenger
 
 
 g_database = Database()
@@ -72,26 +70,25 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                     return None
             return msg
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd
-        res = super().execute(cmd=cmd, msg=msg)
-        if cmd.document is None and isinstance(res, DocumentCommand):
-            # this is a request, and target document got.
-            sender = msg.sender
-            if sender.type == NetworkType.ROBOT:
-                # no need to respond LoginCommand message to a robot,
-                # just DocumentCommand is OK
-                return res
-            # check login command message
-            login = self.__check_login(identifier=cmd.identifier, sender=sender)
-            if login is not None:
-                messenger = self.messenger
-                assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-                # respond document
-                messenger.send_content(sender=None, receiver=sender, content=res)
-                # respond login command
-                return ForwardContent(message=login)
-        return res
+        responses = super().execute(cmd=cmd, msg=msg)
+        if cmd.document is not None:
+            return responses
+        for res in responses:
+            if isinstance(res, DocumentCommand):
+                # this is a request, and target document got.
+                sender = msg.sender
+                if sender.type == NetworkType.ROBOT:
+                    # no need to respond LoginCommand message to a robot,
+                    # just DocumentCommand is OK
+                    return responses
+                # check login command message
+                login = self.__check_login(identifier=cmd.identifier, sender=sender)
+                if login is not None:
+                    # respond login command
+                    responses.append(ForwardContent(message=login))
+        return responses
 
 
 # register

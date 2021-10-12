@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ReliableMessage
 from dimp import Content, Command
@@ -39,10 +39,10 @@ from dimsdk import CommandProcessor
 
 class ReceiptCommandProcessor(CommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
         # nickname = self.facebook.name(identifier=sender)
-        return None
+        return []
 
 
 # register

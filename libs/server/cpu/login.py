@@ -30,7 +30,7 @@
     login protocol
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
@@ -49,12 +49,12 @@ g_database = Database()
 
 class LoginCommandProcessor(CommandProcessor, Logging):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         # check roaming
         if not g_database.save_login(cmd=cmd, msg=msg):
             self.error('login command error/expired: %s' % cmd)
-            return None
+            return []
         sender = cmd.identifier
         station = cmd.station
         assert isinstance(station, dict), 'login command error: %s' % cmd
@@ -72,7 +72,8 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         srv = facebook.current_user
         if sid == srv.identifier:
             # only respond the user login to this station
-            return ReceiptCommand(message='Login received')
+            return [ReceiptCommand(message='Login received')]
+        return []
 
 
 # register

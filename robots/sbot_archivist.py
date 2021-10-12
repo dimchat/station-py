@@ -35,11 +35,11 @@ import sys
 import os
 import threading
 import time
-from typing import Optional, List, Dict
+from typing import List, Dict
 
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, TextContent, Command
+from dimp import Content, Command
 from dimp import MetaCommand, DocumentCommand
 from dimsdk import CommandProcessor
 from dimsdk import Station
@@ -208,20 +208,23 @@ class SearchCommandProcessor(CommandProcessor, Logging):
     def __init__(self):
         super().__init__()
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> Optional[Content]:
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         if cmd.users is not None or cmd.results is not None:
             # this is a response
             self.info('saving search respond: %s' % cmd)
-            return save_response(station=msg.sender, users=cmd.users, results=cmd.results)
+            save_response(station=msg.sender, users=cmd.users, results=cmd.results)
+            return []
         # this is a request
         keywords = cmd.keywords
         if keywords is None:
-            return TextContent(text='Search command error')
+            # return [TextContent(text='Search command error')]
+            self.error('Search command error: %s' % cmd)
+            return []
         keywords = keywords.lower()
         if keywords == SearchCommand.ONLINE_USERS:
             # let the station to do the job
-            return None
+            return []
         elif keywords == 'all users':
             users, results = recent_users(start=cmd.start, limit=cmd.limit)
             self.info('Got %d recent online user(s)' % len(results))
@@ -231,7 +234,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         # respond
         res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
         res.station = g_station.identifier
-        return res
+        return [res]
 
 
 class ArchivistWorker(threading.Thread, Logging):

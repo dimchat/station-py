@@ -232,8 +232,11 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         data = b''
         for pack in packages:
             try:
-                res = self.messenger.process_package(data=pack)
-                if res is not None and len(res) > 0:
+                responses = self.messenger.process_package(data=pack)
+                for res in responses:
+                    if res is None or len(res) == 0:
+                        # should not happen
+                        continue
                     data += res + b'\n'
             except Exception as error:
                 self.error('parse message failed: %s, %s\n payload: %s' % (error, pack, payload))

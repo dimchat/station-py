@@ -30,7 +30,7 @@
 """
 
 import time
-from typing import Optional, Union
+from typing import Optional, Union, List
 from urllib.error import URLError
 
 from dimp import NetworkType, ID
@@ -51,10 +51,10 @@ class DefaultTextContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         # just ignore
-        return None
+        return []
 
 
 class ChatTextContentProcessor(ContentProcessor, Logging):
@@ -117,7 +117,7 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
     #
     #   main
     #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         sender = msg.sender
         from ..facebook import CommonFacebook
@@ -125,29 +125,31 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
         assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
         nickname = facebook.name(identifier=sender)
         if self.__ignored(content=content, sender=sender, msg=msg):
-            return None
+            return []
         self.debug('received text message from %s: %s' % (nickname, content))
-        response = self._query(content=content, sender=sender)
-        if response is not None:
-            assert isinstance(response, TextContent)
-            question = content.text
-            answer = response.text
-            group = content.group
-            if group is None:
-                # personal message
-                self.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
-                return response
+        res = self._query(content=content, sender=sender)
+        if res is None:
+            return []
+        assert isinstance(res, TextContent)
+        question = content.text
+        answer = res.text
+        group = content.group
+        if group is None:
+            # personal message
+            self.debug('Dialog > %s(%s): "%s" -> "%s"' % (nickname, sender, question, answer))
+            return [res]
+        else:
+            # group message
+            self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
+            messenger = self.messenger
+            assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
+            if messenger.send_content(sender=None, receiver=group, content=res):
+                text = 'Group message responded'
+                receipt = ReceiptCommand(message=text)
             else:
-                # group message
-                self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
-                messenger = self.messenger
-                assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
-                if messenger.send_content(sender=None, receiver=group, content=response):
-                    text = 'Group message responded'
-                    return ReceiptCommand(message=text)
-                else:
-                    text = 'Group message respond failed'
-                    return ReceiptCommand(message=text)
+                text = 'Group message respond failed'
+                receipt = ReceiptCommand(message=text)
+            return [receipt]
 
 
 # register

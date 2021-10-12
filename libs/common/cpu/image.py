@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional
+from typing import List
 
 from dimp import ReliableMessage
 from dimp import ContentType, Content
@@ -42,9 +42,9 @@ class ImageContentProcessor(ContentProcessor):
     #
     #   main
     #
-    def process(self, content: Content, msg: ReliableMessage) -> Optional[Content]:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ImageContent), 'image content error: %s' % content
-        return None
+        return []
 
 
 # register

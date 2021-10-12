@@ -143,7 +143,7 @@ class AssistantMessenger(ClientMessenger, Logging):
         self.__key_cache = GroupKeyCache()
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         # check message delegate
         if msg.delegate is None:
             msg.delegate = self
@@ -155,8 +155,13 @@ class AssistantMessenger(ClientMessenger, Logging):
             # group not ready
             # save this message in a queue to wait group info response
             self.suspend_message(msg=msg)
+            return []
         else:
-            return self.__process_group_message(msg=msg)
+            r_msg = self.__process_group_message(msg=msg)
+            if r_msg is None:
+                return []
+            else:
+                return [r_msg]
 
     def __is_waiting_group(self, group: ID, sender: ID, msg_type: int) -> bool:
         if group.is_broadcast:

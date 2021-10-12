@@ -29,7 +29,7 @@
 """
 
 import time
-from typing import Optional
+from typing import List
 
 from dimp import NetworkType
 from dimp import ReliableMessage
@@ -59,7 +59,7 @@ class ServerProcessor(CommonProcessor):
         return transceiver
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         messenger = self.messenger
         sender = msg.sender
         receiver = msg.receiver
@@ -70,7 +70,7 @@ class ServerProcessor(CommonProcessor):
         if s_msg is None:
             self.error('failed to verify message: %s -> %s' % (sender, receiver))
             # waiting for sender's meta if not exists
-            return None
+            return []
         # 1.1. check traces
         station = g_dispatcher.station
         if msg_traced(msg=msg, node=station, append=True):
@@ -80,10 +80,10 @@ class ServerProcessor(CommonProcessor):
             self.info('cycled msg [%s]: %s in %s' % (sig, station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
                 self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return None
+                return []
             if is_broadcast_message(msg=msg):
                 self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return None
+                return []
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
                 self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
@@ -92,15 +92,14 @@ class ServerProcessor(CommonProcessor):
             else:
                 self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
                 g_database.save_message(msg=msg)
-                return None
+                return []
         # 1.2. check broadcast/group message
+        deliver_responses = []
         if receiver.is_broadcast:
-            res = messenger.deliver_message(msg=msg)
+            deliver_responses = messenger.deliver_message(msg=msg)
             # if this is a broadcast, deliver it, send back the response
             # and continue to process it with the station.
             # because this station is also a recipient too.
-            if res is not None:
-                messenger.send_message(msg=res, priority=1)
         elif receiver.is_group:
             # or, if this is is an ordinary group message,
             # just deliver it to the group assistant
@@ -115,10 +114,7 @@ class ServerProcessor(CommonProcessor):
         # 2. process message
         #
         try:
-            s_msg = messenger.process_secure_message(msg=s_msg, r_msg=msg)
-            if s_msg is None:
-                # nothing to respond
-                return None
+            responses = messenger.process_secure_message(msg=s_msg, r_msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
@@ -127,25 +123,32 @@ class ServerProcessor(CommonProcessor):
             else:
                 raise error
         #
-        # 3. sign message
+        # 3. sign messages
         #
-        res = messenger.sign_message(msg=s_msg)
-        if res is not None:
+        messages = []
+        for res in responses:
+            r_msg = messenger.sign_message(msg=res)
+            if r_msg is None:
+                # should not happen
+                continue
             group = msg.group
             if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
                 # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
                 # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
                 # so respond them as message attachments.
-                user = self.facebook.user(identifier=res.sender)
-                res.meta = user.meta
-                res.visa = user.visa
-            return res
+                user = self.facebook.user(identifier=r_msg.sender)
+                r_msg.meta = user.meta
+                r_msg.visa = user.visa
+            messages.append(r_msg)
+        # append deliver responses
+        for r_msg in deliver_responses:
+            messages.append(r_msg)
+        return messages
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         # 0. process first
-        res = super().process_content(content=content, r_msg=r_msg)
-        handshake = None
+        responses = super().process_content(content=content, r_msg=r_msg)
         messenger = self.messenger
         sender = r_msg.sender
         # 1. check login
@@ -154,24 +157,25 @@ class ServerProcessor(CommonProcessor):
             # not login yet, force to handshake again
             if not isinstance(content, HandshakeCommand):
                 handshake = HandshakeCommand.ask(session=session.key)
+                responses.insert(0, handshake)
         # 2. check response
-        if res is None:
-            # respond nothing
-            return handshake
-        elif isinstance(res, ReceiptCommand):
-            if sender.type == NetworkType.STATION:
-                # no need to respond receipt to station
-                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
-                return handshake
-        elif isinstance(res, TextContent):
-            if sender.type == NetworkType.STATION:
-                # no need to respond text message to station
-                when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
-                return handshake
-        # force to handshake again
-        if handshake is not None:
-            messenger.send_content(sender=None, receiver=sender, content=handshake)
+        contents = []
+        for res in responses:
+            if res is None:
+                # should not happen
+                continue
+            elif isinstance(res, ReceiptCommand):
+                if sender.type == NetworkType.STATION:
+                    # no need to respond receipt to station
+                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
+                    self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
+                continue
+            elif isinstance(res, TextContent):
+                if sender.type == NetworkType.STATION:
+                    # no need to respond text message to station
+                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
+                    self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
+                continue
+            contents.append(res)
         # OK
-        return res
+        return contents

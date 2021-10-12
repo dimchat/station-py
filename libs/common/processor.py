@@ -29,7 +29,7 @@
 """
 
 import traceback
-from typing import Optional
+from typing import List
 
 from dimp import ID
 from dimp import Content, ReliableMessage
@@ -110,13 +110,13 @@ class CommonProcessor(MessageProcessor, Logging):
             return self.messenger.query_group(group=group, users=admins)
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> Optional[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         sender = r_msg.sender
         if self.__is_waiting_group(content=content, sender=sender):
             # group not ready
             # save this message in a queue to wait group info response
             self.messenger.suspend_message(msg=r_msg)
-            return None
+            return []
         try:
             return super().process_content(content=content, r_msg=r_msg)
         except Exception as e:
@@ -127,3 +127,4 @@ class CommonProcessor(MessageProcessor, Logging):
                 self.info(error)
             else:
                 traceback.print_exc()
+            return []
