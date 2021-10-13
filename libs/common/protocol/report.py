@@ -33,7 +33,6 @@
 from typing import Optional
 
 from dimp import Command
-from dimp.protocol import CommandFactoryBuilder
 
 
 class ReportCommand(Command):
@@ -74,10 +73,3 @@ class ReportCommand(Command):
     @title.setter
     def title(self, value: str):
         self['title'] = value
-
-
-# register
-Command.register(command=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
-Command.register(command='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
-Command.register(command=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
-Command.register(command=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))

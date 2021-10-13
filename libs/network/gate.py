@@ -118,6 +118,13 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
         if current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
             self.info('connection state changed: %s -> %s, %s' % (previous, current, connection))
+        elif current is None:
+            self.error('connection lost: %s, %s' % (previous, connection))
+
+    # # Override
+    # def connection_sent(self, data: bytes, source: Optional[tuple], destination: tuple, connection: Connection):
+    #     super().connection_sent(data=data, source=source, destination=destination, connection=connection)
+    #     self.info('sent %d byte(s): %s -> %s' % (len(data), source, destination))
 
     def send_payload(self, payload: bytes, local: Optional[tuple], remote: tuple,
                      priority: int = 0, delegate: Optional[GateDelegate] = None):

@@ -32,7 +32,7 @@ import traceback
 from typing import List
 
 from dimp import ID
-from dimp import Content, ReliableMessage
+from dimp import Content, InstantMessage, ReliableMessage
 from dimp import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 
@@ -111,11 +111,12 @@ class CommonProcessor(MessageProcessor, Logging):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        messenger = self.messenger
         sender = r_msg.sender
         if self.__is_waiting_group(content=content, sender=sender):
             # group not ready
             # save this message in a queue to wait group info response
-            self.messenger.suspend_message(msg=r_msg)
+            messenger.suspend_message(msg=r_msg)
             return []
         try:
             return super().process_content(content=content, r_msg=r_msg)
@@ -123,8 +124,16 @@ class CommonProcessor(MessageProcessor, Logging):
             error = '%s' % e
             if error.find('failed to get meta') >= 0:
                 # suspend message to wait meta
-                self.messenger.suspend_message(msg=r_msg)
+                messenger.suspend_message(msg=r_msg)
                 self.info(error)
             else:
                 traceback.print_exc()
             return []
+
+    # Override
+    def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
+        responses = super().process_instant_message(msg=msg, r_msg=r_msg)
+        if not self.messenger.save_message(msg=msg):
+            # error
+            return []
+        return responses

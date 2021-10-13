@@ -38,12 +38,12 @@ from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimsdk import HandshakeCommand
 from dimsdk import Station
-from dimsdk import MessengerDelegate, CompletionHandler
 
 from ...utils import Logging
 from ...network import Hub, Gate, GateStatus, DeparturePriority
 
 from ...common import CommonMessenger, CommonFacebook
+from ...common import MessengerDelegate, CompletionHandler
 from ...common import BaseSession
 
 

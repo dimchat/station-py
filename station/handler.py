@@ -35,12 +35,11 @@ from socketserver import StreamRequestHandler
 from typing import Optional
 
 from dimp import InstantMessage
-from dimsdk import CompletionHandler
-from dimsdk import MessengerDelegate
 
 from libs.utils import Logging
 from libs.utils import NotificationCenter
 from libs.common import NotificationNames
+from libs.common import CompletionHandler, MessengerDelegate
 from libs.server import ServerMessenger, SessionServer
 
 

@@ -30,6 +30,7 @@
 from typing import Optional
 
 from dimp import base64_encode, sha256
+from dimp import ID
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import MessagePacker
 
@@ -48,10 +49,17 @@ class CommonPacker(MessagePacker):
         # Message Transfer Protocol
         self.mtp_format = self.MTP_JSON
 
+    @property
+    def messenger(self) -> CommonMessenger:
+        transceiver = super().messenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
+
     def __attach_key_digest(self, msg: ReliableMessage):
+        messenger = self.messenger
         # check message delegate
         if msg.delegate is None:
-            msg.delegate = self.transceiver
+            msg.delegate = messenger
         if msg.encrypted_key is not None:
             # 'key' exists
             return
@@ -66,9 +74,9 @@ class CommonPacker(MessagePacker):
         group = msg.group
         if group is None:
             receiver = msg.receiver
-            key = self.messenger.cipher_key(sender=sender, receiver=receiver)
+            key = messenger.cipher_key(sender=sender, receiver=receiver)
         else:
-            key = self.messenger.cipher_key(sender=sender, receiver=group)
+            key = messenger.cipher_key(sender=sender, receiver=group)
         # get key data
         data = key.data
         if data is None or len(data) < 6:
@@ -108,17 +116,6 @@ class CommonPacker(MessagePacker):
                 return msg
 
     # Override
-    def encrypt_message(self, msg: InstantMessage) -> SecureMessage:
-        s_msg = super().encrypt_message(msg=msg)
-        receiver = msg.receiver
-        if receiver.is_group:
-            # reuse group message keys
-            key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
-            key['reused'] = True
-        # TODO: reuse personal message key?
-        return s_msg
-
-    # Override
     def sign_message(self, msg: SecureMessage) -> ReliableMessage:
         if isinstance(msg, ReliableMessage):
             # already signed
@@ -128,10 +125,46 @@ class CommonPacker(MessagePacker):
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        s_msg = super().verify_message(msg=msg)
-        if s_msg is None:
-            key = self.facebook.public_key_for_encryption(identifier=msg.sender)
-            if key is None:
-                # sender's meta/visa not ready
+        sender = msg.sender
+        # [Meta Protocol]
+        meta = msg.meta
+        if meta is None:
+            meta = self.facebook.meta(identifier=sender)
+        elif not meta.match_identifier(identifier=sender):
+            meta = None
+        if meta is None:
+            # NOTICE: the application will query meta automatically,
+            #         save this message in a queue waiting sender's meta response
+            self.messenger.suspend_message(msg=msg)
+            return None
+        # make sure meta exists before verifying message
+        return super().verify_message(msg=msg)
+
+    def __is_waiting(self, identifier: ID) -> bool:
+        if identifier.is_group:
+            # checking group meta
+            return self.facebook.meta(identifier=identifier) is None
+        else:
+            # checking visa key
+            return self.facebook.public_key_for_encryption(identifier=identifier) is None
+
+    # Override
+    def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+        receiver = msg.receiver
+        group = msg.group
+        if not (receiver.is_broadcast or (group is not None and group.is_broadcast)):
+            # this message is not a broadcast message
+            if self.__is_waiting(receiver) or (group is not None and self.__is_waiting(group)):
+                # NOTICE: the application will query visa automatically,
+                #         save this message in a queue waiting sender's visa response
                 self.messenger.suspend_message(msg=msg)
+                return None
+        # make sure visa.key exists before encrypting message
+        s_msg = super().encrypt_message(msg=msg)
+        receiver = msg.receiver
+        if receiver.is_group:
+            # reuse group message keys
+            key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
+            key['reused'] = True
+        # TODO: reuse personal message key?
         return s_msg

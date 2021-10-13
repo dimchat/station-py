@@ -342,7 +342,7 @@ class ChatRoom(Logging):
         messages = r_msg.split(members=users)
         # send one by one
         for msg in messages:
-            messenger.send_message(msg=msg)
+            messenger.send_reliable_message(msg=msg)
 
     def __online(self) -> Content:
         """ Get online users """

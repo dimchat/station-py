@@ -212,7 +212,7 @@ class Worker(threading.Thread, Logging):
                 priority = 1  # SLOWER
             else:
                 priority = 0  # NORMAL
-            if not self.__messenger.send_message(msg=msg, priority=priority):
+            if not self.__messenger.send_reliable_message(msg=msg, priority=priority):
                 self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
                 g_database.save_message(msg=msg)
             return True

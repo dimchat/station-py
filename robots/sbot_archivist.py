@@ -200,7 +200,7 @@ def send_command(cmd: Command, stations: List[Station], first: bool = False):
         if meta is not None:
             msg['meta'] = meta
             msg['visa'] = visa
-        g_messenger.send_message(msg=msg)
+        g_messenger.send_instant_message(msg=msg)
 
 
 class SearchCommandProcessor(CommandProcessor, Logging):

@@ -48,7 +48,6 @@ from .dispatcher import Dispatcher
 
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
-g_facebook = SharedFacebook()
 
 
 class ServerMessenger(CommonMessenger):
@@ -58,13 +57,6 @@ class ServerMessenger(CommonMessenger):
         from .filter import Filter
         self.__filter = Filter(messenger=self)
         self.__current_session: Optional[Session] = None
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        return g_facebook
-
-    def _create_facebook(self) -> CommonFacebook:
-        return g_facebook
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor

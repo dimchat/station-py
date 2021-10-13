@@ -23,8 +23,25 @@
 # SOFTWARE.
 # ==============================================================================
 
+from dimp import Command
+from dimp.protocol import CommandFactoryBuilder
+
 from .search import SearchCommand
 from .report import ReportCommand
+
+
+def register_all_processors():
+    # search
+    Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    # report
+    Command.register(command=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(command='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(command=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(command=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
+
+
+register_all_processors()
 
 
 __all__ = [

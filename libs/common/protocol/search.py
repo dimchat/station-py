@@ -33,7 +33,6 @@
 from typing import Optional, Union, List
 
 from dimp import ID, Command
-from dimp.protocol import CommandFactoryBuilder
 
 
 class SearchCommand(Command):
@@ -182,8 +181,3 @@ class SearchCommand(Command):
         for key, value in info.items():
             cmd[key] = value
         return cmd
-
-
-# register
-Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
-Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))

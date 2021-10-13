@@ -45,9 +45,10 @@ from .ans import AddressNameServer
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook, SharedFacebook
-from .messenger import CommonMessenger
+from .messenger import CommonMessenger, CompletionHandler, MessengerDelegate
 from .packer import CommonPacker
 from .processor import CommonProcessor
+from .transmitter import CommonTransmitter
 
 
 def msg_receipt(msg: ReliableMessage, text: str) -> Content:
@@ -115,7 +116,7 @@ __all__ = [
     #   CPU
     #
     'DefaultTextContentProcessor', 'ChatTextContentProcessor',
-    'ImageContentProcessor',
+    'FileContentProcessor',
     'ReceiptCommandProcessor',
     'MuteCommandProcessor',
     'BlockCommandProcessor',
@@ -129,7 +130,8 @@ __all__ = [
     'AddressNameServer',
 
     'KeyStore', 'CommonFacebook', 'SharedFacebook',
-    'CommonMessenger', 'CommonPacker', 'CommonProcessor',
+    'CommonMessenger', 'CommonPacker', 'CommonProcessor', 'CommonTransmitter',
+    'CompletionHandler', 'MessengerDelegate',
 
     'msg_receipt', 'msg_traced', 'is_broadcast_message',
 ]

@@ -229,7 +229,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
             packages = payload.splitlines()
         else:
             packages = [payload]
-        data = b''
+        array = []
         for pack in packages:
             try:
                 responses = self.messenger.process_package(data=pack)
@@ -237,16 +237,19 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                     if res is None or len(res) == 0:
                         # should not happen
                         continue
-                    data += res + b'\n'
+                    array.append(res)
             except Exception as error:
                 self.error('parse message failed: %s, %s\n payload: %s' % (error, pack, payload))
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
-        # station MUST respond something to client request
-        if len(data) > 0:
-            data = data[:-1]  # remove last '\n'
-        self.gate.send_response(payload=data, ship=ship, remote=source, local=destination)
+        if len(array) == 0:
+            # station MUST respond something to client request
+            self.gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+            return False
+        for item in array:
+            self.gate.send_response(payload=item, ship=ship, remote=source, local=destination)
+        return True
 
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         delegate = None

@@ -62,6 +62,7 @@ class ClientProcessor(CommonProcessor):
         receiver = r_msg.receiver
         user = self.facebook.select_user(receiver=receiver)
         assert user is not None, 'receiver error: %s' % receiver
+        messenger = self.messenger
         # check responses
         for res in responses:
             if res is None:
@@ -83,6 +84,6 @@ class ClientProcessor(CommonProcessor):
             env = Envelope.create(sender=user.identifier, receiver=r_msg.sender)
             i_msg = InstantMessage.create(head=env, body=res)
             # normal response
-            self.messenger.send_message(msg=i_msg)
+            messenger.send_instant_message(msg=i_msg)
         # DON'T respond to station directly
         return []

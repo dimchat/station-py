@@ -43,7 +43,3 @@ class ReceiptCommandProcessor(CommandProcessor):
         assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
         # nickname = self.facebook.name(identifier=sender)
         return []
-
-
-# register
-CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())

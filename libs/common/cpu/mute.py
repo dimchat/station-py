@@ -66,7 +66,3 @@ class MuteCommandProcessor(CommandProcessor):
                 res = Command(command=MuteCommand.MUTE)
                 res['list'] = []
                 return [res]
-
-
-# register
-CommandProcessor.register(command=MuteCommand.MUTE, cpu=MuteCommandProcessor())

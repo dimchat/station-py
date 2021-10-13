@@ -66,7 +66,3 @@ class BlockCommandProcessor(CommandProcessor):
                 res = Command(command=BlockCommand.BLOCK)
                 res['list'] = []
                 return [res]
-
-
-# register
-CommandProcessor.register(command=BlockCommand.BLOCK, cpu=BlockCommandProcessor())
