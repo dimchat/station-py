@@ -11,10 +11,10 @@ ecdsa         # 0.16.1
 
 redis      # 3.5.3
 
-startrek  # 0.2.1
-tcp       # 0.2.7
-udp       # 0.4.9
-stun      # 0.2.3
+startrek==0.2.2
+tcp==0.2.8
+udp==0.4.10
+stun==0.2.3
 dmtp==0.3.4
 
 mkm       # 0.10.15

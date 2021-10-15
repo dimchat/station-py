@@ -34,10 +34,12 @@ from startrek import ArrivalShip, ArrivalHall, DepartureShip, DepartureHall
 from startrek import Dock, LockedDock, StarDocker, StarGate
 
 from tcp import PlainArrival, PlainDeparture, PlainDocker
-from tcp import StreamChannel, StreamHub, ServerHub, ClientHub
+from tcp import StreamChannel, StreamHub
+from tcp import ServerHub as TCPServerHub, ClientHub as TCPClientHub
 
 from udp import PackageArrival, PackageDeparture, PackageDocker
 from udp import PackageChannel, PackageHub
+from udp import ServerHub as UDPServerHub, ClientHub as UDPClientHub
 
 from .protocol import WebSocket, NetMsg, NetMsgHead, NetMsgSeq
 
@@ -66,13 +68,13 @@ __all__ = [
     #   TCP
     #
     'PlainArrival', 'PlainDeparture', 'PlainDocker',
-    'StreamChannel', 'StreamHub', 'ServerHub', 'ClientHub',
+    'StreamChannel', 'StreamHub', 'TCPServerHub', 'TCPClientHub',
 
     #
     #   UDP
     #
     'PackageArrival', 'PackageDeparture', 'PackageDocker',
-    'PackageChannel', 'PackageHub',
+    'PackageChannel', 'PackageHub', 'UDPServerHub', 'UDPClientHub',
 
     #
     #   Protocol

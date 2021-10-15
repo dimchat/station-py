@@ -52,7 +52,7 @@ from ..network import Gate, GateStatus, GateDelegate
 from ..network import ShipDelegate
 from ..network import Arrival, Departure, DepartureShip
 from ..network import StreamChannel
-from ..network import Hub, StreamHub, ClientHub
+from ..network import Hub, TCPServerHub, TCPClientHub
 from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 
@@ -101,14 +101,14 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def _create_hub(self, delegate: ConnectionDelegate, address: tuple, sock: Optional[socket.socket]) -> Hub:
         if sock is None:
             assert address is not None, 'remote address empty'
-            hub = ClientHub(delegate=delegate)
+            hub = TCPClientHub(delegate=delegate)
             hub.connect(remote=address)
         else:
             sock.setblocking(False)
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
-            hub = StreamHub(delegate=delegate)
+            hub = TCPServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
 
@@ -230,9 +230,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         else:
             packages = [payload]
         array = []
+        messenger = self.messenger
         for pack in packages:
             try:
-                responses = self.messenger.process_package(data=pack)
+                responses = messenger.process_package(data=pack)
                 for res in responses:
                     if res is None or len(res) == 0:
                         # should not happen
@@ -243,12 +244,13 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
+        gate = self.gate
         if len(array) == 0:
             # station MUST respond something to client request
-            self.gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+            gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
             return False
         for item in array:
-            self.gate.send_response(payload=item, ship=ship, remote=source, local=destination)
+            gate.send_response(payload=item, ship=ship, remote=source, local=destination)
         return True
 
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
