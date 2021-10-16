@@ -30,6 +30,7 @@ from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID, NetworkType
 from dimp import ReliableMessage
 
+from ...utils import get_msg_sig
 from .base import Cache
 
 
@@ -66,8 +67,7 @@ class MessageCache(Cache):
     def save_message(self, msg: ReliableMessage) -> bool:
         if ignore_message(msg=msg):
             return False
-        signature = msg.get('signature')
-        sig = signature[-8:]  # last 6 bytes (signature in base64)
+        sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
         data = json_encode(o=msg.dictionary)
         msg_key = self.__msg_key(identifier=msg.receiver, sig=sig)
         self.set(name=msg_key, value=data, expires=self.EXPIRES)
@@ -80,8 +80,7 @@ class MessageCache(Cache):
         if ignore_message(msg=msg):
             return False
         receiver = msg.receiver
-        signature = msg.get('signature')
-        sig = signature[-8:]  # last 6 bytes (signature in base64)
+        sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
         value = utf8_encode(string=sig)
         # 1. delete msg.dictionary from redis server
         msg_key = self.__msg_key(identifier=receiver, sig=sig)

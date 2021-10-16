@@ -224,7 +224,7 @@ class MarsStreamDocker(PlainDocker):
             data = b''
 
     # Override
-    def get_arrival(self, data: bytes) -> Optional[Arrival]:
+    def _get_arrival(self, data: bytes) -> Optional[Arrival]:
         pack = self._parse_package(data=data)
         if pack is None:
             return None
@@ -233,7 +233,7 @@ class MarsStreamDocker(PlainDocker):
         return MarsStreamArrival(mars=pack)
 
     # Override
-    def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
         payload = ship.payload
         if payload is None:
@@ -269,14 +269,14 @@ class MarsStreamDocker(PlainDocker):
                 # FIXME: 'NOOP' can only sent by NOOP cmd
                 return None
         # 3. check for response
-        self.check_response(ship=ship)
+        self._check_response(ship=ship)
         # NOTICE: the delegate mast respond mars package with same cmd & seq,
         #         otherwise the connection will be closed by client
         return ship
 
     # Override
-    def next_departure(self, now: int) -> Optional[Departure]:
-        outgo = super().next_departure(now=now)
+    def _next_departure(self, now: int) -> Optional[Departure]:
+        outgo = super()._next_departure(now=now)
         if outgo is not None and outgo.retries < DepartureShip.MAX_RETRIES:
             # put back for next retry
             self.append_departure(ship=outgo)

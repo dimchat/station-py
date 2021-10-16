@@ -41,6 +41,7 @@ from dimp import NetworkType, ID, ANYONE, EVERYONE
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
+from ..utils import get_msg_sig
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushService
@@ -425,9 +426,7 @@ class BroadcastDispatcher(Worker):
             if not msg_traced(msg=msg, node=sid):
                 candidates.add(sid)
             else:
-                sig = msg.get('signature')
-                if sig is not None and len(sig) > 8:
-                    sig = sig[-8:]
+                sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
                 self.info('ignore traced msg [%s]: %s -> %s\n neighbor %s in %s' %
                           (sig, msg.sender, msg.receiver, sid, msg.get('traces')))
         # 1. push to all neighbors connected th current station
@@ -440,7 +439,8 @@ class BroadcastDispatcher(Worker):
                 sent_neighbors.append(str(sid))
                 success += 1
             else:
-                self.warning('failed to push message to remote station: %s' % sid)
+                sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+                self.warning('failed to push message (%s) to remote station: %s' % (sig, sid))
         # 2. push to the bridge (octopus) of current station
         sent_neighbors.append(str(self.station))
         msg['sent_neighbors'] = sent_neighbors

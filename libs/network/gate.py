@@ -36,7 +36,6 @@ from startrek.fsm import Runnable
 from startrek import Connection, ConnectionState
 from startrek import GateDelegate, Docker, StarGate
 from startrek import Arrival
-from udp import PackageDocker
 
 from .mtp import MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
@@ -100,8 +99,8 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         return hub.connect(remote=remote, local=local)
 
     # Override
-    def cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
-                            connection: Connection) -> List[bytes]:
+    def _cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
+                             connection: Connection) -> List[bytes]:
         # TODO: cache the advance party before decide which docker to use
         if data is None:
             return []
@@ -109,7 +108,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
             return [data]
 
     # Override
-    def clear_advance_party(self, source: tuple, destination: Optional[tuple], connection: Connection):
+    def _clear_advance_party(self, source: tuple, destination: Optional[tuple], connection: Connection):
         # TODO: remove advance party for this connection
         pass
 
@@ -171,7 +170,13 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
 class TCPServerGate(CommonGate, Generic[H]):
 
     # Override
-    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+    def _heartbeat(self, connection: Connection):
+        # super()._heartbeat(connection=connection)
+        # let the client to do the job
+        pass
+
+    # Override
+    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
         count = len(advance_party)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
@@ -193,15 +198,21 @@ class TCPServerGate(CommonGate, Generic[H]):
 class UDPServerGate(CommonGate, Generic[H]):
 
     # Override
-    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+    def _heartbeat(self, connection: Connection):
+        # super()._heartbeat(connection=connection)
+        # let the client to do the job
+        pass
+
+    # Override
+    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
         count = len(advance_party)
         if count == 0:
-            # return PackageDocker(remote=remote, local=local, gate=self)
+            # return MTPStreamDocker(remote=remote, local=local, gate=self)
             return None
         data = advance_party[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return PackageDocker(remote=remote, local=local, gate=self)
+            return MTPStreamDocker(remote=remote, local=local, gate=self)
 
 
 #
@@ -212,12 +223,12 @@ class UDPServerGate(CommonGate, Generic[H]):
 class TCPClientGate(CommonGate, Generic[H]):
 
     # Override
-    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
         return MTPStreamDocker(remote=remote, local=local, gate=self)
 
 
 class UDPClientGate(CommonGate, Generic[H]):
 
     # Override
-    def create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return PackageDocker(remote=remote, local=local, gate=self)
+    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        return MTPStreamDocker(remote=remote, local=local, gate=self)

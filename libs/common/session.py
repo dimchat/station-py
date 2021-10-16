@@ -209,7 +209,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                             remote: tuple, local: Optional[tuple], gate: Gate):
         if current is None or current == GateStatus.ERROR:
             self.active = False
-            self.stop()
+            # self.stop()
         elif current == GateStatus.READY:
             self.messenger.connected()
 

@@ -36,6 +36,7 @@ from dimp import ReliableMessage
 from dimp import Content, TextContent
 from dimsdk import ReceiptCommand, HandshakeCommand
 
+from ..utils import get_msg_sig
 from ..database import Database
 from ..common import msg_traced, is_broadcast_message
 from ..common import CommonProcessor
@@ -74,9 +75,7 @@ class ServerProcessor(CommonProcessor):
         # 1.1. check traces
         station = g_dispatcher.station
         if msg_traced(msg=msg, node=station, append=True):
-            sig = msg.get('signature')
-            if sig is not None and len(sig) > 8:
-                sig = sig[-8:]
+            sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
             self.info('cycled msg [%s]: %s in %s' % (sig, station, msg.get('traces')))
             if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
                 self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))

@@ -139,7 +139,7 @@ class WSDocker(PlainDocker):
             data = b''
 
     # Override
-    def get_arrival(self, data: bytes) -> Optional[Arrival]:
+    def _get_arrival(self, data: bytes) -> Optional[Arrival]:
         # check for first request
         if self.__handshaking:
             # join the data to the memory cache
@@ -161,7 +161,7 @@ class WSDocker(PlainDocker):
                 return WSArrival(package=pack, payload=payload)
 
     # Override
-    def check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
         body = ship.payload
         body_len = len(body)

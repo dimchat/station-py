@@ -42,6 +42,7 @@ from typing import Optional, List
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
+from ..utils import get_msg_sig
 from ..utils import NotificationCenter
 
 from ..database.redis.message import is_broadcast_message
@@ -107,8 +108,7 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
         msg = self.__msg
         self.__msg = None
         if isinstance(msg, ReliableMessage):
-            signature = msg.get('signature')
-            sig = signature[-8:]  # last 6 bytes (signature in base64)
+            sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
             print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
             g_database.remove_message(msg=msg)
             NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)

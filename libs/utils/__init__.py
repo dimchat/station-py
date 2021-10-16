@@ -41,7 +41,18 @@ from .notification import Notification, NotificationObserver, NotificationCenter
 from .dos import File, TextFile, JSONFile
 
 
+def get_msg_sig(msg, cnt: int = 8) -> str:
+    sig = msg.get('signature')
+    if sig is not None:
+        sig = sig.rstrip()
+        if len(sig) > cnt:
+            sig = sig[-cnt:]
+    return sig
+
+
 __all__ = [
+
+    'get_msg_sig',
 
     'Log', 'Logging',
     'Singleton',

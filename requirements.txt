@@ -11,13 +11,13 @@ ecdsa         # 0.16.1
 
 redis      # 3.5.3
 
-startrek==0.2.2
-tcp==0.2.8
-udp==0.4.10
+startrek==0.2.3
+tcp==0.2.9
+udp==0.4.13
 stun==0.2.3
 dmtp==0.3.4
 
-mkm       # 0.10.15
-dkd       # 0.10.15
-dimp      # 0.10.18
+mkm==0.10.15
+dkd==0.10.15
+dimp==0.10.18
 dimsdk==0.5.15
