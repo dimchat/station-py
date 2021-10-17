@@ -35,8 +35,9 @@ from .base import Cache
 
 class DocumentCache(Cache):
 
-    # document cached in Redis Server will be removed after a week
-    EXPIRES = 3600 * 24 * 7  # seconds
+    # document cached in Redis will be removed after 10 hours, after that
+    # it will be reloaded from local storage if it's still need.
+    EXPIRES = 36000  # seconds
 
     @property  # Override
     def database(self) -> Optional[str]:
