@@ -33,7 +33,7 @@ from abc import ABC
 from typing import Generic, TypeVar, Optional, List
 
 from startrek.fsm import Runnable
-from startrek import Connection, ConnectionState
+from startrek import Connection, ConnectionState, BaseConnection
 from startrek import GateDelegate, Docker, StarGate
 from startrek import Arrival
 
@@ -113,8 +113,30 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         pass
 
     # Override
+    def _heartbeat(self, connection: Connection):
+        # let the client to do the job
+        if isinstance(connection, BaseConnection) and connection.is_activated:
+            super()._heartbeat(connection=connection)
+
+    def __disconnect(self, connection: Connection):
+        # close connection for server
+        if isinstance(connection, BaseConnection) and not connection.is_activated:
+            # 1. remove docker
+            remote = connection.remote_address
+            local = connection.local_address
+            self._remove_docker(remote=remote, local=local, docker=None)
+        # 2. remove connection
+        hub = self.hub
+        # assert isinstance(hub, Hub), 'hub error: %s' % hub
+        hub.disconnect(connection=connection)
+
+    # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
+        if current == ConnectionState.ERROR:
+            self.error('remove error connection: %s' % connection)
+            self.__disconnect(connection=connection)
+        # debug info
         if current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
             self.info('connection state changed: %s -> %s, %s' % (previous, current, connection))
         elif current is None:
@@ -125,9 +147,17 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     #     super().connection_sent(data=data, source=source, destination=destination, connection=connection)
     #     self.info('sent %d byte(s): %s -> %s' % (len(data), source, destination))
 
+    def get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
+        worker = self._get_docker(remote=remote, local=local)
+        if worker is None:
+            worker = self._create_docker(remote=remote, local=local, advance_party=[])
+            # assert worker is not None, 'failed to create docker: %s, %s' % (destination, source)
+            self._put_docker(docker=worker)
+        return worker
+
     def send_payload(self, payload: bytes, local: Optional[tuple], remote: tuple,
                      priority: int = 0, delegate: Optional[GateDelegate] = None):
-        worker = self.get_docker(remote=remote, local=local, advance_party=[])
+        worker = self.get_docker(remote=remote, local=local)
         if worker is not None:
             ship = worker.pack(payload=payload, priority=priority, delegate=delegate)
             worker.append_departure(ship=ship)
@@ -136,7 +166,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
             self.error('docker error (%s, %s): %s' % (remote, local, worker))
 
     def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]):
-        worker = self.get_docker(remote=remote, local=local, advance_party=[])
+        worker = self.get_docker(remote=remote, local=local)
         if isinstance(worker, MTPStreamDocker):
             pack = MTPHelper.create_message(body=payload, sn=ship.sn)
             worker.send_package(pack=pack)
