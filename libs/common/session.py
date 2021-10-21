@@ -47,7 +47,7 @@ from dimp import ReliableMessage
 from ..utils import Logging
 from ..database import Database
 
-from ..network import Connection, ConnectionDelegate
+from ..network import Connection, ConnectionDelegate, BaseConnection
 from ..network import Gate, GateStatus, GateDelegate
 from ..network import ShipDelegate
 from ..network import Arrival, Departure, DepartureShip
@@ -246,8 +246,9 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
         if len(array) == 0:
-            # station MUST respond something to client request
-            gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+            if isinstance(connection, BaseConnection) and not connection.is_activated:
+                # station MUST respond something to client request
+                gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
             return False
         for item in array:
             gate.send_response(payload=item, ship=ship, remote=source, local=destination)

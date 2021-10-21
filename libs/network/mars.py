@@ -276,7 +276,7 @@ class MarsStreamDocker(PlainDocker):
                 return None
         # 3. check for response
         self._check_response(ship=ship)
-        # NOTICE: the delegate mast respond mars package with same cmd & seq,
+        # NOTICE: the delegate must respond mars package with same cmd & seq,
         #         otherwise the connection will be closed by client
         return ship
 

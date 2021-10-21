@@ -33,7 +33,6 @@ import weakref
 from typing import Optional, Union, List
 
 from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
-from startrek import DepartureShip
 from startrek import Hub, StarGate
 
 from udp.ba import ByteArray, Data
