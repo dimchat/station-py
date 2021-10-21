@@ -120,7 +120,7 @@ class Recorder(threading.Thread, Logging):
             if len(self.__events) > 0:
                 return self.__events.pop(0)
 
-    def __save(self):
+    def __save(self) -> bool:
         now = time.time()
         if now > self.__flush_time:
             # get
@@ -133,7 +133,7 @@ class Recorder(threading.Thread, Logging):
             self.__group_message_count = 0
             self.__flush_time = now + self.FLUSH_INTERVAL  # next flush time
             # save
-            save_statistics(login_cnt=login_cnt, msg_cnt=msg_cnt, g_msg_cnt=g_msg_cnt)
+            return save_statistics(login_cnt=login_cnt, msg_cnt=msg_cnt, g_msg_cnt=g_msg_cnt)
 
     def __process(self, event: Notification):
         name = event.name
@@ -213,6 +213,10 @@ class Recorder(threading.Thread, Logging):
                     event = self.pop()
                 # save statistics
                 self.__save()
+                # if self.__save():
+                #     time.sleep(2)
+                # else:
+                #     time.sleep(0.5)
             except Exception as error:
                 self.error('failed to process: %s, %s' % (event, error))
                 traceback.print_exc()

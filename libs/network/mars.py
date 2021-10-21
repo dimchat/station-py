@@ -29,13 +29,14 @@
 # ==============================================================================
 
 import threading
+import weakref
 from typing import Optional, List
 
 from dimp import utf8_encode, utf8_decode, base64_encode, base64_decode
 
 from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
 from startrek import ArrivalShip, DepartureShip
-from startrek import StarGate
+from startrek import Hub, StarGate
 
 from udp.ba import Data
 from tcp import PlainDocker
@@ -188,11 +189,16 @@ class MarsStreamDeparture(DepartureShip):
 class MarsStreamDocker(PlainDocker):
     """ Docker for Mars packages """
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate, hub: Hub):
         super().__init__(remote=remote, local=local, gate=gate)
+        self.__hub = weakref.ref(hub)
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
+
+    @property
+    def hub(self) -> Hub:
+        return self.__hub()
 
     def _parse_package(self, data: bytes) -> Optional[NetMsg]:
         with self.__chunks_lock:

@@ -29,10 +29,12 @@
 # ==============================================================================
 
 import threading
+import weakref
 from typing import Optional, Union, List
 
-from startrek import ShipDelegate, StarGate
-from startrek import Arrival, Departure, DeparturePriority, DepartureShip
+from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
+from startrek import DepartureShip
+from startrek import Hub, StarGate
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
@@ -105,11 +107,16 @@ class MTPStreamDeparture(PackageDeparture):
 class MTPStreamDocker(PackageDocker):
     """ Docker for MTP packages """
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate, hub: Hub):
         super().__init__(remote=remote, local=local, gate=gate)
+        self.__hub = weakref.ref(hub)
         self.__chunks = Data.ZERO
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
+
+    @property
+    def hub(self) -> Hub:
+        return self.__hub()
 
     # Override
     def _parse_package(self, data: bytes) -> Optional[Package]:
