@@ -283,10 +283,21 @@ class MarsStreamDocker(PlainDocker):
     # Override
     def _next_departure(self, now: int) -> Optional[Departure]:
         outgo = super()._next_departure(now=now)
-        if outgo is not None and outgo.retries < DepartureShip.MAX_RETRIES:
-            # put back for next retry
-            self.append_departure(ship=outgo)
+        if outgo is not None:
+            self._retry_departure(ship=outgo)
         return outgo
+
+    def _retry_departure(self, ship: Departure):
+        if ship.retries >= DepartureShip.MAX_RETRIES:
+            # last try
+            return False
+        if isinstance(ship, MarsStreamDeparture):
+            pack = ship.package
+            cmd = pack.head.cmd
+            if cmd == NetMsgHead.PUSH_MESSAGE:
+                # put back for next retry
+                self.append_departure(ship=ship)
+                return True
 
     # Override
     def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:

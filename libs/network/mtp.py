@@ -149,21 +149,6 @@ class MTPStreamDocker(PackageDocker):
             data = b''
 
     # Override
-    def _next_departure(self, now: int) -> Optional[Departure]:
-        outgo = super()._next_departure(now=now)
-        if outgo is None:
-            return None
-        if outgo.retries >= DepartureShip.MAX_RETRIES:
-            # last try
-            return outgo
-        if isinstance(outgo, PackageDeparture):
-            pack = outgo.package
-            if not pack.head.data_type.is_response:
-                # put back for next retry
-                self.append_departure(ship=outgo)
-        return outgo
-
-    # Override
     def _create_arrival(self, pack: Package) -> Arrival:
         return MTPStreamArrival(pack=pack)
 
