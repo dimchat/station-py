@@ -73,13 +73,13 @@ class ClientProcessor(CommonProcessor):
                     # no need to respond receipt to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
-                continue
+                    continue
             elif isinstance(res, TextContent):
                 if sender.type == NetworkType.STATION:
                     # no need to respond text message to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
-                continue
+                    continue
             # pack message
             env = Envelope.create(sender=user.identifier, receiver=r_msg.sender)
             i_msg = InstantMessage.create(head=env, body=res)
