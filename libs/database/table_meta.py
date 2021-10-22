@@ -43,9 +43,7 @@ class MetaTable:
         self.__caches: Dict[ID, CacheHolder[Meta]] = CachePool.get_caches('meta')
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        # 0. check meta valid
-        if not meta.match_identifier(identifier=identifier):
-            return False
+        assert meta.match_identifier(identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 1. check memory cache
         holder = self.__caches.get(identifier)
         if holder is None or holder.value is None:

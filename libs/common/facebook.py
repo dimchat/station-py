@@ -123,7 +123,8 @@ class CommonFacebook(Facebook):
 
     def save_document(self, document: Document) -> bool:
         meta = self.meta(identifier=document.identifier)
-        if meta is None or not document.verify(public_key=meta.key):
+        if meta is None:
+            # querying meta, waiting for response
             return False
         return self.__db.save_document(document=document)
 

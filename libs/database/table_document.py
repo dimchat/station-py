@@ -44,14 +44,11 @@ class DocumentTable:
         self.__scanned: Optional[CacheHolder] = None
 
     def save_document(self, document: Document) -> bool:
-        # 0. check document valid
-        if not document.valid:
-            # raise ValueError('document not valid: %s' % document)
-            return False
+        assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
         # check old record with time
         old = self.document(identifier=identifier)
-        if old is not None and old.time > document.time > 0:
+        if old is not None and old.time > document.time >= 0:
             # document expired, drop it
             return False
         # 1. store into memory cache

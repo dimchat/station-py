@@ -121,7 +121,12 @@ class Database:
         redis key: 'mkm.meta.{ID}'
     """
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+        if meta.match_identifier(identifier=identifier):
+            # no need to update existed meta
+            if self.meta(identifier=identifier) is None:
+                return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+            else:
+                return True
 
     def meta(self, identifier: ID) -> Optional[Meta]:
         return self.__meta_table.meta(identifier=identifier)
@@ -135,16 +140,12 @@ class Database:
         redis key: 'mkm.docs.keys'
     """
     def save_document(self, document: Document) -> bool:
-        if not document.valid:
-            identifier = document.identifier
-            if identifier is None:
-                return False
-            meta = self.meta(identifier=identifier)
-            if meta is None:
-                return False
-            if not document.verify(public_key=meta.key):
-                return False
-        return self.__document_table.save_document(document=document)
+        # check with meta first
+        meta = self.meta(identifier=document.identifier)
+        assert meta is not None, 'meta not exists: %s' % document
+        # check document valid before saving it
+        if document.valid or document.verify(public_key=meta.key):
+            return self.__document_table.save_document(document=document)
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
         return self.__document_table.document(identifier=identifier, doc_type=doc_type)
