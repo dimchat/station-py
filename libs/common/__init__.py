@@ -115,7 +115,6 @@ __all__ = [
     #
     #   CPU
     #
-    'DefaultTextContentProcessor', 'ChatTextContentProcessor',
     'FileContentProcessor',
     'ReceiptCommandProcessor',
     'MuteCommandProcessor',

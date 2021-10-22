@@ -32,8 +32,10 @@
 
 from .handshake import HandshakeCommandProcessor
 from .login import LoginCommandProcessor
+from .text import ChatTextContentProcessor
 
 __all__ = [
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
+    'ChatTextContentProcessor',
 ]

@@ -41,6 +41,8 @@ from .processor import ClientProcessor
 
 __all__ = [
 
+    'HandshakeCommandProcessor', 'LoginCommandProcessor', 'ChatTextContentProcessor',
+
     'GroupManager',
 
     'Terminal', 'Server', 'ServerDelegate',

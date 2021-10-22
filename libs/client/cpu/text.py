@@ -35,26 +35,14 @@ from urllib.error import URLError
 
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
-from dimp import ContentType, Content, TextContent
+from dimp import Content, TextContent
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
-
-from ..facebook import CommonFacebook
+from ...common import CommonFacebook
 from ..messenger import CommonMessenger
-
-
-class DefaultTextContentProcessor(ContentProcessor):
-
-    #
-    #   main
-    #
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, TextContent), 'text content error: %s' % content
-        # just ignore
-        return []
 
 
 class ChatTextContentProcessor(ContentProcessor, Logging):
@@ -120,7 +108,6 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         sender = msg.sender
-        from ..facebook import CommonFacebook
         facebook = self.facebook
         assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
         nickname = facebook.name(identifier=sender)
@@ -150,7 +137,3 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
                 text = 'Group message respond failed'
                 receipt = ReceiptCommand(message=text)
             return [receipt]
-
-
-# register
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=DefaultTextContentProcessor())

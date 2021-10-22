@@ -45,7 +45,8 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.database import Storage
-from libs.common import ChatTextContentProcessor
+
+from libs.client import ChatTextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -105,8 +106,19 @@ class TextContentProcessor(ChatTextContentProcessor, Logging):
         assert isinstance(content, TextContent), 'content error: %s' % content
         text = content.text
         if text.startswith('stat') or text.startswith('Stat'):
+            # state
             return self.__stat(condition=text[5:], group=content.group)
-        return super()._query(content=content, sender=sender)
+        elif text.startswith('ping') or text.startswith('Ping'):
+            # ping
+            group = content.group
+            text = 'Pong%s' % text[4:]
+            res = TextContent(text=text)
+            if group is not None:
+                res.group = group
+            return res
+        else:
+            # chat
+            return super()._query(content=content, sender=sender)
 
 
 bots = chat_bots(names=['xiaoi'])  # chat bot

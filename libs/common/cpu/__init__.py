@@ -34,8 +34,6 @@ from dimp import ContentType, Command
 from dimsdk import MuteCommand, BlockCommand
 from dimsdk import ContentProcessor, CommandProcessor
 
-from .text import DefaultTextContentProcessor, ChatTextContentProcessor
-
 from .file import FileContentProcessor
 
 from .receipt import ReceiptCommandProcessor
@@ -62,8 +60,6 @@ register_content_processors()
 
 
 __all__ = [
-
-    'DefaultTextContentProcessor', 'ChatTextContentProcessor',
 
     'FileContentProcessor',
 

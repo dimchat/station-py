@@ -42,7 +42,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.common import ChatTextContentProcessor
+from libs.client import ChatTextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots

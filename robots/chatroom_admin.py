@@ -51,9 +51,9 @@ from libs.utils import Logging
 from libs.utils import JSONFile
 from libs.database import Storage
 from libs.common import SearchCommand
-from libs.common import ChatTextContentProcessor
 from libs.common import CommonFacebook
 
+from libs.client import ChatTextContentProcessor
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
