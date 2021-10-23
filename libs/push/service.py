@@ -23,9 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Set, Dict
+import threading
+from typing import Set, Dict, List, Optional
 
 from dimp import ID
+from startrek.fsm import Runner
 
 from ..utils import Singleton
 from ..utils import NotificationCenter, NotificationObserver, Notification
@@ -33,7 +35,7 @@ from ..utils import NotificationCenter, NotificationObserver, Notification
 
 class PushService:
 
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
         """
         Push Notification from sender to receiver
 
@@ -46,15 +48,27 @@ class PushService:
         raise NotImplemented
 
 
+class PushInfo:
+
+    def __init__(self, sender: ID, receiver: ID, message: str, badge: int):
+        super().__init__()
+        self.sender = sender
+        self.receiver = receiver
+        self.message = message
+        self.badge = badge
+
+
 @Singleton
-class NotificationPusher(PushService, NotificationObserver):
+class NotificationPusher(Runner, PushService, NotificationObserver):
 
     def __init__(self):
         super().__init__()
         # push services
         self.__services: Set[PushService] = set()
-        # counting offline messages
+        # waiting list
+        self.__queue: List[PushInfo] = []
         self.__badges: Dict[ID, int] = {}
+        self.__lock = threading.Lock()
         # observing notifications
         nc = NotificationCenter()
         nc.add(observer=self, name='user_online')
@@ -64,15 +78,32 @@ class NotificationPusher(PushService, NotificationObserver):
         nc.remove(observer=self, name='user_online')
 
     def add_service(self, service: PushService):
+        """ add push notification service """
         self.__services.add(service)
 
+    def __append(self, sender: ID, receiver: ID, message: str, badge: int):
+        """ append push task to the waiting queue """
+        with self.__lock:
+            info = PushInfo(sender=sender, receiver=receiver, message=message, badge=badge)
+            self.__queue.append(info)
+
+    def __next(self) -> Optional[PushInfo]:
+        """ next push task from the waiting queue """
+        with self.__lock:
+            if len(self.__queue) > 0:
+                return self.__queue.pop(0)
+
     def __increase_badge(self, identifier: ID) -> int:
-        num = self.__badges.get(identifier, 0) + 1
-        self.__badges[identifier] = num
-        return num
+        """ get self-increasing badge """
+        with self.__lock:
+            num = self.__badges.get(identifier, 0) + 1
+            self.__badges[identifier] = num
+            return num
 
     def __clean_badge(self, identifier: ID):
-        self.__badges.pop(identifier, None)
+        """ clear badge for user """
+        with self.__lock:
+            self.__badges.pop(identifier, None)
 
     #
     #    Notification Observer
@@ -91,10 +122,35 @@ class NotificationPusher(PushService, NotificationObserver):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
-        # increase offline message counter
-        badge = self.__increase_badge(identifier=receiver)
-        # push via all services
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
+        if badge is None:
+            # increase offline message counter
+            badge = self.__increase_badge(identifier=receiver)
+        self.__append(sender=sender, receiver=receiver, message=message, badge=badge)
+        return True
+
+    #
+    #   Runner
+    #
+
+    def start(self):
+        threading.Thread(target=self.run).start()
+
+    # Override
+    def process(self) -> bool:
+        # get next info
+        info = self.__next()
+        if info is None:
+            # nothing to do now, return False to have a rest
+            return False
+        # try to push
+        try:
+            return self.__push(sender=info.sender, receiver=info.receiver, message=info.message, badge=info.badge)
+        except Exception as error:
+            print('Push Notification service error: %s' % error)
+
+    def __push(self, sender: ID, receiver: ID, message: str, badge: int) -> bool:
+        """ push via all services """
         sent = 0
         for service in self.__services:
             if service.push_notification(sender=sender, receiver=receiver, message=message, badge=badge):

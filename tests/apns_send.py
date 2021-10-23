@@ -33,6 +33,7 @@
         ./send.py moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ "Hello!"
 """
 
+import os
 import sys
 from typing import List
 
@@ -40,6 +41,11 @@ from apns2.client import APNsClient
 from apns2.payload import Payload
 
 from dimp import ID
+from dimsdk import *
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 
 from libs.utils import JSONFile
 

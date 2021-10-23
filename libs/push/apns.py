@@ -126,7 +126,7 @@ class ApplePushNotificationService(PushService, Logging):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
         # 1. check
         tokens = self.delegate.device_tokens(identifier=receiver)
         if tokens is None:
