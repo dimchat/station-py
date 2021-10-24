@@ -101,9 +101,11 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #   ShipDelegate
     #
 
+    # Override
     def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
         pass
 
+    # Override
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         msg = self.__msg
         self.__msg = None
@@ -113,12 +115,15 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
             g_database.remove_message(msg=msg)
             NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
 
+    # Override
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         self.__time = -1
 
     #
     #   Callback
     #
+
+    # Override
     def finished(self, result, error=None):
         if error is None:
             # this message was assigned to the worker of StarGate,

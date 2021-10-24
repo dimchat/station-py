@@ -85,9 +85,11 @@ class Server(dmtp.Server, GateDelegate):
         if pack is not None:
             self._received(head=pack.head, body=pack.body, source=source)
 
+    # Override
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         pass
 
+    # Override
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         pass
 

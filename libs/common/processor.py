@@ -33,6 +33,7 @@ from typing import List
 
 from dimp import ID
 from dimp import Content, InstantMessage, ReliableMessage
+from dimp import ForwardContent
 from dimp import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 
@@ -133,6 +134,11 @@ class CommonProcessor(MessageProcessor, Logging):
     # Override
     def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
         responses = super().process_instant_message(msg=msg, r_msg=r_msg)
+        # FIXME: no need to decrypt twice here actually
+        content = msg.content
+        if isinstance(content, ForwardContent):
+            r_msg = content.message
+            msg = self.messenger.decrypt_message(msg=r_msg)
         if not self.messenger.save_message(msg=msg):
             # error
             return []

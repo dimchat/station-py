@@ -1,4 +1,6 @@
 import traceback
+from typing import Optional
+
 import pika
 import json
 from dimp import ID
@@ -13,8 +15,12 @@ class PushMessageService(PushService):
 
     queue_key = "dim_push_message"
 
+    #
+    #   PushService
+    #
+
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: int = 0) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
         try:
 
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
