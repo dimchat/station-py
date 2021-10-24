@@ -205,6 +205,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     #   GateDelegate
     #
 
+    # Override
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
         if current is None or current == GateStatus.ERROR:
@@ -213,6 +214,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         elif current == GateStatus.READY:
             self.messenger.connected()
 
+    # Override
     def gate_received(self, ship: Arrival,
                       source: tuple, destination: Optional[tuple], connection: Connection):
         if isinstance(ship, MTPStreamArrival):
@@ -247,13 +249,13 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         gate = self.gate
         if len(array) == 0:
             if isinstance(connection, BaseConnection) and not connection.is_activated:
-                # station MUST respond something to client request
+                # station MUST respond something to client request (Tencent Mars)
                 gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
-            return False
-        for item in array:
-            gate.send_response(payload=item, ship=ship, remote=source, local=destination)
-        return True
+        else:
+            for item in array:
+                gate.send_response(payload=item, ship=ship, remote=source, local=destination)
 
+    # Override
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         delegate = None
         if isinstance(ship, DepartureShip):
@@ -262,6 +264,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if delegate is not None and delegate != self:
             delegate.gate_sent(ship=ship, source=source, destination=destination, connection=connection)
 
+    # Override
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         delegate = None
         if isinstance(ship, DepartureShip):

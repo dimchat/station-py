@@ -143,16 +143,21 @@ class NotificationPusher(Runner, PushService, NotificationObserver):
         if info is None:
             # nothing to do now, return False to have a rest
             return False
-        # try to push
-        try:
-            return self.__push(sender=info.sender, receiver=info.receiver, message=info.message, badge=info.badge)
-        except Exception as error:
-            print('Push Notification service error: %s' % error)
-
-    def __push(self, sender: ID, receiver: ID, message: str, badge: int) -> bool:
-        """ push via all services """
+        else:
+            sender = info.sender
+            receiver = info.receiver
+            message = info.message
+            badge = info.badge
+        # push via all services
         sent = 0
         for service in self.__services:
-            if service.push_notification(sender=sender, receiver=receiver, message=message, badge=badge):
+            if push(service=service, sender=sender, receiver=receiver, message=message, badge=badge):
                 sent += 1
         return sent > 0
+
+
+def push(service: PushService, sender: ID, receiver: ID, message: str, badge: int) -> bool:
+    try:
+        return service.push_notification(sender=sender, receiver=receiver, message=message, badge=badge)
+    except Exception as error:
+        print('Push Notification service error: %s' % error)

@@ -30,8 +30,9 @@
     Transform and send message
 """
 
+import time
 import weakref
-from typing import Optional
+from typing import Optional, List
 
 from dimp import ID, EVERYONE
 from dimp import Command
@@ -48,6 +49,7 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     def __init__(self):
         super().__init__()
         self.__terminal: Optional[weakref.ReferenceType] = None
+        self.__last_login = 0
 
     def _create_facebook(self) -> CommonFacebook:
         facebook = SharedFacebook()
@@ -90,15 +92,28 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
     #   Server Delegate
     #
     def handshake_accepted(self, server: Server):
+        self.__broadcast_login(server=server)
+
+    def __broadcast_login(self, server: Optional[Server]):
         user = self.facebook.current_user
         if isinstance(user, Station):
             # the current user is a station,
             # it would not login to another station.
             return None
+        self.__last_login = int(time.time())
         # TODO: post current document to station
         # TODO: post contacts(encrypted) to station
         # broadcast login command
         login = LoginCommand(identifier=user.identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
-        login.station = self.server
+        login.station = server
         return self.send_content(sender=user.identifier, receiver=EVERYONE, content=login)
+
+    def process_package(self, data: bytes) -> List[bytes]:
+        responses = super().process_package(data=data)
+        if responses is None or len(responses) == 0:
+            # nothing response, check last login time
+            now = int(time.time())
+            if 0 < self.__last_login < now - 3600:
+                self.__broadcast_login(server=self.server)
+        return responses
