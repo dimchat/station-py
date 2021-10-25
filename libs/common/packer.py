@@ -32,6 +32,7 @@ from typing import Optional
 from dimp import base64_encode, sha256
 from dimp import ID
 from dimp import InstantMessage, SecureMessage, ReliableMessage
+from dimp import DocumentCommand
 from dimsdk import MessagePacker
 
 from ..utils.mtp import MTPUtils
@@ -168,3 +169,21 @@ class CommonPacker(MessagePacker):
             key['reused'] = True
         # TODO: reuse personal message key?
         return s_msg
+
+    # Override
+    def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
+        try:
+            return super().decrypt_message(msg=msg)
+        except AssertionError as error:
+            err_msg = '%s' % error
+            # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
+            if err_msg.find('failed to decrypt key in msg') >= 0:
+                # visa.key not updated?
+                user = self.facebook.current_user
+                identifier = user.identifier
+                visa = user.visa
+                assert visa is not None and visa.valid, 'user visa error: %s' % identifier
+                cmd = DocumentCommand.response(document=visa, identifier=identifier)
+                self.messenger.send_content(sender=identifier, receiver=msg.sender, content=cmd)
+            else:
+                raise error

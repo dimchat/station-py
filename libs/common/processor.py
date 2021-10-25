@@ -121,25 +121,37 @@ class CommonProcessor(MessageProcessor, Logging):
             return []
         try:
             return super().process_content(content=content, r_msg=r_msg)
-        except Exception as e:
-            error = '%s' % e
-            if error.find('failed to get meta') >= 0:
+        except Exception as error:
+            err_msg = '%s' % error
+            if err_msg.find('failed to get meta') >= 0:
                 # suspend message to wait meta
                 messenger.suspend_message(msg=r_msg)
-                self.info(error)
+                self.info(err_msg)
             else:
                 traceback.print_exc()
             return []
 
     # Override
     def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
-        responses = super().process_instant_message(msg=msg, r_msg=r_msg)
-        # FIXME: no need to decrypt twice here actually
+        messenger = self.messenger
+        # unwrap secret message circularly
         content = msg.content
-        if isinstance(content, ForwardContent):
+        while isinstance(content, ForwardContent):
+            assert isinstance(content, ForwardContent)
             r_msg = content.message
-            msg = self.messenger.decrypt_message(msg=r_msg)
-        if not self.messenger.save_message(msg=msg):
+            s_msg = messenger.verify_message(msg=r_msg)
+            if s_msg is None:
+                # signature not matched
+                return []
+            msg = messenger.decrypt_message(msg=s_msg)
+            if msg is None:
+                # not for you?
+                return []
+            content = msg.content
+        # call super to process
+        responses = super().process_instant_message(msg=msg, r_msg=r_msg)
+        # save instant/secret message
+        if not messenger.save_message(msg=msg):
             # error
             return []
         return responses
