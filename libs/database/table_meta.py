@@ -44,23 +44,17 @@ class MetaTable:
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         assert meta.match_identifier(identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
-        # 1. check memory cache
-        holder = self.__caches.get(identifier)
-        if holder is None or holder.value is None:
-            # save to memory cache
-            self.__caches[identifier] = CacheHolder(value=meta, life_span=36000)
-        # 2. check redis server
-        old = self.__redis.meta(identifier=identifier)
-        if old is None:
-            # save to redis server
-            self.__redis.save_meta(meta=meta, identifier=identifier)
-        # 3. check local storage
+        # check old record
         old = self.meta(identifier=identifier)
-        if old is None:
-            # save to local storage
-            return self.__dos.save_meta(meta=meta, identifier=identifier)
-        # meta will not changed, we DO NOT need to update it here
-        return True
+        if old is not None:
+            # meta exists, no need to update it
+            return True
+        # 1. store into memory cache
+        self.__caches[identifier] = CacheHolder(value=meta, life_span=36000)
+        # 2. store into redis server
+        self.__redis.save_meta(meta=meta, identifier=identifier)
+        # 3. store into local storage
+        return self.__dos.save_meta(meta=meta, identifier=identifier)
 
     def meta(self, identifier: ID) -> Optional[Meta]:
         # 1. check memory cache
