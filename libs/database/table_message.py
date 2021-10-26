@@ -39,7 +39,7 @@ class MessageTable:
         super().__init__()
         self.__redis = MessageCache()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[List[ReliableMessage]]] = CachePool.get_caches('messages')
+        self.__caches: Dict[ID, CacheHolder[List[ReliableMessage]]] = CachePool.get_caches(name='messages')
 
     def save_message(self, msg: ReliableMessage) -> bool:
         # save to redis server
@@ -69,7 +69,11 @@ class MessageTable:
             # 2. check redis server
             array = self.__redis.messages(receiver=receiver)
             # update memory cache
-            holder = CacheHolder(value=array)
+            if len(array) < MessageCache.LIMIT:
+                holder = CacheHolder(value=array)
+            else:
+                # maybe part of stored messages, reload 2 minutes later
+                holder = CacheHolder(value=array, life_span=128)
             self.__caches[receiver] = holder
         # OK, return cached value
         return holder.value

@@ -39,7 +39,7 @@ class LoginTable:
         super().__init__()
         self.__redis = LoginCache()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[tuple]] = CachePool.get_caches('login')
+        self.__caches: Dict[ID, CacheHolder[tuple]] = CachePool.get_caches(name='login')
 
     def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         if self.__redis.save_login(cmd=cmd, msg=msg):

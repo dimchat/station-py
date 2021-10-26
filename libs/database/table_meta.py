@@ -40,7 +40,7 @@ class MetaTable:
         self.__redis = MetaCache()
         self.__dos = MetaStorage()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[Meta]] = CachePool.get_caches('meta')
+        self.__caches: Dict[ID, CacheHolder[Meta]] = CachePool.get_caches(name='meta')
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         assert meta.match_identifier(identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)

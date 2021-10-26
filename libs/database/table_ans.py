@@ -40,8 +40,8 @@ class AddressNameTable:
         self.__redis = AddressNameCache()
         self.__dos = AddressNameStorage()
         # memory caches
-        self.__caches: Dict[str, CacheHolder[ID]] = CachePool.get_caches('ans.record')
-        self.__names: Dict[ID, CacheHolder[Set[str]]] = CachePool.get_caches('ans.names')
+        self.__caches: Dict[str, CacheHolder[ID]] = CachePool.get_caches(name='ans.record')
+        self.__names: Dict[ID, CacheHolder[Set[str]]] = CachePool.get_caches(name='ans.names')
 
     def save_record(self, name: str, identifier: ID) -> bool:
         # 1. update memory cache

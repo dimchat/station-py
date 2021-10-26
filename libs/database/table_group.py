@@ -40,7 +40,7 @@ class GroupTable:
         self.__redis = GroupCache()
         self.__dos = GroupStorage()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[List[ID]]] = CachePool.get_caches('members')
+        self.__caches: Dict[ID, CacheHolder[List[ID]]] = CachePool.get_caches(name='members')
 
     def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. save to memory cache

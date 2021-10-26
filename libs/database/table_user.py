@@ -40,10 +40,10 @@ class UserTable:
         self.__redis = UserCache()
         self.__dos = UserStorage()
         # memory caches
-        self.__contacts: Dict[ID, CacheHolder[List[ID]]] = CachePool.get_caches('contacts')
-        self.__cmd_contacts: Dict[ID, CacheHolder[Command]] = CachePool.get_caches('cmd.contacts')
-        self.__cmd_block: Dict[ID, CacheHolder[Command]] = CachePool.get_caches('cmd.block')
-        self.__cmd_mute: Dict[ID, CacheHolder[Command]] = CachePool.get_caches('cmd.mute')
+        self.__contacts: Dict[ID, CacheHolder[List[ID]]] = CachePool.get_caches(name='contacts')
+        self.__cmd_contacts: Dict[ID, CacheHolder[Command]] = CachePool.get_caches(name='cmd.contacts')
+        self.__cmd_block: Dict[ID, CacheHolder[Command]] = CachePool.get_caches(name='cmd.block')
+        self.__cmd_mute: Dict[ID, CacheHolder[Command]] = CachePool.get_caches(name='cmd.mute')
 
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         # 1. save to memory cache

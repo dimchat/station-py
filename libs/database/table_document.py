@@ -40,7 +40,7 @@ class DocumentTable:
         self.__redis = DocumentCache()
         self.__dos = DocumentStorage()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[Document]] = CachePool.get_caches('document')
+        self.__caches: Dict[ID, CacheHolder[Document]] = CachePool.get_caches(name='document')
         self.__scanned: Optional[CacheHolder] = None
 
     def save_document(self, document: Document) -> bool:

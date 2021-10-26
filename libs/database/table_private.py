@@ -40,9 +40,9 @@ class PrivateKeyTable:
         self.__dos = PrivateKeyStorage()
         # memory caches
         self.__id_keys: Dict[ID, CacheHolder[Union[PrivateKey, SignKey]]] =\
-            CachePool.get_caches('private.id.keys')
+            CachePool.get_caches(name='private.id.keys')
         self.__msg_keys: Dict[ID, CacheHolder[List[Union[PrivateKey, DecryptKey]]]] =\
-            CachePool.get_caches('private.msg.keys')
+            CachePool.get_caches(name='private.msg.keys')
 
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
         # 1. update memory cache

@@ -40,7 +40,7 @@ class DeviceTable:
         self.__redis = DeviceCache()
         self.__dos = DeviceStorage()
         # memory caches
-        self.__caches: Dict[ID, CacheHolder[dict]] = CachePool.get_caches('device')
+        self.__caches: Dict[ID, CacheHolder[dict]] = CachePool.get_caches(name='device')
 
     def save_device(self, device: dict, identifier: ID) -> bool:
         # 1. update memory cache
