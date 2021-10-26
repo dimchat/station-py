@@ -95,10 +95,9 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
         if user is None or user.type == NetworkType.STATION:
             self.error('ignore notification: %s' % info)
         elif name == NotificationNames.USER_ONLINE:
-            sid = info.get('station')
-            if sid is not None and sid != self.station:
-                # add the new roamer for checking cached messages
-                self.add_roamer(identifier=user)
+            # sid = info.get('station')
+            # if sid is not None and sid != self.station:
+            self.add_roamer(identifier=user)
         elif name == NotificationNames.USER_ROAMING:
             # add the new roamer for checking cached messages
             self.add_roamer(identifier=user)
