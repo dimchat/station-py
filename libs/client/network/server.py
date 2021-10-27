@@ -68,13 +68,14 @@ class Session(BaseSession):
 
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
+        super().gate_status_changed(previous=previous, current=current,
+                                    remote=remote, local=local, gate=gate)
         if current is None or current == GateStatus.ERROR:
             self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
             hub = self.gate.hub
             assert isinstance(hub, Hub), 'hub error: %s' % hub
             hub.connect(remote=remote, local=local)
         elif current == GateStatus.READY:
-            self.messenger.connected()
             # handshake
             delegate = self.messenger.delegate
             if isinstance(delegate, Server):

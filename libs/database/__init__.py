@@ -29,7 +29,7 @@
 
 """
 
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Dict
 
 from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document
@@ -267,6 +267,15 @@ class Database:
 
     def owner(self, group: ID) -> ID:
         return self.__group_table.owner(group=group)
+
+    def update_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
+        return self.__group_table.update_keys(keys=keys, sender=sender, group=group)
+
+    def get_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
+        return self.__group_table.get_keys(sender=sender, group=group)
+
+    def get_key(self, sender: ID, member: ID, group: ID) -> Optional[str]:
+        return self.__group_table.get_key(sender=sender, member=member, group=group)
 
     """
         Reliable message for Receivers

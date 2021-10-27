@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import os
-from typing import List
+from typing import Optional, List, Dict
 
 from dimp import ID
 
@@ -66,3 +66,23 @@ class GroupStorage(Storage):
     def owner(self, group: ID) -> ID:
         # TODO: get owner
         pass
+
+    """
+        Encrypted keys
+        ~~~~~~~~~~~~~~
+        
+        file path: '.dim/protected/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS}.json
+    """
+    def __keys_path(self, group: ID, sender: ID) -> str:
+        filename = 'group-keys-%s.js' % str(sender.address)
+        return os.path.join(self.root, 'protected', str(group.address), filename)
+
+    def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
+        path = self.__keys_path(group=group, sender=sender)
+        self.info('Saving group keys into: %s' % path)
+        return self.write_json(container=keys, path=path)
+
+    def load_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
+        path = self.__keys_path(group=group, sender=sender)
+        self.info('Loading group keys from: %s' % path)
+        return self.read_json(path=path)

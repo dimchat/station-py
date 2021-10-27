@@ -39,6 +39,7 @@ import traceback
 from typing import Optional, Dict, List
 
 from dimp import ID, ReliableMessage
+from dimp import ContentType
 from dimsdk import Station, HandshakeCommand
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -69,6 +70,9 @@ class OctopusMessenger(ClientMessenger):
         self.__accepted = False
 
     def _is_handshaking(self, msg: ReliableMessage) -> bool:
+        if msg.receiver != g_station.identifier or msg.type != ContentType.COMMAND:
+            # only check Command sent to this station
+            return False
         i_msg = self.decrypt_message(msg=msg)
         if i_msg is not None:
             return isinstance(i_msg.content, HandshakeCommand)
@@ -85,14 +89,14 @@ class InnerMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        if msg.receiver == g_station.identifier:
-            if self._is_handshaking(msg=msg):
-                self.info('inner handshaking: %s' % msg.sender)
-                return super().process_reliable_message(msg=msg)
-            else:
-                traces = msg.get('traces')
-                self.error('drop inner msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
-                return []
+        # check for HandshakeCommand
+        if self._is_handshaking(msg=msg):
+            self.info('inner handshaking: %s' % msg.sender)
+            return super().process_reliable_message(msg=msg)
+        elif msg.receiver == g_station.identifier:
+            traces = msg.get('traces')
+            self.error('drop inner msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
+            return []
         # handshake accepted, delivering message
         self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:
@@ -109,14 +113,14 @@ class OuterMessenger(OctopusMessenger):
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        if msg.sender == msg.receiver:
+        # check for HandshakeCommand
+        if self._is_handshaking(msg=msg):
+            self.info('outer handshaking: %s' % msg.sender)
+            return super().process_reliable_message(msg=msg)
+        elif msg.receiver == msg.sender:
             traces = msg.get('traces')
             self.error('drop outer msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
             return []
-        if msg.receiver == g_station.identifier:
-            if self._is_handshaking(msg=msg):
-                self.info('outer handshaking: %s' % msg.sender)
-                return super().process_reliable_message(msg=msg)
         # handshake accepted, receiving message
         self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
         if msg.delegate is None:

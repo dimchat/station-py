@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 
-from dimp import utf8_encode, utf8_decode
+from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID
 
 from .base import Cache
@@ -77,3 +77,26 @@ class GroupCache(Cache):
     def owner(self, group: ID) -> ID:
         # TODO: get owner
         pass
+
+    """
+        Encrypted keys
+        ~~~~~~~~~~~~~~
+
+        redis key: 'mkm.group.{GID}.encrypted-keys'
+    """
+    def __keys_name(self, group: ID) -> str:
+        return '%s.%s.%s.encrypted-keys' % (self.database, self.table, group)
+
+    def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
+        name = self.__keys_name(group=group)
+        key = str(sender)
+        value = json_encode(o=keys)
+        self.hset(name=name, key=key, value=value)
+        return True
+
+    def load_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
+        name = self.__keys_name(group=group)
+        key = str(sender)
+        value = self.hget(name=name, key=key)
+        if value is not None and len(value) > 2:
+            return json_decode(data=value)
