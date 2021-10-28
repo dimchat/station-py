@@ -23,26 +23,39 @@
 # SOFTWARE.
 # ==============================================================================
 
+from typing import Optional
 
-"""
-    Push Notification Services
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
+from dimp import ID
+from dimp import ContentType, ReliableMessage
 
-from .message import build_message
+from libs.common import SharedFacebook
 
-from .service import PushService
-from .service import NotificationPusher
 
-from .apns import ApplePushNotificationService
-from .push_message_service import PushMessageService
+g_facebook = SharedFacebook()
 
-__all__ = [
-    'build_message',
 
-    'PushService',
-    'NotificationPusher',
-
-    'ApplePushNotificationService',
-    'PushMessageService',
-]
+# noinspection PyUnusedLocal
+def build_message(sender: ID, receiver: ID, group: ID, msg_type: int, msg: ReliableMessage) -> Optional[str]:
+    """ build notification message """
+    if msg_type == 0:
+        something = 'a message'
+    elif msg_type == ContentType.TEXT:
+        something = 'a text message'
+    elif msg_type == ContentType.FILE:
+        something = 'a file'
+    elif msg_type == ContentType.IMAGE:
+        something = 'an image'
+    elif msg_type == ContentType.AUDIO:
+        something = 'a voice message'
+    elif msg_type == ContentType.VIDEO:
+        something = 'a video'
+    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
+        something = 'some money'
+    else:
+        return None
+    from_name = g_facebook.name(identifier=sender)
+    to_name = g_facebook.name(identifier=receiver)
+    text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
+    if group is not None:
+        text += ' in group [%s]' % g_facebook.name(identifier=group)
+    return text

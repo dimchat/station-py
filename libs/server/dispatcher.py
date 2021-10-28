@@ -44,7 +44,7 @@ from dimp import ContentType, Content, TextContent
 from ..utils import get_msg_sig
 from ..utils import Singleton, Log, Logging
 from ..utils import Notification, NotificationObserver, NotificationCenter
-from ..push import PushService
+from ..push import PushService, build_message as build_push_message
 from ..database import Database
 from ..common import NotificationNames
 from ..common import SharedFacebook
@@ -237,43 +237,18 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
             if value is not None:
                 msg_type = value
             msg.pop('origin')
-    if not g_database.is_muted(sender=sender, receiver=receiver, group=group):
-        # push notification
-        _push_notification(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
-    return msg_receipt(msg=msg, text='Message cached')
-
-
-def _push_notification(sender: ID, receiver: ID, group: ID, msg_type: int = 0) -> bool:
-    """ push notification service """
     service = Dispatcher().push_service
     if service is None:
         Log.error('push notification service not initialized')
-        return False
-    if msg_type == 0:
-        something = 'a message'
-    elif msg_type == ContentType.TEXT:
-        something = 'a text message'
-    elif msg_type == ContentType.FILE:
-        something = 'a file'
-    elif msg_type == ContentType.IMAGE:
-        something = 'an image'
-    elif msg_type == ContentType.AUDIO:
-        something = 'a voice message'
-    elif msg_type == ContentType.VIDEO:
-        something = 'a video'
-    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
-        something = 'some money'
-    else:
-        Log.warning('ignore msg type: %d' % msg_type)
-        return False
-    from_name = g_facebook.name(identifier=sender)
-    to_name = g_facebook.name(identifier=receiver)
-    text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
-    if group is not None:
-        # group message
-        text += ' in group [%s]' % g_facebook.name(identifier=group)
-    print('push notification: %s' % text)
-    return service.push_notification(sender=sender, receiver=receiver, message=text)
+    elif not g_database.is_muted(sender=sender, receiver=receiver, group=group):
+        # push notification
+        text = build_push_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, msg=msg)
+        if text is None or len(text) == 0:
+            Log.warning('ignore msg type: %d' % msg_type)
+        else:
+            Log.info('push notification: %s' % text)
+            service.push_notification(sender=sender, receiver=receiver, message=text)
+    return msg_receipt(msg=msg, text='Message cached.')
 
 
 class Worker(threading.Thread, Logging):
