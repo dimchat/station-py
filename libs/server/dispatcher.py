@@ -217,7 +217,17 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
         cnt += _redirect_message(msg=msg, neighbor=sid, bridge=station)
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
-    # 3. check mute-list
+    # 3. push notification
+    res = _push_notification(msg=msg, receiver=receiver)
+    return msg_receipt(msg=msg, text=res)
+
+
+def _push_notification(msg: ReliableMessage, receiver: ID) -> str:
+    service = Dispatcher().push_service
+    if service is None:
+        Log.error('push notification service not initialized')
+        return 'Message cached.'
+    # fetch sender, group ID & msg type
     sender = msg.sender
     group = msg.group
     msg_type = msg.type
@@ -237,18 +247,18 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
             if value is not None:
                 msg_type = value
             msg.pop('origin')
-    service = Dispatcher().push_service
-    if service is None:
-        Log.error('push notification service not initialized')
-    elif not g_database.is_muted(sender=sender, receiver=receiver, group=group):
-        # push notification
-        text = build_push_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, msg=msg)
-        if text is None or len(text) == 0:
-            Log.warning('ignore msg type: %d' % msg_type)
-        else:
-            Log.info('push notification: %s' % text)
-            service.push_notification(sender=sender, receiver=receiver, message=text)
-    return msg_receipt(msg=msg, text='Message cached.')
+    # check mute-list
+    if g_database.is_muted(sender=sender, receiver=receiver, group=group):
+        return 'Message cached.'
+    # push notification
+    text = build_push_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, msg=msg)
+    if text is None or len(text) == 0:
+        Log.warning('ignore msg type: %d' % msg_type)
+        return 'Message cached.'
+    else:
+        Log.info('push notification: %s' % text)
+        service.push_notification(sender=sender, receiver=receiver, message=text)
+        return 'Message pushed.'
 
 
 class Worker(threading.Thread, Logging):
