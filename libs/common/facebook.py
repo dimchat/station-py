@@ -133,7 +133,7 @@ class CommonFacebook(Facebook):
     #
 
     def save_members(self, members: List[ID], identifier: ID) -> bool:
-        return self.__db.save_members(members=members, group=identifier)
+        return self.__db.save_group_members(members=members, group=identifier)
 
     def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
         pass
@@ -232,20 +232,20 @@ class CommonFacebook(Facebook):
 
     def founder(self, identifier: ID) -> ID:
         # get from database
-        user = self.__db.founder(group=identifier)
+        user = self.__db.group_founder(group=identifier)
         if user is not None:
             return user
         return super().founder(identifier=identifier)
 
     def owner(self, identifier: ID) -> ID:
         # get from database
-        user = self.__db.owner(group=identifier)
+        user = self.__db.group_owner(group=identifier)
         if user is not None:
             return user
         return super().owner(identifier=identifier)
 
     def members(self, identifier: ID) -> Optional[List[ID]]:
-        array = self.__db.members(group=identifier)
+        array = self.__db.group_members(group=identifier)
         if array is not None and len(array) > 0:
             return array
         return super().members(identifier=identifier)

@@ -46,101 +46,16 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
-from libs.database import Storage
 
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_station
 from robots.config import dims_connect
 
-
-class GroupKeyCache(Storage):
-
-    def __init__(self):
-        super().__init__()
-        self.__cache = {}  # group => (sender => (member => key str))
-
-    # path: '/data/.dim/protected/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS).json'
-    # noinspection PyMethodMayBeStatic
-    def __path(self, group: ID, sender: ID) -> str:
-        filename = 'group-keys-%s.js' % str(sender.address)
-        return os.path.join(Storage.root, 'protected', str(group.address), filename)
-
-    def __load_keys(self, sender: ID, group: ID) -> dict:
-        path = self.__path(group=group, sender=sender)
-        self.info('Loading group keys from: %s' % path)
-        return self.read_json(path=path)
-
-    def __save_keys(self, keys: dict, sender: ID, group: ID) -> bool:
-        path = self.__path(group=group, sender=sender)
-        self.info('Saving group keys into: %s' % path)
-        return self.write_json(container=keys, path=path)
-
-    def update_keys(self, keys: dict, sender: ID, group: ID):
-        table = self.__cache.get(group)
-        if table is None:
-            # no keys for this group yet
-            table = {}
-            self.__cache[group] = table
-        key_map = table.get(sender)
-        if key_map is None or key_map['digest'] is None:
-            # no keys from this sender yet
-            table[sender] = keys
-            dirty = True
-        elif key_map['digest'] != keys['digest']:
-            # key changed
-            table[sender] = keys
-            dirty = True
-        else:
-            dirty = False
-            # update key map with member
-            for (member, key) in keys.items():
-                if key is None or len(key) == 0:
-                    # empty key
-                    continue
-                key_map[member] = key
-                dirty = True
-            keys = key_map
-        if dirty:
-            self.__save_keys(keys=keys, sender=sender, group=group)
-
-    def get_keys(self, sender: ID, group: ID) -> dict:
-        # get table for all members in this group
-        table = self.__cache.get(group)
-        if table is None:
-            # try to load keys
-            keys = self.__load_keys(sender=sender, group=group)
-            if keys is None:
-                keys = {}
-            # cache keys
-            table = {sender: keys}
-            self.__cache[group] = table
-        else:
-            # get keys from the sender
-            keys = table.get(sender)
-            if keys is None:
-                # try to load keys
-                keys = self.__load_keys(sender=sender, group=group)
-                if keys is None:
-                    keys = {}
-                # cache keys
-                table[sender] = keys
-        return keys
-
-    def get_key(self, sender: ID, member: ID, group: ID) -> Optional[str]:
-        key_map = self.get_keys(sender=sender, group=group)
-        assert key_map is not None, 'key map error: %s -> %s' % (sender, group)
-        key = key_map.get(member)
-        if key is None:
-            self.error('failed to get key for: %s (%s => %s)' % (member, sender, group))
-        return key
+from etc.cfg_init import g_database
 
 
 class AssistantMessenger(ClientMessenger, Logging):
-
-    def __init__(self):
-        super().__init__()
-        self.__key_cache = GroupKeyCache()
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -267,7 +182,7 @@ class AssistantMessenger(ClientMessenger, Logging):
                     cmd = GroupCommand.expel(group=receiver, members=expel_list)
                     g_messenger.send_content(sender=None, receiver=sender, content=cmd)
                 # update key map
-                self.__key_cache.update_keys(keys=keys, sender=sender, group=receiver)
+                g_database.update_group_keys(keys=keys, sender=sender, group=receiver)
             # split and forward group message,
             # respond receipt with success or failed list
             res = self.__split_group_message(msg=msg, members=members)
@@ -316,7 +231,7 @@ class AssistantMessenger(ClientMessenger, Logging):
             # get key from cache
             sender = msg.sender
             group = msg.group
-            key = self.__key_cache.get_key(sender=sender, member=receiver, group=group)
+            key = g_database.group_key(sender=sender, member=receiver, group=group)
             if key is None:
                 # cannot forward group message without key
                 return False

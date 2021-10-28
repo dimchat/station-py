@@ -256,25 +256,25 @@ class Database:
         file path: '.dim/protected/{ADDRESS}/members.txt'
         redis key: 'mkm.group.{ID}.members'
     """
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    def save_group_members(self, members: List[ID], group: ID) -> bool:
         return self.__group_table.save_members(members=members, group=group)
 
-    def members(self, group: ID) -> List[ID]:
+    def group_members(self, group: ID) -> List[ID]:
         return self.__group_table.members(group=group)
 
-    def founder(self, group: ID) -> ID:
+    def group_founder(self, group: ID) -> ID:
         return self.__group_table.founder(group=group)
 
-    def owner(self, group: ID) -> ID:
+    def group_owner(self, group: ID) -> ID:
         return self.__group_table.owner(group=group)
 
-    def update_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
+    def update_group_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
         return self.__group_table.update_keys(keys=keys, sender=sender, group=group)
 
-    def get_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
+    def group_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
         return self.__group_table.get_keys(sender=sender, group=group)
 
-    def get_key(self, sender: ID, member: ID, group: ID) -> Optional[str]:
+    def group_key(self, sender: ID, member: ID, group: ID) -> Optional[str]:
         return self.__group_table.get_key(sender=sender, member=member, group=group)
 
     """
