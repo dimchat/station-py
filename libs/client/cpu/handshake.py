@@ -52,6 +52,9 @@ class HandshakeCommandProcessor(CommandProcessor):
             server = self.messenger.server
             server.handshake_success()
             return []
+        else:
+            print('[Error] handshake command from %s: %s' % (msg.sender, cmd))
+            return []
 
 
 # register

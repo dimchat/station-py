@@ -55,7 +55,10 @@ class ClientProcessor(CommonProcessor):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         responses = super().process_content(content=content, r_msg=r_msg)
-        if len(responses) > 0 and isinstance(responses[0], HandshakeCommand):
+        if responses is None or len(responses) == 0:
+            # respond nothing
+            return []
+        elif isinstance(responses[0], HandshakeCommand):
             # urgent command
             return responses
         sender = r_msg.sender

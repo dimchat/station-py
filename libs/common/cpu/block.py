@@ -33,9 +33,8 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, TextContent
-from dimp import Command
-from dimsdk import ReceiptCommand, BlockCommand
+from dimp import Content, Command
+from dimsdk import BlockCommand
 from dimsdk import CommandProcessor
 
 from ...database import Database
@@ -51,9 +50,11 @@ class BlockCommandProcessor(CommandProcessor):
         if 'list' in cmd:
             # upload block-list, save it
             if g_database.save_block_command(cmd=cmd, sender=msg.sender):
-                return [ReceiptCommand(message='Block command of %s received!' % msg.sender)]
+                text = 'Block command of %s received!' % msg.sender
+                return self._respond_receipt(text=text)
             else:
-                return [TextContent(text='Sorry, block-list not stored: %s!' % cmd)]
+                text = 'Sorry, block-list not stored: %s!' % cmd
+                return self._respond_text(text=text)
         else:
             # query block-list, load it
             stored: Command = g_database.block_command(identifier=msg.sender)

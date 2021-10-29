@@ -34,9 +34,7 @@ from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import Content, TextContent
-from dimp import Command
-from dimsdk import ReceiptCommand
+from dimp import Content, Command
 from dimsdk import CommandProcessor
 
 from ...utils import NotificationCenter
@@ -69,7 +67,8 @@ class ReportCommandProcessor(CommandProcessor):
             else:  # 'foreground'
                 session.active = True
             _post_notification(cpu=self, cmd=cmd, session=session)
-        return [ReceiptCommand(message='Client state received')]
+        text = 'Client state received.'
+        return self._respond_receipt(text=text)
 
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'report command error: %s' % cmd
@@ -81,7 +80,8 @@ class ReportCommandProcessor(CommandProcessor):
         cpu = self.processor_for_name(command=title)
         # check and run
         if cpu is None:
-            return [TextContent(text='Report command (title: %s) not support yet!' % title)]
+            text = 'Report command (title: %s) not support yet!' % title
+            return self._respond_text(text=text)
         elif cpu is self:
             raise AssertionError('Dead cycle! report cmd: %s' % cmd)
         assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
@@ -113,7 +113,8 @@ class APNsCommandProcessor(ReportCommandProcessor):
         if token is None or len(token) == 0:
             return []
         g_database.save_device_token(token=token, identifier=msg.sender)
-        return [ReceiptCommand(message='Token received')]
+        text = 'Token received.'
+        return self._respond_receipt(text=text)
 
 
 class OnlineCommandProcessor(ReportCommandProcessor):
@@ -128,7 +129,8 @@ class OnlineCommandProcessor(ReportCommandProcessor):
             session.active = True
             _post_notification(cpu=self, cmd=cmd, session=session)
             # TODO: notification for pushing offline message(s) from 'last_time'
-        return [ReceiptCommand(message='Client online received')]
+        text = 'Client online received.'
+        return self._respond_receipt(text=text)
 
 
 class OfflineCommandProcessor(ReportCommandProcessor):
@@ -142,7 +144,8 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         if session is not None:
             session.active = False
             _post_notification(cpu=self, cmd=cmd, session=session)
-        return [ReceiptCommand(message='Client offline received')]
+        text = 'Client offline received.'
+        return self._respond_receipt(text=text)
 
 
 # register

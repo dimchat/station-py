@@ -33,9 +33,8 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, TextContent
-from dimp import Command
-from dimsdk import ReceiptCommand, StorageCommand
+from dimp import Content, Command
+from dimsdk import StorageCommand
 from dimsdk import CommandProcessor
 
 from ...database import Database
@@ -55,19 +54,22 @@ class StorageCommandProcessor(CommandProcessor):
                 stored = g_database.contacts_command(identifier=msg.sender)
                 # response
                 if stored is None:
-                    res = TextContent(text='Sorry, contacts of %s not found.' % msg.sender)
+                    text = 'Sorry, contacts of %s not found.' % msg.sender
+                    return self._respond_text(text=text)
                 else:
                     # response the stored contacts command directly
-                    res = stored
+                    return [stored]
             else:
                 # upload contacts, save it
                 if g_database.save_contacts_command(cmd=cmd, sender=msg.sender):
-                    res = ReceiptCommand(message='Contacts of %s received!' % msg.sender)
+                    text = 'Contacts of %s received!' % msg.sender
+                    return self._respond_receipt(text=text)
                 else:
-                    res = TextContent(text='Contacts not stored %s!' % cmd)
+                    text = 'Sorry, contacts not stored %s!' % cmd
+                    return self._respond_text(text=text)
         else:
-            res = TextContent(text='Storage command (title: %s) not support yet!' % title)
-        return [res]
+            text = 'Storage command (title: %s) not support yet!' % title
+            return self._respond_text(text=text)
 
 
 # register

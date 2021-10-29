@@ -36,7 +36,6 @@ from urllib.error import URLError
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
-from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor
 
 from ...utils import Logging
@@ -132,8 +131,6 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
             assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
             if messenger.send_content(sender=None, receiver=group, content=res):
                 text = 'Group message responded'
-                receipt = ReceiptCommand(message=text)
             else:
                 text = 'Group message respond failed'
-                receipt = ReceiptCommand(message=text)
-            return [receipt]
+            return self._respond_receipt(text=text)

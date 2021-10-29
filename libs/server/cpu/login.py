@@ -35,7 +35,7 @@ from typing import List
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
-from dimsdk import LoginCommand, ReceiptCommand
+from dimsdk import LoginCommand
 from dimsdk import CommandProcessor
 
 from ...utils import NotificationCenter, Logging
@@ -72,7 +72,8 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         srv = facebook.current_user
         if sid == srv.identifier:
             # only respond the user login to this station
-            return [ReceiptCommand(message='Login received')]
+            text = 'Login received.'
+            return self._respond_receipt(text=text)
         return []
 
 

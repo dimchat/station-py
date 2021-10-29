@@ -32,8 +32,7 @@ from typing import List
 
 from dimp import ID, Meta
 from dimp import ReliableMessage
-from dimp import Content, TextContent
-from dimp import Command
+from dimp import Content, Command
 from dimsdk import CommandProcessor
 
 from ...database import Database
@@ -75,7 +74,8 @@ class SearchCommandProcessor(CommandProcessor):
         facebook = self.facebook
         keywords = cmd.keywords
         if keywords is None:
-            return [TextContent(text='Search command error')]
+            text = 'Search command error.'
+            return self._respond_text(text=text)
         elif keywords == SearchCommand.ONLINE_USERS:
             users, results = online_users(facebook, start=cmd.start, limit=cmd.limit)
         else:
