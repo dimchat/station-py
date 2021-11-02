@@ -34,13 +34,13 @@
 import sys
 import os
 import threading
-import time
 import traceback
 from typing import Optional, Dict, List
 
 from dimp import ID, ReliableMessage
 from dimp import ContentType
 from dimsdk import Station, HandshakeCommand
+from startrek.fsm import Runner
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -132,12 +132,11 @@ class OuterMessenger(OctopusMessenger):
             return [r_msg]
 
 
-class Worker(threading.Thread, Logging):
+class Worker(Runner, Logging):
     """ Client-Server connection keeper """
 
     def __init__(self, client: Terminal, server: Server, messenger: OctopusMessenger):
         super().__init__()
-        self.__running = False
         self.__waiting_list: List[ReliableMessage] = []  # sending messages
         self.__lock = threading.Lock()
         self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
@@ -148,6 +147,14 @@ class Worker(threading.Thread, Logging):
     def client(self) -> Terminal:
         return self.__client
 
+    @property
+    def server(self) -> Server:
+        return self.__server
+
+    @property
+    def messenger(self) -> OctopusMessenger:
+        return self.__messenger
+
     def add_msg(self, msg: ReliableMessage):
         with self.__lock:
             self.__waiting_list.append(msg)
@@ -157,80 +164,46 @@ class Worker(threading.Thread, Logging):
             if len(self.__waiting_list) > 0:
                 return self.__waiting_list.pop(0)
 
-    def run(self):
-        self.setup()
-        try:
-            self.handle()
-        finally:
-            self.finish()
+    def msg_cnt(self) -> int:
+        with self.__lock:
+            return len(self.__waiting_list)
 
-    def stop(self):
-        self.__running = False
+    def start(self):
+        self.info('octopus starting: %s' % self.server)
+        threading.Thread(target=self.run).start()
 
-    def setup(self):
-        self.__running = True
-        while self.__running:
-            try:
-                # check handshake
-                if self.__messenger.accepted:
-                    break
-                elif not self._reconnect():
-                    self.error('not handshake yet, failed to reconnect')
-                    self._idle()
-            except Exception as error:
-                self.error('octopus error: %s -> %s' % (self.__server, error))
-                traceback.print_exc()
-
+    # Override
     def finish(self):
-        self.info('octopus exit: %s' % self.client.server)
+        self.info('octopus finished: %s' % self.server)
+        self.info('saving %d message(s)' % self.msg_cnt())
         while True:
             msg = self.pop_msg()
             if msg is None:
                 break
             else:
                 g_database.save_message(msg=msg)
+        super().finish()
 
-    def handle(self):
-        while self.__running:
-            try:
-                # handling
-                while self.__running:
-                    if self.__messenger.accepted:
-                        if not self.process():
-                            # waiting queue empty, have a rest
-                            self._idle()
-                    elif not self._reconnect():
-                        self.error('failed to reconnect')
-                        self._idle()
-            except Exception as error:
-                self.error('octopus error: %s -> %s' % (self.client.server, error))
-                traceback.print_exc()
-            finally:
-                self.info('octopus waiting server accepted: %s ...' % self.client.server)
-                time.sleep(5)
-
+    # Override
     def process(self) -> bool:
+        try:
+            if self.messenger.accepted:
+                return self.__process()
+        except Exception as error:
+            self.error('octopus error: %s -> %s' % (self.server, error))
+            traceback.print_exc()
+
+    def __process(self) -> bool:
         msg = self.pop_msg()
         if msg is not None:
             if is_broadcast_message(msg=msg):
                 priority = 1  # SLOWER
             else:
                 priority = 0  # NORMAL
-            if not self.__messenger.send_reliable_message(msg=msg, priority=priority):
+            if not self.messenger.send_reliable_message(msg=msg, priority=priority):
                 self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
                 g_database.save_message(msg=msg)
             return True
-
-    def _reconnect(self) -> bool:
-        time.sleep(5)
-        session = self.__server.connect()
-        if session.gate.running:
-            self.__server.handshake()
-            return True
-
-    # noinspection PyMethodMayBeStatic
-    def _idle(self):
-        time.sleep(0.25)
 
 
 class Octopus(Logging):

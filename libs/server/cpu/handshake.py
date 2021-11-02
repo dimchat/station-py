@@ -34,7 +34,7 @@ from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import Content, TextContent
+from dimp import Content
 from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
@@ -56,10 +56,8 @@ class HandshakeCommandProcessor(CommandProcessor):
         if session_key == session.key:
             # session verified success
             g_session_server.update_session(session=session, identifier=sender)
-            response = messenger.handshake_accepted(session=session)
-            if response is None:
-                response = HandshakeCommand.success()
-            return response
+            messenger.handshake_accepted(session=session)
+            return HandshakeCommand.success(session=session.key)
         else:
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.key)
@@ -69,7 +67,8 @@ class HandshakeCommandProcessor(CommandProcessor):
         message = cmd.message
         if message in ['DIM?', 'DIM!']:
             # S -> C
-            res = TextContent(text='Handshake command error: %s' % message)
+            text = 'Handshake command error: %s' % message
+            res = self._respond_text(text=text)
         else:
             # C -> S: Hello world!
             assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
