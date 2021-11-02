@@ -29,7 +29,7 @@ from typing import Set, Dict, List, Optional
 from dimp import ID
 from startrek.fsm import Runner
 
-from ..utils import Singleton
+from ..utils import Singleton, Log
 from ..utils import NotificationCenter, NotificationObserver, Notification
 
 
@@ -114,8 +114,10 @@ class NotificationPusher(Runner, PushService, NotificationObserver):
         info = notification.info
         identifier = ID.parse(identifier=info.get('ID'))
         # clean badges with ID
-        assert identifier is not None, 'notification error: %s' % info
-        self.__clean_badge(identifier=identifier)
+        if identifier is None:
+            Log.error('notification error: %s' % notification)
+        else:
+            self.__clean_badge(identifier=identifier)
 
     #
     #   PushService

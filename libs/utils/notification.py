@@ -46,6 +46,12 @@ class Notification:
         self.__sender = sender
         self.__info = info
 
+    def __str__(self) -> str:
+        return '<Notification:%s| sender=%s, extra info=%s />' % (self.name, self.sender, self.info)
+
+    def __repr__(self) -> str:
+        return '<Notification:%s| sender=%s, extra info=%s />' % (self.name, self.sender, self.info)
+
     @property
     def name(self) -> str:
         return self.__name

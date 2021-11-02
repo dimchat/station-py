@@ -94,7 +94,9 @@ g_station = create_station(info={
     'port': bind_port
 })
 assert g_station is not None, 'current station not created: %s' % station_id
-Log.info('Current station: %s' % g_station)
+decrypt_keys = g_facebook.private_keys_for_decryption(identifier=station_id)
+assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % station_id
+Log.info('Current station with %d private key(s): %s' % (len(decrypt_keys), g_station))
 
 # set local users for facebook
 g_facebook.local_users = [g_station]
