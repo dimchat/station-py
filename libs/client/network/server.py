@@ -36,11 +36,15 @@ from typing import Optional
 
 from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
+from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import Station
 
+from startrek.fsm import StateDelegate
+
 from ...utils import Logging
 from ...network import Hub, Gate, GateStatus, DeparturePriority
+from ...network import TCPClientGate
 
 from ...common import CommonMessenger, CommonFacebook
 from ...common import MessengerDelegate, CompletionHandler
@@ -82,7 +86,20 @@ class Session(BaseSession):
                 delegate.handshake()
 
 
-class Server(Station, MessengerDelegate, Logging):
+class ServerDelegate:
+
+    @abstractmethod
+    def handshake_accepted(self, session: str, server):
+        """
+        Callback for handshake accepted
+
+        :param session: session key
+        :param server:  current station
+        """
+        pass
+
+
+class Server(Station, MessengerDelegate, StateDelegate, Logging):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -90,8 +107,40 @@ class Server(Station, MessengerDelegate, Logging):
 
     def __init__(self, identifier: ID, host: str, port: int = 9394):
         super().__init__(identifier=identifier, host=host, port=port)
-        self.__session: Optional[Session] = None
         self.__messenger: Optional[weakref.ReferenceType] = None
+        self.__server_delegate: Optional[weakref.ReferenceType] = None
+        self.__session: Optional[Session] = None
+        self.__session_key: Optional[str] = None
+        self.__current_user: Optional[User] = None
+        self.__fsm = self._create_state_machine()
+
+    def _create_state_machine(self):
+        from .state import StateMachine
+        fsm = StateMachine(server=self)
+        fsm.start()
+        return fsm
+
+    @property
+    def current_state(self):
+        return self.__fsm.current_state
+
+    @property
+    def status(self):
+        session = self.connect()
+        gate = session.gate
+        assert isinstance(gate, TCPClientGate)
+        return gate.gate_status(remote=gate.remote_address, local=None)
+
+    @property
+    def current_user(self) -> Optional[User]:
+        return self.__current_user
+
+    @current_user.setter
+    def current_user(self, user: User):
+        if user != self.__current_user:
+            self.__current_user = user
+            # switch state for re-login
+            self.__fsm.session_key = None
 
     def connect(self) -> Session:
         if self.__session is None:
@@ -106,6 +155,15 @@ class Server(Station, MessengerDelegate, Logging):
             self.__session = None
 
     @property
+    def server_delegate(self) -> Optional[ServerDelegate]:
+        if self.__server_delegate is not None:
+            return self.__server_delegate()
+
+    @server_delegate.setter
+    def server_delegate(self, delegate: ServerDelegate):
+        self.__server_delegate = weakref.ref(delegate)
+
+    @property
     def messenger(self) -> CommonMessenger:
         if self.__messenger is not None:
             return self.__messenger()
@@ -118,42 +176,78 @@ class Server(Station, MessengerDelegate, Logging):
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    #
-    #   Handshake
-    #
-    def handshake(self, session: Optional[str] = None):
-        user = self.facebook.current_user
-        assert isinstance(user, User), 'current user not set yet'
-        env = Envelope.create(sender=user.identifier, receiver=self.identifier)
-        assert isinstance(env, Envelope), 'envelope error: %s' % env
-        cmd = HandshakeCommand.start(session=session)
+    def __pack(self, cmd: Command) -> ReliableMessage:
+        user = self.current_user
+        assert user is not None, 'current user not set'
+        uid = user.identifier
+        sid = self.identifier
+        env = Envelope.create(sender=uid, receiver=sid)
         # allow connect server without meta.js
-        if self.facebook.public_key_for_encryption(identifier=self.identifier) is None:
+        facebook = self.facebook
+        if facebook.public_key_for_encryption(identifier=sid) is None:
             cmd.group = EVERYONE
         # pack message
         i_msg = InstantMessage.create(head=env, body=cmd)
         messenger = self.messenger
         s_msg = messenger.encrypt_message(msg=i_msg)
-        assert s_msg is not None, 'failed to handshake with server: %s' % self.identifier
+        assert s_msg is not None, 'failed to encrypt message: %s' % i_msg
         r_msg = messenger.sign_message(msg=s_msg)
-        assert isinstance(r_msg, ReliableMessage), 'failed to sign message as user: %s' % user.identifier
+        assert r_msg is not None, 'failed to sign message: %s' % s_msg
+        return r_msg
+
+    #
+    #   Handshake
+    #
+    def handshake(self, session: Optional[str] = None):
+        user = self.current_user
+        if user is None:
+            # current user not set yet
+            return
+        # check FSM state == 'Handshaking'
+        from .state import ServerState
+        current_state = self.current_state
+        assert isinstance(current_state, ServerState), 'current state error: %s' % current_state
+        if current_state.name not in [ServerState.HANDSHAKING, ServerState.CONNECTED, ServerState.RUNNING]:
+            # FIXME: sometimes the connection state will be reset
+            self.error('server state not for handshaking: %s' % current_state)
+            return
+        # check connection status = 'Connected'
+        status = self.status
+        if status != GateStatus.READY:
+            # FIXME: sometimes the connection will be lost while handshaking
+            self.error('server not connected')
+            return
+        if session is not None:
+            self.__session_key = session
+        self.__fsm.session_key = None
+        self.info('shaking hands with session key: %s' % self.__session_key)
+        # create handshake command
+        cmd = HandshakeCommand.start(session=session)
+        # TODO: set last received message time
+        r_msg = self.__pack(cmd=cmd)
         # carry meta, visa for first handshaking
         r_msg.meta = user.meta
         r_msg.visa = user.visa
-        data = messenger.serialize_message(msg=r_msg)
+        data = self.messenger.serialize_message(msg=r_msg)
         # send out directly
-        self.info('shaking hands: %s -> %s' % (env.sender, env.receiver))
+        self.info('shaking hands: %s -> %s' % (r_msg.sender, r_msg.receiver))
         # Urgent Command
         session = self.connect()
         session.send_payload(payload=data, priority=DeparturePriority.URGENT)
 
     def handshake_success(self):
-        user = self.facebook.current_user
+        # check FSM state == 'Handshaking'
+        from .state import ServerState
+        state = self.current_state
+        if state != ServerState.HANDSHAKING:
+            # FIXME: sometimes the connection state will be reset
+            self.error('server state not handshaking: %s' % state)
+        user = self.current_user
         self.info('handshake success: %s, onto station: %s' % (user.identifier, self.identifier))
-        from ..messenger import ClientMessenger
-        messenger = self.messenger
-        assert isinstance(messenger, ClientMessenger)
-        messenger.handshake_accepted(server=self)
+        session_key = self.__session_key
+        self.__fsm.session_key = session_key
+        # call client
+        self.server_delegate.handshake_accepted(session=session_key, server=self)
 
     #
     #   MessengerDelegate
@@ -181,14 +275,30 @@ class Server(Station, MessengerDelegate, Logging):
         self.info('download %s for: %s' % (url, msg.content))
         return None
 
+    #
+    #   State Delegate
+    #
 
-class ServerDelegate:
+    def enter_state(self, state, ctx):
+        # called before state changed
+        pass
 
-    @abstractmethod
-    def handshake_accepted(self, server: Server):
-        """
-        Callback for handshake accepted
+    def exit_state(self, state, ctx):
+        # called after state changed
+        from .state import StateMachine, ServerState
+        assert isinstance(ctx, StateMachine), 'server state machine error: %s' % ctx
+        current = ctx.current_state
+        self.info('server state changed: %s -> %s' % (state, current))
+        if current is None:
+            return
+        # TODO: post notification 'server_state_changed'
+        if current == ServerState.HANDSHAKING:
+            # start handshake
+            self.handshake(session=None)
 
-        :param server: current station
-        """
+    def pause_state(self, state, ctx):
+        pass
+
+    def resume_state(self, state, ctx):
+        # TODO: clear session key for re-login?
         pass

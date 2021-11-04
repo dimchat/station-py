@@ -50,6 +50,7 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
     messenger.delegate = server
     messenger.terminal = terminal
     server.messenger = messenger
+    server.server_delegate = terminal
     # client
     terminal.messenger = messenger
     terminal.start(server=server)

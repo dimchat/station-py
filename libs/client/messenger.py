@@ -41,10 +41,10 @@ from dimsdk import LoginCommand, Station
 
 from ..common import CommonMessenger, CommonFacebook, SharedFacebook
 
-from .network import Terminal, Server, ServerDelegate
+from .network import Terminal, Server
 
 
-class ClientMessenger(CommonMessenger, ServerDelegate):
+class ClientMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
@@ -88,13 +88,7 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
                 receiver = station.identifier
         return self.send_content(sender=None, receiver=receiver, content=cmd)
 
-    #
-    #   Server Delegate
-    #
-    def handshake_accepted(self, server: Server):
-        self.__broadcast_login(server=server)
-
-    def __broadcast_login(self, server: Optional[Server]):
+    def broadcast_login(self, server: Optional[Server]):
         user = self.facebook.current_user
         if isinstance(user, Station):
             # the current user is a station,
@@ -115,5 +109,5 @@ class ClientMessenger(CommonMessenger, ServerDelegate):
             # nothing response, check last login time
             now = int(time.time())
             if 0 < self.__last_login < now - 3600:
-                self.__broadcast_login(server=self.server)
+                self.broadcast_login(server=self.server)
         return responses

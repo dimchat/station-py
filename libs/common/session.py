@@ -91,7 +91,7 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
 
     def _create_gate(self, address: tuple, sock: Optional[socket.socket]) -> CommonGate:
         if sock is None:
-            gate = TCPClientGate(delegate=self)
+            gate = TCPClientGate(delegate=self, remote=address)
         else:
             gate = TCPServerGate(delegate=self)
         gate.hub = self._create_hub(delegate=gate, address=address, sock=sock)

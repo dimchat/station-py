@@ -37,10 +37,10 @@ from dimp import Content, Command
 
 from ...common import CommonMessenger, CommonFacebook
 
-from .server import Server
+from .server import Server, ServerDelegate
 
 
-class Terminal:
+class Terminal(ServerDelegate):
 
     def __init__(self):
         super().__init__()
@@ -62,6 +62,8 @@ class Terminal:
         return self.__server
 
     def start(self, server: Server):
+        facebook = self.facebook
+        server.current_user = facebook.current_user
         server.connect()
         self.__server = server
 
@@ -91,3 +93,12 @@ class Terminal:
         sender = self.facebook.current_user.identifier
         content.group = EVERYONE
         return self.messenger.send_content(sender=sender, receiver=receiver, content=content)
+
+    #
+    #   Server Delegate
+    #
+    def handshake_accepted(self, session: str, server: Server):
+        from ..messenger import ClientMessenger
+        messenger = self.messenger
+        assert isinstance(messenger, ClientMessenger), 'client messenger error: %s' % messenger
+        messenger.broadcast_login(server=server)

@@ -253,7 +253,7 @@ def _push_notification(msg: ReliableMessage, receiver: ID) -> str:
     # push notification
     text = build_push_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, msg=msg)
     if text is None or len(text) == 0:
-        Log.warning('ignore msg type: %d' % msg_type)
+        Log.warning('ignore msg type: %d, %s -> %s' % (msg_type, sender, receiver))
         return 'Message cached.'
     else:
         Log.info('push notification: %s' % text)

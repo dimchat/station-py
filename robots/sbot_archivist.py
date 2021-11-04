@@ -255,10 +255,6 @@ class ArchivistWorker(threading.Thread, Logging):
     def running(self) -> bool:
         return self.__running
 
-    @running.setter
-    def running(self, flag: bool):
-        self.__running = flag
-
     @property
     def online(self) -> bool:
         return self.__online
@@ -272,6 +268,7 @@ class ArchivistWorker(threading.Thread, Logging):
         self.__running = True
         super().start()
 
+    # Override
     def run(self):
         while self.running:
             time.sleep(5)
@@ -319,8 +316,8 @@ class ArchivistWorker(threading.Thread, Logging):
 
 class ArchivistMessenger(ClientMessenger):
 
-    def handshake_accepted(self, server: Server):
-        super().handshake_accepted(server=server)
+    def handshake_accepted(self, session: str, server: Server):
+        super().handshake_accepted(session=session, server=server)
         # FIXME: what about offline?
         g_worker.online = True
 
