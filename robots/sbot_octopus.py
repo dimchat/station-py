@@ -78,10 +78,10 @@ class OctopusMessenger(ClientMessenger):
             return isinstance(i_msg.content, HandshakeCommand)
 
     # Override
-    def handshake_accepted(self, session: str, server: Server):
+    def broadcast_login(self, server: Optional[Server]):
         self.__accepted = True
         self.info('start bridge for: %s' % self.server)
-        # super().handshake_accepted(session=session, server=server)
+        super().broadcast_login(server=server)
 
 
 class InnerMessenger(OctopusMessenger):
