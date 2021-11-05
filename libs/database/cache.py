@@ -107,10 +107,13 @@ class FrequencyChecker(Generic[K]):
 
 def purge_cache():
     while True:
+        # try to purge each 5 minutes
         time.sleep(300)
-        # purge each 5 minutes
-        count = CachePool.purge()
-        print('[DB] removed %d cached item(s)' % count)
+        try:
+            count = CachePool.purge()
+            print('[DB] removed %d cached item(s)' % count)
+        except Exception as error:
+            print('[DB] failed to purge cache: %s' % error)
 
 
 threading.Thread(target=purge_cache).start()

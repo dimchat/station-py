@@ -47,6 +47,7 @@ from dimp import ReliableMessage
 from ..utils import Logging
 from ..database import Database
 
+from ..network import BaseChannel
 from ..network import Connection, ConnectionDelegate, BaseConnection
 from ..network import Gate, GateStatus, GateDelegate
 from ..network import ShipDelegate
@@ -72,6 +73,30 @@ def get_local_address(sock: socket.socket) -> Optional[tuple]:
         return sock.getsockname()
     except socket.error as error:
         print('[SOCKET] failed to get local address from socket %s: %s' % (sock, error))
+
+
+def reset_send_buffer_size(conn: Connection) -> bool:
+    if not isinstance(conn, BaseConnection):
+        print('[SOCKET] connection error: %s' % conn)
+        return False
+    channel = conn.channel
+    if not isinstance(channel, BaseChannel):
+        print('[SOCKET] channel error: %s, %s' % (channel, conn))
+        return False
+    sock = channel.sock
+    if sock is None:
+        print('[SOCKET] socket error: %s, %s' % (sock, conn))
+        return False
+    size = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+    if size < SEND_BUFFER_SIZE:
+        print('[SOCKET] change send buffer size: %d -> %d, %s' % (size, SEND_BUFFER_SIZE, conn))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SEND_BUFFER_SIZE)
+        return True
+    else:
+        print('[SOCKET] send buffer size: %d, %s' % (size, conn))
+
+
+SEND_BUFFER_SIZE = 512 * 1024  # 512 KB
 
 
 g_database = Database()
@@ -102,7 +127,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
         if sock is None:
             assert address is not None, 'remote address empty'
             hub = TCPClientHub(delegate=delegate)
-            hub.connect(remote=address)
+            conn = hub.connect(remote=address)
+            reset_send_buffer_size(conn=conn)
         else:
             sock.setblocking(False)
             if address is None:
