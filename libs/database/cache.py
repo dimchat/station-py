@@ -28,7 +28,7 @@
     ~~~~~~~~~~~~~~~
 
 """
-
+import threading
 import time
 from typing import TypeVar, Generic, Optional, Dict, Set
 
@@ -69,8 +69,9 @@ class CachePool(Generic[K, V]):
         return caches
 
     @classmethod
-    def purge(cls):
+    def purge(cls) -> int:
         """ Remove all expired cache holders """
+        count = 0
         tables = cls.shared_pool.keys()
         for name in tables:
             caches = cls.shared_pool.get(name)
@@ -83,6 +84,8 @@ class CachePool(Generic[K, V]):
             # remove expired holders
             for key in expired:
                 caches.pop(key, None)
+                count += 1
+        return count
 
 
 class FrequencyChecker(Generic[K]):
@@ -100,3 +103,14 @@ class FrequencyChecker(Generic[K]):
         if now > self.__map.get(key, 0):
             self.__map[key] = now + expires
             return True
+
+
+def purge_cache():
+    while True:
+        time.sleep(300)
+        # purge each 5 minutes
+        count = CachePool.purge()
+        print('[DB] removed %d cached item(s)' % count)
+
+
+threading.Thread(target=purge_cache).start()
