@@ -86,13 +86,17 @@ class ServerMessenger(CommonMessenger):
         r_msg = self.sign_message(msg=s_msg)
         return [r_msg]
 
+    # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
         session = self.current_session
         if session is not None and session.identifier == msg.sender:
             # handshake accepted, no need to verify signature of this message
             # which sender is equal to current session id
-            self.warning('handshake accepted, skip verifying msg: %s -> %s' % (msg.sender, msg.receiver))
+            self.debug('skip verifying message: %s -> %s, %s' % (msg.sender, msg.receiver, session))
+            # FIXME: if stream hijacking occurs?
             return msg
+        # TODO: if it's a roaming message delivered from another neighbor station?
+        #       shall we trust that neighbor totally and skip verifying too?
         self.debug('verifying message: %s -> %s' % (msg.sender, msg.receiver))
         return super().verify_message(msg=msg)
 

@@ -28,6 +28,7 @@
     ~~~~~~~~~~~~~~~
 
 """
+
 import threading
 import time
 from typing import TypeVar, Generic, Optional, Dict, Set
@@ -111,7 +112,7 @@ def purge_cache():
         time.sleep(300)
         try:
             count = CachePool.purge()
-            print('[DB] removed %d cached item(s)' % count)
+            print('[DB] purge %d item(s) from cache pool' % count)
         except Exception as error:
             print('[DB] failed to purge cache: %s' % error)
 
