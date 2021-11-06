@@ -58,8 +58,14 @@ class Terminal(ServerDelegate):
         print('\r!!!!! %s > %s' % (self.facebook.current_user, msg))
 
     @property
-    def server(self):
+    def server(self) -> Optional[Server]:
         return self.__server
+
+    @property
+    def server_id(self) -> Optional[ID]:
+        server = self.__server
+        if server is not None:
+            return server.identifier
 
     def start(self, server: Server):
         facebook = self.facebook
@@ -68,8 +74,11 @@ class Terminal(ServerDelegate):
         self.__server = server
 
     def stop(self):
-        if self.__server is not None:
-            self.__server.disconnect()
+        server = self.__server
+        if server is not None:
+            self.info('disconnect from %s ...' % server)
+            server.disconnect()
+            self.__server = None
 
     @property
     def messenger(self) -> CommonMessenger:
@@ -86,7 +95,7 @@ class Terminal(ServerDelegate):
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
         sender = self.facebook.current_user.identifier
-        receiver = self.__server.identifier
+        receiver = self.server_id
         return self.messenger.send_content(sender=sender, receiver=receiver, content=cmd)
 
     def broadcast_content(self, content: Content, receiver: ID) -> bool:

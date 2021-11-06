@@ -30,6 +30,7 @@
     Local station
 """
 
+import socket
 import weakref
 from abc import abstractmethod
 from typing import Optional
@@ -53,17 +54,24 @@ from ...common import BaseSession
 
 class Session(BaseSession):
 
-    # def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
-    #     super().__init__(messenger=messenger, address=address, sock=sock)
+    def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
+        super().__init__(messenger=messenger, address=address, sock=sock)
+        self.__key: Optional[str] = None
+
+    @property
+    def key(self) -> Optional[str]:
+        return self.__key
+
+    @key.setter
+    def key(self, session: str):
+        self.__key = session
 
     def setup(self):
-        # self.active = True
-        self._set_active(True)
+        self.active = True
         super().setup()
 
     def finish(self):
-        # self.active = False
-        self._set_active(False)
+        self.active = False
         super().finish()
 
     #
@@ -83,7 +91,7 @@ class Session(BaseSession):
             # handshake
             delegate = self.messenger.delegate
             if isinstance(delegate, Server):
-                delegate.handshake()
+                delegate.handshake(session_key=None)
 
 
 class ServerDelegate:
@@ -110,7 +118,6 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         self.__messenger: Optional[weakref.ReferenceType] = None
         self.__server_delegate: Optional[weakref.ReferenceType] = None
         self.__session: Optional[Session] = None
-        self.__session_key: Optional[str] = None
         self.__current_user: Optional[User] = None
         self.__fsm = self._create_state_machine()
 
@@ -153,6 +160,12 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         if self.__session is not None:
             self.__session.stop()
             self.__session = None
+
+    @property
+    def session_key(self) -> Optional[str]:
+        session = self.__session
+        if session is not None:
+            return session.key
 
     @property
     def server_delegate(self) -> Optional[ServerDelegate]:
@@ -198,7 +211,7 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
     #
     #   Handshake
     #
-    def handshake(self, session: Optional[str] = None):
+    def handshake(self, session_key: Optional[str] = None):
         user = self.current_user
         if user is None:
             # current user not set yet
@@ -217,12 +230,13 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
             # FIXME: sometimes the connection will be lost while handshaking
             self.error('server not connected')
             return
-        if session is not None:
-            self.__session_key = session
+        session = self.connect()
+        if session_key is not None:
+            session.key = session_key
         self.__fsm.session_key = None
-        self.info('shaking hands with session key: %s' % self.__session_key)
+        self.info('shaking hands with session key: %s, id=%s' % (self.session_key, self.identifier))
         # create handshake command
-        cmd = HandshakeCommand.start(session=session)
+        cmd = HandshakeCommand.start(session=session_key)
         # TODO: set last received message time
         r_msg = self.__pack(cmd=cmd)
         # carry meta, visa for first handshaking
@@ -232,7 +246,6 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         # send out directly
         self.info('shaking hands: %s -> %s' % (r_msg.sender, r_msg.receiver))
         # Urgent Command
-        session = self.connect()
         session.send_payload(payload=data, priority=DeparturePriority.URGENT)
 
     def handshake_success(self):
@@ -244,7 +257,7 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
             self.error('server state not handshaking: %s' % state)
         user = self.current_user
         self.info('handshake success: %s, onto station: %s' % (user.identifier, self.identifier))
-        session_key = self.__session_key
+        session_key = self.session_key
         self.__fsm.session_key = session_key
         # call client
         self.server_delegate.handshake_accepted(session=session_key, server=self)
@@ -288,13 +301,13 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         from .state import StateMachine, ServerState
         assert isinstance(ctx, StateMachine), 'server state machine error: %s' % ctx
         current = ctx.current_state
-        self.info('server state changed: %s -> %s' % (state, current))
+        self.info('server state changed: %s -> %s, id=%s' % (state, current, self.identifier))
         if current is None:
             return
         # TODO: post notification 'server_state_changed'
         if current == ServerState.HANDSHAKING:
             # start handshake
-            self.handshake(session=None)
+            self.handshake(session_key=None)
 
     def pause_state(self, state, ctx):
         pass

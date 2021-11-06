@@ -49,7 +49,7 @@ class HandshakeCommandProcessor(CommandProcessor):
         message = cmd.message
         if 'DIM?' == message:
             # station ask client to handshake again
-            server.handshake(session=cmd.session)
+            server.handshake(session_key=cmd.session)
         elif 'DIM!' == message:
             # handshake accepted by station
             server.handshake_success()

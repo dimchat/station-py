@@ -154,8 +154,10 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     def active(self, value: bool):
         self.__active = value
 
-    def _set_active(self, value: bool):
-        self.__active = value
+    @property
+    def key(self) -> Optional[str]:
+        """ session key """
+        raise NotImplemented
 
     def run(self):
         self.setup()
