@@ -39,6 +39,7 @@ from dimp import Command
 from dimp import Processor
 
 from ..utils import NotificationCenter
+from ..database import Database
 from ..common import NotificationNames
 from ..common import CommonMessenger, CommonFacebook, SharedFacebook
 
@@ -46,6 +47,7 @@ from .session import Session, SessionServer
 from .dispatcher import Dispatcher
 
 
+g_database = Database()
 g_session_server = SessionServer()
 g_dispatcher = Dispatcher()
 
@@ -68,6 +70,7 @@ class ServerMessenger(CommonMessenger):
         res = self.__filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
+            g_database.save_message(msg=msg)
             res = g_dispatcher.deliver(msg=msg)
         # pack response
         if res is None:
