@@ -34,14 +34,14 @@ import time
 from typing import Optional, List
 
 from dimp import ID
-from dimp import Envelope, InstantMessage, ReliableMessage
+from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
 
 from ..utils import NotificationCenter
 from ..database import Database
 from ..common import NotificationNames
-from ..common import CommonMessenger, CommonFacebook, SharedFacebook
+from ..common import CommonMessenger
 
 from .session import Session, SessionServer
 from .dispatcher import Dispatcher
@@ -85,6 +85,16 @@ class ServerMessenger(CommonMessenger):
         assert s_msg is not None, 'failed to respond to: %s' % msg.sender
         r_msg = self.sign_message(msg=s_msg)
         return [r_msg]
+
+    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
+        session = self.current_session
+        if session is not None and session.identifier == msg.sender:
+            # handshake accepted, no need to verify signature of this message
+            # which sender is equal to current session id
+            self.warning('handshake accepted, skip verifying msg: %s -> %s' % (msg.sender, msg.receiver))
+            return msg
+        self.debug('verifying message: %s -> %s' % (msg.sender, msg.receiver))
+        return super().verify_message(msg=msg)
 
     #
     #   Session
