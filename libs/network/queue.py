@@ -29,30 +29,27 @@
 # ==============================================================================
 
 """
-    Session Server
-    ~~~~~~~~~~~~~~
+    Message Queue
+    ~~~~~~~~~~~~~
 
-    for login user
+    for session server
 """
 
 import threading
 import time
 from typing import Optional, List
 
+from startrek import Connection
+from startrek import ShipDelegate
+from startrek import Arrival, Departure
+
 from dimp import ReliableMessage
 from dimsdk import Callback as MessengerCallback
 
 from ..utils import get_msg_sig
-from ..utils import NotificationCenter
 
 from ..database.redis.message import is_broadcast_message
 from ..database import Database
-
-from ..network import Connection
-from ..network import ShipDelegate
-from ..network import Arrival, Departure
-
-from .notification import NotificationNames
 
 
 g_database = Database()
@@ -113,7 +110,6 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
             sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
             print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
             g_database.remove_message(msg=msg)
-            NotificationCenter().post(name=NotificationNames.MESSAGE_SENT, sender=self, info=msg.dictionary)
 
     # Override
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):

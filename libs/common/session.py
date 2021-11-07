@@ -56,9 +56,9 @@ from ..network import StreamChannel
 from ..network import Hub, TCPServerHub, TCPClientHub
 from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
+from ..network import MessageQueue
 
 from .messenger import CommonMessenger
-from .queue import MessageQueue
 
 
 def get_remote_address(sock: socket.socket) -> Optional[tuple]:

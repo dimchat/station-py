@@ -48,6 +48,8 @@ from .mars import MarsStreamArrival, MarsStreamDeparture, MarsStreamDocker
 from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
 from .gate import CommonGate, TCPServerGate, TCPClientGate, UDPServerGate, UDPClientGate
 
+from .queue import MessageWrapper, MessageQueue
+
 
 __all__ = [
 
@@ -88,4 +90,5 @@ __all__ = [
     'MarsStreamArrival', 'MarsStreamDeparture', 'MarsStreamDocker',
     'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamDocker',
     'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
+    'MessageWrapper', 'MessageQueue',
 ]
