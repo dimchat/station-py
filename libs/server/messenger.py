@@ -33,7 +33,7 @@
 import time
 from typing import Optional, List
 
-from dimp import ID
+from dimp import NetworkType, ID
 from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
@@ -88,17 +88,32 @@ class ServerMessenger(CommonMessenger):
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        session = self.current_session
-        if session is not None and session.identifier == msg.sender:
-            # handshake accepted, no need to verify signature of this message
-            # which sender is equal to current session id
-            self.debug('skip verifying message: %s -> %s, %s' % (msg.sender, msg.receiver, session))
+        if self.__trusted_sender(sender=msg.sender):
+            self.debug('skip verifying message: %s -> %s' % (msg.sender, msg.receiver))
             # FIXME: if stream hijacking occurs?
             return msg
-        # TODO: if it's a roaming message delivered from another neighbor station?
-        #       shall we trust that neighbor totally and skip verifying too?
-        self.debug('verifying message: %s -> %s' % (msg.sender, msg.receiver))
-        return super().verify_message(msg=msg)
+        else:
+            self.debug('verifying message: %s -> %s' % (msg.sender, msg.receiver))
+            return super().verify_message(msg=msg)
+
+    def __trusted_sender(self, sender: ID) -> bool:
+        session = self.current_session
+        if session is None:
+            # not login yet
+            return False
+        sid = session.identifier
+        if sid is None:
+            # not login?
+            return False
+        # handshake accepted
+        if sid == sender:
+            # no need to verify signature of this message
+            # which sender is equal to current session id
+            return True
+        if sid.type == NetworkType.STATION:
+            # if it's a roaming message delivered from another neighbor station,
+            # shall we trust that neighbor totally and skip verifying too ???
+            return True
 
     #
     #   Session
