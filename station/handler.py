@@ -37,8 +37,6 @@ from typing import Optional
 from dimp import InstantMessage
 
 from libs.utils import Logging
-from libs.utils import NotificationCenter
-from libs.common import NotificationNames
 from libs.common import CompletionHandler, MessengerDelegate
 from libs.server import ServerMessenger, SessionServer
 
@@ -69,9 +67,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
             session = self.messenger.current_session
             self.info('client connected: %s' % session)
             session.setup()
-            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-                'session': session,
-            })
         except Exception as error:
             self.error('setup request handler error: %s' % error)
             traceback.print_exc()
@@ -81,9 +76,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
             session = self.messenger.current_session
             self.info('client disconnected: %s' % session)
             SessionServer().remove_session(session=session)
-            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-                'session': session,
-            })
             session.finish()
             self.messenger.current_session = None
         except Exception as error:

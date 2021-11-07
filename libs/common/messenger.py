@@ -345,13 +345,6 @@ class CommonMessenger(Messenger, Logging):
         return checking
 
     #
-    #   Events
-    #
-
-    def connected(self):
-        pass
-
-    #
     #   Interfaces for Station
     #
     def upload_data(self, data: bytes, msg: InstantMessage) -> str:

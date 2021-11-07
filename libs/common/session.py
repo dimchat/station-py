@@ -44,7 +44,7 @@ from typing import Optional
 
 from dimp import ReliableMessage
 
-from ..utils import Logging
+from ..utils import Logging, NotificationCenter
 from ..database import Database
 
 from ..network import BaseChannel
@@ -58,6 +58,7 @@ from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 from ..network import MessageQueue
 
+from .notification import NotificationNames
 from .messenger import CommonMessenger
 
 
@@ -235,11 +236,21 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     # Override
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
-        if current is None or current == GateStatus.ERROR:
+        if current is None:
+            # session finished
+            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                'session': self,
+            })
+        elif current == GateStatus.READY:
+            # connected/reconnected
+            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                'session': self,
+            })
+        elif current == GateStatus.ERROR:
+            # connection error
             self.active = False
             # self.stop()
-        elif current == GateStatus.READY:
-            self.messenger.connected()
+            # TODO: post notification 'disconnected'?
 
     # Override
     def gate_received(self, ship: Arrival,

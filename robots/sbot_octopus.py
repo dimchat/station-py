@@ -47,6 +47,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
+from libs.utils import Notification, NotificationObserver, NotificationCenter
+from libs.common import NotificationNames
 from libs.common import msg_traced, is_broadcast_message
 from libs.client import Server, Terminal, ClientMessenger
 
@@ -55,19 +57,31 @@ from robots.config import g_station
 from robots.config import dims_connect
 
 
-class OctopusMessenger(ClientMessenger):
+class OctopusMessenger(ClientMessenger, NotificationObserver):
 
     def __init__(self):
         super().__init__()
         self.__accepted = False
+        # observing notifications
+        nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.CONNECTED)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.CONNECTED)
+
+    #
+    #    Notification Observer
+    #
+    def received_notification(self, notification: Notification):
+        name = notification.name
+        if name == NotificationNames.CONNECTED:
+            # reconnected?
+            self.__accepted = False
 
     @property
     def accepted(self) -> bool:
         return self.__accepted
-
-    def connected(self):
-        # super().connected()
-        self.__accepted = False
 
     def _is_handshaking(self, msg: ReliableMessage) -> bool:
         if msg.receiver != g_station.identifier or msg.type != ContentType.COMMAND:
