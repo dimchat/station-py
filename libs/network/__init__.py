@@ -49,6 +49,7 @@ from .mtp import MTPStreamArrival, MTPStreamDeparture, MTPStreamDocker
 from .gate import CommonGate, TCPServerGate, TCPClientGate, UDPServerGate, UDPClientGate
 
 from .queue import MessageWrapper, MessageQueue
+from .gatekeeper import GateKeeper
 
 
 __all__ = [
@@ -91,4 +92,5 @@ __all__ = [
     'MTPStreamArrival', 'MTPStreamDeparture', 'MTPStreamDocker',
     'CommonGate', 'TCPServerGate', 'TCPClientGate', 'UDPServerGate', 'UDPClientGate',
     'MessageWrapper', 'MessageQueue',
+    'GateKeeper',
 ]

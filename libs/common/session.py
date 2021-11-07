@@ -37,197 +37,115 @@
 
 import socket
 import threading
-import time
 import traceback
-import weakref
 from abc import ABC
 from typing import Optional
 
-from dimp import ReliableMessage
+from startrek.fsm import Runner
+from startrek import Connection, BaseConnection
+from startrek import GateDelegate
+from startrek import Arrival, Departure, DepartureShip
+
+from dimp import ID, ReliableMessage
+from dimsdk import Messenger
 
 from ..utils import Logging
-from ..database import Database
 
-from ..network import BaseChannel
-from ..network import Connection, ConnectionDelegate, BaseConnection
-from ..network import GateDelegate
-from ..network import ShipDelegate
-from ..network import Arrival, Departure, DepartureShip
-from ..network import StreamChannel
-from ..network import Hub, TCPServerHub, TCPClientHub
-from ..network import CommonGate, TCPServerGate, TCPClientGate
-from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
-from ..network import MessageQueue
-
-from .messenger import CommonMessenger
+from ..network import ShipDelegate, CommonGate, GateKeeper
+from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 
 
-def get_remote_address(sock: socket.socket) -> Optional[tuple]:
-    try:
-        return sock.getpeername()
-    except socket.error as error:
-        print('[SOCKET] failed to get remote address from socket %s: %s' % (sock, error))
+class BaseSession(Runner, GateDelegate, Logging, ABC):
 
-
-def get_local_address(sock: socket.socket) -> Optional[tuple]:
-    try:
-        return sock.getsockname()
-    except socket.error as error:
-        print('[SOCKET] failed to get local address from socket %s: %s' % (sock, error))
-
-
-def reset_send_buffer_size(conn: Connection) -> bool:
-    if not isinstance(conn, BaseConnection):
-        print('[SOCKET] connection error: %s' % conn)
-        return False
-    channel = conn.channel
-    if not isinstance(channel, BaseChannel):
-        print('[SOCKET] channel error: %s, %s' % (channel, conn))
-        return False
-    sock = channel.sock
-    if sock is None:
-        print('[SOCKET] socket error: %s, %s' % (sock, conn))
-        return False
-    size = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-    if size < SEND_BUFFER_SIZE:
-        print('[SOCKET] change send buffer size: %d -> %d, %s' % (size, SEND_BUFFER_SIZE, conn))
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SEND_BUFFER_SIZE)
-        return True
-    else:
-        print('[SOCKET] send buffer size: %d, %s' % (size, conn))
-
-
-SEND_BUFFER_SIZE = 512 * 1024  # 512 KB
-
-
-g_database = Database()
-
-
-class BaseSession(threading.Thread, GateDelegate, Logging, ABC):
-
-    def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
+    def __init__(self, messenger: Messenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
-        self.__queue = MessageQueue()
-        self.__messenger = weakref.ref(messenger)
-        self.__gate = self._create_gate(address=address, sock=sock)
-        self.__remote = address
-        # session status
-        self.__active = False
-        self.__running = False
+        self.__keeper = self._create_gate_keeper(messenger=messenger, address=address, sock=sock)
+        self.__identifier: Optional[ID] = None
 
-    def _create_gate(self, address: tuple, sock: Optional[socket.socket]) -> CommonGate:
-        if sock is None:
-            gate = TCPClientGate(delegate=self, remote=address)
-        else:
-            gate = TCPServerGate(delegate=self)
-        gate.hub = self._create_hub(delegate=gate, address=address, sock=sock)
-        return gate
-
-    # noinspection PyMethodMayBeStatic
-    def _create_hub(self, delegate: ConnectionDelegate, address: tuple, sock: Optional[socket.socket]) -> Hub:
-        if sock is None:
-            assert address is not None, 'remote address empty'
-            hub = TCPClientHub(delegate=delegate)
-            conn = hub.connect(remote=address)
-            reset_send_buffer_size(conn=conn)
-        else:
-            sock.setblocking(False)
-            if address is None:
-                address = get_remote_address(sock=sock)
-            channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
-            hub = TCPServerHub(delegate=delegate)
-            hub.put_channel(channel=channel)
-        return hub
+    def _create_gate_keeper(self, address: tuple, sock: Optional[socket.socket], messenger: Messenger):
+        return GateKeeper(address=address, sock=sock, messenger=messenger, delegate=self)
 
     @property
-    def messenger(self) -> Optional[CommonMessenger]:
-        return self.__messenger()
+    def identifier(self) -> Optional[ID]:
+        return self.__identifier
+
+    @identifier.setter
+    def identifier(self, value: ID):
+        self.__identifier = value
+
+    @property
+    def keeper(self) -> GateKeeper:
+        return self.__keeper
+
+    @property
+    def messenger(self) -> Optional[Messenger]:
+        return self.keeper.messenger
+
+    @property
+    def remote_address(self) -> tuple:
+        return self.keeper.remote_address
 
     @property
     def gate(self) -> CommonGate:
-        return self.__gate
+        return self.keeper.gate
 
     @property
     def active(self) -> bool:
-        return self.__active and self.gate.running
+        return self.keeper.active
 
     @active.setter
-    def active(self, value: bool):
-        self.__active = value
+    def active(self, flag: bool):
+        self.keeper.active = flag
 
     @property
     def key(self) -> Optional[str]:
         """ session key """
         raise NotImplemented
 
-    def run(self):
-        self.setup()
-        try:
-            self.handle()
-        finally:
-            self.finish()
+    def __str__(self):
+        clazz = self.__class__.__name__
+        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
-    def stop(self):
-        self.__running = False
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
-    def setup(self):
-        self.__running = True
-        self.gate.start()
+    def start(self):
+        threading.Thread(target=self.run).start()
 
-    def finish(self):
-        self.gate.stop()
-        self.__running = False
-
-    @property
+    @property  # Override
     def running(self) -> bool:
-        return self.__running and self.gate.running
+        if super().running:
+            return self.keeper.running
 
-    def handle(self):
-        while self.running:
-            if not self.process():
-                self._idle()
+    # Override
+    def stop(self):
+        self.keeper.stop()
+        super().stop()
 
-    # noinspection PyMethodMayBeStatic
-    def _idle(self):
-        time.sleep(0.25)
+    # Override
+    def setup(self):
+        super().setup()
+        self.keeper.setup()
 
+    # Override
+    def finish(self):
+        self.keeper.finish()
+        super().finish()
+
+    # Override
     def process(self) -> bool:
-        if self.gate.process():
-            # processed income/outgo packages
-            return True
-        if not self.active:
-            # inactive
-            return False
-        # get next message
-        wrapper = self.__queue.next()
-        if wrapper is None:
-            # no more new message
-            return False
-        # if msg in this wrapper is None (means sent successfully),
-        # it must have been cleaned already, so it should not be empty here.
-        msg = wrapper.msg
-        if msg is None:
-            # no more new message
-            return True
-        # try to push
-        data = self.messenger.serialize_message(msg=msg)
-        if not self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
-            wrapper.fail()
-        return True
+        return self.keeper.process()
+
+    #
+    #   Send message to remote address
+    #
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        if not self.active:
-            self.warning('sending payload (%d bytes) to %s when session inactive.' % (len(payload), self.__remote))
-        self.gate.send_payload(payload=payload, local=None, remote=self.__remote,
-                               priority=priority, delegate=delegate)
-        return True
+        return self.keeper.send_payload(payload=payload, priority=priority, delegate=delegate)
 
     def push_message(self, msg: ReliableMessage) -> bool:
-        """ Push message when session active """
-        if self.active:
-            return self.__queue.append(msg=msg)
-        else:
-            self.error('session inactive, cannot push msg now: %s -> %s' % (msg.sender, msg.receiver))
+        return self.keeper.push_message(msg=msg)
 
     #
     #   GateDelegate
@@ -261,7 +179,8 @@ class BaseSession(threading.Thread, GateDelegate, Logging, ABC):
                         continue
                     array.append(res)
             except Exception as error:
-                self.error('parse message failed: %s, %s\n payload: %s' % (error, pack, payload))
+                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
+                self.error('payload: %s' % payload)
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)

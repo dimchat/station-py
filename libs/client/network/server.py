@@ -87,7 +87,9 @@ class Session(BaseSession):
             hub.connect(remote=remote, local=local)
         elif current == GateStatus.READY:
             # handshake
-            delegate = self.messenger.delegate
+            messenger = self.messenger
+            assert isinstance(messenger, CommonMessenger)
+            delegate = messenger.delegate
             if isinstance(delegate, Server):
                 delegate.handshake(session_key=None)
 

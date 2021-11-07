@@ -65,47 +65,38 @@ class Session(BaseSession):
 
     def __init__(self, messenger: CommonMessenger, address: tuple, sock: socket.socket):
         super().__init__(messenger=messenger, address=address, sock=sock)
-        self.__client_address = address  # sock.getpeername()
         self.__key = generate_session_key()
-        self.__identifier = None
         self.__scan_time = 0
-
-    def __str__(self):
-        clazz = self.__class__.__name__
-        return '<%s:%s %s|%s active=%s />' % (clazz, self.key,
-                                              self.client_address, self.identifier,
-                                              self.active)
 
     @property
     def client_address(self) -> tuple:
-        """ (IP, port) """
-        return self.__client_address
+        return self.remote_address
 
     @property
     def key(self) -> str:
         return self.__key
 
-    @property
-    def identifier(self) -> Optional[ID]:
-        return self.__identifier
-
-    @identifier.setter
-    def identifier(self, value: ID):
-        self.__identifier = value
-
     # Override
-    def _idle(self):
+    def process(self) -> bool:
+        if super().process():
+            # busy now
+            return True
+        if not self.active:
+            # inactive, wait a while to check again
+            return False
         now = int(time.time())
-        if now < self.__scan_time or not self.active:
-            super()._idle()
+        if now < self.__scan_time:
+            # wait
+            return False
         else:
             # set next scan time
             self.__scan_time = now + 300  # scan after 5 minutes
-            # get all messages from redis server
-            messages = g_database.messages(receiver=self.identifier)
-            self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
-            for msg in messages:
-                self.push_message(msg=msg)
+        # get all messages from redis server
+        messages = g_database.messages(receiver=self.identifier)
+        self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
+        for msg in messages:
+            self.push_message(msg=msg)
+        return True
 
     # Override
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
