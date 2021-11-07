@@ -182,7 +182,9 @@ class GateKeeper(Runner):
             return True
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        if not self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
+        if self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
+            wrapper.finished(msg=msg, error=None)
+        else:
             wrapper.fail()
         return True
 

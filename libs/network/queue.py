@@ -120,7 +120,7 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #
 
     # Override
-    def finished(self, result, error=None):
+    def finished(self, msg: ReliableMessage, error=None):
         if error is None:
             # this message was assigned to the worker of StarGate,
             # update sent time

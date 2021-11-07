@@ -83,9 +83,11 @@ class MessageCallback(CompletionHandler):
         self.callback = cb
 
     def success(self):
-        if self.callback is not None:
-            self.callback.finished(msg=self.msg, error=None)
+        callback = self.callback
+        if callback is not None:
+            callback.finished(msg=self.msg, error=None)
 
     def failed(self, error):
-        if self.callback is not None:
-            self.callback.finished(msg=self.msg, error=error)
+        callback = self.callback
+        if callback is not None:
+            callback.finished(msg=self.msg, error=error)
