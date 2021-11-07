@@ -92,10 +92,10 @@ class OctopusMessenger(ClientMessenger, NotificationObserver):
             return isinstance(i_msg.content, HandshakeCommand)
 
     # Override
-    def broadcast_login(self, server: Optional[Server]):
+    def _broadcast_login(self, identifier: ID = None):
         self.__accepted = True
         self.info('start bridge for: %s' % self.server)
-        super().broadcast_login(server=server)
+        super()._broadcast_login(identifier=identifier)
 
 
 class InnerMessenger(OctopusMessenger):

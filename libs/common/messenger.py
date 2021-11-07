@@ -355,3 +355,10 @@ class CommonMessenger(Messenger, Logging):
 
     def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
         return self.delegate.send_package(data=data, handler=handler, priority=priority)
+
+    #
+    #   Events
+    #
+    def handshake_accepted(self, identifier: ID, client_address: tuple = None):
+        """ callback after handshake success """
+        raise NotImplemented

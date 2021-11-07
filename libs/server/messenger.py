@@ -130,20 +130,14 @@ class ServerMessenger(CommonMessenger):
         g_dispatcher.deliver(msg=r_msg)
         return True
 
-    #
-    #   HandshakeDelegate
-    #
-    def handshake_accepted(self, session: Session):
-        session.active = True
-        sender = session.identifier
-        session_key = session.key
-        client_address = session.client_address
+    # Override
+    def handshake_accepted(self, identifier: ID, client_address: tuple = None):
         sid = g_dispatcher.station
         now = int(time.time())
-        self.info('handshake accepted %s %s, %s' % (client_address, sender, session_key))
+        self.info('handshake accepted %s: %s' % (client_address, identifier))
         # post notification: USER_LOGIN
         NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
-            'ID': sender,
+            'ID': identifier,
             'client_address': client_address,
             'station': sid,
             'time': now,

@@ -24,11 +24,11 @@
 # ==============================================================================
 
 from .terminal import Terminal
-from .server import Server, ServerDelegate
+from .server import Server
 
 
 __all__ = [
 
     'Terminal',
-    'Server', 'ServerDelegate',
+    'Server',
 ]

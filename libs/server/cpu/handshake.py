@@ -55,8 +55,9 @@ class HandshakeCommandProcessor(CommandProcessor):
         session = messenger.current_session
         if session_key == session.key:
             # session verified success
+            session.active = True
             g_session_server.update_session(session=session, identifier=sender)
-            messenger.handshake_accepted(session=session)
+            messenger.handshake_accepted(identifier=sender, client_address=session.client_address)
             return HandshakeCommand.success(session=session.key)
         else:
             # session key not match, ask client to sign it with the new session key

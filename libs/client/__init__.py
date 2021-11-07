@@ -33,7 +33,7 @@ from .cpu import *
 
 from .extension import GroupManager
 
-from .network import Terminal, Server, ServerDelegate
+from .network import Terminal, Server
 
 from .messenger import ClientMessenger
 from .processor import ClientProcessor
@@ -45,7 +45,7 @@ __all__ = [
 
     'GroupManager',
 
-    'Terminal', 'Server', 'ServerDelegate',
+    'Terminal', 'Server',
 
     'ClientMessenger',
     'ClientProcessor',

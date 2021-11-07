@@ -34,10 +34,11 @@ import time
 import weakref
 from typing import Optional, List
 
+from dimp import NetworkType
 from dimp import ID, EVERYONE
 from dimp import Command
 from dimp import Transceiver
-from dimsdk import LoginCommand, Station
+from dimsdk import LoginCommand
 
 from ..common import CommonMessenger, CommonFacebook, SharedFacebook
 
@@ -88,9 +89,16 @@ class ClientMessenger(CommonMessenger):
                 receiver = station.identifier
         return self.send_content(sender=None, receiver=receiver, content=cmd)
 
-    def broadcast_login(self, server: Optional[Server]):
-        user = self.facebook.current_user
-        if isinstance(user, Station):
+    # Override
+    def handshake_accepted(self, identifier: ID, client_address: tuple = None):
+        self._broadcast_login(identifier=identifier)
+
+    def _broadcast_login(self, identifier: ID = None):
+        if identifier is None:
+            user = self.facebook.current_user
+            assert user is not None, 'current user not set'
+            identifier = user.identifier
+        if identifier.type == NetworkType.STATION:
             # the current user is a station,
             # it would not login to another station.
             return None
@@ -98,16 +106,17 @@ class ClientMessenger(CommonMessenger):
         # TODO: post current document to station
         # TODO: post contacts(encrypted) to station
         # broadcast login command
-        login = LoginCommand(identifier=user.identifier)
+        login = LoginCommand(identifier=identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
-        login.station = server
-        return self.send_content(sender=user.identifier, receiver=EVERYONE, content=login)
+        login.station = self.server
+        return self.send_content(sender=identifier, receiver=EVERYONE, content=login)
 
+    # Override
     def process_package(self, data: bytes) -> List[bytes]:
         responses = super().process_package(data=data)
         if responses is None or len(responses) == 0:
             # nothing response, check last login time
             now = int(time.time())
             if 0 < self.__last_login < now - 3600:
-                self.broadcast_login(server=self.server)
+                self._broadcast_login()
         return responses

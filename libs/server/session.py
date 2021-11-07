@@ -41,12 +41,15 @@ import time
 import weakref
 from typing import Optional, Dict, Set
 
+from startrek import GateStatus, Gate
+
 from dimp import hex_encode
 from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
-from ..utils import Singleton
+from ..utils import Singleton, NotificationCenter
 from ..database import Database
+from ..common import NotificationNames
 from ..common import BaseSession
 from ..common import CommonMessenger
 
@@ -103,6 +106,22 @@ class Session(BaseSession):
             self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
             for msg in messages:
                 self.push_message(msg=msg)
+
+    # Override
+    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
+                            remote: tuple, local: Optional[tuple], gate: Gate):
+        if current is None or current == GateStatus.ERROR:
+            # connection error or session finished
+            self.active = False
+            # self.stop()
+            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                'session': self,
+            })
+        elif current == GateStatus.READY:
+            # connected/reconnected
+            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                'session': self,
+            })
 
 
 @Singleton

@@ -51,7 +51,7 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.common import SearchCommand
 from libs.database import FrequencyChecker
-from libs.client import Terminal, ClientMessenger, Server
+from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_station
 from robots.config import dims_connect
@@ -316,10 +316,11 @@ class ArchivistWorker(threading.Thread, Logging):
 
 class ArchivistMessenger(ClientMessenger):
 
-    def handshake_accepted(self, session: str, server: Server):
-        super().handshake_accepted(session=session, server=server)
-        # FIXME: what about offline?
+    # Override
+    def _broadcast_login(self, identifier: ID = None):
         g_worker.online = True
+        # FIXME: what about offline?
+        super()._broadcast_login(identifier=identifier)
 
 
 g_messenger = ArchivistMessenger()

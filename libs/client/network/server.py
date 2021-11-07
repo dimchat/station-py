@@ -32,7 +32,6 @@
 
 import socket
 import weakref
-from abc import abstractmethod
 from typing import Optional
 
 from dimp import ID, User, EVERYONE
@@ -78,10 +77,9 @@ class Session(BaseSession):
     #   GateDelegate
     #
 
+    # Override
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
-        super().gate_status_changed(previous=previous, current=current,
-                                    remote=remote, local=local, gate=gate)
         if current is None or current == GateStatus.ERROR:
             self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
             hub = self.gate.hub
@@ -94,19 +92,6 @@ class Session(BaseSession):
                 delegate.handshake(session_key=None)
 
 
-class ServerDelegate:
-
-    @abstractmethod
-    def handshake_accepted(self, session: str, server):
-        """
-        Callback for handshake accepted
-
-        :param session: session key
-        :param server:  current station
-        """
-        pass
-
-
 class Server(Station, MessengerDelegate, StateDelegate, Logging):
     """
         Remote Station
@@ -116,7 +101,6 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
     def __init__(self, identifier: ID, host: str, port: int = 9394):
         super().__init__(identifier=identifier, host=host, port=port)
         self.__messenger: Optional[weakref.ReferenceType] = None
-        self.__server_delegate: Optional[weakref.ReferenceType] = None
         self.__session: Optional[Session] = None
         self.__current_user: Optional[User] = None
         self.__fsm = self._create_state_machine()
@@ -166,15 +150,6 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         session = self.__session
         if session is not None:
             return session.key
-
-    @property
-    def server_delegate(self) -> Optional[ServerDelegate]:
-        if self.__server_delegate is not None:
-            return self.__server_delegate()
-
-    @server_delegate.setter
-    def server_delegate(self, delegate: ServerDelegate):
-        self.__server_delegate = weakref.ref(delegate)
 
     @property
     def messenger(self) -> CommonMessenger:
@@ -259,8 +234,7 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         self.info('handshake success: %s, onto station: %s' % (user.identifier, self.identifier))
         session_key = self.session_key
         self.__fsm.session_key = session_key
-        # call client
-        self.server_delegate.handshake_accepted(session=session_key, server=self)
+        self.messenger.handshake_accepted(identifier=user.identifier)
 
     #
     #   MessengerDelegate

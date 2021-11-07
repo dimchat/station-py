@@ -40,16 +40,17 @@ import threading
 import time
 import traceback
 import weakref
+from abc import ABC
 from typing import Optional
 
 from dimp import ReliableMessage
 
-from ..utils import Logging, NotificationCenter
+from ..utils import Logging
 from ..database import Database
 
 from ..network import BaseChannel
 from ..network import Connection, ConnectionDelegate, BaseConnection
-from ..network import Gate, GateStatus, GateDelegate
+from ..network import GateDelegate
 from ..network import ShipDelegate
 from ..network import Arrival, Departure, DepartureShip
 from ..network import StreamChannel
@@ -58,7 +59,6 @@ from ..network import CommonGate, TCPServerGate, TCPClientGate
 from ..network import MTPStreamArrival, MarsStreamArrival, WSArrival
 from ..network import MessageQueue
 
-from .notification import NotificationNames
 from .messenger import CommonMessenger
 
 
@@ -103,7 +103,7 @@ SEND_BUFFER_SIZE = 512 * 1024  # 512 KB
 g_database = Database()
 
 
-class BaseSession(threading.Thread, GateDelegate, Logging):
+class BaseSession(threading.Thread, GateDelegate, Logging, ABC):
 
     def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
@@ -232,25 +232,6 @@ class BaseSession(threading.Thread, GateDelegate, Logging):
     #
     #   GateDelegate
     #
-
-    # Override
-    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
-                            remote: tuple, local: Optional[tuple], gate: Gate):
-        if current is None:
-            # session finished
-            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
-                'session': self,
-            })
-        elif current == GateStatus.READY:
-            # connected/reconnected
-            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
-                'session': self,
-            })
-        elif current == GateStatus.ERROR:
-            # connection error
-            self.active = False
-            # self.stop()
-            # TODO: post notification 'disconnected'?
 
     # Override
     def gate_received(self, ship: Arrival,
