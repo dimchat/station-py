@@ -33,7 +33,7 @@
 import time
 from typing import Optional, List
 
-from dimp import NetworkType, ID
+from dimp import ID
 from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
@@ -93,27 +93,23 @@ class ServerMessenger(CommonMessenger):
             # FIXME: if stream hijacking occurs?
             return msg
         else:
-            self.debug('verifying message: %s -> %s' % (msg.sender, msg.receiver))
+            self.debug('try verifying message: %s -> %s' % (msg.sender, msg.receiver))
             return super().verify_message(msg=msg)
 
     def __trusted_sender(self, sender: ID) -> bool:
-        session = self.current_session
-        if session is None:
+        current = self.current_id
+        if current is None:
             # not login yet
             return False
-        sid = session.identifier
-        if sid is None:
-            # not login?
-            return False
-        # handshake accepted
-        if sid == sender:
+        # handshake accepted, check current user with sender
+        if current == sender:
             # no need to verify signature of this message
-            # which sender is equal to current session id
+            # which sender is equal to current id in session
             return True
-        if sid.type == NetworkType.STATION:
-            # if it's a roaming message delivered from another neighbor station,
-            # shall we trust that neighbor totally and skip verifying too ???
-            return True
+        # if current.type == NetworkType.STATION:
+        #     # if it's a roaming message delivered from another neighbor station,
+        #     # shall we trust that neighbor totally and skip verifying too ???
+        #     return True
 
     #
     #   Session
@@ -125,6 +121,12 @@ class ServerMessenger(CommonMessenger):
     @current_session.setter
     def current_session(self, session: Session):
         self.__current_session = session
+
+    @property
+    def current_id(self) -> Optional[ID]:
+        session = self.__current_session
+        if session is not None:
+            return session.identifier
 
     #
     #   Sending command

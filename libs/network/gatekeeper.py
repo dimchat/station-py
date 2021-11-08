@@ -29,10 +29,10 @@
 # ==============================================================================
 
 """
-    Session Server
-    ~~~~~~~~~~~~~~
+    Gate Keeper
+    ~~~~~~~~~~~
 
-    for login user
+    for gate in session
 """
 
 import socket
@@ -168,11 +168,13 @@ class GateKeeper(Runner):
             return True
         if not self.active:
             # inactive, wait a while to check again
+            self.__queue.purge()
             return False
         # get next message
         wrapper = self.__queue.next()
         if wrapper is None:
-            # no more new message, have a rest
+            # no more task now, purge failed tasks
+            self.__queue.purge()
             return False
         # if msg in this wrapper is None (means sent successfully),
         # it must have been cleaned already, so it should not be empty here.

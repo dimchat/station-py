@@ -156,10 +156,10 @@ class MessageQueue:
             self.__wrappers.append(wrapper)
             return True
 
-    def pop(self) -> Optional[MessageWrapper]:
-        with self.__lock:
-            if len(self.__wrappers) > 0:
-                return self.__wrappers.pop(0)
+    # def pop(self) -> Optional[MessageWrapper]:
+    #     with self.__lock:
+    #         if len(self.__wrappers) > 0:
+    #             return self.__wrappers.pop(0)
 
     def next(self) -> Optional[MessageWrapper]:
         """ Get next new message """
@@ -176,3 +176,12 @@ class MessageQueue:
                 if wrapper.msg is None or wrapper.failed:
                     self.__wrappers.remove(wrapper)
                     return wrapper
+
+    def purge(self) -> int:
+        count = 0
+        wrapper = self.eject()
+        while wrapper is not None:
+            count += 1
+            # TODO: callback for failed task?
+            wrapper = self.eject()
+        return count
