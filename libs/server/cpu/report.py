@@ -32,47 +32,58 @@
 
 from typing import List, Optional
 
-from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import CommandProcessor
-from dimsdk import MessageProcessor
 
-from ...utils import NotificationCenter
+from ...utils import NotificationCenter, Logging
 from ...database import Database
 from ...common import NotificationNames
 from ...common import ReportCommand
 
 from ..session import Session
-from ..messenger import ServerMessenger
 from ..dispatcher import Dispatcher
 
 
 g_database = Database()
 
 
-class ReportCommandProcessor(CommandProcessor):
+class ReportCommandProcessor(CommandProcessor, Logging):
 
     def processor_for_name(self, name: str) -> Optional[CommandProcessor]:
         messenger = self.messenger
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         processor = messenger.processor
-        assert isinstance(processor, MessageProcessor), 'message processor error: %s' % processor
+        # from ..processor import ServerProcessor
+        # assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
         return processor.get_processor_by_name(cmd_name=name)
 
-    def __process_old_report(self, cmd: ReportCommand, sender: ID) -> List[Content]:
+    def __process_old_report(self, cmd: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # compatible with v1.0
         state = cmd.get('state')
         if state is None:
+            # command error
             return []
+        elif 'background' == state:
+            # save as 'offline'
+            if not g_database.save_offline(cmd=cmd, msg=msg):
+                self.error('offline command error/expired: %s' % cmd)
+                return []
+            active = False
+        else:  # 'foreground'
+            # save as 'online'
+            if not g_database.save_online(cmd=cmd, msg=msg):
+                self.error('online command error/expired: %s' % cmd)
+                return []
+            active = True
         messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         session = messenger.current_session
         if session is not None:
-            assert session.identifier == sender, 'session ID not match: %s, %s' % (sender, session)
-            if 'background' == state:
-                session.active = False
-            else:  # 'foreground'
-                session.active = True
+            assert session.identifier == msg.sender, 'session ID not match: %s, %s' % (msg.sender, session)
+            session.active = active
             _post_notification(cpu=self, cmd=cmd, session=session)
         text = 'Client state received.'
         return self._respond_receipt(text=text)
@@ -83,7 +94,7 @@ class ReportCommandProcessor(CommandProcessor):
         # report title
         title = cmd.title
         if title == ReportCommand.REPORT:
-            return self.__process_old_report(cmd=cmd, sender=msg.sender)
+            return self.__process_old_report(cmd=cmd, msg=msg)
         # get CPU by report title
         cpu = self.processor_for_name(name=title)
         # check and run
@@ -92,7 +103,7 @@ class ReportCommandProcessor(CommandProcessor):
             return self._respond_text(text=text)
         elif cpu is self:
             raise AssertionError('Dead cycle! report cmd: %s' % cmd)
-        assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
+        # assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
         return cpu.execute(cmd=cmd, msg=msg)
 
 
@@ -130,9 +141,14 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
+        # save 'online'
+        if not g_database.save_online(cmd=cmd, msg=msg):
+            self.error('online command error/expired: %s' % cmd)
+            return []
         # welcome back!
         messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         session = messenger.current_session
         if session is not None:
             session.active = True
@@ -147,9 +163,14 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
+        # save 'offline'
+        if not g_database.save_offline(cmd=cmd, msg=msg):
+            self.error('online command error/expired: %s' % cmd)
+            return []
         # goodbye!
         messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         session = messenger.current_session
         if session is not None:
             session.active = False

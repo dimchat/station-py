@@ -143,8 +143,9 @@ class CommonProcessor(MessageProcessor, Logging):
         messenger = self.messenger
         # unwrap secret message circularly
         content = msg.content
-        while isinstance(content, ForwardContent):
-            assert isinstance(content, ForwardContent)
+        while True:
+            if not isinstance(content, ForwardContent):
+                break
             r_msg = content.message
             s_msg = messenger.verify_message(msg=r_msg)
             if s_msg is None:

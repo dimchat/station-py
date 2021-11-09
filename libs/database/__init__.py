@@ -328,6 +328,25 @@ class Database:
         return self.__login_table.login_info(identifier=identifier)
 
     """
+        Online / Offline
+        ~~~~~~~~~~~~~~~~
+        
+        redis key: 'mkm.user.{ID}.online'
+        redis key: 'mkm.user.{ID}.offline'
+    """
+    def save_online(self, cmd: Command, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_online(cmd=cmd, msg=msg)
+
+    def save_offline(self, cmd: Command, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_offline(cmd=cmd, msg=msg)
+
+    def online_command(self, identifier: ID) -> Optional[Command]:
+        return self.__login_table.online_command(identifier=identifier)
+
+    def offline_command(self, identifier: ID) -> Optional[Command]:
+        return self.__login_table.offline_command(identifier=identifier)
+
+    """
         Network Info
         ~~~~~~~~~~~~
         
