@@ -33,16 +33,19 @@
 
 import sys
 import os
+from typing import Optional
 
 from dimp import ID
 from dimp import ContentType
-from dimsdk import ContentProcessor
+from dimp import Transceiver
+from dimsdk import ContentProcessor, ProcessorFactory
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.client import ChatTextContentProcessor
+from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -50,15 +53,43 @@ from robots.config import g_station
 from robots.config import dims_connect
 
 
-bots = chat_bots(names=['tuling'])  # chat bot
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=ChatTextContentProcessor(bots=bots))
+class BotTextContentProcessor(ChatTextContentProcessor):
+
+    def __init__(self, messenger):
+        bots = chat_bots(names=['tuling'])  # chat bot
+        super().__init__(messenger=messenger, bots=bots)
+
+
+class BotProcessorFactory(ClientProcessorFactory):
+
+    # Override
+    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return BotTextContentProcessor(messenger=self.messenger)
+        # others
+        return super()._create_content_processor(msg_type=msg_type)
+
+
+class BotMessageProcessor(ClientProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return BotProcessorFactory(messenger=self.messenger)
+
+
+class BotMessenger(ClientMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return BotMessageProcessor(messenger=self)
 
 
 """
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = ClientMessenger()
+g_messenger = BotMessenger()
 g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':

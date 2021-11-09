@@ -29,17 +29,19 @@
 """
 
 import time
-from typing import List
+from typing import List, Optional
 
 from dimp import NetworkType
 from dimp import ReliableMessage
-from dimp import Content, TextContent
+from dimp import Content, TextContent, Command
 from dimsdk import ReceiptCommand, HandshakeCommand
+from dimsdk import CommandProcessor, ProcessorFactory
 
 from ..utils import get_msg_sig
 from ..database import Database
 from ..common import msg_traced, is_broadcast_message
-from ..common import CommonProcessor
+from ..common import ReportCommand, SearchCommand
+from ..common import CommonProcessor, CommonProcessorFactory
 
 from .session import SessionServer
 from .messenger import ServerMessenger
@@ -174,3 +176,68 @@ class ServerProcessor(CommonProcessor):
             contents.append(res)
         # OK
         return contents
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return ServerProcessorFactory(messenger=self.messenger)
+
+
+class ServerProcessorFactory(CommonProcessorFactory):
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # document
+        if cmd_name == Command.DOCUMENT:
+            from .cpu import DocumentCommandProcessor
+            return DocumentCommandProcessor(messenger=self.messenger)
+        elif cmd_name in ['profile', 'visa', 'bulletin']:
+            # share the same processor
+            cpu = self._get_command_processor(cmd_name=Command.DOCUMENT)
+            if cpu is None:
+                from .cpu import DocumentCommandProcessor
+                cpu = DocumentCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=Command.DOCUMENT, cpu=cpu)
+            return cpu
+        # handshake
+        if cmd_name == Command.HANDSHAKE:
+            from .cpu import HandshakeCommandProcessor
+            return HandshakeCommandProcessor(messenger=self.messenger)
+        # login
+        if cmd_name == Command.LOGIN:
+            from .cpu import LoginCommandProcessor
+            return LoginCommandProcessor(messenger=self.messenger)
+        # report
+        if cmd_name == ReportCommand.REPORT:
+            from .cpu import ReportCommandProcessor
+            return ReportCommandProcessor(messenger=self.messenger)
+        elif cmd_name == 'broadcast':
+            # share the same processor
+            cpu = self._get_command_processor(cmd_name=ReportCommand.REPORT)
+            if cpu is None:
+                from .cpu import ReportCommandProcessor
+                cpu = ReportCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=ReportCommand.REPORT, cpu=cpu)
+            return cpu
+        elif cmd_name == 'apns':
+            from .cpu import APNsCommandProcessor
+            return APNsCommandProcessor(messenger=self.messenger)
+        elif cmd_name == ReportCommand.ONLINE:
+            from .cpu import OnlineCommandProcessor
+            return OnlineCommandProcessor(messenger=self.messenger)
+        elif cmd_name == ReportCommand.OFFLINE:
+            from .cpu import OfflineCommandProcessor
+            return OfflineCommandProcessor(messenger=self.messenger)
+        # search
+        if cmd_name == SearchCommand.SEARCH:
+            from .cpu import SearchCommandProcessor
+            return SearchCommandProcessor(messenger=self.messenger)
+        elif cmd_name == SearchCommand.ONLINE_USERS:
+            # share the same processor
+            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
+            if cpu is None:
+                from .cpu import SearchCommandProcessor
+                cpu = SearchCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
+            return cpu
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

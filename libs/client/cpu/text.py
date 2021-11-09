@@ -46,8 +46,8 @@ from ..messenger import CommonMessenger
 
 class ChatTextContentProcessor(ContentProcessor, Logging):
 
-    def __init__(self, bots: Union[list, ChatBot]):
-        super().__init__()
+    def __init__(self, messenger, bots: Union[list, ChatBot]):
+        super().__init__(messenger=messenger)
         self.__bots = bots
         self.__dialog: Optional[Dialog] = None
 
@@ -101,9 +101,7 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
         text = text.replace(at, '')
         content.text = text
 
-    #
-    #   main
-    #
+    # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'text content error: %s' % content
         sender = msg.sender

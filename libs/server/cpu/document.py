@@ -36,7 +36,6 @@ from dimp import ReliableMessage
 from dimp import Content
 from dimp import ForwardContent, Command, DocumentCommand
 
-from dimsdk import CommandProcessor
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...database import Database
@@ -70,6 +69,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                     return None
             return msg
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd
         responses = super().execute(cmd=cmd, msg=msg)
@@ -89,11 +89,3 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                     # respond login command
                     responses.append(ForwardContent(message=login))
         return responses
-
-
-# register
-dpu = DocumentCommandProcessor()
-CommandProcessor.register(command=Command.DOCUMENT, cpu=dpu)
-CommandProcessor.register(command='profile', cpu=dpu)
-CommandProcessor.register(command='visa', cpu=dpu)
-CommandProcessor.register(command='bulletin', cpu=dpu)

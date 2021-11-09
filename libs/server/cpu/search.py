@@ -65,6 +65,7 @@ def save_response(facebook, station: ID, users: List[ID], results: dict) -> List
 
 class SearchCommandProcessor(CommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         if cmd.users is not None or cmd.results is not None:
@@ -85,9 +86,3 @@ class SearchCommandProcessor(CommandProcessor):
         station = facebook.current_user
         res.station = station.identifier
         return [res]
-
-
-# register
-spu = SearchCommandProcessor()
-CommandProcessor.register(command=SearchCommand.SEARCH, cpu=spu)
-CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=spu)

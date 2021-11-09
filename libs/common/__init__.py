@@ -47,7 +47,7 @@ from .keystore import KeyStore
 from .facebook import CommonFacebook, SharedFacebook
 from .messenger import CommonMessenger, MessengerDelegate
 from .packer import CommonPacker
-from .processor import CommonProcessor
+from .processor import CommonProcessor, CommonProcessorFactory
 from .transmitter import CommonTransmitter
 
 
@@ -130,6 +130,7 @@ __all__ = [
 
     'KeyStore', 'CommonFacebook', 'SharedFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor', 'CommonTransmitter',
+    'CommonProcessorFactory',
     'MessengerDelegate',
 
     'msg_receipt', 'msg_traced', 'is_broadcast_message',

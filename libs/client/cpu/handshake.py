@@ -41,6 +41,7 @@ from dimsdk import CommandProcessor
 
 class HandshakeCommandProcessor(CommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
         server = self.messenger.server
@@ -56,7 +57,3 @@ class HandshakeCommandProcessor(CommandProcessor):
         else:
             print('[Error] handshake command from %s: %s' % (msg.sender, cmd))
         return []
-
-
-# register
-CommandProcessor.register(command=Command.HANDSHAKE, cpu=HandshakeCommandProcessor())

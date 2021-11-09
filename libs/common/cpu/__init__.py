@@ -30,33 +30,12 @@
     Processors for commands
 """
 
-from dimp import ContentType, Command
-from dimsdk import MuteCommand, BlockCommand
-from dimsdk import ContentProcessor, CommandProcessor
-
 from .file import FileContentProcessor
 
 from .receipt import ReceiptCommandProcessor
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
 from .storage import StorageCommandProcessor
-
-
-def register_content_processors():
-    # files
-    fpu = FileContentProcessor()
-    ContentProcessor.register(content_type=ContentType.FILE, cpu=fpu)
-    ContentProcessor.register(content_type=ContentType.IMAGE, cpu=fpu)
-    ContentProcessor.register(content_type=ContentType.AUDIO, cpu=fpu)
-    ContentProcessor.register(content_type=ContentType.VIDEO, cpu=fpu)
-    # register
-    CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
-    CommandProcessor.register(command=MuteCommand.MUTE, cpu=MuteCommandProcessor())
-    CommandProcessor.register(command=BlockCommand.BLOCK, cpu=BlockCommandProcessor())
-    pass
-
-
-register_content_processors()
 
 
 __all__ = [

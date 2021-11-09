@@ -49,6 +49,7 @@ g_database = Database()
 
 class LoginCommandProcessor(CommandProcessor, Logging):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         # check roaming
@@ -75,7 +76,3 @@ class LoginCommandProcessor(CommandProcessor, Logging):
             text = 'Login received.'
             return self._respond_receipt(text=text)
         return []
-
-
-# register
-CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())

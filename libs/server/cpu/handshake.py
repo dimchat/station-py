@@ -63,6 +63,7 @@ class HandshakeCommandProcessor(CommandProcessor):
             # session key not match, ask client to sign it with the new session key
             return HandshakeCommand.again(session=session.key)
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
         message = cmd.message
@@ -78,7 +79,3 @@ class HandshakeCommandProcessor(CommandProcessor):
             return []
         else:
             return [res]
-
-
-# register
-CommandProcessor.register(command=Command.HANDSHAKE, cpu=HandshakeCommandProcessor())

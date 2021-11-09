@@ -37,7 +37,8 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import ContentType, Content, TextContent
-from dimsdk import ContentProcessor
+from dimp import Transceiver
+from dimsdk import ContentProcessor, ProcessorFactory
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -47,6 +48,7 @@ from libs.utils import Logging
 from libs.database import Storage
 
 from libs.client import ChatTextContentProcessor
+from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -80,10 +82,11 @@ def stat_record(columns: List[str]) -> str:
     return '\t'.join(columns)
 
 
-#
-#   Text Content Processor
-#
-class TextContentProcessor(ChatTextContentProcessor, Logging):
+class BotTextContentProcessor(ChatTextContentProcessor, Logging):
+
+    def __init__(self, messenger):
+        bots = chat_bots(names=['xiaoi'])  # chat bot
+        super().__init__(messenger=messenger, bots=bots)
 
     def __stat(self, condition: str, group: Optional[ID]) -> Optional[TextContent]:
         results = load_statistics(prefix=condition.strip())
@@ -121,15 +124,36 @@ class TextContentProcessor(ChatTextContentProcessor, Logging):
             return super()._query(content=content, sender=sender)
 
 
-bots = chat_bots(names=['xiaoi'])  # chat bot
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
+class BotProcessorFactory(ClientProcessorFactory):
+
+    # Override
+    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return BotTextContentProcessor(messenger=self.messenger)
+        # others
+        return super()._create_content_processor(msg_type=msg_type)
+
+
+class BotMessageProcessor(ClientProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return BotProcessorFactory(messenger=self.messenger)
+
+
+class BotMessenger(ClientMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return BotMessageProcessor(messenger=self)
 
 
 """
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = ClientMessenger()
+g_messenger = BotMessenger()
 g_facebook = g_messenger.facebook
 
 

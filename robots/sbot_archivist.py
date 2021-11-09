@@ -36,13 +36,14 @@ import os
 import threading
 import time
 import traceback
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, Command
 from dimp import MetaCommand, DocumentCommand
-from dimsdk import CommandProcessor
+from dimp import Transceiver
+from dimsdk import CommandProcessor, ProcessorFactory
 from dimsdk import Station
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -52,6 +53,7 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.common import SearchCommand
 from libs.database import FrequencyChecker
+from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_station
@@ -206,9 +208,10 @@ def send_command(cmd: Command, stations: List[Station], first: bool = False):
 
 class SearchCommandProcessor(CommandProcessor, Logging):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, messenger):
+        super().__init__(messenger=messenger)
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
         if cmd.users is not None or cmd.results is not None:
@@ -236,6 +239,44 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
         res.station = g_station.identifier
         return [res]
+
+
+class BotProcessorFactory(ClientProcessorFactory):
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # search
+        if cmd_name == SearchCommand.SEARCH:
+            return SearchCommandProcessor(messenger=self.messenger)
+        elif cmd_name == SearchCommand.ONLINE_USERS:
+            # share the same processor
+            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
+            if cpu is None:
+                cpu = SearchCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
+            return cpu
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+
+
+class BotMessageProcessor(ClientProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return BotProcessorFactory(messenger=self.messenger)
+
+
+class ArchivistMessenger(ClientMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return BotMessageProcessor(messenger=self)
+
+    # Override
+    def _broadcast_login(self, identifier: ID = None):
+        g_worker.online = True
+        # FIXME: what about offline?
+        super()._broadcast_login(identifier=identifier)
 
 
 class ArchivistWorker(threading.Thread, Logging):
@@ -326,26 +367,10 @@ class ArchivistWorker(threading.Thread, Logging):
                 send_command(cmd=cmd, stations=neighbor_stations)
 
 
-class ArchivistMessenger(ClientMessenger):
-
-    # Override
-    def _broadcast_login(self, identifier: ID = None):
-        g_worker.online = True
-        # FIXME: what about offline?
-        super()._broadcast_login(identifier=identifier)
-
-
 g_messenger = ArchivistMessenger()
 g_facebook = g_messenger.facebook
 
 g_worker = ArchivistWorker()
-
-g_spu = SearchCommandProcessor()
-g_spu.messenger = g_messenger
-
-# register
-CommandProcessor.register(command=SearchCommand.SEARCH, cpu=g_spu)
-CommandProcessor.register(command=SearchCommand.ONLINE_USERS, cpu=g_spu)
 
 
 if __name__ == '__main__':

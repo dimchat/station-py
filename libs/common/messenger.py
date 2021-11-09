@@ -40,7 +40,6 @@ from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
-from dimsdk import ContentProcessor
 from dimsdk import Messenger, Callback as MessengerCallback
 
 from ..utils import Logging
@@ -217,9 +216,12 @@ class CommonMessenger(Messenger, Logging):
     #   FPU
     #
     def __file_content_processor(self):  # -> FileContentProcessor:
-        cpu = ContentProcessor.processor_for_type(ContentType.FILE)
-        # assert isinstance(cpu, FileContentProcessor), 'failed to get file content processor'
-        cpu.messenger = self
+        processor = self.processor
+        from .processor import CommonProcessor
+        assert isinstance(processor, CommonProcessor), 'message processor error: %s' % processor
+        cpu = processor.get_processor_by_type(msg_type=ContentType.FILE)
+        from .cpu import FileContentProcessor
+        assert isinstance(cpu, FileContentProcessor), 'failed to get file content processor'
         return cpu
 
     # Override

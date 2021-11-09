@@ -45,6 +45,7 @@ g_database = Database()
 
 class StorageCommandProcessor(CommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, StorageCommand), 'command error: %s' % cmd
         title = cmd.title
@@ -70,10 +71,3 @@ class StorageCommandProcessor(CommandProcessor):
         else:
             text = 'Storage command (title: %s) not support yet!' % title
             return self._respond_text(text=text)
-
-
-# register
-spu = StorageCommandProcessor()
-CommandProcessor.register(command=StorageCommand.STORAGE, cpu=spu)
-CommandProcessor.register(command=StorageCommand.CONTACTS, cpu=spu)
-CommandProcessor.register(command=StorageCommand.PRIVATE_KEY, cpu=spu)

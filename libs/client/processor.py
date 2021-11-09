@@ -29,14 +29,15 @@
 """
 
 import time
-from typing import List
+from typing import List, Optional
 
 from dimp import NetworkType
 from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Envelope, Content, TextContent
+from dimp import Envelope, Content, TextContent, Command
 from dimsdk import HandshakeCommand, ReceiptCommand
+from dimsdk import CommandProcessor, ProcessorFactory
 
-from ..common import CommonProcessor
+from ..common import CommonProcessor, CommonProcessorFactory
 
 
 class ClientProcessor(CommonProcessor):
@@ -90,3 +91,23 @@ class ClientProcessor(CommonProcessor):
             messenger.send_instant_message(msg=i_msg)
         # DON'T respond to station directly
         return []
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return ClientProcessorFactory(messenger=self.messenger)
+
+
+class ClientProcessorFactory(CommonProcessorFactory):
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # handshake
+        if cmd_name == Command.HANDSHAKE:
+            from .cpu import HandshakeCommandProcessor
+            return HandshakeCommandProcessor(messenger=self.messenger)
+        # login
+        if cmd_name == Command.LOGIN:
+            from .cpu import LoginCommandProcessor
+            return LoginCommandProcessor(messenger=self.messenger)
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

@@ -40,11 +40,8 @@ from dimsdk import CommandProcessor
 
 class LoginCommandProcessor(CommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
         # return ReceiptCommand.new(message='Login received')
         return []
-
-
-# register
-CommandProcessor.register(command=Command.LOGIN, cpu=LoginCommandProcessor())

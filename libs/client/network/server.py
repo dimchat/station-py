@@ -86,13 +86,6 @@ class Session(BaseSession):
             hub = self.gate.hub
             assert isinstance(hub, Hub), 'hub error: %s' % hub
             hub.connect(remote=remote, local=local)
-        elif current == GateStatus.READY:
-            # handshake
-            messenger = self.messenger
-            assert isinstance(messenger, CommonMessenger)
-            delegate = messenger.delegate
-            if isinstance(delegate, Server):
-                delegate.handshake(session_key=None)
 
 
 class Server(Station, MessengerDelegate, StateDelegate, Logging):
@@ -209,10 +202,12 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
             self.error('server not connected')
             return
         session = self.connect()
-        if session_key is not None:
+        if session_key is None:
+            session_key = session.key
+        else:
             session.key = session_key
         self.__fsm.session_key = None
-        self.info('shaking hands with session key: %s, id=%s' % (self.session_key, self.identifier))
+        self.info('shaking hands with session key: %s, id=%s' % (session_key, self.identifier))
         # create handshake command
         cmd = HandshakeCommand.start(session=session_key)
         # TODO: set last received message time

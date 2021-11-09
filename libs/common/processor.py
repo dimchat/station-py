@@ -29,15 +29,22 @@
 """
 
 import traceback
-from typing import List
+from typing import List, Optional
 
 from dimp import ID
-from dimp import Content, InstantMessage, ReliableMessage
-from dimp import ForwardContent
-from dimp import InviteCommand, ResetCommand
-from dimsdk import MessageProcessor
+from dimp import InstantMessage, ReliableMessage
+from dimp import Content, ContentType, ForwardContent
+from dimp import Command, InviteCommand, ResetCommand
+from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import MessageProcessor, ProcessorFactory
+from dimsdk import MuteCommand, BlockCommand, StorageCommand
 
 from ..utils import Logging
+
+from .cpu import FileContentProcessor
+from .cpu import ReceiptCommandProcessor
+from .cpu import BlockCommandProcessor, MuteCommandProcessor
+from .cpu import StorageCommandProcessor
 
 from .facebook import CommonFacebook
 from .messenger import CommonMessenger
@@ -155,3 +162,55 @@ class CommonProcessor(MessageProcessor, Logging):
             # error
             return []
         return responses
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return CommonProcessorFactory(messenger=self.messenger)
+
+
+class CommonProcessorFactory(ProcessorFactory):
+
+    # Override
+    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+        # file
+        if msg_type == ContentType.FILE.value:
+            return FileContentProcessor(messenger=self.messenger)
+        elif msg_type in [ContentType.IMAGE.value, ContentType.AUDIO.value, ContentType.VIDEO.value]:
+            cpu = self._get_content_processor(msg_type=ContentType.FILE.value)
+            if cpu is None:
+                cpu = FileContentProcessor(messenger=self.messenger)
+                self._put_content_processor(msg_type=ContentType.FILE.value, cpu=cpu)
+            return cpu
+        # others
+        cpu = super()._create_content_processor(msg_type=msg_type)
+        if cpu is None:
+            # unknown
+            cpu = ContentProcessor(messenger=self.messenger)
+        return cpu
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # receipt
+        if cmd_name == Command.RECEIPT:
+            return ReceiptCommandProcessor(messenger=self.messenger)
+        # mute
+        if cmd_name == MuteCommand.MUTE:
+            return MuteCommandProcessor(messenger=self.messenger)
+        # block
+        if cmd_name == BlockCommand.BLOCK:
+            return BlockCommandProcessor(messenger=self.messenger)
+        # storage
+        if cmd_name == StorageCommand.STORAGE:
+            return StorageCommandProcessor(messenger=self.messenger)
+        elif cmd_name in [StorageCommand.CONTACTS, StorageCommand.PRIVATE_KEY]:
+            cpu = self._get_command_processor(cmd_name=StorageCommand.STORAGE)
+            if cpu is None:
+                cpu = StorageCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=StorageCommand.STORAGE, cpu=cpu)
+            return cpu
+        # others
+        cpu = super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        if cpu is None:
+            # unknown
+            cpu = CommandProcessor(messenger=self.messenger)
+        return cpu

@@ -40,8 +40,10 @@ from typing import Optional, List
 from dimp import ID, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, ForwardContent, Command
+from dimp import Transceiver
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
+from dimsdk import ProcessorFactory
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -54,6 +56,7 @@ from libs.common import SearchCommand
 from libs.common import CommonFacebook
 
 from libs.client import ChatTextContentProcessor
+from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -103,11 +106,13 @@ class ForwardContentProcessor(ContentProcessor):
 #
 #   Text Content Processor
 #
-class TextContentProcessor(ChatTextContentProcessor):
+class BotTextContentProcessor(ChatTextContentProcessor):
 
-    #
-    #   main
-    #
+    def __init__(self, messenger):
+        bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
+        super().__init__(messenger=messenger, bots=bots)
+
+    # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
         res = client.room.receive(content=content, sender=msg.sender)
@@ -116,10 +121,40 @@ class TextContentProcessor(ChatTextContentProcessor):
         return super().process(content=content, msg=msg)
 
 
-bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
-ContentProcessor.register(content_type=ContentType.TEXT, cpu=TextContentProcessor(bots=bots))
-ContentProcessor.register(content_type=ContentType.FORWARD, cpu=ForwardContentProcessor())
-CommandProcessor.register(command=Command.RECEIPT, cpu=ReceiptCommandProcessor())
+class BotProcessorFactory(ClientProcessorFactory):
+
+    # Override
+    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return BotTextContentProcessor(messenger=self.messenger)
+        # forward
+        if msg_type == ContentType.FORWARD:
+            return ForwardContentProcessor(messenger=self.messenger)
+        # others
+        return super()._create_content_processor(msg_type=msg_type)
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # receipt
+        if cmd_name == Command.RECEIPT:
+            return ReceiptCommandProcessor(messenger=self.messenger)
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+
+
+class BotMessageProcessor(ClientProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return BotProcessorFactory(messenger=self.messenger)
+
+
+class BotMessenger(ClientMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return BotMessageProcessor(messenger=self)
 
 
 def date_string(timestamp=None):
@@ -431,7 +466,7 @@ class ChatRoom(Logging):
     Messenger for Chat Room Admin robot
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = ClientMessenger()
+g_messenger = BotMessenger()
 g_facebook = g_messenger.facebook
 
 if __name__ == '__main__':

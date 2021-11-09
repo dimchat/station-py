@@ -36,7 +36,7 @@ from .extension import GroupManager
 from .network import Terminal, Server
 
 from .messenger import ClientMessenger
-from .processor import ClientProcessor
+from .processor import ClientProcessor, ClientProcessorFactory
 
 
 __all__ = [
@@ -49,4 +49,5 @@ __all__ = [
 
     'ClientMessenger',
     'ClientProcessor',
+    'ClientProcessorFactory',
 ]

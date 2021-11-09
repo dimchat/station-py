@@ -30,12 +30,13 @@
     Report protocol
 """
 
-from typing import List
+from typing import List, Optional
 
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import CommandProcessor
+from dimsdk import MessageProcessor
 
 from ...utils import NotificationCenter
 from ...database import Database
@@ -51,6 +52,12 @@ g_database = Database()
 
 
 class ReportCommandProcessor(CommandProcessor):
+
+    def processor_for_name(self, name: str) -> Optional[CommandProcessor]:
+        messenger = self.messenger
+        processor = messenger.processor
+        assert isinstance(processor, MessageProcessor), 'message processor error: %s' % processor
+        return processor.get_processor_by_name(cmd_name=name)
 
     def __process_old_report(self, cmd: ReportCommand, sender: ID) -> List[Content]:
         # compatible with v1.0
@@ -70,6 +77,7 @@ class ReportCommandProcessor(CommandProcessor):
         text = 'Client state received.'
         return self._respond_receipt(text=text)
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'report command error: %s' % cmd
         # report title
@@ -77,7 +85,7 @@ class ReportCommandProcessor(CommandProcessor):
         if title == ReportCommand.REPORT:
             return self.__process_old_report(cmd=cmd, sender=msg.sender)
         # get CPU by report title
-        cpu = self.processor_for_name(command=title)
+        cpu = self.processor_for_name(name=title)
         # check and run
         if cpu is None:
             text = 'Report command (title: %s) not support yet!' % title
@@ -85,7 +93,6 @@ class ReportCommandProcessor(CommandProcessor):
         elif cpu is self:
             raise AssertionError('Dead cycle! report cmd: %s' % cmd)
         assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
-        cpu.messenger = self.messenger
         return cpu.execute(cmd=cmd, msg=msg)
 
 
@@ -106,6 +113,7 @@ def _post_notification(cpu: ReportCommandProcessor, cmd: Command, session: Sessi
 
 class APNsCommandProcessor(ReportCommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, Command), 'command error: %s' % cmd
         # submit device token for APNs
@@ -119,6 +127,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
 
 class OnlineCommandProcessor(ReportCommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
         # welcome back!
@@ -135,6 +144,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
 
 class OfflineCommandProcessor(ReportCommandProcessor):
 
+    # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
         # goodbye!
@@ -146,13 +156,3 @@ class OfflineCommandProcessor(ReportCommandProcessor):
             _post_notification(cpu=self, cmd=cmd, session=session)
         text = 'Client offline received.'
         return self._respond_receipt(text=text)
-
-
-# register
-rpu = ReportCommandProcessor()
-CommandProcessor.register(command=ReportCommand.REPORT, cpu=rpu)
-CommandProcessor.register(command='broadcast', cpu=rpu)
-
-CommandProcessor.register(command='apns', cpu=APNsCommandProcessor())
-CommandProcessor.register(command=ReportCommand.ONLINE, cpu=OnlineCommandProcessor())
-CommandProcessor.register(command=ReportCommand.OFFLINE, cpu=OfflineCommandProcessor())
