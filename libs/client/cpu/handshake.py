@@ -38,22 +38,33 @@ from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
+from ...utils import Logging
 
-class HandshakeCommandProcessor(CommandProcessor):
+
+class HandshakeCommandProcessor(CommandProcessor, Logging):
 
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
-        server = self.messenger.server
-        from ..network import Server
-        assert isinstance(server, Server), 'server error: %s' % server
         message = cmd.message
+        session = cmd.session
+        sender = msg.sender
+        self.info('received "handshake": %s, %s, %s' % (sender, message, session))
+        server = self.messenger.server
+        # from ..network import Server
+        # assert isinstance(server, Server), 'server error: %s' % server
+        if server.identifier != sender:
+            self.error('!!! ignore error handshake from this sender: %s, %s' % (sender, server))
+            return []
         if 'DIM?' == message:
-            # station ask client to handshake again
-            server.handshake(session_key=cmd.session)
+            # S -> C: station ask client to handshake again
+            self.info('handshake again, session key: %s' % session)
+            server.handshake(session_key=session)
         elif 'DIM!' == message:
-            # handshake accepted by station
+            # S -> C: handshake accepted by station
+            self.info('handshake success!')
             server.handshake_success()
         else:
-            print('[Error] handshake command from %s: %s' % (msg.sender, cmd))
+            # C -> S: Hello world!
+            print('[Error] handshake command from %s: %s' % (sender, cmd))
         return []
