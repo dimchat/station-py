@@ -180,21 +180,23 @@ class GateKeeper(Runner):
         # it must have been cleaned already, so it should not be empty here.
         msg = wrapper.msg
         if msg is None:
-            # no more new message
+            # msg sent?
             return True
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        if self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper):
-            wrapper.finished(msg=msg, error=None)
+        ok = self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper)
+        if ok:
+            wrapper.success()
         else:
-            wrapper.fail()
+            error = IOError('gate error, failed to send data')
+            wrapper.failed(error=error)
         return True
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         """ Send data via the gate """
-        self.gate.send_payload(payload=payload, local=None, remote=self.__remote,
-                               priority=priority, delegate=delegate)
-        return True
+        gate = self.gate
+        return gate.send_payload(payload=payload, local=None, remote=self.__remote,
+                                 priority=priority, delegate=delegate)
 
     def push_message(self, msg: ReliableMessage) -> bool:
         """ Push message into a waiting queue """

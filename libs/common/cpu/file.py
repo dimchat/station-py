@@ -55,7 +55,10 @@ class FileContentProcessor(ContentProcessor):
         encrypted = password.encrypt(data=data)
         if encrypted is None or len(encrypted) == 0:
             raise ValueError('failed to encrypt file data with key: %s' % password)
-        url = self.messenger.upload_data(data=encrypted, msg=msg)
+        messenger = self.messenger
+        # from ..messenger import CommonMessenger
+        # assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        url = messenger.upload_encrypted_data(data=encrypted, msg=msg)
         if url is not None:
             # replace 'data' with 'URL'
             content.url = url
@@ -69,7 +72,10 @@ class FileContentProcessor(ContentProcessor):
             return False
         i_msg = InstantMessage.create(head=msg.envelope, body=content)
         # download from CDN
-        encrypted = self.messenger.download_data(url=url, msg=i_msg)
+        messenger = self.messenger
+        # from ..messenger import CommonMessenger
+        # assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        encrypted = messenger.download_encrypted_data(url=url, msg=i_msg)
         if encrypted is None or len(encrypted) == 0:
             # save symmetric key for decrypting file data after download from CDN
             content.password = password

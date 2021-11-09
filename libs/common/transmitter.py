@@ -35,7 +35,7 @@ from dimsdk import MessageTransmitter, Callback
 
 from ..utils import Logging
 
-from .messenger import CommonMessenger, CompletionHandler
+from .messenger import CommonMessenger
 
 
 class CommonTransmitter(MessageTransmitter, Logging):
@@ -69,13 +69,12 @@ class CommonTransmitter(MessageTransmitter, Logging):
 
     def send_reliable_message(self, msg: ReliableMessage,
                               callback: Optional[Callback] = None, priority: int = 0) -> bool:
-        handler = MessageCallback(msg=msg, cb=callback)
         messenger = self.messenger
         data = messenger.serialize_message(msg=msg)
-        return messenger.send_package(data=data, handler=handler, priority=priority)
+        return messenger.send_message_data(data=data, callback=callback, priority=priority)
 
 
-class MessageCallback(CompletionHandler):
+class MessageCallback(Callback):
 
     def __init__(self, msg: ReliableMessage, cb: Callback):
         super().__init__()
@@ -85,9 +84,9 @@ class MessageCallback(CompletionHandler):
     def success(self):
         callback = self.callback
         if callback is not None:
-            callback.finished(msg=self.msg, error=None)
+            callback.success()
 
-    def failed(self, error):
+    def failed(self, error: Exception):
         callback = self.callback
         if callback is not None:
-            callback.finished(msg=self.msg, error=error)
+            callback.failed(error=error)

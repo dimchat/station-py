@@ -44,6 +44,9 @@ from ..database import FrequencyChecker
 
 class CommonFacebook(Facebook):
 
+    # each query will be expired after 10 minutes
+    QUERY_EXPIRES = 600  # seconds
+
     def __init__(self):
         super().__init__()
         self.__messenger: Optional[weakref.ReferenceType] = None
@@ -51,8 +54,8 @@ class CommonFacebook(Facebook):
         self.__local_users: Optional[List[User]] = None
         self.__group_assistants = []
         # for checking duplicated queries
-        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=600)
-        self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=600)
+        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+        self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
 
     @property
     def messenger(self):  # -> CommonMessenger:

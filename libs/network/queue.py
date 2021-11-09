@@ -86,13 +86,12 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     def virgin(self) -> bool:
         return self.__time == 0
 
-    @property
-    def failed(self) -> bool:
+    def is_failed(self, now: int) -> bool:
         if self.__time == -1:
             return True
         if self.__time > 1:
-            delta = int(time.time()) - self.__time
-            return delta > self.EXPIRES
+            expired = self.__time + self.EXPIRES
+            return now > expired
 
     #
     #   ShipDelegate
@@ -120,14 +119,15 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     #
 
     # Override
-    def finished(self, msg: ReliableMessage, error=None):
-        if error is None:
-            # this message was assigned to the worker of StarGate,
-            # update sent time
-            self.__time = int(time.time())
-        else:
-            # failed
-            self.__time = -1
+    def success(self):
+        # this message was assigned to the worker of StarGate,
+        # update sent time
+        self.__time = int(time.time())
+
+    # Override
+    def failed(self, error: Exception):
+        # failed
+        self.__time = -1
 
 
 class MessageQueue:
@@ -169,19 +169,20 @@ class MessageQueue:
                     wrapper.mark()  # mark sent
                     return wrapper
 
-    def eject(self) -> Optional[MessageWrapper]:
+    def eject(self, now: int) -> Optional[MessageWrapper]:
         """ Get any message sent or failed """
         with self.__lock:
             for wrapper in self.__wrappers:
-                if wrapper.msg is None or wrapper.failed:
+                if wrapper.msg is None or wrapper.is_failed(now=now):
                     self.__wrappers.remove(wrapper)
                     return wrapper
 
     def purge(self) -> int:
         count = 0
-        wrapper = self.eject()
+        now = int(time.time())
+        wrapper = self.eject(now=now)
         while wrapper is not None:
             count += 1
             # TODO: callback for failed task?
-            wrapper = self.eject()
+            wrapper = self.eject(now=now)
         return count

@@ -168,26 +168,29 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
             self._put_docker(docker=worker)
         return worker
 
-    def send_payload(self, payload: bytes, local: Optional[tuple], remote: tuple,
-                     priority: int = 0, delegate: Optional[GateDelegate] = None):
+    def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple],
+                     priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
         worker = self.get_docker(remote=remote, local=local)
         if worker is not None:
             ship = worker.pack(payload=payload, priority=priority, delegate=delegate)
-            worker.append_departure(ship=ship)
+            return worker.append_departure(ship=ship)
 
-    def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]):
+    def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
         worker = self.get_docker(remote=remote, local=local)
         if isinstance(worker, MTPStreamDocker):
             pack = MTPHelper.create_message(body=payload, sn=ship.sn)
             worker.send_package(pack=pack)
+            return True
         elif isinstance(worker, MarsStreamDocker):
             assert isinstance(ship, MarsStreamArrival), 'responding ship error: %s' % ship
             mars = MarsHelper.create_respond(head=ship.package.head, payload=payload)
             ship = MarsStreamDocker.create_departure(mars=mars)
             worker.send_ship(ship=ship)
+            return True
         elif isinstance(worker, WSDocker):
             ship = worker.pack(payload=payload)
             worker.send_ship(ship=ship)
+            return True
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
 

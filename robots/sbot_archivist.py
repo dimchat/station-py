@@ -35,6 +35,7 @@ import sys
 import os
 import threading
 import time
+import traceback
 from typing import List, Dict
 
 from dimp import NetworkType, ID, Meta
@@ -239,7 +240,8 @@ class SearchCommandProcessor(CommandProcessor, Logging):
 
 class ArchivistWorker(threading.Thread, Logging):
 
-    QUERY_EXPIRES = ClientMessenger.QUERY_EXPIRES
+    # each query will be expired after 10 minutes
+    QUERY_EXPIRES = 600  # seconds
 
     def __init__(self):
         super().__init__()
@@ -272,10 +274,15 @@ class ArchivistWorker(threading.Thread, Logging):
     def run(self):
         while self.running:
             time.sleep(5)
-            self.__scan_all_users()
-            self.__query_online_users()
-            self.__query_metas()
-            self.__query_documents()
+            try:
+                self.__scan_all_users()
+                if self.online:
+                    self.__query_online_users()
+                    self.__query_metas()
+                    self.__query_documents()
+            except Exception as error:
+                self.error('archivist error: %s' % error)
+                traceback.print_exc()
 
     def __scan_all_users(self):
         if self.__users_queries.expired(key='all-documents'):
@@ -292,25 +299,30 @@ class ArchivistWorker(threading.Thread, Logging):
             send_command(cmd=cmd, stations=all_stations, first=first)
 
     def __query_metas(self):
-        while self.running and self.online:
+        while self.online and self.running:
             identifier = g_database.pop_meta_query()
             if identifier is None:
                 # no more task
                 break
             elif self.__meta_queries.expired(key=identifier):
                 self.info('querying meta: %s from %d station(s)' % (identifier, len(neighbor_stations)))
-                cmd = MetaCommand(identifier=identifier)
+                cmd = MetaCommand.query(identifier=identifier)
                 send_command(cmd=cmd, stations=neighbor_stations)
 
     def __query_documents(self):
-        while self.running and self.online:
+        while self.online and self.running:
             identifier = g_database.pop_document_query()
             if identifier is None:
                 # no more task
                 break
             elif self.__document_queries.expired(key=identifier):
                 self.info('querying document: %s from %d station(s)' % (identifier, len(neighbor_stations)))
-                cmd = DocumentCommand(identifier=identifier)
+                doc = g_facebook.document(identifier=identifier)
+                if doc is None:
+                    signature = None
+                else:
+                    signature = doc.get('signature')  # Base64
+                cmd = DocumentCommand.query(identifier=identifier, signature=signature)
                 send_command(cmd=cmd, stations=neighbor_stations)
 
 

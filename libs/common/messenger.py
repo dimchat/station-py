@@ -40,7 +40,8 @@ from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
-from dimsdk import Messenger, ContentProcessor
+from dimsdk import ContentProcessor
+from dimsdk import Messenger, Callback as MessengerCallback
 
 from ..utils import Logging
 from ..database import FrequencyChecker
@@ -49,21 +50,10 @@ from .keystore import KeyStore
 from .facebook import CommonFacebook, SharedFacebook
 
 
-class CompletionHandler:
-
-    @abstractmethod
-    def success(self):
-        raise NotImplemented
-
-    @abstractmethod
-    def failed(self, error):
-        raise NotImplemented
-
-
 class MessengerDelegate:
 
     @abstractmethod
-    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> str:
         """
         Upload encrypted data to CDN
 
@@ -74,7 +64,7 @@ class MessengerDelegate:
         raise NotImplemented
 
     @abstractmethod
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         """
         Download encrypted data from CDN
 
@@ -85,12 +75,12 @@ class MessengerDelegate:
         raise NotImplemented
 
     @abstractmethod
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
+    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
         """
-        Send out a data package onto network
+        Send out a message data package onto network
 
-        :param data:     package data
-        :param handler:  completion handler
+        :param data:     message data
+        :param callback: completion handler
         :param priority: task priority (smaller is faster)
         :return: True on success
         """
@@ -99,8 +89,8 @@ class MessengerDelegate:
 
 class CommonMessenger(Messenger, Logging):
 
-    # each query will be expired after 1 hour
-    QUERY_EXPIRES = 3600  # seconds
+    # each query will be expired after 10 minutes
+    QUERY_EXPIRES = 600  # seconds
 
     def __init__(self):
         super().__init__()
@@ -347,14 +337,14 @@ class CommonMessenger(Messenger, Logging):
     #
     #   Interfaces for Station
     #
-    def upload_data(self, data: bytes, msg: InstantMessage) -> str:
-        return self.delegate.upload_data(data=data, msg=msg)
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> str:
+        return self.delegate.upload_encrypted_data(data=data, msg=msg)
 
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
-        return self.delegate.download_data(url=url, msg=msg)
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+        return self.delegate.download_encrypted_data(url=url, msg=msg)
 
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        return self.delegate.send_package(data=data, handler=handler, priority=priority)
+    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
+        return self.delegate.send_message_data(data=data, callback=callback, priority=priority)
 
     #
     #   Events

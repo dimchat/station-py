@@ -35,9 +35,10 @@ from socketserver import StreamRequestHandler
 from typing import Optional
 
 from dimp import InstantMessage
+from dimsdk import Callback as MessengerCallback
 
 from libs.utils import Logging
-from libs.common import CompletionHandler, MessengerDelegate
+from libs.common import MessengerDelegate
 from libs.server import ServerMessenger, SessionServer
 
 
@@ -101,24 +102,27 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
-        session = self.messenger.current_session
-        if session is not None and session.send_payload(payload=data, priority=priority):
-            if handler is not None:
-                handler.success()
-            return True
-        else:
-            if handler is not None:
-                error = IOError('MessengerDelegate error: failed to send data package')
-                handler.failed(error=error)
-            return False
 
-    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
+    # Override
+    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
+        session = self.messenger.current_session
+        ok = session is not None and session.send_payload(payload=data, priority=priority)
+        if callback is not None:
+            if ok:
+                callback.success()
+            else:
+                error = IOError('MessengerDelegate error: failed to send data package')
+                callback.failed(error=error)
+        return ok
+
+    # Override
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
         # upload encrypted file data
         self.info('upload %d bytes for: %s' % (len(data), msg.content))
         return None
 
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+    # Override
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         # download encrypted file data
         self.info('download %s for: %s' % (url, msg.content))
         return None

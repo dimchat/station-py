@@ -39,6 +39,7 @@ from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import Station
+from dimsdk import Callback as MessengerCallback
 
 from startrek.fsm import StateDelegate
 
@@ -47,7 +48,7 @@ from ...network import Hub, Gate, GateStatus, DeparturePriority
 from ...network import TCPClientGate
 
 from ...common import CommonMessenger, CommonFacebook
-from ...common import MessengerDelegate, CompletionHandler
+from ...common import MessengerDelegate
 from ...common import BaseSession
 
 
@@ -241,25 +242,28 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
     #
     #   MessengerDelegate
     #
-    def send_package(self, data: bytes, handler: CompletionHandler, priority: int = 0) -> bool:
+
+    # Override
+    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
         """ Send out a data package onto network """
         session = self.connect()
-        if session.send_payload(payload=data, priority=priority):
-            if handler is not None:
-                handler.success()
-            return True
-        else:
-            if handler is not None:
+        ok = session.send_payload(payload=data, priority=priority)
+        if callback is not None:
+            if ok:
+                callback.success()
+            else:
                 error = IOError('Server error: failed to send data package')
-                handler.failed(error=error)
-            return False
+                callback.failed(error=error)
+        return ok
 
-    def upload_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
+    # Override
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
         """ Upload encrypted data to CDN """
         self.info('upload %d bytes for: %s' % (len(data), msg.content))
         return None
 
-    def download_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+    # Override
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         """ Download encrypted data from CDN, and decrypt it when finished """
         self.info('download %s for: %s' % (url, msg.content))
         return None
@@ -268,10 +272,12 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
     #   State Delegate
     #
 
+    # Override
     def enter_state(self, state, ctx):
         # called before state changed
         pass
 
+    # Override
     def exit_state(self, state, ctx):
         # called after state changed
         from .state import StateMachine, ServerState
@@ -285,9 +291,11 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
             # start handshake
             self.handshake(session_key=None)
 
+    # Override
     def pause_state(self, state, ctx):
         pass
 
+    # Override
     def resume_state(self, state, ctx):
         # TODO: clear session key for re-login?
         pass
