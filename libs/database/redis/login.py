@@ -28,7 +28,7 @@ from typing import Optional
 
 from dimp import json_encode, json_decode
 from dimp import NetworkType, ID, ReliableMessage
-from dimp import Command
+from dimp import Content, Command
 from dimsdk import LoginCommand
 
 from .base import Cache
@@ -143,7 +143,7 @@ class LoginCache(Cache):
         if dictionary is None:
             # data error
             return None
-        cmd = Command.parse(content=dictionary)
+        cmd = Content.parse(content=dictionary)
         if cmd is not None:
             now = int(time.time())
             if now > cmd.time + self.EXPIRES:
