@@ -39,6 +39,7 @@ from .singleton import Singleton
 from .notification import Notification, NotificationObserver, NotificationCenter
 
 from .dos import File, TextFile, JSONFile
+from .jpeg import JPEG, Segment as JPEGSegment, MarkCode as JPEGMarkCode
 
 
 def get_msg_sig(msg, cnt: int = 8) -> str:
@@ -60,4 +61,5 @@ __all__ = [
     'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'File', 'TextFile', 'JSONFile',
+    'JPEG', 'JPEGSegment', 'JPEGMarkCode',
 ]
