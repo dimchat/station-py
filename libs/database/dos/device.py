@@ -70,15 +70,20 @@ def append_device_token(device: Optional[dict], token: str) -> Optional[dict]:
         return {'tokens': [token]}
     # get tokens list for updating
     tokens: list = device.get('tokens')
-    if tokens is None:
+    if tokens is None or len(tokens) == 0:
         # new device token
         tokens = [token]
-    elif token in tokens:
+    elif token == tokens[0]:
         # already exists
         return None
+    elif token in tokens:
+        # move to the first place
+        tokens.remove(token)
+        tokens.insert(0, token)
     else:
         # keep only last three records
         while len(tokens) > 2:
             tokens.pop()
         tokens.insert(0, token)
     device['tokens'] = tokens
+    return device
