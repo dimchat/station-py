@@ -75,6 +75,18 @@ class Segment(Data):
         self.__mark = mark
         self.__body = body
 
+    def __str__(self):
+        clazz = self.__class__.__name__
+        start = self.offset
+        end = self.offset + self.size
+        return '<%s:FF%X| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.mark, self.offset, self.size, start, end)
+
+    def __repr__(self):
+        clazz = self.__class__.__name__
+        start = self.offset
+        end = self.offset + self.size
+        return '<%s:FF%X| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.mark, self.offset, self.size, start, end)
+
     @property
     def mark(self) -> int:
         """ mark code """
@@ -180,7 +192,7 @@ class JPEG(MutableData, Logging):
             try:
                 self._analyse(segment=segment)
             except Exception as error:
-                self.error('failed to analyse %x: %s' % (segment.mark, error))
+                self.error('failed to analyse %s: %s' % (segment, error))
 
     def _analyse(self, segment: Segment) -> bool:
         mark = segment.mark
@@ -188,23 +200,25 @@ class JPEG(MutableData, Logging):
             self._analyse_app_0(segment=segment)
         elif 0xE0 < mark <= 0xEF:
             self._analyse_app_n(segment=segment)
-        elif mark == MarkCode.DQT:
-            self._analyse_dqt(segment=segment)
         elif mark == MarkCode.SOF0:
             self._analyse_sof_0(segment=segment)
         elif mark == MarkCode.DHT:
             self._analyse_dht(segment=segment)
+        elif mark == MarkCode.DQT:
+            self._analyse_dqt(segment=segment)
+        elif mark == MarkCode.DRI:
+            self._analyse_dri(segment=segment)
         elif mark == MarkCode.SOS:
             self._analyse_sos(segment=segment)
         else:
-            self.debug('unknown, mark: %x, offset: %x' % (mark, segment.offset))
+            self.debug('Other: %s' % segment)
             return False
         # analysed
         return True
 
     def _analyse_app_0(self, segment: Segment):
         """ Application 0 """
-        self.debug('APP0, mark: %x, offset: %x' % (segment.mark, segment.offset))
+        self.debug('APP0: %s' % segment)
         body = segment.body
         assert body.size >= 14, 'APP0 error: %s' % segment
         magic_code = body.slice(start=0, end=5)
@@ -219,15 +233,11 @@ class JPEG(MutableData, Logging):
 
     def _analyse_app_n(self, segment: Segment):
         """ Application 1~15 """
-        self.debug('APPn, mark: %x, offset: %x' % (segment.mark, segment.offset))
-
-    def _analyse_dqt(self, segment: Segment):
-        """ Define Quantization Table: DB """
-        self.debug('DQT,  mark: %x, offset: %x' % (segment.mark, segment.offset))
+        self.debug('APPn: %s' % segment)
 
     def _analyse_sof_0(self, segment: Segment):
         """ Start Of Frame: C0 """
-        self.debug('SOF0, mark: %x, offset: %x' % (segment.mark, segment.offset))
+        self.debug('SOF0: %s' % segment)
         body = segment.body
         assert body.size >= 15, 'SOF0 error: %s' % segment
         depth = body.get_byte(index=0)
@@ -239,8 +249,16 @@ class JPEG(MutableData, Logging):
 
     def _analyse_dht(self, segment: Segment):
         """ Define Huffman Table: C4 """
-        self.debug('DHT,  mark: %x, offset: %x' % (segment.mark, segment.offset))
+        self.debug('DHT : %s' % segment)
+
+    def _analyse_dqt(self, segment: Segment):
+        """ Define Quantization Table: DB """
+        self.debug('DQT : %s' % segment)
+
+    def _analyse_dri(self, segment: Segment):
+        """ Define Restart Interval: DD """
+        self.debug('DRI : %s' % segment)
 
     def _analyse_sos(self, segment: Segment):
         """ Start Of Scan: DA """
-        self.debug('SOS,  mark: %x, offset: %x' % (segment.mark, segment.offset))
+        self.debug('SOS : %s' % segment)
