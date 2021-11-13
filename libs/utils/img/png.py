@@ -28,9 +28,10 @@
 # SOFTWARE.
 # ==============================================================================
 
+import zlib
 from typing import Optional
 
-from dimp import utf8_decode
+from dimp import utf8_encode, utf8_decode
 from udp.ba import ByteArray, Data, Convert
 
 from .api import Image, BaseImage, BaseScanner
@@ -50,14 +51,56 @@ class TypeCode:
     #
     #   Ancillary Chunks
     #
+    cHRM = 'cHRM'  # primary chromaticities and white point
+    gAMA = 'gAMA'  # image gamma
+    sBIT = 'sBIT'  # significant bits
+    bKGD = 'bKGD'  # background color
+    hIST = 'hIST'  # image histogram
+    tRNS = 'tRNS'  # transparency
+    oFFs = 'oFFs'
+    pHYs = 'pHYs'  # physical pixel dimensions
+    sCAL = 'sCAL'
+    tIME = 'tIME'  # image last-modification time
+    tEXt = 'tEXt'  # textual data
+    zTXt = 'zTXt'  # compressed textual data
+    fRAc = 'fRAc'
+    gIFg = 'gIFg'
+    gIFt = 'gIFt'
+    gIFx = 'gIFx'
+
+    @classmethod
+    def is_critical(cls, code: str):
+        assert not cls.is_safe_copy(code=code), 'critical chunks are always not safe to copy'
+        return ord(code[0]) & 0x20 == 0  # ..0. ....
+
+    @classmethod
+    def is_ancillary(cls, code: str):
+        return ord(code[0]) & 0x20 != 0  # ..1. ....
+
+    @classmethod
+    def is_public(cls, code: str):
+        return ord(code[1]) & 0x20 == 0  # ..0. ....
+
+    @classmethod
+    def is_private(cls, code: str):
+        return ord(code[1]) & 0x20 != 0  # ..1. ....
+
+    @classmethod
+    def is_valid(cls, code: str):
+        # reserved bit
+        return ord(code[2]) & 0x20 == 0  # ..0. ....
+
+    @classmethod
+    def is_safe_copy(cls, code: str):
+        return ord(code[3]) & 0x20 != 0  # ..1. ....
 
 
 class Chunk(Data):
     """ BodyLength + TypeCode + Body + CRC """
 
-    def __init__(self, data: ByteArray, type_code: str, body: ByteArray, crc: ByteArray):
+    def __init__(self, data: ByteArray, code: str, body: ByteArray, crc: ByteArray):
         super().__init__(buffer=data.buffer, offset=data.offset, size=data.size)
-        self.__code = type_code
+        self.__code = code
         self.__body = body
         self.__crc = crc
 
@@ -65,16 +108,16 @@ class Chunk(Data):
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
-        return '<%s:%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.type_code, self.offset, self.size, start, end)
+        return '<%s:%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.code, self.offset, self.size, start, end)
 
     def __repr__(self):
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
-        return '<%s:%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.type_code, self.offset, self.size, start, end)
+        return '<%s:%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.code, self.offset, self.size, start, end)
 
     @property
-    def type_code(self) -> str:
+    def code(self) -> str:
         """ Chunk Type Code """
         return self.__code
 
@@ -87,6 +130,18 @@ class Chunk(Data):
     def crc(self) -> ByteArray:
         """ Cyclic Redundancy Check """
         return self.__crc
+
+    @classmethod
+    def new(cls, code: str, body: ByteArray):
+        length = Convert.uint32data_from_value(value=body.size)
+        type_code = Data(buffer=utf8_encode(string=code))
+        # crc(code + body)
+        block = type_code.concat(body)
+        crc = zlib.crc32(block.get_bytes())
+        crc = Convert.uint32data_from_value(value=crc)
+        # BodyLength + TypeCode + Body + CRC
+        data = length.concat(other=block).concat(other=crc)
+        return cls(data=data, code=code, body=body, crc=crc)
 
 
 class PNG(BaseImage):
@@ -116,14 +171,16 @@ def seek_end(data: ByteArray) -> int:
     buffer = data.buffer
     start = data.offset
     end = data.offset + data.size
-    pos = buffer.rfind(sub=IEND_BUF, start=start, end=end)
+    pos = buffer.rfind(IEND_BUF, start, end)
+    print('[PNG] end: %d, size: %d, %d' % (pos, data.size, len(buffer)))
     if pos > start:
         return pos - start
     else:
-        return -1
+        # FIXME: no 'IEND' chunk?
+        return data.size
 
 
-class PNGScanner(BaseScanner):
+class PNGScanner(BaseScanner[Chunk]):
     """ Image scanner for PNG """
 
     @classmethod
@@ -157,13 +214,15 @@ class PNGScanner(BaseScanner):
         data = self._data
         offset = self._offset
         bounds = self._bounds
-        assert offset + 12 <= bounds, 'out of range: %d, %d' % (offset, bounds)
+        if offset >= bounds:
+            # reach the end
+            return None
         # get body length within range [0, 4)
         body_len = Convert.int32_from_data(data=data, start=offset)
         # BodyLength + TypeCode + Body + CRC
         size = 4 + 4 + body_len + 4
         end = offset + size
-        assert end <= bounds, 'out of range: %d, %d' % (end, bounds)
+        assert end <= bounds, 'out of range: %d, %d, %d' % (size, end, bounds)
         self._offset = end  # move to tail of current chunk
         return self._create_chunk(offset=offset, size=size)
 
@@ -177,20 +236,43 @@ class PNGScanner(BaseScanner):
         code = utf8_decode(data=code.get_bytes())
         body = data.slice(start=8, end=-4)
         crc = data.slice(start=-4)
-        return Chunk(data=data, type_code=code, body=body, crc=crc)
+        return Chunk(data=data, code=code, body=body, crc=crc)
 
     # Override
     def _analyse(self, chunk: Chunk) -> bool:
         """ analyse each chunk """
-        code = chunk.type_code
+        code = chunk.code
         if code == TypeCode.IHDR:
             self._analyse_ihdr(chunk=chunk)
+            return True
+        elif code == TypeCode.PLTE:
+            self._analyse_plte(chunk=chunk)
+            return True
+        elif code == TypeCode.IDAT:
+            self._analyse_idat(chunk=chunk)
+            return True
+        elif code == TypeCode.IEND:
+            self._analyse_iend(chunk=chunk)
             return True
 
     def _analyse_ihdr(self, chunk: Chunk):
         """ IHDR: header chunk """
         body = chunk.body
-        width = Convert.int32_from_data(data=body, start=0)
-        height = Convert.int32_from_data(data=body, start=4)
-        self._info['width'] = width
-        self._info['height'] = height
+        w = Convert.int32_from_data(data=body, start=0)
+        h = Convert.int32_from_data(data=body, start=4)
+        d = body.get_byte(index=8)
+        self._info['width'] = w
+        self._info['height'] = h
+        self._info['depth'] = d
+
+    def _analyse_plte(self, chunk: Chunk):
+        """ PLTE: palette chunk """
+        pass
+
+    def _analyse_idat(self, chunk: Chunk):
+        """ IDAT: image data chunk """
+        pass
+
+    def _analyse_iend(self, chunk: Chunk):
+        """ IEND: image trailer chunk """
+        pass

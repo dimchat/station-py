@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,48 +24,25 @@
 # ==============================================================================
 
 """
-    Utils
-    ~~~~~
+    Image Libs
+    ~~~~~~~~~~
 
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimsdk> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
 """
 
-from .log import Log, Logging
-from .singleton import Singleton
+from .api import Image, ImageScanner
 
-from .notification import Notification, NotificationObserver, NotificationCenter
-
-from .dos import File, TextFile, JSONFile
-
-from .img import Image, ImageScanner
-from .img import PNG, PNGScanner, PNGChunk, PNGTypeCode
-from .img import JPEG, JPEGScanner, JPEGSegment, JPEGMarkCode
-
-
-def get_msg_sig(msg, cnt: int = 8) -> str:
-    sig = msg.get('signature')
-    if sig is not None:
-        sig = sig.rstrip()
-        if len(sig) > cnt:
-            sig = sig[-cnt:]
-    return sig
-
+from .png import PNG, PNGScanner
+from .png import Chunk as PNGChunk, TypeCode as PNGTypeCode
+from .jpeg import JPEG, JPEGScanner
+from .jpeg import Segment as JPEGSegment, MarkCode as JPEGMarkCode
 
 __all__ = [
 
-    'get_msg_sig',
-
-    'Log', 'Logging',
-    'Singleton',
-
-    'Notification', 'NotificationObserver', 'NotificationCenter',
-
-    'File', 'TextFile', 'JSONFile',
-
     'Image', 'ImageScanner',
-    'PNG', 'PNGScanner', 'PNGChunk', 'PNGTypeCode',
-    'JPEG', 'JPEGScanner', 'JPEGSegment', 'JPEGMarkCode',
+
+    'PNG', 'PNGScanner',
+    'PNGChunk', 'PNGTypeCode',
+
+    'JPEG', 'JPEGScanner',
+    'JPEGSegment', 'JPEGMarkCode',
 ]

@@ -29,14 +29,15 @@
 # ==============================================================================
 
 from enum import IntEnum
+from typing import Optional
 
-from udp.ba import ByteArray, Data, MutableData
-from udp.ba import Convert
+from udp.ba import ByteArray, Data, Convert
 
-from .log import Logging
+from .api import Image, BaseImage, BaseScanner
 
 
 class MarkCode(IntEnum):
+    """ Mark Code of Segments """
 
     TEM = 0x01   # For temporary use in arithmetic coding
     # RESn 02-BF # Reserved
@@ -89,111 +90,118 @@ class Segment(Data):
 
     @property
     def mark(self) -> int:
-        """ mark code """
+        """ Mark Code """
         return self.__mark
 
     @property
     def body(self) -> ByteArray:
-        """ segment data """
+        """ Segment Data """
         return self.__body
 
-    @property
-    def start(self) -> int:
-        """ start position (start of mark code) """
-        return self.offset
 
-    @property
-    def end(self) -> int:
-        """ end position (end of body) """
-        return self.offset + self.size
+class JPEG(BaseImage):
+    """ JPEG Image
+        ~~~~~~~~~~
+    """
+
+    @property  # Override
+    def type(self) -> str:
+        return Image.JPEG
 
 
-class JPEG(MutableData, Logging):
+SOI_BUF = b'\xFF\xD8'
+EOI_BUF = b'\xFF\xD9'
 
-    def __init__(self, data: ByteArray):
-        buffer = data.buffer
-        if not isinstance(buffer, bytearray):
-            buffer = bytearray(buffer)
-        start = data.offset
-        end = start + data.size
-        # seeking SOI
-        start = buffer.find(b'\xFF\xD8', start, end)
-        assert start >= 0, 'SOI not found'
-        # seeking EOI
-        end = buffer.rfind(b'\xFF\xD9', start, end)
-        assert start < end, 'EOI not found'
-        end += 2
-        # create with range: [start, end)
-        super().__init__(buffer=buffer, offset=start, size=(end-start))
-        self._pos = -1
-        self._bounds = -1
-        self._info = {}
 
-    def _prepare(self):
-        self._pos = self.offset + 2
-        self._bounds = self.offset + self.size - 2
-        self._info.clear()
+def seek_start(data: ByteArray) -> int:
+    """ seek SOI """
+    if data.slice(start=0, end=2) == SOI_BUF:
+        return 0
+    else:
+        return -1
 
-    def get_info(self, key: str):
-        return self._info.get(key)
 
-    def _set_info(self, key: str, value):
-        self._info[key] = value
+def seek_end(data: ByteArray) -> int:
+    """ seek EOI """
+    buffer = data.buffer
+    start = data.offset
+    end = data.offset + data.size
+    pos = buffer.rfind(EOI_BUF, start, end)
+    if pos > start:
+        return pos - start
+    else:
+        # FIXME: no 'EOI' segment?
+        return data.size
 
-    @property
-    def width(self) -> int:
-        x = self.get_info(key='width')
-        if x is None:
-            x = 0
-        return x
 
-    @property
-    def height(self) -> int:
-        y = self.get_info(key='height')
-        if y is None:
-            y = 0
-        return y
+class JPEGScanner(BaseScanner[Segment]):
+    """ Image scanner for JPEG """
 
-    def _next_segment(self) -> (int, bytes, int, int):
-        """ Seek for next segment """
-        buffer = self.buffer
-        pos = self._pos
+    @classmethod
+    def check(cls, data: ByteArray) -> bool:
+        return seek_start(data=data) == 0
+
+    # Override
+    def _prepare(self, data: ByteArray) -> bool:
+        if not super()._prepare(data=data):
+            return False
+        # seeking start & end chunks
+        offset = seek_start(data=data)
+        if offset < 0:
+            return False  # not a PNG file
+        else:
+            offset += 2  # skip SOI
+        bounds = seek_end(data=data)
+        if bounds > offset:
+            self._data = data
+            self._offset = offset
+            self._bounds = bounds
+            return True
+
+    # Override
+    def _create_image(self) -> Image:
+        """ create JPEG image """
+        width = self._info.get('width')
+        height = self._info.get('height')
+        return JPEG(data=self._data, width=width, height=height)
+
+    # Override
+    def _next(self) -> Optional[Segment]:
+        """ next segment """
+        data = self._data
+        offset = self._offset
         bounds = self._bounds
-        assert 0 < pos < bounds, 'out of range: %d, %d' % (pos, bounds)
-        if buffer[pos] != 0xFF:
+        assert offset < bounds, 'out of range: %d, %d' % (offset, bounds)
+        if data.get_byte(index=offset) != 0xFF:
             # data error?
             # or after SOS
             return None
-        # skip 'FF'
-        pos += 1
-        while pos < bounds and buffer[pos] == 0xFF:
-            pos += 1
-        assert pos < bounds, 'out of range: %d, %d' % (pos, bounds)
-        # get 'mark'
-        mark = buffer[pos]
-        pos += 1  # skip 'mark'
-        # get body size
-        size = Convert.int16_from_data(data=buffer, start=pos)
-        end = pos + size
-        assert end < bounds, 'out of range: %d, %d' % (end, bounds)
-        # get 'body' within 'segment'
-        body = Data(buffer=buffer, offset=(pos+2), size=(size-2))
-        data = Data(buffer=buffer, offset=(pos-2), size=(size+2))
-        self._pos = end  # move forward
+        # skip all 'FF'
+        offset += 1
+        while offset < bounds and data.get_byte(index=offset) == 0xFF:
+            offset += 1
+        offset += 1  # skip 'mark'
+        assert offset + 2 <= bounds, 'out of range: %d, %d' % (offset, bounds)
+        # get body size within range [2, 4)
+        size = Convert.int16_from_data(data=data, start=offset)
+        end = offset + size
+        assert end <= bounds, 'out of range: %d, %d' % (end, bounds)
+        self._offset = end  # move to tail of current segment
+        # include the mark
+        offset -= 2
+        size += 2
+        return self._create_segment(offset=offset, size=size)
+
+    def _create_segment(self, offset: int, size: int) -> Segment:
+        """ create segment with data range [offset, offset+size) """
+        data = self._data
+        data = data.slice(start=offset, end=(offset+size))
+        # assert isinstance(data, ByteArray), 'data error: %s' % data
+        mark = data.get_byte(index=1)
+        body = data.slice(start=4)
         return Segment(data=data, mark=mark, body=body)
 
-    def analyse(self):
-        self._prepare()
-        while True:
-            segment = self._next_segment()
-            if segment is None:
-                self.debug('stopped')
-                break
-            try:
-                self._analyse(segment=segment)
-            except Exception as error:
-                self.error('failed to analyse %s: %s' % (segment, error))
-
+    # Override
     def _analyse(self, segment: Segment) -> bool:
         mark = segment.mark
         if mark == MarkCode.APP0:
@@ -211,14 +219,13 @@ class JPEG(MutableData, Logging):
         elif mark == MarkCode.SOS:
             self._analyse_sos(segment=segment)
         else:
-            self.debug('Other: %s' % segment)
+            # let sub class to analyse other segment
             return False
         # analysed
         return True
 
     def _analyse_app_0(self, segment: Segment):
         """ Application 0 """
-        self.debug('APP0: %s' % segment)
         body = segment.body
         assert body.size >= 14, 'APP0 error: %s' % segment
         magic_code = body.slice(start=0, end=5)
@@ -227,38 +234,37 @@ class JPEG(MutableData, Logging):
         assert 0 <= unit <= 2, 'unit error: %d' % unit
         x = Convert.int16_from_data(data=body, start=8)
         y = Convert.int16_from_data(data=body, start=10)
-        self._set_info(key='dpi.x', value=x)
-        self._set_info(key='dpi.y', value=y)
-        self.debug('----> DPI: %d x %d, unit: %d' % (x, y, unit))
+        self._info['dpi.x'] = x
+        self._info['dpi.y'] = y
 
     def _analyse_app_n(self, segment: Segment):
         """ Application 1~15 """
-        self.debug('APPn: %s' % segment)
+        pass
 
     def _analyse_sof_0(self, segment: Segment):
         """ Start Of Frame: C0 """
-        self.debug('SOF0: %s' % segment)
+        pass
         body = segment.body
         assert body.size >= 15, 'SOF0 error: %s' % segment
-        depth = body.get_byte(index=0)
+        d = body.get_byte(index=0)
         h = Convert.int16_from_data(data=body, start=1)
         w = Convert.int16_from_data(data=body, start=3)
-        self._set_info(key='height', value=h)
-        self._set_info(key='width', value=w)
-        self.debug('----> size: %d x %d, depth: %d' % (w, h, depth))
+        self._info['width'] = w
+        self._info['height'] = h
+        self._info['depth'] = d
 
     def _analyse_dht(self, segment: Segment):
         """ Define Huffman Table: C4 """
-        self.debug('DHT : %s' % segment)
+        pass
 
     def _analyse_dqt(self, segment: Segment):
         """ Define Quantization Table: DB """
-        self.debug('DQT : %s' % segment)
+        pass
 
     def _analyse_dri(self, segment: Segment):
         """ Define Restart Interval: DD """
-        self.debug('DRI : %s' % segment)
+        pass
 
     def _analyse_sos(self, segment: Segment):
         """ Start Of Scan: DA """
-        self.debug('SOS : %s' % segment)
+        pass
