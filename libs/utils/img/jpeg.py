@@ -62,14 +62,22 @@ class MarkCode(IntEnum):
     EXP = 0xDF   # Expand reference image(s)
 
     APP0 = 0xE0  # Application 0
-    # APPn E0-EF # Reserved for application use
+    # APPn E1-EF # Reserved for application use
 
     # JPGn F0-FD # Reserved for JPEG extension
     COM = 0xFE   # Comment
 
 
 class Segment(Data):
-    """ MarkCode + Length + Body """
+    """
+        JPEG Segment
+        ~~~~~~~~~~~~
+
+        format: MarkCode + Length + Body
+                len(MarkCode) == 2
+                len(Length) == 2
+                Length = len(Body) + 2
+    """
 
     def __init__(self, data: ByteArray, mark: int, body: ByteArray):
         super().__init__(buffer=data.buffer, offset=data.offset, size=data.size)
@@ -99,12 +107,26 @@ class Segment(Data):
         return self.__body
 
     @classmethod
-    def new(cls, mark: int, body: ByteArray):
+    def new(cls, mark: int, body: ByteArray):  # -> Segment
         mark_code = 0xFF00 + (mark & 0x00FF)
         mark_code = Convert.uint16data_from_value(value=mark_code)
         length = Convert.uint16data_from_value(value=(2 + body.size))
         # MarkCode + Length + Body
         data = mark_code.concat(other=length).concat(other=body)
+        return cls(data=data, mark=mark, body=body)
+
+    @classmethod
+    def parse(cls, data: ByteArray, start: int = 0):  # -> Segment:
+        assert (start + 4) <= data.size, 'out of range: %d, %d' % (start, data.size)
+        # get Length in range [start + 2, start + 4)
+        length = Convert.int16_from_data(data=data, start=(start + 2))
+        end = start + 2 + length
+        assert end <= data.size, 'out of range: %d, %d' % (end, data.size)
+        if 0 < start or end < data.size:
+            data = data.slice(start=start, end=end)
+        # MarkCode + Length + Body
+        mark = data.get_byte(index=1)
+        body = data.slice(start=4)
         return cls(data=data, mark=mark, body=body)
 
 
@@ -147,6 +169,7 @@ class JPEGScanner(BaseScanner[Segment]):
 
     @classmethod
     def check(cls, data: ByteArray) -> bool:
+        """ check whether JPEG data """
         return seek_start(data=data) == 0
 
     # Override
@@ -167,44 +190,39 @@ class JPEGScanner(BaseScanner[Segment]):
             self._bounds = bounds
             return True
 
-    # Override
-    def _next(self) -> Optional[Segment]:
-        """ next segment """
+    def _skip_redundant_ffs(self):
         data = self._data
         offset = self._offset
         bounds = self._bounds
-        assert offset < bounds, 'out of range: %d, %d' % (offset, bounds)
-        if data.get_byte(index=offset) != 0xFF:
-            # data error?
-            # or after SOS
-            return None
-        # skip all 'FF'
-        offset += 1
         while offset < bounds and data.get_byte(index=offset) == 0xFF:
             offset += 1
-        offset += 1  # skip 'mark'
-        assert offset + 2 <= bounds, 'out of range: %d, %d' % (offset, bounds)
-        # get body size within range [2, 4)
-        size = Convert.int16_from_data(data=data, start=offset)
-        end = offset + size
-        assert end <= bounds, 'out of range: %d, %d' % (end, bounds)
-        self._offset = end  # move to tail of current segment
-        # include the mark
-        offset -= 2
-        size += 2
-        return self._create_segment(offset=offset, size=size)
+        if offset > self._offset:
+            if offset < bounds:
+                self._offset = offset - 1  # back to last 'FF'
+            else:
+                self._offset = offset  # data error?
 
-    def _create_segment(self, offset: int, size: int) -> Segment:
+    # Override
+    def _next(self) -> Optional[Segment]:
+        """ next segment """
+        self._skip_redundant_ffs()
+        if self._offset < self._bounds:
+            segment = self._create_segment(data=self._data, start=self._offset)
+            if segment is not None:
+                self._offset += segment.size
+                return segment
+
+    # noinspection PyMethodMayBeStatic
+    def _create_segment(self, data: ByteArray, start: int) -> Optional[Segment]:
         """ create segment with data range [offset, offset+size) """
-        data = self._data
-        data = data.slice(start=offset, end=(offset+size))
-        # assert isinstance(data, ByteArray), 'data error: %s' % data
-        mark = data.get_byte(index=1)
-        body = data.slice(start=4)
-        return Segment(data=data, mark=mark, body=body)
+        if data.get_byte(index=start) == 0xFF:
+            return Segment.parse(data=data, start=start)
+        # data error?
+        # or after SOS
 
     # Override
     def _analyse(self, segment: Segment) -> bool:
+        """ analyse each segment """
         mark = segment.mark
         if mark == MarkCode.APP0:
             self._analyse_app_0(segment=segment)
@@ -227,7 +245,7 @@ class JPEGScanner(BaseScanner[Segment]):
         return True
 
     def _analyse_app_0(self, segment: Segment):
-        """ Application 0 """
+        """ Application 0: E0 """
         body = segment.body
         assert body.size >= 14, 'APP0 error: %s' % segment
         magic_code = body.slice(start=0, end=5)
@@ -240,7 +258,7 @@ class JPEGScanner(BaseScanner[Segment]):
         self._info['dpi.y'] = y
 
     def _analyse_app_n(self, segment: Segment):
-        """ Application 1~15 """
+        """ Application 1~15: E1~EF """
         pass
 
     def _analyse_sof_0(self, segment: Segment):

@@ -96,7 +96,16 @@ class TypeCode:
 
 
 class Chunk(Data):
-    """ BodyLength + TypeCode + Body + CRC """
+    """
+        PNG Chunk
+        ~~~~~~~~~
+
+        format: BodyLength + TypeCode + Body + CRC
+                len(BodyLength) == 4
+                len(TypeCode) == 4
+                BodyLength == len(Body)
+                len(CRC) == 4
+    """
 
     def __init__(self, data: ByteArray, code: str, body: ByteArray, crc: ByteArray):
         super().__init__(buffer=data.buffer, offset=data.offset, size=data.size)
@@ -132,7 +141,7 @@ class Chunk(Data):
         return self.__crc
 
     @classmethod
-    def new(cls, code: str, body: ByteArray):
+    def new(cls, code: str, body: ByteArray):  # -> Chunk
         length = Convert.uint32data_from_value(value=body.size)
         type_code = Data(buffer=utf8_encode(string=code))
         # crc(code + body)
@@ -141,6 +150,22 @@ class Chunk(Data):
         crc = Convert.uint32data_from_value(value=crc)
         # BodyLength + TypeCode + Body + CRC
         data = length.concat(other=block).concat(other=crc)
+        return cls(data=data, code=code, body=body, crc=crc)
+
+    @classmethod
+    def parse(cls, data: ByteArray, start: int = 0):  # -> Chunk:
+        assert (start + 12) <= data.size, 'out of range: %d, %d' % (start, data.size)
+        # get Length in range [start, start + 4)
+        length = Convert.int32_from_data(data=data, start=start)
+        end = start + 4 + 4 + length + 4
+        assert end <= data.size, 'out of range: %d, %d' % (end, data.size)
+        if 0 < start or end < data.size:
+            data = data.slice(start=start, end=end)
+        # BodyLength + TypeCode + Body + CRC
+        code = data.get_bytes(start=4, end=8)
+        code = utf8_decode(data=code)
+        body = data.slice(start=8, end=-4)
+        crc = data.slice(start=-4)
         return cls(data=data, code=code, body=body, crc=crc)
 
 
@@ -183,6 +208,7 @@ class PNGScanner(BaseScanner[Chunk]):
 
     @classmethod
     def check(cls, data: ByteArray) -> bool:
+        """ check whether PNG data """
         return seek_start(data=data) == 8
 
     # Override
@@ -204,33 +230,15 @@ class PNGScanner(BaseScanner[Chunk]):
     # Override
     def _next(self) -> Optional[Chunk]:
         """ next chunk """
-        data = self._data
-        offset = self._offset
-        bounds = self._bounds
-        if offset == bounds:
-            # reach the end
-            return None
-        assert offset + 12 <= bounds, 'out of range: %d, %d' % (offset, bounds)
-        # get body length within range [0, 4)
-        body_len = Convert.int32_from_data(data=data, start=offset)
-        # BodyLength + TypeCode + Body + CRC
-        size = 4 + 4 + body_len + 4
-        end = offset + size
-        assert end <= bounds, 'out of range: %d, %d, %d' % (size, end, bounds)
-        self._offset = end  # move to tail of current chunk
-        return self._create_chunk(offset=offset, size=size)
+        if self._offset < self._bounds:
+            chunk = self._create_chunk(data=self._data, start=self._offset)
+            self._offset += chunk.size
+            return chunk
 
-    def _create_chunk(self, offset: int, size: int):
-        """ create chunk with data range [offset, offset+size) """
-        data = self._data
-        data = data.slice(start=offset, end=(offset+size))
-        # assert isinstance(data, ByteArray), 'data error: %s' % data
-        code = data.slice(start=4, end=8)
-        # assert isinstance(code, ByteArray), 'data error: %s' % data
-        code = utf8_decode(data=code.get_bytes())
-        body = data.slice(start=8, end=-4)
-        crc = data.slice(start=-4)  # last 4 bytes
-        return Chunk(data=data, code=code, body=body, crc=crc)
+    # noinspection PyMethodMayBeStatic
+    def _create_chunk(self, data: ByteArray, start: int) -> Chunk:
+        """ create chunk with data from offset """
+        return Chunk.parse(data=data, start=start)
 
     # Override
     def _analyse(self, chunk: Chunk) -> bool:
