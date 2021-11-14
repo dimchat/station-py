@@ -34,7 +34,7 @@ from typing import Optional
 from dimp import utf8_encode, utf8_decode
 from udp.ba import ByteArray, Data, Convert
 
-from .api import Image, BaseImage, BaseScanner
+from .api import Type, BaseImage, BaseScanner
 
 
 class TypeCode:
@@ -149,9 +149,8 @@ class PNG(BaseImage):
         ~~~~~~~~~
     """
 
-    @property  # Override
-    def type(self) -> str:
-        return Image.PNG
+    def __init__(self, data: ByteArray, width: int, height: int):
+        super().__init__(data=data, width=width, height=height, image_type=Type.PNG)
 
 
 MAGIC_CODE = b'\x89PNG\x0D\x0A\x1A\x0A'
@@ -172,7 +171,6 @@ def seek_end(data: ByteArray) -> int:
     start = data.offset
     end = data.offset + data.size
     pos = buffer.rfind(IEND_BUF, start, end)
-    print('[PNG] end: %d, size: %d, %d' % (pos, data.size, len(buffer)))
     if pos > start:
         return pos - start
     else:
@@ -195,6 +193,8 @@ class PNGScanner(BaseScanner[Chunk]):
         offset = seek_start(data=data)
         if offset < 0:
             return False  # not a PNG file
+        else:
+            self._info['type'] = Type.PNG
         bounds = seek_end(data=data)
         if bounds > offset:
             self._offset = offset
@@ -202,21 +202,15 @@ class PNGScanner(BaseScanner[Chunk]):
             return True
 
     # Override
-    def _create_image(self) -> Image:
-        """ create PNG image """
-        width = self._info.get('width')
-        height = self._info.get('height')
-        return PNG(data=self._data, width=width, height=height)
-
-    # Override
     def _next(self) -> Optional[Chunk]:
         """ next chunk """
         data = self._data
         offset = self._offset
         bounds = self._bounds
-        if offset >= bounds:
+        if offset == bounds:
             # reach the end
             return None
+        assert offset + 12 <= bounds, 'out of range: %d, %d' % (offset, bounds)
         # get body length within range [0, 4)
         body_len = Convert.int32_from_data(data=data, start=offset)
         # BodyLength + TypeCode + Body + CRC
@@ -235,7 +229,7 @@ class PNGScanner(BaseScanner[Chunk]):
         # assert isinstance(code, ByteArray), 'data error: %s' % data
         code = utf8_decode(data=code.get_bytes())
         body = data.slice(start=8, end=-4)
-        crc = data.slice(start=-4)
+        crc = data.slice(start=-4)  # last 4 bytes
         return Chunk(data=data, code=code, body=body, crc=crc)
 
     # Override

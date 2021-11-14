@@ -29,7 +29,7 @@
 
 """
 
-from .api import Image, ImageScanner
+from .api import Image, Type as ImageType, Scanner as ImageScanner
 
 from .png import PNG, PNGScanner
 from .png import Chunk as PNGChunk, TypeCode as PNGTypeCode
@@ -38,7 +38,7 @@ from .jpeg import Segment as JPEGSegment, MarkCode as JPEGMarkCode
 
 __all__ = [
 
-    'Image', 'ImageScanner',
+    'Image', 'ImageType', 'ImageScanner',
 
     'PNG', 'PNGScanner',
     'PNGChunk', 'PNGTypeCode',

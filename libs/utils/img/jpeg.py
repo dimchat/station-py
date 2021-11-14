@@ -33,7 +33,7 @@ from typing import Optional
 
 from udp.ba import ByteArray, Data, Convert
 
-from .api import Image, BaseImage, BaseScanner
+from .api import Type, BaseImage, BaseScanner
 
 
 class MarkCode(IntEnum):
@@ -69,7 +69,7 @@ class MarkCode(IntEnum):
 
 
 class Segment(Data):
-    """ Mark + Length + Body """
+    """ MarkCode + Length + Body """
 
     def __init__(self, data: ByteArray, mark: int, body: ByteArray):
         super().__init__(buffer=data.buffer, offset=data.offset, size=data.size)
@@ -98,15 +98,23 @@ class Segment(Data):
         """ Segment Data """
         return self.__body
 
+    @classmethod
+    def new(cls, mark: int, body: ByteArray):
+        mark_code = 0xFF00 + (mark & 0x00FF)
+        mark_code = Convert.uint16data_from_value(value=mark_code)
+        length = Convert.uint16data_from_value(value=(2 + body.size))
+        # MarkCode + Length + Body
+        data = mark_code.concat(other=length).concat(other=body)
+        return cls(data=data, mark=mark, body=body)
+
 
 class JPEG(BaseImage):
     """ JPEG Image
         ~~~~~~~~~~
     """
 
-    @property  # Override
-    def type(self) -> str:
-        return Image.JPEG
+    def __init__(self, data: ByteArray, width: int, height: int):
+        super().__init__(data=data, width=width, height=height, image_type=Type.JPEG)
 
 
 SOI_BUF = b'\xFF\xD8'
@@ -148,8 +156,9 @@ class JPEGScanner(BaseScanner[Segment]):
         # seeking start & end chunks
         offset = seek_start(data=data)
         if offset < 0:
-            return False  # not a PNG file
+            return False  # not a JPEG file
         else:
+            self._info['type'] = Type.JPEG
             offset += 2  # skip SOI
         bounds = seek_end(data=data)
         if bounds > offset:
@@ -157,13 +166,6 @@ class JPEGScanner(BaseScanner[Segment]):
             self._offset = offset
             self._bounds = bounds
             return True
-
-    # Override
-    def _create_image(self) -> Image:
-        """ create JPEG image """
-        width = self._info.get('width')
-        height = self._info.get('height')
-        return JPEG(data=self._data, width=width, height=height)
 
     # Override
     def _next(self) -> Optional[Segment]:
