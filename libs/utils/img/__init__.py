@@ -35,6 +35,7 @@ from .png import PNG, PNGScanner
 from .png import Chunk as PNGChunk, TypeCode as PNGTypeCode
 from .jpeg import JPEG, JPEGScanner
 from .jpeg import Segment as JPEGSegment, MarkCode as JPEGMarkCode
+from .jpeg import ImageSegment as JPEGImageSegment
 
 __all__ = [
 
@@ -45,4 +46,5 @@ __all__ = [
 
     'JPEG', 'JPEGScanner',
     'JPEGSegment', 'JPEGMarkCode',
+    'JPEGImageSegment',
 ]

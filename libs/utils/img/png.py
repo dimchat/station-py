@@ -243,7 +243,7 @@ class PNGScanner(BaseScanner[Chunk]):
 
     # noinspection PyMethodMayBeStatic
     def _create_chunk(self, data: ByteArray, start: int) -> Chunk:
-        """ create chunk with data from offset """
+        """ create chunk with data from start position """
         return Chunk.parse(data=data, start=start)
 
     # Override

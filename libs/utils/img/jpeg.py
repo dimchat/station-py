@@ -212,34 +212,6 @@ class JPEGScanner(BaseScanner[Segment]):
             self._bounds = bounds
             return True
 
-    def __skip_redundant_ffs(self, offset: int) -> int:
-        """ skip 'FF..FF' for next segment """
-        data = self._data
-        bounds = self._bounds
-        pos = offset + 1
-        while pos < bounds and data.get_byte(index=pos) == 0xFF:
-            pos += 1
-        assert pos < bounds, 'out of range: %d, %d' % (pos, bounds)
-        return pos - 1  # back to last 'FF'
-
-    def __seek_eoi(self, offset: int) -> int:
-        """ seek for EOI segment """
-        data = self._data
-        bounds = self._bounds
-        pos = offset
-        end = bounds - 1
-        while pos < end:
-            c1 = data.get_byte(index=pos)
-            c2 = data.get_byte(index=(pos+1))
-            if c1 == 0xFF:
-                if c2 == 0xD9:
-                    return pos  # EOI
-            if c2 == 0xFF:
-                pos += 1
-            else:
-                pos += 2
-        return bounds
-
     # Override
     def _next(self) -> Optional[Segment]:
         """ next segment """
@@ -250,27 +222,53 @@ class JPEGScanner(BaseScanner[Segment]):
             # finished
             return None
         assert offset < bounds, 'out of range: %d, %d' % (offset, bounds)
-        if data.get_byte(index=offset) == 0xFF:
+        chunk = self.__create_chunk(data=data, start=offset)
+        self._offset += chunk.size
+        return chunk
+
+    def __create_chunk(self, data: ByteArray, start: int) -> Segment:
+        if data.get_byte(index=start) == 0xFF:
             # normal segment
-            offset = self.__skip_redundant_ffs(offset=offset)
-            segment = self._create_segment(data=data, start=offset)
+            start = self.__skip_ffs(start=start)
+            self._offset = start
+            return self._create_segment(data=data, start=start)
         else:
             # data segment
-            end = self.__seek_eoi(offset=offset)
-            segment = self._create_image_data_segment(data=data, start=offset, end=end)
-        # skip to next
-        self._offset += segment.size
-        return segment
+            end = self.__seek_eoi(start=start)
+            data = data.slice(start=start, end=end)
+            return self._create_image_data_segment(data=data)
 
-    # noinspection PyMethodMayBeStatic
-    def _create_image_data_segment(self, data: ByteArray, start: int, end: int):
-        data = data.slice(start=start, end=end)
-        return ImageSegment(data=data)
+    def __skip_ffs(self, start: int) -> int:
+        """ skip 'FF..FF' for next segment """
+        data = self._data
+        bounds = self._bounds
+        pos = start + 1
+        while pos < bounds and data.get_byte(index=pos) == 0xFF:
+            pos += 1
+        assert pos < bounds, 'out of range: %d, %d' % (pos, bounds)
+        return pos - 1  # back to last 'FF'
+
+    def __seek_eoi(self, start: int) -> int:
+        """ seek for EOI segment """
+        data = self._data
+        bounds = self._bounds
+        assert start + 2 <= bounds, 'out of range: %d, %d' % (start, bounds)
+        c1 = data.get_byte(index=(bounds - 2))
+        c2 = data.get_byte(index=(bounds - 1))
+        if c1 == 0xFF and c2 == 0xD9:
+            return bounds - 2  # EOI
+        else:
+            return bounds  # EOI lost?
 
     # noinspection PyMethodMayBeStatic
     def _create_segment(self, data: ByteArray, start: int) -> Segment:
-        """ create segment with data range [offset, offset+size) """
+        """ create segment with data from start position """
         return Segment.parse(data=data, start=start)
+
+    # noinspection PyMethodMayBeStatic
+    def _create_image_data_segment(self, data: ByteArray):
+        """ create image data segment within range [start, end) """
+        return ImageSegment(data=data)
 
     # Override
     def _analyse(self, segment: Segment) -> bool:
@@ -290,6 +288,12 @@ class JPEGScanner(BaseScanner[Segment]):
             self._analyse_dri(segment=segment)
         elif mark == MarkCode.SOS:
             self._analyse_sos(segment=segment)
+        elif mark == MarkCode.SOI:
+            self._analyse_soi(segment=segment)
+        elif mark == MarkCode.EOI:
+            self._analyse_eoi(segment=segment)
+        elif isinstance(segment, ImageSegment):
+            self._analyse_image_data(segment=segment)
         else:
             # let sub class to analyse other segment
             return False
@@ -339,4 +343,16 @@ class JPEGScanner(BaseScanner[Segment]):
 
     def _analyse_sos(self, segment: Segment):
         """ Start Of Scan: DA """
+        pass
+
+    def _analyse_soi(self, segment: Segment):
+        """ Start Of Image: D8 """
+        pass
+
+    def _analyse_eoi(self, segment: Segment):
+        """ End Of Image: D9 """
+        pass
+
+    def _analyse_image_data(self, segment: ImageSegment):
+        """ Image Data """
         pass
