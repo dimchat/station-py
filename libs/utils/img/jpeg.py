@@ -117,17 +117,40 @@ class Segment(Data):
 
     @classmethod
     def parse(cls, data: ByteArray, start: int = 0):  # -> Segment:
-        assert (start + 4) <= data.size, 'out of range: %d, %d' % (start, data.size)
-        # get Length in range [start + 2, start + 4)
-        length = Convert.int16_from_data(data=data, start=(start + 2))
-        end = start + 2 + length
-        assert end <= data.size, 'out of range: %d, %d' % (end, data.size)
+        assert (start + 2) <= data.size, 'out of range: %d, %d' % (start, data.size)
+        mark = data.get_byte(index=(start + 1))
+        if mark in [0xD8, 0xD9]:
+            end = start + 2
+        else:
+            assert (start + 4) <= data.size, 'out of range: %d, %d' % (start, data.size)
+            # get Length in range [start + 2, start + 4)
+            length = Convert.int16_from_data(data=data, start=(start + 2))
+            end = start + 2 + length
+            assert end <= data.size, 'out of range: %d, %d' % (end, data.size)
         if 0 < start or end < data.size:
             data = data.slice(start=start, end=end)
         # MarkCode + Length + Body
-        mark = data.get_byte(index=1)
         body = data.slice(start=4)
         return cls(data=data, mark=mark, body=body)
+
+
+class ImageSegment(Segment):
+    """ image data between SOS and EOI """
+
+    def __init__(self, data: ByteArray):
+        super().__init__(data=data, mark=0, body=data)
+
+    def __str__(self):
+        clazz = self.__class__.__name__
+        start = self.offset
+        end = self.offset + self.size
+        return '<%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.offset, self.size, start, end)
+
+    def __repr__(self):
+        clazz = self.__class__.__name__
+        start = self.offset
+        end = self.offset + self.size
+        return '<%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.offset, self.size, start, end)
 
 
 class JPEG(BaseImage):
@@ -158,7 +181,7 @@ def seek_end(data: ByteArray) -> int:
     end = data.offset + data.size
     pos = buffer.rfind(EOI_BUF, start, end)
     if pos > start:
-        return pos - start
+        return pos - start + len(EOI_BUF)
     else:
         # FIXME: no 'EOI' segment?
         return data.size
@@ -170,7 +193,7 @@ class JPEGScanner(BaseScanner[Segment]):
     @classmethod
     def check(cls, data: ByteArray) -> bool:
         """ check whether JPEG data """
-        return seek_start(data=data) == 0
+        return seek_start(data=data) != -1
 
     # Override
     def _prepare(self, data: ByteArray) -> bool:
@@ -182,7 +205,6 @@ class JPEGScanner(BaseScanner[Segment]):
             return False  # not a JPEG file
         else:
             self._info['type'] = Type.JPEG
-            offset += 2  # skip SOI
         bounds = seek_end(data=data)
         if bounds > offset:
             self._data = data
@@ -190,35 +212,65 @@ class JPEGScanner(BaseScanner[Segment]):
             self._bounds = bounds
             return True
 
-    def _skip_redundant_ffs(self):
+    def __skip_redundant_ffs(self, offset: int) -> int:
+        """ skip 'FF..FF' for next segment """
         data = self._data
-        offset = self._offset
         bounds = self._bounds
-        while offset < bounds and data.get_byte(index=offset) == 0xFF:
-            offset += 1
-        if offset > self._offset:
-            if offset < bounds:
-                self._offset = offset - 1  # back to last 'FF'
+        pos = offset + 1
+        while pos < bounds and data.get_byte(index=pos) == 0xFF:
+            pos += 1
+        assert pos < bounds, 'out of range: %d, %d' % (pos, bounds)
+        return pos - 1  # back to last 'FF'
+
+    def __seek_eoi(self, offset: int) -> int:
+        """ seek for EOI segment """
+        data = self._data
+        bounds = self._bounds
+        pos = offset
+        end = bounds - 1
+        while pos < end:
+            c1 = data.get_byte(index=pos)
+            c2 = data.get_byte(index=(pos+1))
+            if c1 == 0xFF:
+                if c2 == 0xD9:
+                    return pos  # EOI
+            if c2 == 0xFF:
+                pos += 1
             else:
-                self._offset = offset  # data error?
+                pos += 2
+        return bounds
 
     # Override
     def _next(self) -> Optional[Segment]:
         """ next segment """
-        self._skip_redundant_ffs()
-        if self._offset < self._bounds:
-            segment = self._create_segment(data=self._data, start=self._offset)
-            if segment is not None:
-                self._offset += segment.size
-                return segment
+        data = self._data
+        offset = self._offset
+        bounds = self._bounds
+        if offset == bounds:
+            # finished
+            return None
+        assert offset < bounds, 'out of range: %d, %d' % (offset, bounds)
+        if data.get_byte(index=offset) == 0xFF:
+            # normal segment
+            offset = self.__skip_redundant_ffs(offset=offset)
+            segment = self._create_segment(data=data, start=offset)
+        else:
+            # data segment
+            end = self.__seek_eoi(offset=offset)
+            segment = self._create_image_data_segment(data=data, start=offset, end=end)
+        # skip to next
+        self._offset += segment.size
+        return segment
 
     # noinspection PyMethodMayBeStatic
-    def _create_segment(self, data: ByteArray, start: int) -> Optional[Segment]:
+    def _create_image_data_segment(self, data: ByteArray, start: int, end: int):
+        data = data.slice(start=start, end=end)
+        return ImageSegment(data=data)
+
+    # noinspection PyMethodMayBeStatic
+    def _create_segment(self, data: ByteArray, start: int) -> Segment:
         """ create segment with data range [offset, offset+size) """
-        if data.get_byte(index=start) == 0xFF:
-            return Segment.parse(data=data, start=start)
-        # data error?
-        # or after SOS
+        return Segment.parse(data=data, start=start)
 
     # Override
     def _analyse(self, segment: Segment) -> bool:

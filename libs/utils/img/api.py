@@ -143,6 +143,8 @@ class BaseScanner(Scanner, Generic[C], ABC):
     @property
     def image(self) -> Image:
         """ create image after scanned """
+        data = self._data
+        assert data.size > 0, 'image data empty'
         image_type = self._info.get('type')
         if image_type is None:
             raise TypeError('unknown image type')
@@ -152,4 +154,4 @@ class BaseScanner(Scanner, Generic[C], ABC):
         height = self._info.get('height')
         if height is None:
             height = 0
-        return BaseImage(data=self._data, width=width, height=height, image_type=image_type)
+        return BaseImage(data=data, width=width, height=height, image_type=image_type)

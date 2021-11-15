@@ -185,7 +185,7 @@ IEND_BUF = b'\x00\x00\x00\x00IEND\xAE\x42\x60\x82'
 def seek_start(data: ByteArray) -> int:
     """ seek start chunk """
     if data.slice(start=0, end=8) == MAGIC_CODE:
-        return 8
+        return 8  # skip PNG file signature to IHDR
     else:
         return -1
 
@@ -197,7 +197,7 @@ def seek_end(data: ByteArray) -> int:
     end = data.offset + data.size
     pos = buffer.rfind(IEND_BUF, start, end)
     if pos > start:
-        return pos - start
+        return pos - start + len(IEND_BUF)
     else:
         # FIXME: no 'IEND' chunk?
         return data.size
@@ -209,7 +209,7 @@ class PNGScanner(BaseScanner[Chunk]):
     @classmethod
     def check(cls, data: ByteArray) -> bool:
         """ check whether PNG data """
-        return seek_start(data=data) == 8
+        return seek_start(data=data) != -1
 
     # Override
     def _prepare(self, data: ByteArray) -> bool:
@@ -230,10 +230,16 @@ class PNGScanner(BaseScanner[Chunk]):
     # Override
     def _next(self) -> Optional[Chunk]:
         """ next chunk """
-        if self._offset < self._bounds:
-            chunk = self._create_chunk(data=self._data, start=self._offset)
-            self._offset += chunk.size
-            return chunk
+        data = self._data
+        offset = self._offset
+        bounds = self._bounds
+        if offset == bounds:
+            # finished
+            return None
+        assert offset < bounds, 'out of range: %d, %d' % (offset, bounds)
+        chunk = self._create_chunk(data=data, start=offset)
+        self._offset += chunk.size
+        return chunk
 
     # noinspection PyMethodMayBeStatic
     def _create_chunk(self, data: ByteArray, start: int) -> Chunk:
