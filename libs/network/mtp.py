@@ -38,6 +38,8 @@ from startrek import Hub, StarGate
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
 from udp import PackageArrival, PackageDeparture, PackageDocker
+from udp import ClientHub as UDPClientHub
+from tcp import ClientHub as TCPClientHub
 
 from .seeker import MTPPackageSeeker
 
@@ -172,9 +174,13 @@ class MTPStreamDocker(PackageDocker):
 
     # Override
     def heartbeat(self):
-        pkg = MTPHelper.create_command(body=PING)
-        outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
-        self.append_departure(ship=outgo)
+        hub = self.hub
+        # assert hub is not None, 'hub not set'
+        if isinstance(hub, TCPClientHub) or isinstance(hub, UDPClientHub):
+            # heartbeat by client
+            pkg = MTPHelper.create_command(body=PING)
+            outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
+            self.send_ship(ship=outgo)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

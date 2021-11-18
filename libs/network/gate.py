@@ -30,11 +30,11 @@
 
 import time
 from abc import ABC
-from typing import Generic, TypeVar, Optional, List
+from typing import Generic, TypeVar, Optional, List, Set
 
 from startrek.fsm import Runnable
 from startrek import Connection, ConnectionState, BaseConnection
-from startrek import Hub, GateDelegate, StarGate
+from startrek import Hub, GateDelegate, StarGate, StarDocker
 from startrek import Docker, Arrival
 
 from .mtp import MTPStreamDocker, MTPHelper
@@ -86,7 +86,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     def process(self) -> bool:
         hub = self.hub
         # from tcp import Hub
-        # assert isinstance(hub, Hub)
+        # assert isinstance(hub, Hub), 'hub error: %s' % hub
         incoming = hub.process()
         outgoing = super().process()
         return incoming or outgoing
@@ -95,7 +95,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
         hub = self.hub
         # from tcp import Hub
-        # assert isinstance(hub, Hub)
+        # assert isinstance(hub, Hub), 'hub error: %s' % hub
         return hub.connect(remote=remote, local=local)
 
     # Override
@@ -211,6 +211,25 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
 
 
 class TCPServerGate(CommonGate, Generic[H]):
+
+    # Override
+    def _cleanup_dockers(self, dockers: Set[Docker]):
+        retired_dockers = set()
+        # 1. check docker which connection lost
+        for worker in dockers:
+            assert isinstance(worker, StarDocker), 'unknown docker: %s' % worker
+            conn = worker.connection
+            if conn is None or not conn.alive:
+                retired_dockers.add(worker)
+        # 2. remove docker which connection lost
+        for worker in retired_dockers:
+            remote = worker.remote_address
+            local = worker.local_address
+            self.error(msg='connection lost, remove docker: %s' % worker)
+            self._remove_docker(remote=remote, local=local, docker=worker)
+            dockers.discard(worker)
+        # 3. purge other dockers
+        super()._cleanup_dockers(dockers=dockers)
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
