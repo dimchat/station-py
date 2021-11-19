@@ -60,29 +60,29 @@ class ServerHub(TCPServerHub, Logging):
     # Override
     def _cleanup_channels(self, channels: Set[Channel]):
         # super()._cleanup_channels(channels=channels)
-        dying_channels = set()
-        # 1. check dying channels
+        closed_channels = set()
+        # 1. check closed channels
         for sock in channels:
-            if not sock.alive:
-                dying_channels.add(sock)
-        # 2. remove dying channels
-        for sock in dying_channels:
+            if not sock.opened:
+                closed_channels.add(sock)
+        # 2. remove closed channels
+        for sock in closed_channels:
             self.error(msg='socket channel closed, remove it: %s' % sock)
             self.close_channel(channel=sock)
 
     # Override
     def _cleanup_connections(self, connections: Set[Connection]):
         # super()._cleanup_connections(connections=connections)
-        dying_connections = set()
-        # 1. check dying connections
+        closed_connections = set()
+        # 1. check closed connections
         for conn in connections:
-            if not conn.alive:
-                dying_connections.add(conn)
-        # 2. remove dying connections
-        for conn in dying_connections:
+            if not conn.opened:
+                closed_connections.add(conn)
+        # 2. remove closed connections
+        for conn in closed_connections:
             remote = conn.remote_address
             local = conn.local_address
-            self.error(msg='connection lost, remove it: %s' % conn)
+            self.error(msg='connection closed, remove it: %s' % conn)
             self.disconnect(remote=remote, local=local, connection=conn)
 
 

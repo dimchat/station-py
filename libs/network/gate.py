@@ -212,13 +212,13 @@ class TCPServerGate(CommonGate, Generic[H]):
         for worker in dockers:
             assert isinstance(worker, StarDocker), 'unknown docker: %s' % worker
             conn = worker.connection
-            if conn is None or not conn.alive:
+            if conn is None or not conn.opened:
                 retired_dockers.add(worker)
         # 2. remove docker which connection lost
         for worker in retired_dockers:
             remote = worker.remote_address
             local = worker.local_address
-            self.error(msg='connection lost, remove docker: %s' % worker)
+            self.error(msg='connection closed, remove docker: %s' % worker)
             self._remove_docker(remote=remote, local=local, docker=worker)
             dockers.discard(worker)
         # 3. purge other dockers
