@@ -37,20 +37,53 @@
 
 import socket
 import weakref
-from typing import Optional
+from typing import Optional, Set
 
 from startrek.fsm import Runner
-from startrek import BaseChannel
+from startrek import Channel, BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Hub, GateDelegate, ShipDelegate
 from tcp import StreamChannel
-from tcp import ServerHub as TCPServerHub, ClientHub as TCPClientHub
+from tcp import ServerHub as TCPServerHub, ClientHub
 
 from dimp import ReliableMessage
 from dimsdk import Messenger
 
+from ..utils import Logging
+
 from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue
+
+
+class ServerHub(TCPServerHub, Logging):
+
+    # Override
+    def _cleanup_channels(self, channels: Set[Channel]):
+        # super()._cleanup_channels(channels=channels)
+        dying_channels = set()
+        # 1. check dying channels
+        for sock in channels:
+            if not sock.alive:
+                dying_channels.add(sock)
+        # 2. remove dying channels
+        for sock in dying_channels:
+            self.error(msg='socket channel closed, remove it: %s' % sock)
+            self.close_channel(channel=sock)
+
+    # Override
+    def _cleanup_connections(self, connections: Set[Connection]):
+        # super()._cleanup_connections(connections=connections)
+        dying_connections = set()
+        # 1. check dying connections
+        for conn in connections:
+            if not conn.alive:
+                dying_connections.add(conn)
+        # 2. remove dying connections
+        for conn in dying_connections:
+            remote = conn.remote_address
+            local = conn.local_address
+            self.error(msg='connection lost, remove it: %s' % conn)
+            self.disconnect(remote=remote, local=local, connection=conn)
 
 
 def get_remote_address(sock: socket.socket) -> Optional[tuple]:
@@ -114,7 +147,7 @@ class GateKeeper(Runner):
     def _create_hub(self, delegate: ConnectionDelegate, address: tuple, sock: Optional[socket.socket]) -> Hub:
         if sock is None:
             assert address is not None, 'remote address empty'
-            hub = TCPClientHub(delegate=delegate)
+            hub = ClientHub(delegate=delegate)
             conn = hub.connect(remote=address)
             reset_send_buffer_size(conn=conn)
         else:
@@ -122,7 +155,7 @@ class GateKeeper(Runner):
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
-            hub = TCPServerHub(delegate=delegate)
+            hub = ServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
 

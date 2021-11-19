@@ -37,6 +37,8 @@ from startrek import Connection, ConnectionState, BaseConnection
 from startrek import Hub, GateDelegate, StarGate, StarDocker
 from startrek import Docker, Arrival
 
+from ..utils import Logging
+
 from .mtp import TransactionID, MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
 from .ws import WSDocker
@@ -45,7 +47,7 @@ from .ws import WSDocker
 H = TypeVar('H')
 
 
-class CommonGate(StarGate, Runnable, Generic[H], ABC):
+class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
     """ Gate with Hub for connections """
 
     def __init__(self, delegate: GateDelegate):
@@ -76,7 +78,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
         while self.running:
             if not self.process():
                 self._idle()
-        self.info('gate closing')
+        self.info(msg='gate closing')
 
     # noinspection PyMethodMayBeStatic
     def _idle(self):
@@ -137,13 +139,13 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
         if current == ConnectionState.ERROR:
-            self.error('remove error connection: %s' % connection)
+            self.error(msg='remove error connection: %s' % connection)
             self.__kill(connection=connection)
         # debug info
         if current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
-            self.info('connection state changed: %s -> %s, %s' % (previous, current, connection))
+            self.info(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
         elif current is None:
-            self.error('connection lost: %s, %s' % (previous, connection))
+            self.error(msg='connection lost: %s, %s' % (previous, connection))
 
     # Override
     def connection_error(self, error, data: Optional[bytes],
@@ -158,7 +160,7 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     # # Override
     # def connection_sent(self, data: bytes, source: Optional[tuple], destination: tuple, connection: Connection):
     #     super().connection_sent(data=data, source=source, destination=destination, connection=connection)
-    #     self.info('sent %d byte(s): %s -> %s' % (len(data), source, destination))
+    #     self.info(msg='sent %d byte(s): %s -> %s' % (len(data), source, destination))
 
     def get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
         worker = self._get_docker(remote=remote, local=local)
@@ -194,16 +196,6 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
             return True
         else:
             raise LookupError('docker error (%s, %s): %s' % (remote, local, worker))
-
-    @classmethod
-    def info(cls, msg: str):
-        now = time.time()
-        prefix = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
-        print('[%s] %s' % (prefix, msg))
-
-    @classmethod
-    def error(cls, msg: str):
-        print('[ERROR] ', msg)
 
 
 #
