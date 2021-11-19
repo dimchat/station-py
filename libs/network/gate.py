@@ -37,7 +37,7 @@ from startrek import Connection, ConnectionState, BaseConnection
 from startrek import Hub, GateDelegate, StarGate, StarDocker
 from startrek import Docker, Arrival
 
-from .mtp import MTPStreamDocker, MTPHelper
+from .mtp import TransactionID, MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
 from .ws import WSDocker
 
@@ -178,7 +178,8 @@ class CommonGate(StarGate, Runnable, Generic[H], ABC):
     def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
         worker = self.get_docker(remote=remote, local=local)
         if isinstance(worker, MTPStreamDocker):
-            pack = MTPHelper.create_message(body=payload, sn=ship.sn)
+            sn = TransactionID.from_data(data=ship.sn)
+            pack = MTPHelper.create_message(body=payload, sn=sn)
             worker.send_package(pack=pack)
             return True
         elif isinstance(worker, MarsStreamDocker):
