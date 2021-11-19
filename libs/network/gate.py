@@ -212,7 +212,7 @@ class TCPServerGate(CommonGate, Generic[H]):
         for worker in dockers:
             assert isinstance(worker, StarDocker), 'unknown docker: %s' % worker
             conn = worker.connection
-            if conn is None or not conn.opened:
+            if conn is None or not conn.alive:
                 retired_dockers.add(worker)
         # 2. remove docker which connection lost
         for worker in retired_dockers:
@@ -226,6 +226,10 @@ class TCPServerGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        conn = self.get_connection(remote=remote, local=local)
+        if conn is None or not conn.alive:
+            self.error(msg='connection lost, could not create docker: %s -> %s' % (remote, local))
+            return None
         count = len(advance_party)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
@@ -248,6 +252,10 @@ class UDPServerGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
+        conn = self.get_connection(remote=remote, local=local)
+        if conn is None or not conn.alive:
+            self.error(msg='connection lost, could not create docker: %s -> %s' % (remote, local))
+            return None
         count = len(advance_party)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)

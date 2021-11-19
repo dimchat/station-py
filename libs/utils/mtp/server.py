@@ -60,6 +60,9 @@ class Server(dmtp.Server, GateDelegate):
         self.hub.bind(address=self.local_address)
         self.gate.start()
 
+    def stop(self):
+        self.gate.stop()
+
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))
 
