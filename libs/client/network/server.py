@@ -109,7 +109,10 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
 
     @property
     def current_state(self):
-        return self.__fsm.current_state
+        state = self.__fsm.current_state
+        if state is None:
+            state = self.__fsm.default_state
+        return state
 
     @property
     def status(self):
@@ -137,9 +140,13 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         return self.__session
 
     def disconnect(self):
-        if self.__session is not None:
-            self.__session.stop()
+        # stop session
+        session = self.__session
+        if session is not None:
             self.__session = None
+            session.stop()
+        # stop FSM
+        self.__fsm.stop()
 
     @property
     def session_key(self) -> Optional[str]:

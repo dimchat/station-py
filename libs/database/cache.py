@@ -29,8 +29,8 @@
 
 """
 
-import threading
 import time
+from threading import Thread
 from typing import TypeVar, Generic, Optional, Dict, Set
 
 K = TypeVar('K')
@@ -106,15 +106,49 @@ class FrequencyChecker(Generic[K]):
             return True
 
 
-def purge_cache():
-    while True:
-        # try to purge each 5 minutes
-        time.sleep(300)
-        try:
-            count = CachePool.purge()
-            print('[DB] purge %d item(s) from cache pool' % count)
-        except Exception as error:
-            print('[DB] failed to purge cache: %s' % error)
+class CacheCleaner:
 
+    def __init__(self):
+        super().__init__()
+        # running thread
+        self.__thread: Optional[Thread] = None
+        self.__running = False
 
-threading.Thread(target=purge_cache).start()
+    @property
+    def running(self) -> bool:
+        return self.__running
+
+    def start(self):
+        self.__force_stop()
+        self.__running = True
+        t = Thread(target=self.run)
+        self.__thread = t
+        t.start()
+
+    def __force_stop(self):
+        self.__running = False
+        t: Thread = self.__thread
+        if t is not None:
+            # waiting 2 seconds for stopping the thread
+            self.__thread = None
+            t.join(timeout=5.0)
+
+    def stop(self):
+        self.__force_stop()
+
+    def run(self):
+        self.__running = True
+        next_time = int(time.time()) + 300
+        while self.running:
+            # try to purge each 5 minutes
+            now = int(time.time())
+            if now < next_time:
+                time.sleep(2)
+                continue
+            else:
+                next_time = now + 300
+            try:
+                count = CachePool.purge()
+                print('[DB] purge %d item(s) from cache pool' % count)
+            except Exception as error:
+                print('[DB] failed to purge cache: %s' % error)

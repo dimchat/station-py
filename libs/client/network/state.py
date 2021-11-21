@@ -56,17 +56,6 @@ class StateMachine(AutoMachine, Context):
         self.add_state(name=state.name, state=state)
 
     @property  # Override
-    def current_state(self):  # -> ServerState:
-        state = super().current_state
-        if state is None:
-            state = self.default_state
-        return state
-
-    @current_state.setter
-    def current_state(self, state):
-        AutoMachine.current_state.__set__(self, state)
-
-    @property  # Override
     def context(self) -> Context:
         return self
 

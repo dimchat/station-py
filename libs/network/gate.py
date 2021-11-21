@@ -218,7 +218,7 @@ class TCPServerGate(CommonGate, Generic[H]):
         for worker in retired_dockers:
             remote = worker.remote_address
             local = worker.local_address
-            self.error(msg='connection closed, remove docker: %s' % worker)
+            self.warning(msg='connection closed, remove docker: %s' % worker)
             self._remove_docker(remote=remote, local=local, docker=worker)
             dockers.discard(worker)
         # 3. purge other dockers

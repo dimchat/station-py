@@ -67,7 +67,7 @@ class ServerHub(TCPServerHub, Logging):
                 closed_channels.add(sock)
         # 2. remove closed channels
         for sock in closed_channels:
-            self.error(msg='socket channel closed, remove it: %s' % sock)
+            self.warning(msg='socket channel closed, remove it: %s' % sock)
             self.close_channel(channel=sock)
 
     # Override
@@ -82,7 +82,7 @@ class ServerHub(TCPServerHub, Logging):
         for conn in closed_connections:
             remote = conn.remote_address
             local = conn.local_address
-            self.error(msg='connection closed, remove it: %s' % conn)
+            self.warning(msg='connection closed, remove it: %s' % conn)
             self.disconnect(remote=remote, local=local, connection=conn)
 
 

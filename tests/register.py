@@ -43,7 +43,9 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from robots.config import g_facebook
+from etc.cfg_init import g_cleaner
+
+from robots.config import g_facebook, g_station
 
 
 def network_is_group(network: int) -> bool:
@@ -283,5 +285,11 @@ def parse_command(argv: list):
     return show_help(path=path)
 
 
+def stop_threads():
+    g_station.disconnect()
+    g_cleaner.stop()
+
+
 if __name__ == '__main__':
     parse_command(argv=sys.argv)
+    stop_threads()
