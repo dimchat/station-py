@@ -104,7 +104,7 @@ class Session(BaseSession):
         if current is None or current == GateStatus.ERROR:
             # connection error or session finished
             self.active = False
-            # self.stop()
+            self.stop()
             NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
                 'session': self,
             })

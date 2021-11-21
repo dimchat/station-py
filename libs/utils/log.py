@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -44,9 +43,9 @@ ERROR_FLAG = 0x08
 
 class Log:
 
-    DEBUG = 0xFF
-    DEVELOP = 0xFE
-    RELEASE = 0xFC
+    DEBUG = 0xFF    # debug(), info(), warning(), error()
+    DEVELOP = 0xFE  # info(), warning(), error()
+    RELEASE = 0xFC  # warning(), error()
 
     LEVEL = RELEASE
 
