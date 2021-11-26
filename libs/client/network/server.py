@@ -30,7 +30,6 @@
     Local station
 """
 
-import socket
 import weakref
 from typing import Optional
 
@@ -44,48 +43,13 @@ from dimsdk import Callback as MessengerCallback
 from startrek.fsm import StateDelegate
 
 from ...utils import Logging
-from ...network import Hub, Gate, GateStatus, DeparturePriority
+from ...network import GateStatus, DeparturePriority
 from ...network import TCPClientGate
 
 from ...common import CommonMessenger, CommonFacebook
 from ...common import MessengerDelegate
-from ...common import BaseSession
 
-
-class Session(BaseSession):
-
-    def __init__(self, messenger: CommonMessenger, address: tuple, sock: Optional[socket.socket] = None):
-        super().__init__(messenger=messenger, address=address, sock=sock)
-        self.__key: Optional[str] = None
-
-    @property
-    def key(self) -> Optional[str]:
-        return self.__key
-
-    @key.setter
-    def key(self, session: str):
-        self.__key = session
-
-    def setup(self):
-        self.active = True
-        super().setup()
-
-    def finish(self):
-        self.active = False
-        super().finish()
-
-    #
-    #   GateDelegate
-    #
-
-    # Override
-    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
-                            remote: tuple, local: Optional[tuple], gate: Gate):
-        if current is None or current == GateStatus.ERROR:
-            self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
-            hub = self.gate.hub
-            assert isinstance(hub, Hub), 'hub error: %s' % hub
-            hub.connect(remote=remote, local=local)
+from .session import Session
 
 
 class Server(Station, MessengerDelegate, StateDelegate, Logging):

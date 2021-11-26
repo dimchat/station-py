@@ -38,7 +38,6 @@
 import socket
 import traceback
 from abc import ABC
-from threading import Thread
 from typing import Optional
 
 from startrek.fsm import Runner
@@ -60,7 +59,6 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
     def __init__(self, messenger: Messenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
         self.__keeper = self._create_gate_keeper(messenger=messenger, address=address, sock=sock)
-        self.__thread: Optional[Thread] = None
         self.__identifier: Optional[ID] = None
 
     def _create_gate_keeper(self, address: tuple, sock: Optional[socket.socket], messenger: Messenger):
@@ -111,31 +109,10 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
         clazz = self.__class__.__name__
         return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
-    def start(self):
-        self.__force_stop()
-        t = Thread(target=self.run)
-        self.__thread = t
-        t.start()
-
-    def __force_stop(self):
-        keeper = self.keeper
-        if keeper.running:
-            keeper.stop()
-        t: Thread = self.__thread
-        if t is not None:
-            # waiting 2 seconds for stopping the thread
-            self.__thread = None
-            t.join(timeout=2.0)
-
     @property  # Override
     def running(self) -> bool:
         if super().running:
             return self.keeper.running
-
-    # Override
-    def stop(self):
-        self.__force_stop()
-        super().stop()
 
     # Override
     def setup(self):

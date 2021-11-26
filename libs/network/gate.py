@@ -137,15 +137,14 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
 
     # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
-        super().connection_state_changed(previous=previous, current=current, connection=connection)
-        if current == ConnectionState.ERROR:
-            self.error(msg='remove error connection: %s' % connection)
-            self.__kill(connection=connection)
         # debug info
-        if current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
+        if current is None or current == ConnectionState.ERROR:
+            self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection))
+            if previous is not None:
+                self.__kill(connection=connection)
+        elif current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
             self.info(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
-        elif current is None:
-            self.error(msg='connection lost: %s, %s' % (previous, connection))
+        super().connection_state_changed(previous=previous, current=current, connection=connection)
 
     # Override
     def connection_error(self, error, data: Optional[bytes],

@@ -333,6 +333,10 @@ def update_neighbors(station: ID, neighbors: List[Station]) -> bool:
 
 if __name__ == '__main__':
 
+    decrypt_keys = g_facebook.private_keys_for_decryption(identifier=g_station.identifier)
+    assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % g_station
+    print('Current station with %d private key(s): %s' % (len(decrypt_keys), g_station))
+
     # update for neighbor stations
     update_neighbors(station=g_station.identifier, neighbors=neighbor_stations)
 
