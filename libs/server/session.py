@@ -76,6 +76,14 @@ class Session(BaseSession):
     def key(self) -> str:
         return self.__key
 
+    @property  # Override
+    def running(self) -> bool:
+        if super().running:
+            gate = self.keeper.gate
+            conn = gate.get_connection(remote=self.remote_address, local=None)
+            if conn is not None:
+                return conn.opened
+
     # Override
     def process(self) -> bool:
         if super().process():
