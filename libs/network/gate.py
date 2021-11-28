@@ -33,7 +33,7 @@ from abc import ABC
 from typing import Generic, TypeVar, Optional, List, Set
 
 from startrek.fsm import Runnable
-from startrek import Connection, ConnectionState, BaseConnection
+from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Hub, GateDelegate, StarGate, StarDocker
 from startrek import Docker, Arrival
 
@@ -117,7 +117,7 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
     # Override
     def _heartbeat(self, connection: Connection):
         # let the client to do the job
-        if isinstance(connection, BaseConnection) and connection.is_activated:
+        if isinstance(connection, ActiveConnection):
             super()._heartbeat(connection=connection)
 
     def __kill(self, remote: tuple = None, local: Optional[tuple] = None, connection: Connection = None):
@@ -125,15 +125,14 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
         # else, disconnect with connection when local address matched.
         hub = self.hub
         assert isinstance(hub, Hub), 'hub error: %s' % hub
-        connection = hub.disconnect(remote=remote, local=local, connection=connection)
+        conn = hub.disconnect(remote=remote, local=local, connection=connection)
         # if connection is not activated, means it's a server connection,
         # remove the docker too.
-        if isinstance(connection, BaseConnection):
-            if not connection.is_activated:
-                # remove docker for server connection
-                remote = connection.remote_address
-                local = connection.local_address
-                self._remove_docker(remote=remote, local=local, docker=None)
+        if conn is not None and not isinstance(conn, ActiveConnection):
+            # remove docker for server connection
+            remote = conn.remote_address
+            local = conn.local_address
+            self._remove_docker(remote=remote, local=local, docker=None)
 
     # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):

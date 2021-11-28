@@ -11,9 +11,9 @@ ecdsa         # 0.16.1
 
 redis      # 3.5.3
 
-startrek==0.2.12
-tcp==0.2.13
-udp==0.4.19
+startrek==0.2.14
+tcp==0.2.14
+udp==0.4.20
 stun==0.2.3
 dmtp==0.3.4
 
