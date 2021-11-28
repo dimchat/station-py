@@ -41,7 +41,7 @@ from abc import ABC
 from typing import Optional
 
 from startrek.fsm import Runner
-from startrek import Connection, BaseConnection
+from startrek import Connection, ActiveConnection
 from startrek import GateDelegate
 from startrek import Arrival, Departure, DepartureShip
 
@@ -101,7 +101,7 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
         """ session key """
         raise NotImplemented
 
-    def __str__(self):
+    def __str__(self) -> str:
         clazz = self.__class__.__name__
         return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
 
@@ -177,7 +177,7 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
         if len(array) == 0:
-            if isinstance(connection, BaseConnection) and not connection.is_activated:
+            if connection is not None and not isinstance(connection, ActiveConnection):
                 # station MUST respond something to client request (Tencent Mars)
                 gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
         else:
