@@ -12,7 +12,7 @@ ecdsa         # 0.16.1
 redis      # 3.5.3
 gevent     # 21.8.0
 
-startrek==0.2.14
+startrek==0.2.15
 tcp==0.2.14
 udp==0.4.20
 stun==0.2.3

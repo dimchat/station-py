@@ -71,7 +71,7 @@ class TCPServer(Logging):
         if sock is not None:
             sock.close()
         sock = socket.socket()
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(self.__address)
         sock.listen(8)
         self.__sock = sock
