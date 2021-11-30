@@ -85,15 +85,6 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
         time.sleep(0.25)
 
     # Override
-    def process(self) -> bool:
-        hub = self.hub
-        # from tcp import Hub
-        # assert isinstance(hub, Hub), 'hub error: %s' % hub
-        incoming = hub.process()
-        outgoing = super().process()
-        return incoming or outgoing
-
-    # Override
     def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
         hub = self.hub
         # from tcp import Hub

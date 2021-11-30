@@ -10,6 +10,7 @@ base58        # 1.0.3
 ecdsa         # 0.16.1
 
 redis      # 3.5.3
+gevent     # 21.8.0
 
 startrek==0.2.14
 tcp==0.2.14

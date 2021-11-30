@@ -152,6 +152,7 @@ class GateKeeper(Runner):
             reset_send_buffer_size(conn=conn)
         else:
             sock.setblocking(False)
+            # sock.settimeout(0.5)
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
@@ -196,7 +197,13 @@ class GateKeeper(Runner):
 
     # Override
     def process(self) -> bool:
-        if self.gate.process():
+        gate = self.gate
+        hub = gate.hub
+        # from tcp import Hub
+        # assert isinstance(hub, Hub), 'hub error: %s' % hub
+        incoming = hub.process()
+        outgoing = gate.process()
+        if incoming or outgoing:
             # processed income/outgo packages
             return True
         if not self.active:
