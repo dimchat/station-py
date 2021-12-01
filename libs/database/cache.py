@@ -33,6 +33,9 @@ import time
 from threading import Thread
 from typing import TypeVar, Generic, Optional, Dict, Set
 
+from ..utils import Singleton
+
+
 K = TypeVar('K')
 V = TypeVar('V')
 
@@ -106,6 +109,7 @@ class FrequencyChecker(Generic[K]):
             return True
 
 
+@Singleton
 class CacheCleaner:
 
     def __init__(self):
@@ -123,6 +127,7 @@ class CacheCleaner:
         self.__running = True
         t = Thread(target=self.run)
         self.__thread = t
+        t.daemon = True
         t.start()
 
     def __force_stop(self):
@@ -152,3 +157,8 @@ class CacheCleaner:
                 print('[DB] purge %d item(s) from cache pool' % count)
             except Exception as error:
                 print('[DB] failed to purge cache: %s' % error)
+        print('[DB] stop %s' % self)
+
+
+g_cleaner = CacheCleaner()
+g_cleaner.start()

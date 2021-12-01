@@ -40,6 +40,7 @@ import weakref
 from typing import Optional, Set
 
 from startrek.fsm import Runner
+from startrek.net.channel import get_remote_address, get_local_address
 from startrek import Channel, BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Hub, GateDelegate, ShipDelegate
@@ -84,20 +85,6 @@ class ServerHub(TCPServerHub, Logging):
             local = conn.local_address
             self.warning(msg='connection closed, remove it: %s' % conn)
             self.disconnect(remote=remote, local=local, connection=conn)
-
-
-def get_remote_address(sock: socket.socket) -> Optional[tuple]:
-    try:
-        return sock.getpeername()
-    except socket.error as error:
-        print('[SOCKET] failed to get remote address from socket %s: %s' % (sock, error))
-
-
-def get_local_address(sock: socket.socket) -> Optional[tuple]:
-    try:
-        return sock.getsockname()
-    except socket.error as error:
-        print('[SOCKET] failed to get local address from socket %s: %s' % (sock, error))
 
 
 def reset_send_buffer_size(conn: Connection) -> bool:

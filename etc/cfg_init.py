@@ -7,7 +7,7 @@ from dimsdk import Station
 from dimsdk.ans import keywords as ans_keywords
 
 from libs.utils import Log
-from libs.database import Storage, Database, CacheCleaner
+from libs.database import Storage, Database
 from libs.common import KeyStore, SharedFacebook, AddressNameServer
 
 from etc.config import base_dir
@@ -26,9 +26,6 @@ Log.info('======== Initializing Configurations ========')
 Log.info(">>> Local storage directory: %s" % base_dir)
 Storage.root = base_dir
 g_database = Database()
-
-g_cleaner = CacheCleaner()
-g_cleaner.start()
 
 
 """

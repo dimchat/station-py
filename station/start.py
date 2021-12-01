@@ -50,8 +50,6 @@ from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 from libs.push import NotificationPusher
 
-from etc.cfg_init import g_cleaner
-
 from station.handler import RequestHandler
 from station.config import g_station, g_dispatcher
 from station.monitor import Monitor
@@ -148,7 +146,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt as ex:
         Log.info('~~~~~~~~ %s' % ex)
     finally:
-        g_cleaner.stop()
         g_udp_server.stop()
         g_pns.stop()
         g_dispatcher.stop()
