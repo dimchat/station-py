@@ -36,11 +36,13 @@ import traceback
 from json import JSONDecodeError
 from typing import Optional, Set
 
+from ipx import Singleton
+from ipx import Notification, NotificationObserver, NotificationCenter
+
 from dimp import ID, NetworkType
 from dimsdk import Station
 
-from libs.utils import Singleton, Logging
-from libs.utils import Notification, NotificationObserver, NotificationCenter
+from libs.utils import Logging
 from libs.common import NotificationNames
 
 from station.config import g_database, g_dispatcher

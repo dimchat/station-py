@@ -3,9 +3,10 @@ from typing import Optional
 
 import pika
 import json
-from dimp import ID
 
-from ..utils import Singleton
+from ipx import Singleton
+
+from dimp import ID
 
 from .service import PushService
 

@@ -33,12 +33,13 @@
 import os
 from typing import Optional
 
+from ipx import Singleton
+
 from dimp import PrivateKey, EncryptKey, DecryptKey, SignKey, VerifyKey
 from dimp import Meta, Document, Visa
 from dimp import ID, User, UserDataSource
 
 from .dos import JSONFile
-from .singleton import Singleton
 
 
 def load_resource_file(filename: str) -> dict:
@@ -76,9 +77,9 @@ class Immortals(UserDataSource):
         # load private key for ID
         key = self.__load_private_key(filename=identifier.name+'_secret.js')
         self.cache_private_key(private_key=key, identifier=identifier)
-        # load profile for ID
-        profile = self.__load_profile(filename=identifier.name + '_profile.js')
-        self.cache_profile(profile=profile, identifier=identifier)
+        # load document for ID
+        doc = self.__load_document(filename=identifier.name + '_profile.js')
+        self.cache_document(doc=doc, identifier=identifier)
 
     # noinspection PyMethodMayBeStatic
     def __load_meta(self, filename: str) -> Optional[Meta]:
@@ -88,34 +89,34 @@ class Immortals(UserDataSource):
     def __load_private_key(self, filename: str) -> Optional[PrivateKey]:
         return PrivateKey.parse(key=load_resource_file(filename=filename))
 
-    def __load_profile(self, filename: str) -> Optional[Document]:
-        profile = Document.parse(document=load_resource_file(filename=filename))
-        assert profile is not None, 'failed to load profile: %s' % filename
+    def __load_document(self, filename: str) -> Optional[Document]:
+        doc = Document.parse(document=load_resource_file(filename=filename))
+        assert doc is not None, 'failed to load document: %s' % filename
         # copy 'name'
-        name = profile.get('name')
+        name = doc.get('name')
         if name is None:
-            names = profile.get('names')
+            names = doc.get('names')
             if names is not None and len(names) > 0:
-                profile.set_property('name', names[0])
+                doc.set_property('name', names[0])
         else:
-            profile.set_property('name', name)
+            doc.set_property('name', name)
         # copy 'avatar'
-        avatar = profile.get('avatar')
+        avatar = doc.get('avatar')
         if avatar is None:
-            photos = profile.get('photos')
+            photos = doc.get('photos')
             if photos is not None and len(photos) > 0:
-                profile.set_property('avatar', photos[0])
+                doc.set_property('avatar', photos[0])
         else:
-            profile.set_property('avatar', avatar)
+            doc.set_property('avatar', avatar)
         # sign
-        self.__sign_profile(profile=profile)
-        return profile
+        self.__sign_document(doc=doc)
+        return doc
 
-    def __sign_profile(self, profile: Document) -> bytes:
-        identifier = profile.identifier
+    def __sign_document(self, doc: Document) -> bytes:
+        identifier = doc.identifier
         key = self.private_key_for_signature(identifier)
         if key is not None:
-            return profile.sign(private_key=key)
+            return doc.sign(private_key=key)
 
     def cache_meta(self, meta: Meta, identifier: ID) -> bool:
         if meta.match_identifier(identifier):
@@ -126,10 +127,10 @@ class Immortals(UserDataSource):
         self.__private_keys[identifier] = private_key
         return True
 
-    def cache_profile(self, profile: Document, identifier: ID) -> bool:
-        assert profile.valid, 'profile not valid: %s' % profile
-        assert identifier == profile.identifier, 'profile not match: %s, %s' % (identifier, profile)
-        self.__profiles[profile.identifier] = profile
+    def cache_document(self, doc: Document, identifier: ID) -> bool:
+        assert doc.valid, 'document not valid: %s' % doc
+        assert identifier == doc.identifier, 'document not match: %s, %s' % (identifier, doc)
+        self.__profiles[doc.identifier] = doc
         return True
 
     def cache_user(self, user: User) -> bool:
@@ -191,7 +192,7 @@ class Immortals(UserDataSource):
         # 2. get key from meta
         key = self.__meta_key(identifier=identifier)
         if isinstance(key, EncryptKey):
-            # if profile.key not exists and meta.key is encrypt key,
+            # if visa.key not exists and meta.key is encrypt key,
             # use it for encryption
             return key
 

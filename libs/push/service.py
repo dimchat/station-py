@@ -26,11 +26,13 @@
 import threading
 from typing import Set, Dict, List, Optional
 
+from ipx import Singleton
+from ipx import NotificationCenter, NotificationObserver, Notification
+
 from dimp import ID
 from startrek.fsm import Runner
 
-from ..utils import Singleton, Log
-from ..utils import NotificationCenter, NotificationObserver, Notification
+from ..utils import Log
 
 
 class PushService:

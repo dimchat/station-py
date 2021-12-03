@@ -41,13 +41,15 @@ import time
 import weakref
 from typing import Optional, Dict, Set
 
+from ipx import Singleton
+from ipx import NotificationCenter
+
 from startrek import GateStatus, Gate
 
 from dimp import hex_encode
 from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
-from ..utils import Singleton, NotificationCenter
 from ..database import Database
 from ..common import NotificationNames
 from ..common import BaseSession

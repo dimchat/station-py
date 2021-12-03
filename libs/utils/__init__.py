@@ -34,9 +34,6 @@
 """
 
 from .log import Log, Logging
-from .singleton import Singleton
-
-from .notification import Notification, NotificationObserver, NotificationCenter
 
 from .dos import File, TextFile, JSONFile
 
@@ -59,9 +56,6 @@ __all__ = [
     'get_msg_sig',
 
     'Log', 'Logging',
-    'Singleton',
-
-    'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'File', 'TextFile', 'JSONFile',
 

@@ -33,11 +33,12 @@
 import weakref
 from typing import Optional, List
 
+from ipx import Singleton
+
 from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document, User, Group
 from dimsdk import Facebook
 
-from ..utils import Singleton
 from ..database import Database
 from ..database import FrequencyChecker
 

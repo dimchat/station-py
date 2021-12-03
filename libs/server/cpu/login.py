@@ -32,16 +32,17 @@
 
 from typing import List
 
+from ipx import NotificationCenter
+
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import LoginCommand
 from dimsdk import CommandProcessor
 
-from ...utils import NotificationCenter, Logging
+from ...utils import Logging
 from ...database import Database
 from ...common import NotificationNames
-from ...common import CommonFacebook
 
 
 g_database = Database()
@@ -58,7 +59,7 @@ class LoginCommandProcessor(CommandProcessor, Logging):
             return []
         sender = cmd.identifier
         station = cmd.station
-        assert isinstance(station, dict), 'login command error: %s' % cmd
+        # assert isinstance(station, dict), 'login command error: %s' % cmd
         sid = ID.parse(identifier=station.get('ID'))
         self.info('user login: %s -> %s' % (sender, sid))
         # post notification: USER_ONLINE
@@ -69,7 +70,8 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         })
         # check current station
         facebook = self.facebook
-        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        # from ...common import CommonFacebook
+        # assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
         srv = facebook.current_user
         if sid == srv.identifier:
             # only respond the user login to this station

@@ -32,10 +32,10 @@
 
 from typing import Optional, Union
 
+from ipx import Singleton
+
 from dimp import ID, Address
 from dimsdk import AddressNameService
-
-from ..utils import Singleton
 
 
 """

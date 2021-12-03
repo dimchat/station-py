@@ -33,12 +33,13 @@
 import time
 from typing import Optional, List
 
+from ipx import NotificationCenter
+
 from dimp import ID
 from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
 
-from ..utils import NotificationCenter
 from ..database import Database
 from ..common import NotificationNames
 from ..common import CommonMessenger

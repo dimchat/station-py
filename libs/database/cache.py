@@ -33,7 +33,7 @@ import time
 from threading import Thread
 from typing import TypeVar, Generic, Optional, Dict, Set
 
-from ..utils import Singleton
+from ipx import Singleton
 
 
 K = TypeVar('K')
