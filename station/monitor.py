@@ -116,7 +116,7 @@ class Recorder(Runner, Logging):
             client_address = info.get('client_address')
             station = ID.parse(identifier=info.get('station'))
             login_time = info.get('time')
-            self.debug('user login: %s, %s' % (client_address, identifier))
+            self.info('user login: %s, %s' % (client_address, identifier))
             # counter
             self.__login_count += 1
             # update online users
@@ -131,9 +131,9 @@ class Recorder(Runner, Logging):
             station = ID.parse(identifier=info.get('station'))
             login_time = info.get('time')
             if client_address is None:
-                self.debug('user roaming: %s -> %s' % (identifier, station))
+                self.info('user roaming: %s -> %s' % (identifier, station))
             else:
-                self.debug('user online: %s, %s -> %s' % (identifier, client_address, station))
+                self.info('user online: %s, %s -> %s' % (identifier, client_address, station))
             # update online users
             if identifier is None or station is None:
                 self.error('user/station empty: %s' % info)
@@ -144,7 +144,7 @@ class Recorder(Runner, Logging):
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
             station = ID.parse(identifier=info.get('station'))
-            self.debug('user offline: %s, %s' % (client_address, identifier))
+            self.info('user offline: %s, %s' % (client_address, identifier))
             # update online users
             if identifier is None or station is None:
                 self.error('user/station empty: %s' % info)
@@ -159,7 +159,7 @@ class Recorder(Runner, Logging):
                     self.__message_count += 1
                 elif receiver.type == NetworkType.GROUP:
                     self.__group_message_count += 1
-            self.debug('delivering message: %s -> %s' % (sender, receiver))
+            self.info('delivering message: %s -> %s' % (sender, receiver))
 
     # Override
     def process(self) -> bool:

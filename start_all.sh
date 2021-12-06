@@ -26,7 +26,7 @@ title "Notification Pusher"
 restart pusher "station/pusher.py"
 
 title "Event Monitor"
-restart pusher "station/monitor.py"
+restart monitor "station/monitor.py"
 
 sleep 2
 
