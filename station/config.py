@@ -34,18 +34,16 @@
 #  Common Libs
 #
 from libs.utils import Log
-from libs.push import NotificationPusher
-from libs.push import ApplePushNotificationService
+from libs.push import PushCenter
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
 
 #
 #  Configurations
 #
-from etc.config import apns_credentials, apns_use_sandbox, apns_topic
 from etc.config import bind_host, bind_port
 
-from etc.cfg_init import g_database, g_facebook, g_keystore
+from etc.cfg_init import g_facebook, g_keystore
 from etc.cfg_init import station_id, create_station, neighbor_stations
 
 
@@ -66,21 +64,7 @@ g_facebook.messenger = g_messenger
     A dispatcher to decide which way to deliver message.
 """
 g_dispatcher = Dispatcher()
-
-
-"""
-    Push Notification Service
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-if apns_credentials is not None:
-    # APNs
-    apns = ApplePushNotificationService(credentials=apns_credentials, use_sandbox=apns_use_sandbox)
-    apns.topic = apns_topic
-    apns.delegate = g_database
-    # Pusher
-    g_pusher = NotificationPusher()
-    g_pusher.add_service(service=apns)
-    g_dispatcher.push_service = g_pusher
+g_dispatcher.push_service = PushCenter()
 
 
 """

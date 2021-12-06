@@ -45,7 +45,8 @@ from dimsdk import Station
 from libs.utils import Logging
 from libs.common import NotificationNames
 
-from station.config import g_database, g_dispatcher
+from etc.cfg_init import g_database
+from station.config import g_dispatcher
 
 
 @Singleton

@@ -23,20 +23,35 @@
 # SOFTWARE.
 # ==============================================================================
 
-import threading
-from typing import Set, Dict, List, Optional
+from abc import ABC, abstractmethod
+from typing import Optional
 
 from ipx import Singleton
-from ipx import NotificationCenter, NotificationObserver, Notification
+from ipx import NotificationObserver, Notification, NotificationCenter
+from ipx import SharedMemoryArrow
 
+from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
-from startrek.fsm import Runner
 
-from ..utils import Log
+from libs.utils import Logging
 
 
-class PushService:
+class PushArrow(SharedMemoryArrow):
+    """ Half-duplex Pipe from station to pusher """
 
+    # Station process IDs:
+    #   0 - main
+    #   1 - receptionist
+    #   2 - pusher
+    SHM_KEY = "D13502FF"
+
+    # Memory cache size: 64KB
+    SHM_SIZE = 1 << 16
+
+
+class PushService(ABC):
+
+    @abstractmethod
     def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
         """
         Push Notification from sender to receiver
@@ -52,26 +67,55 @@ class PushService:
 
 class PushInfo:
 
-    def __init__(self, sender: ID, receiver: ID, message: str, badge: int):
+    PUSHER_ID = ID.parse(identifier='pusher@anywhere')
+
+    MSG_CLEAR_BADGE = 'CMD: CLEAR BADGE.'
+
+    def __init__(self, sender: ID, receiver: ID, message: str, badge: Optional[int]):
         super().__init__()
         self.sender = sender
         self.receiver = receiver
         self.message = message
         self.badge = badge
 
+    def __str__(self) -> str:
+        return self.to_json()
+
+    def __repr__(self) -> str:
+        return self.to_json()
+
+    def to_json(self) -> str:
+        return utf8_decode(data=json_encode(o={
+            'sender': str(self.sender),
+            'receiver': str(self.receiver),
+            'message': self.message,
+            'badge': self.badge,
+        }))
+
+    @classmethod
+    def from_json(cls, string: str):
+        info = json_decode(data=utf8_encode(string=string))
+        return cls.from_dict(info=info)
+
+    @classmethod
+    def from_dict(cls, info: dict):
+        sender = info.get('sender')
+        receiver = info.get('receiver')
+        message = info.get('message')
+        badge = info.get('badge')
+        if sender is not None and receiver is not None:
+            sender = ID.parse(identifier=sender)
+            receiver = ID.parse(identifier=receiver)
+            return cls(sender=sender, receiver=receiver, message=message, badge=badge)
+
 
 @Singleton
-class NotificationPusher(Runner, PushService, NotificationObserver):
+class PushCenter(PushService, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
-        # push services
-        self.__services: Set[PushService] = set()
-        # waiting list
-        self.__queue: List[PushInfo] = []
-        self.__badges: Dict[ID, int] = {}
-        self.__lock = threading.Lock()
-        # observing notifications
+        self.__arrow = PushArrow.new(size=PushArrow.SHM_SIZE, name=PushArrow.SHM_KEY)
+        # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name='user_online')
 
@@ -79,89 +123,21 @@ class NotificationPusher(Runner, PushService, NotificationObserver):
         nc = NotificationCenter()
         nc.remove(observer=self, name='user_online')
 
-    def add_service(self, service: PushService):
-        """ add push notification service """
-        self.__services.add(service)
-
-    def __append(self, sender: ID, receiver: ID, message: str, badge: int):
-        """ append push task to the waiting queue """
-        with self.__lock:
-            info = PushInfo(sender=sender, receiver=receiver, message=message, badge=badge)
-            self.__queue.append(info)
-
-    def __next(self) -> Optional[PushInfo]:
-        """ next push task from the waiting queue """
-        with self.__lock:
-            if len(self.__queue) > 0:
-                return self.__queue.pop(0)
-
-    def __increase_badge(self, identifier: ID) -> int:
-        """ get self-increasing badge """
-        with self.__lock:
-            num = self.__badges.get(identifier, 0) + 1
-            self.__badges[identifier] = num
-            return num
-
-    def __clean_badge(self, identifier: ID):
-        """ clear badge for user """
-        with self.__lock:
-            self.__badges.pop(identifier, None)
-
-    #
-    #    Notification Observer
-    #
-
     # Override
     def received_notification(self, notification: Notification):
         info = notification.info
         identifier = ID.parse(identifier=info.get('ID'))
         # clean badges with ID
-        if identifier is None:
-            Log.error('notification error: %s' % notification)
+        if identifier is None or notification.name != 'user_online':
+            self.error('notification error: %s' % notification)
         else:
-            self.__clean_badge(identifier=identifier)
-
-    #
-    #   PushService
-    #
+            receiver = PushInfo.PUSHER_ID
+            message = PushInfo.MSG_CLEAR_BADGE
+            self.push_notification(sender=identifier, receiver=receiver, message=message)
 
     # Override
     def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
-        if badge is None:
-            # increase offline message counter
-            badge = self.__increase_badge(identifier=receiver)
-        self.__append(sender=sender, receiver=receiver, message=message, badge=badge)
+        info = PushInfo(sender=sender, receiver=receiver, message=message, badge=badge)
+        data = info.to_json()
+        self.__arrow.send(obj=data)
         return True
-
-    #
-    #   Runner
-    #
-
-    def start(self):
-        threading.Thread(target=self.run).start()
-
-    # Override
-    def process(self) -> bool:
-        # get next info
-        info = self.__next()
-        if info is None:
-            # nothing to do now, return False to have a rest
-            return False
-        else:
-            sender = info.sender
-            receiver = info.receiver
-            message = info.message
-            badge = info.badge
-        # push via all services
-        sent = 0
-        for service in self.__services:
-            if push(service=service, sender=sender, receiver=receiver, message=message, badge=badge):
-                sent += 1
-        return sent > 0
-
-
-def push(service: PushService, sender: ID, receiver: ID, message: str, badge: int) -> bool:
-    try:
-        return service.push_notification(sender=sender, receiver=receiver, message=message, badge=badge)
-    except Exception as error:
-        print('Push Notification service error: %s' % error)

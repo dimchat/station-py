@@ -1,69 +1,159 @@
-import pika
-from pika import BlockingConnection
-import json
-import jpush
+# -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2021 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
+
+import threading
+from typing import Set, Dict, List, Optional
+
+from ipx import Singleton
+from dimp import ID
+from startrek.fsm import Runner
+
+from libs.utils import Log, Logging
+from libs.push import PushArrow, PushService, PushInfo
+from libs.push import ApplePushNotificationService
+
+from etc.config import apns_credentials, apns_use_sandbox, apns_topic
+from etc.cfg_init import g_database
 
 
-class Pusher:
+class Worker(Runner):
+    """ Push thread """
 
-    connection: BlockingConnection
-    queue_key = "dim_push_message"
+    def __init__(self, service: PushService):
+        super().__init__()
+        self.__jobs: List[PushInfo] = []
+        self.__lock = threading.Lock()
+        self.__service = service
 
-    app_key = "db6d7573a1643e36cf2451c6"
-    master_secret = "d6ddc704ce0cde1d7462b4f4"
-    apns_production = False
+    def append(self, job: PushInfo):
+        with self.__lock:
+            self.__jobs.append(job)
+
+    def next(self) -> Optional[PushInfo]:
+        with self.__lock:
+            if len(self.__jobs) > 0:
+                return self.__jobs.pop(0)
+
+    # Override
+    def process(self) -> bool:
+        job = self.next()
+        if job is None:
+            # nothing to do, return False to have a rest
+            return False
+        srv = self.__service
+        return srv.push_notification(sender=job.sender, receiver=job.receiver, message=job.message, badge=job.badge)
+
+    @classmethod
+    def new(cls, service: PushService):
+        worker = Worker(service=service)
+        threading.Thread(target=worker.run).start()
+        return worker
+
+
+@Singleton
+class Pusher(Runner, Logging):
 
     def __init__(self):
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
-        self.channel = self.connection.channel()
-        self.channel.queue_declare(queue=self.queue_key)
+        super().__init__()
+        self.__arrow = PushArrow.new(size=PushArrow.SHM_SIZE, name=PushArrow.SHM_KEY)
+        self.__workers: Set[Worker] = set()
+        self.__badges: Dict[ID, int] = {}
+        self.__lock = threading.Lock()
 
-    def start(self):
-        print(' [*] Waiting for push messages. To exit press CTRL+C')
-        self.channel.basic_consume(self.queue_key, self.get_request, True)
-        self.channel.start_consuming()
+    def add_service(self, service: PushService):
+        """ add push notification service """
+        self.__workers.add(Worker.new(service=service))
 
-    def get_request(self, ch, method, properties, body):
+    def __increase_badge(self, identifier: ID) -> int:
+        """ get self-increasing badge """
+        with self.__lock:
+            num = self.__badges.get(identifier, 0) + 1
+            self.__badges[identifier] = num
+            return num
 
-        json_str = body.decode("utf-8")
+    def __clear_badge(self, identifier: ID):
+        """ clear badge for user """
+        with self.__lock:
+            self.__badges.pop(identifier, None)
 
-        print("Received message {}".format(json_str))
+    def __push_info(self, info) -> bool:
+        if isinstance(info, str):
+            info = PushInfo.from_json(string=info)
+        elif isinstance(info, dict):
+            info = PushInfo.from_dict(info=info)
+        assert isinstance(info, PushInfo), 'push info error: %s' % info
+        # check command
+        if info.receiver == PushInfo.PUSHER_ID:
+            self.info(msg='received cmd: %s' % info)
+            if info.message == PushInfo.MSG_CLEAR_BADGE:
+                # CMD: CLEAR BADGE.
+                self.__clear_badge(identifier=info.sender)
+            return True
+        # check badge
+        if info.badge is None:
+            info.badge = self.__increase_badge(identifier=info.receiver)
+        # push to all workers
+        self.info(msg='%d worker(s), pushing: %s' % (len(self.__workers), info))
+        for worker in self.__workers:
+            worker.append(job=info)
+        return len(self.__workers) > 0
 
-        json_dict = json.loads(json_str)
-
-        message = json_dict["message"]
-        receiver = json_dict["to"]
-
-        self.push(receiver, message)
-
-    def push(self, alias: str, message: str):
-
-        _jpush = jpush.JPush(self.app_key, self.master_secret)
-        push = _jpush.create_push()
-        # if you set the logging level to "DEBUG",it will show the debug logging.
-        _jpush.set_logging("DEBUG")
-
-        option = {"apns_production": self.apns_production}
-
-        push.audience = jpush.audience(jpush.alias(alias))
-        push.notification = jpush.notification(alert=message)
-        push.platform = jpush.all_
-        push.options = option
-
+    # Override
+    def process(self) -> bool:
+        info = None
         try:
-            response = push.send()
-        except jpush.common.Unauthorized:
-            raise jpush.common.Unauthorized("Unauthorized")
-        except jpush.common.APIConnectionException:
-            raise jpush.common.APIConnectionException("conn error")
-        except jpush.common.JPushFailure:
-            print("JPushFailure")
-        except:
-            print("Exception")
+            # get next info
+            info = self.__arrow.receive()
+            if info is None:
+                # nothing to do now, return False to have a rest
+                return False
+            return self.__push_info(info=info)
+        except Exception as error:
+            self.error('failed to push: %s, error: %s' % (info, error))
 
 
-if __name__ == "__main__":
+#
+#   Push process
+#
+g_pusher = Pusher()
 
-    pusher = Pusher()
-    pusher.start()
+#
+#   APNs
+#
+if apns_credentials is not None:
+    # APNs
+    apns = ApplePushNotificationService(credentials=apns_credentials, use_sandbox=apns_use_sandbox)
+    apns.topic = apns_topic
+    apns.delegate = g_database
+    # Pusher
+    g_pusher.add_service(service=apns)
 
+
+if __name__ == '__main__':
+    Log.info(msg='>>> starting pusher ...')
+    g_pusher_t = threading.Thread(target=g_pusher.run)
+    g_pusher_t.start()
+    g_pusher_t.join()
+    Log.info(msg='>>> pusher exits.')

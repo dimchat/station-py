@@ -48,7 +48,6 @@ monkey.patch_all()
 
 from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
-from libs.push import NotificationPusher
 
 from station.handler import RequestHandler
 from station.config import g_station, g_dispatcher
@@ -108,19 +107,11 @@ g_receptionist = Receptionist()
 g_receptionist.station = g_station.identifier
 
 
-"""
-    Push Notification service
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_pns = NotificationPusher()
-
-
 if __name__ == '__main__':
 
     g_monitor.start()
     g_receptionist.start()
     g_dispatcher.start()
-    g_pns.start()
 
     # start UDP Server
     Log.info('>>> UDP server (%s:%d) starting ...' % (g_station.host, g_station.port))
@@ -147,7 +138,6 @@ if __name__ == '__main__':
         Log.info('~~~~~~~~ %s' % ex)
     finally:
         g_udp_server.stop()
-        g_pns.stop()
         g_dispatcher.stop()
         g_receptionist.stop()
         g_monitor.stop()
