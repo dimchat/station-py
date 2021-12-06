@@ -64,8 +64,8 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         self.info('user login: %s -> %s' % (sender, sid))
         # post notification: USER_ONLINE
         NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
-            'ID': sender,
-            'station': sid,
+            'ID': str(sender),
+            'station': str(sid),
             'time': cmd.time,
         })
         # check current station

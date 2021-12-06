@@ -25,6 +25,9 @@ restart dims "station/start.py"
 title "Notification Pusher"
 restart pusher "station/pusher.py"
 
+title "Event Monitor"
+restart pusher "station/monitor.py"
+
 sleep 2
 
 title "DIM Station Bridge"

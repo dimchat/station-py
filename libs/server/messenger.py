@@ -155,8 +155,8 @@ class ServerMessenger(CommonMessenger):
         self.info('handshake accepted %s: %s' % (client_address, identifier))
         # post notification: USER_LOGIN
         NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
-            'ID': identifier,
+            'ID': str(identifier),
             'client_address': client_address,
-            'station': sid,
+            'station': str(sid),
             'time': now,
         })

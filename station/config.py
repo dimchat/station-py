@@ -30,11 +30,16 @@
     Configuration for DIM network server node
 """
 
+from ipx import Singleton
+from ipx import NotificationObserver, Notification, NotificationCenter
+from ipx import SharedMemoryArrow
+
 #
 #  Common Libs
 #
 from libs.utils import Log
 from libs.push import PushCenter
+from libs.common import NotificationNames
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
 
@@ -45,6 +50,52 @@ from etc.config import bind_host, bind_port
 
 from etc.cfg_init import g_facebook, g_keystore
 from etc.cfg_init import station_id, create_station, neighbor_stations
+
+
+class MonitorArrow(SharedMemoryArrow):
+    """ Half-duplex Pipe from station to pusher """
+
+    # Station process IDs:
+    #   0 - main
+    #   1 - receptionist
+    #   2 - pusher
+    #   3 - monitor
+    SHM_KEY = "D13503FF"
+
+    # Memory cache size: 64KB
+    SHM_SIZE = 1 << 16
+
+    @classmethod
+    def aim(cls):
+        return cls.new(size=cls.SHM_SIZE, name=cls.SHM_KEY)
+
+
+@Singleton
+class Monitor(NotificationObserver):
+
+    def __init__(self):
+        super().__init__()
+        self.__arrow = MonitorArrow.aim()
+        # observing local notifications
+        nc = NotificationCenter()
+        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
+        nc.add(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.add(observer=self, name=NotificationNames.USER_OFFLINE)
+        nc.add(observer=self, name=NotificationNames.DELIVER_MESSAGE)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
+        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.remove(observer=self, name=NotificationNames.USER_OFFLINE)
+        nc.remove(observer=self, name=NotificationNames.DELIVER_MESSAGE)
+
+    # Override
+    def received_notification(self, notification: Notification):
+        self.__arrow.send(obj={
+            'name': notification.name,
+            'info': notification.info,
+        })
 
 
 """

@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -30,61 +31,32 @@
     Recording DIM network events
 """
 
-import os
 import threading
 import time
 import traceback
-from typing import List, Optional
-
-from ipx import Singleton
-from ipx import Notification, NotificationObserver, NotificationCenter
+from typing import Optional
 
 from dimp import ID, NetworkType
+from startrek.fsm import Runner
+
+import sys
+import os
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 
 from libs.utils.log import current_time
-from libs.utils import Logging
+from libs.utils import Log, Logging
 from libs.database import Storage, Database
 from libs.common import NotificationNames
-from libs.server import Session
+
+from station.config import MonitorArrow
 
 
-@Singleton
-class Monitor(NotificationObserver):
-
-    def __init__(self):
-        super().__init__()
-        self.__recorder = Recorder()
-        # observing notifications
-        nc = NotificationCenter()
-        nc.add(observer=self, name=NotificationNames.CONNECTED)
-        nc.add(observer=self, name=NotificationNames.DISCONNECTED)
-        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
-        nc.add(observer=self, name=NotificationNames.USER_ONLINE)
-        nc.add(observer=self, name=NotificationNames.USER_OFFLINE)
-        nc.add(observer=self, name=NotificationNames.DELIVER_MESSAGE)
-
-    def __del__(self):
-        self.__recorder.stop()
-        self.__recorder = None
-        nc = NotificationCenter()
-        nc.remove(observer=self, name=NotificationNames.CONNECTED)
-        nc.remove(observer=self, name=NotificationNames.DISCONNECTED)
-        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
-        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
-        nc.remove(observer=self, name=NotificationNames.USER_OFFLINE)
-        nc.remove(observer=self, name=NotificationNames.DELIVER_MESSAGE)
-
-    #
-    #    Notification Observer
-    #
-    def received_notification(self, notification: Notification):
-        self.__recorder.append(notification)
-
-    def start(self):
-        self.__recorder.start()
-
-    def stop(self):
-        self.__recorder.stop()
+#
+#   Process
+#
 
 
 def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
@@ -98,14 +70,13 @@ def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
     return Storage.append_text(text=new_line, path=path)
 
 
-class Recorder(threading.Thread, Logging):
+class Recorder(Runner, Logging):
 
     FLUSH_INTERVAL = 3600
 
     def __init__(self):
         super().__init__()
-        self.__running = True
-        self.__events: List[Notification] = []
+        self.__events = []
         self.__lock = threading.Lock()
         # statistics
         self.__login_count = 0
@@ -113,11 +84,11 @@ class Recorder(threading.Thread, Logging):
         self.__group_message_count = 0
         self.__flush_time = time.time() + self.FLUSH_INTERVAL  # next time to save statistics
 
-    def append(self, event: Notification):
+    def append(self, event: dict):
         with self.__lock:
             self.__events.append(event)
 
-    def pop(self) -> Optional[Notification]:
+    def shift(self) -> Optional[dict]:
         with self.__lock:
             if len(self.__events) > 0:
                 return self.__events.pop(0)
@@ -137,21 +108,10 @@ class Recorder(threading.Thread, Logging):
             # save
             return save_statistics(login_cnt=login_cnt, msg_cnt=msg_cnt, g_msg_cnt=g_msg_cnt)
 
-    def __process(self, event: Notification):
-        name = event.name
-        info = event.info
-        if name == NotificationNames.CONNECTED:
-            session = info.get('session')
-            assert isinstance(session, Session), 'session error: %s' % session
-            client_address = session.client_address
-            self.debug('client connected: %s' % str(client_address))
-        elif name == NotificationNames.DISCONNECTED:
-            session = info.get('session')
-            assert isinstance(session, Session), 'session error: %s' % session
-            identifier = session.identifier
-            client_address = session.client_address
-            self.debug('client disconnected: %s, %s' % (client_address, identifier))
-        elif name == NotificationNames.USER_LOGIN:
+    def __process(self, event: dict):
+        name = event.get('name')
+        info = event.get('info')
+        if name == NotificationNames.USER_LOGIN:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
             station = ID.parse(identifier=info.get('station'))
@@ -201,29 +161,55 @@ class Recorder(threading.Thread, Logging):
                     self.__group_message_count += 1
             self.debug('delivering message: %s -> %s' % (sender, receiver))
 
-    #
-    #   Run Loop
-    #
-    def run(self):
+    # Override
+    def process(self) -> bool:
         event = None
-        while self.__running:
-            try:
-                # process events
-                event = self.pop()
-                while event is not None:
-                    self.__process(event=event)
-                    event = self.pop()
+        try:
+            event = self.shift()
+            if event is None:
                 # save statistics
                 self.__save()
-                # if self.__save():
-                #     time.sleep(2)
-                # else:
-                #     time.sleep(0.5)
-            except Exception as error:
-                self.error('failed to process: %s, %s' % (event, error))
-                traceback.print_exc()
-            finally:
-                time.sleep(0.5)
+                return False
+            else:
+                self.__process(event=event)
+                return True
+        except Exception as error:
+            self.error('failed to process: %s, %s' % (event, error))
+            traceback.print_exc()
+        finally:
+            time.sleep(0.5)
 
-    def stop(self):
-        self.__running = False
+
+class Worker(Runner, Logging):
+
+    def __init__(self, recorder: Recorder):
+        super().__init__()
+        self.__arrow = MonitorArrow.aim()
+        self.__recorder = recorder
+
+    # Override
+    def process(self) -> bool:
+        event = None
+        try:
+            # get next event
+            event = self.__arrow.receive()
+            if event is None:
+                # nothing to do now, return False to have a rest
+                return False
+            # let recorder to do the job
+            self.__recorder.append(event=event)
+            return True
+        except Exception as error:
+            self.error('failed to parse: %s, error: %s' % (event, error))
+
+
+if __name__ == '__main__':
+    Log.info(msg='>>> starting monitor ...')
+    g_recorder = Recorder()
+    g_monitor = Worker(recorder=g_recorder)
+    # start as thread
+    g_recorder_t = threading.Thread(target=g_recorder.run)
+    g_recorder_t.start()
+    g_monitor.run()
+    g_recorder.stop()
+    Log.info(msg='>>> monitor exits.')

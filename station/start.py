@@ -49,9 +49,9 @@ monkey.patch_all()
 from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 
-from station.handler import RequestHandler
 from station.config import g_station, g_dispatcher
-from station.monitor import Monitor
+from station.config import Monitor
+from station.handler import RequestHandler
 from station.receptionist import Receptionist
 
 
@@ -109,7 +109,6 @@ g_receptionist.station = g_station.identifier
 
 if __name__ == '__main__':
 
-    g_monitor.start()
     g_receptionist.start()
     g_dispatcher.start()
 
@@ -140,5 +139,4 @@ if __name__ == '__main__':
         g_udp_server.stop()
         g_dispatcher.stop()
         g_receptionist.stop()
-        g_monitor.stop()
         Log.info('======== station shutdown!')

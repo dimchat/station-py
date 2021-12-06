@@ -117,9 +117,9 @@ def _post_notification(cpu: ReportCommandProcessor, cmd: Command, session: Sessi
     sid = Dispatcher().station
     # post notification
     NotificationCenter().post(name=notification, sender=cpu, info={
-        'ID': session.identifier,
+        'ID': str(session.identifier),
         'client_address': session.client_address,
-        'station': sid,
+        'station': str(sid),
         'time': cmd.time,
     })
 

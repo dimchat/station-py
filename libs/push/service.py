@@ -43,10 +43,15 @@ class PushArrow(SharedMemoryArrow):
     #   0 - main
     #   1 - receptionist
     #   2 - pusher
+    #   3 - monitor
     SHM_KEY = "D13502FF"
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16
+
+    @classmethod
+    def aim(cls):
+        return cls.new(size=cls.SHM_SIZE, name=cls.SHM_KEY)
 
 
 class PushService(ABC):
@@ -114,7 +119,7 @@ class PushCenter(PushService, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__arrow = PushArrow.new(size=PushArrow.SHM_SIZE, name=PushArrow.SHM_KEY)
+        self.__arrow = PushArrow.aim()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name='user_online')

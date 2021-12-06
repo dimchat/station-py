@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -23,12 +24,25 @@
 # SOFTWARE.
 # ==============================================================================
 
+"""
+    DIM Notification Pusher
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
+    Pushing notification for offline users
+"""
+
 import threading
 from typing import Set, Dict, List, Optional
 
-from ipx import Singleton
 from dimp import ID
 from startrek.fsm import Runner
+
+import sys
+import os
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
 from libs.push import PushArrow, PushService, PushInfo
@@ -72,12 +86,12 @@ class Worker(Runner):
         return worker
 
 
-@Singleton
 class Pusher(Runner, Logging):
+    """ Push process """
 
     def __init__(self):
         super().__init__()
-        self.__arrow = PushArrow.new(size=PushArrow.SHM_SIZE, name=PushArrow.SHM_KEY)
+        self.__arrow = PushArrow.aim()
         self.__workers: Set[Worker] = set()
         self.__badges: Dict[ID, int] = {}
         self.__lock = threading.Lock()
@@ -129,6 +143,7 @@ class Pusher(Runner, Logging):
             if info is None:
                 # nothing to do now, return False to have a rest
                 return False
+            # try push info
             return self.__push_info(info=info)
         except Exception as error:
             self.error('failed to push: %s, error: %s' % (info, error))

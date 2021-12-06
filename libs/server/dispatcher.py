@@ -117,7 +117,7 @@ class Dispatcher(NotificationObserver):
                 if identifier is not None and identifier.type == NetworkType.STATION:
                     self.remove_neighbor(station=identifier)
         elif name == NotificationNames.USER_LOGIN:
-            identifier = info.get('ID')
+            identifier = ID.parse(identifier=info.get('ID'))
             if identifier is not None and identifier.type == NetworkType.STATION:
                 self.add_neighbor(station=identifier)
 
