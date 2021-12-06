@@ -22,6 +22,9 @@ function title() {
 title "DIM Station"
 restart dims "station/start.py"
 
+title "Notification Pusher"
+restart pusher "station/pusher.py"
+
 sleep 2
 
 title "DIM Station Bridge"
@@ -44,9 +47,6 @@ restart search "robots/sbot_archivist.py"
 #
 #title "DIM Web Server"
 #restart www "webserver/httpd.py"
-#
-#title "Notification Pusher"
-#restart pusher "station/pusher.py"
 
 echo ""
 echo "    >>> Done <<<"
