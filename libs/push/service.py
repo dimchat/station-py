@@ -44,7 +44,7 @@ class PushArrow(SharedMemoryArrow):
     #   1 - receptionist
     #   2 - pusher
     #   3 - monitor
-    SHM_KEY = "D13502FF"
+    SHM_KEY = "0xD13502FF"
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16

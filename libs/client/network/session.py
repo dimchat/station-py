@@ -56,7 +56,7 @@ class Session(BaseSession):
 
     def start(self):
         self.__force_stop()
-        t = Thread(target=self.run)
+        t = Thread(target=self.run, daemon=True)
         self.__thread = t
         t.start()
 

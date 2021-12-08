@@ -89,9 +89,8 @@ class Console(Cmd):
 
     def logout(self):
         client = self.client
-        if client:
-            self.info('disconnect from %s ...' % client.server)
-            client.disconnect()
+        if client is not None:
+            client.stop()
             self.client = None
         self.receiver = None
 
@@ -117,8 +116,9 @@ class Console(Cmd):
                 print('%s is login in' % user.identifier)
 
     def do_exit(self, arg):
-        if self.client:
-            self.client.disconnect()
+        client = self.client
+        if client is not None:
+            client.stop()
             self.client = None
         print('Bye!')
         return True

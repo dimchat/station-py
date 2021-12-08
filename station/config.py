@@ -60,7 +60,7 @@ class MonitorArrow(SharedMemoryArrow):
     #   1 - receptionist
     #   2 - pusher
     #   3 - monitor
-    SHM_KEY = "D13503FF"
+    SHM_KEY = "0xD13503FF"
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16

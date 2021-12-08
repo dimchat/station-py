@@ -42,7 +42,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Logging
+from libs.utils import Log, Logging
 from libs.common import CommonFacebook
 from libs.client import Server, Terminal, ClientMessenger
 
@@ -63,6 +63,9 @@ class Soldier(Runner, Logging):
         self.__terminal = Terminal()
         self.__messenger = ClientMessenger()
         self.__facebook = CommonFacebook()
+
+    def __del__(self):
+        self.warning(msg='killing %s' % self)
 
     def __str__(self) -> str:
         clazz = self.__class__.__name__
@@ -96,10 +99,12 @@ class Soldier(Runner, Logging):
             self.__server = srv
         return srv
 
-    def start(self):
-        threading.Thread(target=self.run).start()
+    def start(self) -> threading.Thread:
+        thr = threading.Thread(target=self.run)
+        thr.start()
+        return thr
 
-    # Override
+    @property
     def running(self) -> bool:
         if super().running:
             return int(time.time()) < self.__time
@@ -159,19 +164,39 @@ all_stations = [
 test_station = all_stations[4]
 
 
-if __name__ == '__main__':
+def open_fire():
     # current station IP & ID
     sip = test_station[0]
     sid = test_station[1]
     sid = ID.parse(identifier=sid)
     # test
+    g_threads = []
     j = 0
     for i in range(10):
         for item in all_soldiers:
             keys = g_facebook.private_key_for_signature(identifier=item)
             assert len(keys) > 0, 'private key not found: %s' % item
             j += 1
-            print('starting bot %d (%s)...' % (j, item))
+            Log.info(msg='starting bot %d (%s)...' % (j, item))
             client = Soldier(index=j, client_id=item, server_id=sid, host=sip)
-            client.start()
+            thr = client.start()
+            g_threads.append(thr)
         time.sleep(1)
+    for thr in g_threads:
+        thr.join()
+        Log.info(msg='thread stop: %s' % thr)
+
+
+if __name__ == '__main__':
+    Log.info(msg='Starting ...')
+    while True:
+        open_fire()
+        Log.info(msg='====================================================')
+        Log.info(msg='== All soldiers retreated, retry after 16 seconds...')
+        Log.info(msg='====================================================')
+        Log.info(msg='sleeping ...')
+        time.sleep(16)
+        Log.info(msg='wake up.')
+        Log.info(msg='====================================================')
+        Log.info(msg='== Attack !!!')
+        Log.info(msg='====================================================')

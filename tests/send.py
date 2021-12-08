@@ -110,7 +110,7 @@ def login(identifier: ID):
 
 
 def logout():
-    g_client.server.disconnect()
+    g_client.stop()
 
 
 def parse_command(argv: list):
