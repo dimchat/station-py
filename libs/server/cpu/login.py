@@ -32,8 +32,6 @@
 
 from typing import List
 
-from ipx import NotificationCenter
-
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
@@ -41,6 +39,7 @@ from dimsdk import LoginCommand
 from dimsdk import CommandProcessor
 
 from ...utils import Logging
+from ...utils import NotificationCenter
 from ...database import Database
 from ...common import NotificationNames
 

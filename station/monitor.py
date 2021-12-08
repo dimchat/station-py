@@ -202,14 +202,16 @@ class Worker(Runner, Logging):
         except Exception as error:
             self.error('failed to parse: %s, error: %s' % (event, error))
 
+    # Override
+    def finish(self):
+        super().finish()
+        self.__recorder.stop()
+
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting monitor ...')
     g_recorder = Recorder()
+    threading.Thread(target=g_recorder.run, daemon=True).start()
     g_monitor = Worker(recorder=g_recorder)
-    # start as thread
-    g_recorder_t = threading.Thread(target=g_recorder.run)
-    g_recorder_t.start()
     g_monitor.run()
-    g_recorder.stop()
     Log.info(msg='>>> monitor exits.')

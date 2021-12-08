@@ -32,13 +32,12 @@
 
 from typing import List, Optional
 
-from ipx import NotificationCenter
-
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import CommandProcessor
 
 from ...utils import Logging
+from ...utils import NotificationCenter
 from ...database import Database
 from ...common import NotificationNames
 from ...common import ReportCommand

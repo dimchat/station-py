@@ -38,10 +38,9 @@
 import os
 from typing import Optional
 
-from ipx import Singleton
-
 from dimp import User
 
+from ..utils import Singleton
 from ..utils import JSONFile
 
 from .keycache import KeyCache

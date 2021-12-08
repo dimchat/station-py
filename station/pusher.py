@@ -82,7 +82,7 @@ class Worker(Runner):
     @classmethod
     def new(cls, service: PushService):
         worker = Worker(service=service)
-        threading.Thread(target=worker.run).start()
+        threading.Thread(target=worker.run, daemon=True).start()
         return worker
 
 
@@ -148,6 +148,12 @@ class Pusher(Runner, Logging):
         except Exception as error:
             self.error('failed to push: %s, error: %s' % (info, error))
 
+    # Override
+    def finish(self):
+        super().finish()
+        for worker in self.__workers:
+            worker.stop()
+
 
 #
 #   Push process
@@ -168,7 +174,5 @@ if apns_credentials is not None:
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting pusher ...')
-    g_pusher_t = threading.Thread(target=g_pusher.run)
-    g_pusher_t.start()
-    g_pusher_t.join()
+    g_pusher.run()
     Log.info(msg='>>> pusher exits.')

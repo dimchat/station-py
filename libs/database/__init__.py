@@ -31,13 +31,13 @@
 
 from typing import Optional, List, Set, Dict
 
-from ipx import Singleton
-
 from dimp import PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document
 from dimp import Command
 from dimp import ReliableMessage
 from dimsdk import LoginCommand
+
+from ..utils import Singleton
 
 from .dos import Storage
 

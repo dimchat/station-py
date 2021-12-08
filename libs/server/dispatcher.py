@@ -37,15 +37,14 @@ import weakref
 from abc import abstractmethod
 from typing import Optional, List, Set
 
-from ipx import Singleton
-from ipx import Notification, NotificationObserver, NotificationCenter
-
 from dimp import NetworkType, ID, ANYONE, EVERYONE
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
 from ..utils import get_msg_sig
 from ..utils import Log, Logging
+from ..utils import Singleton
+from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushService, build_message as build_push_message
 from ..database import Database
 from ..common import NotificationNames

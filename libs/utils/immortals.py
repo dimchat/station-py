@@ -33,12 +33,11 @@
 import os
 from typing import Optional
 
-from ipx import Singleton
-
 from dimp import PrivateKey, EncryptKey, DecryptKey, SignKey, VerifyKey
 from dimp import Meta, Document, Visa
 from dimp import ID, User, UserDataSource
 
+from .singleton import Singleton
 from .dos import JSONFile
 
 

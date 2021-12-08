@@ -23,54 +23,21 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Utils
-    ~~~~~
 
-    I'm too lazy to write codes for demo project, so I borrow some utils here
-    from the <dimsdk> packages, but I don't suggest you to do it also, because
-    I won't promise these private utils will not be changed. Hia hia~ :P
-                                             -- Albert Moky @ Jan. 23, 2019
-"""
+class Singleton(object):
 
-from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
+    __instances = {}
 
-from .log import Log, Logging
-from .singleton import Singleton
+    def __init__(self, cls):
+        self.__cls = cls
 
-from .dos import File, TextFile, JSONFile
+    def __call__(self, *args, **kwargs):
+        cls = self.__cls
+        instance = self.__instances.get(cls, None)
+        if instance is None:
+            instance = cls(*args, **kwargs)
+            self.__instances[cls] = instance
+        return instance
 
-from .img import Image, ImageScanner
-from .img import PNG, PNGScanner, PNGChunk, PNGTypeCode
-from .img import JPEG, JPEGScanner, JPEGSegment, JPEGMarkCode
-
-
-@Singleton
-class NotificationCenter(DefaultNotificationCenter):
-    pass
-
-
-def get_msg_sig(msg, cnt: int = 8) -> str:
-    sig = msg.get('signature')
-    if sig is not None:
-        sig = sig.rstrip()
-        if len(sig) > cnt:
-            sig = sig[-cnt:]
-    return sig
-
-
-__all__ = [
-
-    'get_msg_sig',
-
-    'Log', 'Logging',
-    'Singleton',
-
-    'Notification', 'NotificationObserver', 'NotificationCenter',
-
-    'File', 'TextFile', 'JSONFile',
-
-    'Image', 'ImageScanner',
-    'PNG', 'PNGScanner', 'PNGChunk', 'PNGTypeCode',
-    'JPEG', 'JPEGScanner', 'JPEGSegment', 'JPEGMarkCode',
-]
+    def __getattr__(self, key):
+        return getattr(self.__cls, key, None)

@@ -30,14 +30,14 @@
     Configuration for DIM network server node
 """
 
-from ipx import Singleton
-from ipx import NotificationObserver, Notification, NotificationCenter
 from ipx import SharedMemoryArrow
 
 #
 #  Common Libs
 #
 from libs.utils import Log
+from libs.utils import Singleton
+from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.push import PushCenter
 from libs.common import NotificationNames
 from libs.server import ServerMessenger

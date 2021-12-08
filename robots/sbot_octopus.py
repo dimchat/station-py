@@ -37,8 +37,6 @@ import threading
 import traceback
 from typing import Optional, Dict, List
 
-from ipx import Notification, NotificationObserver, NotificationCenter
-
 from dimp import ID, ReliableMessage
 from dimp import ContentType
 from dimsdk import Station, HandshakeCommand
@@ -49,6 +47,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
+from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 from libs.common import msg_traced, is_broadcast_message
 from libs.client import Server, Terminal, ClientMessenger

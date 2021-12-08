@@ -26,14 +26,14 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ipx import Singleton
-from ipx import NotificationObserver, Notification, NotificationCenter
 from ipx import SharedMemoryArrow
 
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
 
-from libs.utils import Logging
+from ..utils import Logging
+from ..utils import Singleton
+from ..utils import Notification, NotificationObserver, NotificationCenter
 
 
 class PushArrow(SharedMemoryArrow):
