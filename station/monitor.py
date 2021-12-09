@@ -34,9 +34,10 @@
 import threading
 import time
 import traceback
-from typing import Optional
+from typing import Optional, Any
 
 from dimp import ID, NetworkType
+from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
 
 import sys
@@ -47,7 +48,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import current_time
-from libs.utils import Log, Logging
+from libs.utils.log import Log, Logging
+from libs.utils.ipc import ArrowDelegate
 from libs.database import Storage, Database
 from libs.common import NotificationNames
 
@@ -70,7 +72,7 @@ def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
     return Storage.append_text(text=new_line, path=path)
 
 
-class Recorder(Runner, Logging):
+class Recorder(Runner, Logging, ArrowDelegate):
 
     FLUSH_INTERVAL = 3600
 
@@ -83,6 +85,12 @@ class Recorder(Runner, Logging):
         self.__message_count = 0
         self.__group_message_count = 0
         self.__flush_time = time.time() + self.FLUSH_INTERVAL  # next time to save statistics
+        self.__arrow = MonitorArrow.secondary(delegate=self)
+
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        assert isinstance(obj, dict), 'event error: %s' % obj
+        self.append(event=obj)
 
     def append(self, event: dict):
         with self.__lock:
@@ -180,38 +188,8 @@ class Recorder(Runner, Logging):
             time.sleep(0.5)
 
 
-class Worker(Runner, Logging):
-
-    def __init__(self, recorder: Recorder):
-        super().__init__()
-        self.__arrow = MonitorArrow.aim()
-        self.__recorder = recorder
-
-    # Override
-    def process(self) -> bool:
-        event = None
-        try:
-            # get next event
-            event = self.__arrow.receive()
-            if event is None:
-                # nothing to do now, return False to have a rest
-                return False
-            # let recorder to do the job
-            self.__recorder.append(event=event)
-            return True
-        except Exception as error:
-            self.error('failed to parse: %s, error: %s' % (event, error))
-
-    # Override
-    def finish(self):
-        super().finish()
-        self.__recorder.stop()
-
-
 if __name__ == '__main__':
     Log.info(msg='>>> starting monitor ...')
-    g_recorder = Recorder()
-    threading.Thread(target=g_recorder.run, daemon=True).start()
-    g_monitor = Worker(recorder=g_recorder)
+    g_monitor = Recorder()
     g_monitor.run()
     Log.info(msg='>>> monitor exits.')

@@ -26,32 +26,13 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ipx import SharedMemoryArrow
-
 from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID
 
-from ..utils import Logging
+from ..utils.log import Logging
+from ..utils.ipc import PushArrow
 from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
-
-
-class PushArrow(SharedMemoryArrow):
-    """ Half-duplex Pipe from station to pusher """
-
-    # Station process IDs:
-    #   0 - main
-    #   1 - receptionist
-    #   2 - pusher
-    #   3 - monitor
-    SHM_KEY = "0xD13502FF"
-
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    @classmethod
-    def aim(cls):
-        return cls.new(size=cls.SHM_SIZE, name=cls.SHM_KEY)
 
 
 class PushService(ABC):
@@ -119,7 +100,7 @@ class PushCenter(PushService, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__arrow = PushArrow.aim()
+        self.__arrow = PushArrow.primary()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name='user_online')

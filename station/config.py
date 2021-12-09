@@ -30,14 +30,13 @@
     Configuration for DIM network server node
 """
 
-from ipx import SharedMemoryArrow
-
 #
 #  Common Libs
 #
 from libs.utils import Log
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
+from libs.utils.ipc import MonitorArrow
 from libs.push import PushCenter
 from libs.common import NotificationNames
 from libs.server import ServerMessenger
@@ -52,30 +51,12 @@ from etc.cfg_init import g_facebook, g_keystore
 from etc.cfg_init import station_id, create_station, neighbor_stations
 
 
-class MonitorArrow(SharedMemoryArrow):
-    """ Half-duplex Pipe from station to pusher """
-
-    # Station process IDs:
-    #   0 - main
-    #   1 - receptionist
-    #   2 - pusher
-    #   3 - monitor
-    SHM_KEY = "0xD13503FF"
-
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    @classmethod
-    def aim(cls):
-        return cls.new(size=cls.SHM_SIZE, name=cls.SHM_KEY)
-
-
 @Singleton
 class Monitor(NotificationObserver):
 
     def __init__(self):
         super().__init__()
-        self.__arrow = MonitorArrow.aim()
+        self.__arrow = MonitorArrow.primary()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)

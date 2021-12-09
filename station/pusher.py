@@ -32,9 +32,11 @@
 """
 
 import threading
-from typing import Set, Dict, List, Optional
+import time
+from typing import Set, Dict, List, Optional, Any
 
 from dimp import ID
+from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
 
 import sys
@@ -44,7 +46,8 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log, Logging
+from libs.utils.log import Log, Logging
+from libs.utils.ipc import ArrowDelegate
 from libs.push import PushArrow, PushService, PushInfo
 from libs.push import ApplePushNotificationService
 
@@ -77,7 +80,10 @@ class Worker(Runner):
             # nothing to do, return False to have a rest
             return False
         srv = self.__service
-        return srv.push_notification(sender=job.sender, receiver=job.receiver, message=job.message, badge=job.badge)
+        try:
+            return srv.push_notification(sender=job.sender, receiver=job.receiver, message=job.message, badge=job.badge)
+        except Exception as error:
+            print('[PUSH] failed to push: %s, %s' % (job, error))
 
     @classmethod
     def new(cls, service: PushService):
@@ -86,15 +92,14 @@ class Worker(Runner):
         return worker
 
 
-class Pusher(Runner, Logging):
+class Pusher(Logging, ArrowDelegate):
     """ Push process """
 
     def __init__(self):
         super().__init__()
-        self.__arrow = PushArrow.aim()
         self.__workers: Set[Worker] = set()
         self.__badges: Dict[ID, int] = {}
-        self.__lock = threading.Lock()
+        self.__arrow = PushArrow.secondary(delegate=self)
 
     def add_service(self, service: PushService):
         """ add push notification service """
@@ -102,21 +107,22 @@ class Pusher(Runner, Logging):
 
     def __increase_badge(self, identifier: ID) -> int:
         """ get self-increasing badge """
-        with self.__lock:
-            num = self.__badges.get(identifier, 0) + 1
-            self.__badges[identifier] = num
-            return num
+        num = self.__badges.get(identifier, 0) + 1
+        self.__badges[identifier] = num
+        return num
 
     def __clear_badge(self, identifier: ID):
         """ clear badge for user """
-        with self.__lock:
-            self.__badges.pop(identifier, None)
+        self.__badges.pop(identifier, None)
 
-    def __push_info(self, info) -> bool:
-        if isinstance(info, str):
-            info = PushInfo.from_json(string=info)
-        elif isinstance(info, dict):
-            info = PushInfo.from_dict(info=info)
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        if isinstance(obj, str):
+            info = PushInfo.from_json(string=obj)
+        elif isinstance(obj, dict):
+            info = PushInfo.from_dict(info=obj)
+        else:
+            raise ValueError('unknown push info: %s' % obj)
         assert isinstance(info, PushInfo), 'push info error: %s' % info
         # check command
         if info.receiver == PushInfo.PUSHER_ID:
@@ -134,23 +140,12 @@ class Pusher(Runner, Logging):
             worker.append(job=info)
         return len(self.__workers) > 0
 
-    # Override
-    def process(self) -> bool:
-        info = None
-        try:
-            # get next info
-            info = self.__arrow.receive()
-            if info is None:
-                # nothing to do now, return False to have a rest
-                return False
-            # try push info
-            return self.__push_info(info=info)
-        except Exception as error:
-            self.error('failed to push: %s, error: %s' % (info, error))
+    def run(self):
+        while self.__arrow.running:
+            time.sleep(2)
 
-    # Override
-    def finish(self):
-        super().finish()
+    def stop(self):
+        self.__arrow.stop()
         for worker in self.__workers:
             worker.stop()
 

@@ -43,8 +43,6 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from etc.cfg_init import g_cleaner
-
 from robots.config import g_facebook, g_station
 
 
@@ -287,7 +285,6 @@ def parse_command(argv: list):
 
 def stop_threads():
     g_station.disconnect()
-    g_cleaner.stop()
 
 
 if __name__ == '__main__':
