@@ -149,7 +149,8 @@ class ServerMessenger(CommonMessenger):
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):
-        sid = g_dispatcher.station
+        station = self.facebook.current_user
+        sid = station.identifier
         now = int(time.time())
         self.info('handshake accepted %s: %s' % (client_address, identifier))
         # post notification: USER_LOGIN

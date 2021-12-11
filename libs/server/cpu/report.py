@@ -41,9 +41,9 @@ from ...utils import NotificationCenter
 from ...database import Database
 from ...common import NotificationNames
 from ...common import ReportCommand
+from ...common import CommonFacebook
 
 from ..session import Session
-from ..dispatcher import Dispatcher
 
 
 g_database = Database()
@@ -59,6 +59,23 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         # from ..processor import ServerProcessor
         # assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
         return processor.get_processor_by_name(cmd_name=name)
+
+    def _post_notification(self, cmd: Command, session: Session):
+        if session.active:
+            notification = NotificationNames.USER_ONLINE
+        else:
+            notification = NotificationNames.USER_OFFLINE
+        facebook = self.facebook
+        assert isinstance(facebook, CommonFacebook), 'facebook error'
+        station = facebook.current_user
+        sid = station.identifier
+        # post notification
+        NotificationCenter().post(name=notification, sender=self, info={
+            'ID': str(session.identifier),
+            'client_address': session.client_address,
+            'station': str(sid),
+            'time': cmd.time,
+        })
 
     def __process_old_report(self, cmd: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # compatible with v1.0
@@ -85,7 +102,7 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         if session is not None:
             assert session.identifier == msg.sender, 'session ID not match: %s, %s' % (msg.sender, session)
             session.active = active
-            _post_notification(cpu=self, cmd=cmd, session=session)
+            self._post_notification(cmd=cmd, session=session)
         text = 'Client state received.'
         return self._respond_receipt(text=text)
 
@@ -106,21 +123,6 @@ class ReportCommandProcessor(CommandProcessor, Logging):
             raise AssertionError('Dead cycle! report cmd: %s' % cmd)
         # assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
         return cpu.execute(cmd=cmd, msg=msg)
-
-
-def _post_notification(cpu: ReportCommandProcessor, cmd: Command, session: Session):
-    if session.active:
-        notification = NotificationNames.USER_ONLINE
-    else:
-        notification = NotificationNames.USER_OFFLINE
-    sid = Dispatcher().station
-    # post notification
-    NotificationCenter().post(name=notification, sender=cpu, info={
-        'ID': str(session.identifier),
-        'client_address': session.client_address,
-        'station': str(sid),
-        'time': cmd.time,
-    })
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
@@ -153,7 +155,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         session = messenger.current_session
         if session is not None:
             session.active = True
-            _post_notification(cpu=self, cmd=cmd, session=session)
+            self._post_notification(cmd=cmd, session=session)
             # TODO: notification for pushing offline message(s) from 'last_time'
         text = 'Client online received.'
         return self._respond_receipt(text=text)
@@ -175,6 +177,6 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         session = messenger.current_session
         if session is not None:
             session.active = False
-            _post_notification(cpu=self, cmd=cmd, session=session)
+            self._post_notification(cmd=cmd, session=session)
         text = 'Client offline received.'
         return self._respond_receipt(text=text)

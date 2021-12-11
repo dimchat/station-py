@@ -48,11 +48,11 @@ monkey.patch_all()
 
 from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
+from libs.server import SearchEngineCaller
 
 from station.config import g_station, g_dispatcher
-from station.config import Monitor
+from station.config import ReceptionistCaller, MonitorCaller
 from station.handler import RequestHandler
-from station.receptionist import Receptionist
 
 
 class TCPServer(Logging):
@@ -88,12 +88,21 @@ class TCPServer(Logging):
 
 
 """
+    DIM Search Engine
+    ~~~~~~~~~~~~~~~~~
+
+    An engine support 'search' command
+"""
+g_search_engine = SearchEngineCaller()
+
+
+"""
     DIM Network Monitor
     ~~~~~~~~~~~~~~~~~~~
 
     A dispatcher for sending reports to administrator(s)
 """
-g_monitor = Monitor()
+g_monitor = MonitorCaller()
 
 
 """
@@ -102,14 +111,13 @@ g_monitor = Monitor()
 
     A message scanner for new guests who have just come in.
 """
-g_receptionist = Receptionist()
+g_receptionist = ReceptionistCaller()
 # set current station for receptionist
 g_receptionist.station = g_station.identifier
 
 
 if __name__ == '__main__':
 
-    g_receptionist.start()
     g_dispatcher.start()
 
     # start UDP Server
@@ -138,5 +146,4 @@ if __name__ == '__main__':
     finally:
         g_udp_server.stop()
         g_dispatcher.stop()
-        g_receptionist.stop()
         Log.info('======== station shutdown!')

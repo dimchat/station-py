@@ -35,14 +35,17 @@ import threading
 import traceback
 import weakref
 from abc import abstractmethod
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Any
+
+from ipx import SharedMemoryArrow
 
 from dimp import NetworkType, ID, ANYONE, EVERYONE
 from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
+from ..utils.log import Log, Logging
+from ..utils.ipc import ArrowDelegate, ArchivistArrows
 from ..utils import get_msg_sig
-from ..utils import Log, Logging
 from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushService, build_message as build_push_message
@@ -57,6 +60,30 @@ from .session import Session, SessionServer
 g_session_server = SessionServer()
 g_facebook = SharedFacebook()
 g_database = Database()
+
+
+@Singleton
+class SearchEngineCaller(ArrowDelegate):
+    """ handling 'search' command """
+
+    def __init__(self):
+        super().__init__()
+        self.__ss = SessionServer()
+        # pipe
+        arrows = ArchivistArrows.primary(delegate=self)
+        self.__income_arrow = arrows[0]
+        self.__outgo_arrow = arrows[1]
+
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        assert isinstance(obj, dict), '[SE] msg error: %s' % obj
+        msg = ReliableMessage.parse(msg=obj)
+        sessions = self.__ss.active_sessions(identifier=msg.receiver)
+        for sess in sessions:
+            sess.push_message(msg=msg)
+
+    def send(self, msg: ReliableMessage):
+        self.__outgo_arrow.send(obj=msg.dictionary)
 
 
 @Singleton
@@ -358,6 +385,10 @@ class GroupDispatcher(Worker):
 class BroadcastDispatcher(Worker):
     """ broadcast (split and deliver) to everyone """
 
+    def __init__(self):
+        super().__init__()
+        self.__search_engine = SearchEngineCaller()
+
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
         sender = msg.sender
         receiver = msg.receiver
@@ -378,15 +409,8 @@ class BroadcastDispatcher(Worker):
         self.warning('failed to deliver message: %s' % msg)
 
     def __deliver_to_archivists(self, msg: ReliableMessage) -> Optional[Content]:
-        archivist = ID.parse(identifier='archivist')
-        if archivist is None:
-            self.error('failed to get search bot: archivist')
-        elif _push_message(msg=msg, receiver=archivist) > 0:
-            # response
-            text = 'Search command forward to archivist: ' % archivist
-            res = TextContent(text=text)
-            res.group = msg.group
-            return res
+        self.__search_engine.send(msg=msg)
+        return None
 
     def __deliver_to_assistants(self, msg: ReliableMessage) -> Optional[Content]:
         assistants = g_facebook.assistants(identifier=msg.receiver)

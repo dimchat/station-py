@@ -30,17 +30,21 @@
     Configuration for DIM network server node
 """
 
-#
-#  Common Libs
-#
-from libs.utils import Log
+from typing import Any
+
+from ipx import SharedMemoryArrow
+
+from dimp import ReliableMessage
+
+from libs.utils.log import Log
+from libs.utils.ipc import ArrowDelegate, ReceptionistArrows, MonitorArrow
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.utils.ipc import MonitorArrow
 from libs.push import PushCenter
 from libs.common import NotificationNames
 from libs.server import ServerMessenger
 from libs.server import Dispatcher
+from libs.server import SessionServer
 
 #
 #  Configurations
@@ -52,11 +56,45 @@ from etc.cfg_init import station_id, create_station, neighbor_stations
 
 
 @Singleton
-class Monitor(NotificationObserver):
+class ReceptionistCaller(ArrowDelegate):
+    """ handling 'handshake' commands """
 
     def __init__(self):
         super().__init__()
-        self.__arrow = MonitorArrow.primary()
+        self.__ss = SessionServer()
+        # pipe
+        arrows = ReceptionistArrows.primary(delegate=self)
+        self.__income_arrow = arrows[0]
+        self.__outgo_arrow = arrows[1]
+
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        assert isinstance(obj, dict), 'message error: %s' % obj
+        msg = ReliableMessage.parse(msg=obj)
+        sessions = SessionServer().active_sessions(identifier=msg.receiver)
+        # check remote address
+        remote = msg.get('remote')
+        if remote is None:
+            # push to all active sessions
+            for sess in sessions:
+                sess.push_message(msg=msg)
+        else:
+            # push to active session with same remote address
+            msg.pop('remote')
+            for sess in sessions:
+                if sess.remote_address == remote:
+                    sess.push_message(msg=msg)
+
+    def send(self, msg: ReliableMessage) -> bool:
+        return self.__outgo_arrow.send(obj=msg.dictionary)
+
+
+class MonitorCaller(NotificationObserver):
+    """ handling user events """
+
+    def __init__(self):
+        super().__init__()
+        self.__outgo_arrow = MonitorArrow.primary()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
@@ -64,16 +102,9 @@ class Monitor(NotificationObserver):
         nc.add(observer=self, name=NotificationNames.USER_OFFLINE)
         nc.add(observer=self, name=NotificationNames.DELIVER_MESSAGE)
 
-    def __del__(self):
-        nc = NotificationCenter()
-        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
-        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
-        nc.remove(observer=self, name=NotificationNames.USER_OFFLINE)
-        nc.remove(observer=self, name=NotificationNames.DELIVER_MESSAGE)
-
     # Override
     def received_notification(self, notification: Notification):
-        self.__arrow.send(obj={
+        self.__outgo_arrow.send(obj={
             'name': notification.name,
             'info': notification.info,
         })

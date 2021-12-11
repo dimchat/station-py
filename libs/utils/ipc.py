@@ -34,7 +34,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 from ipx import SharedMemoryArrow
-
 from startrek.fsm import Runner
 
 
@@ -87,18 +86,19 @@ class OutgoArrow(Runner):
         self.__lock = threading.Lock()
         threading.Thread(target=self.run, daemon=True).start()
 
-    def __try_send(self, obj: Any) -> int:
+    def __try_send(self, obj: Optional[Any]) -> bool:
         try:
-            return self.__arrow.send(obj=obj)
+            return self.__arrow.send(obj=obj) >= 0
         except Exception as error:
             print('[IPC] failed to send: %s, %s' % (obj, error))
 
-    def send(self, obj: Any) -> int:
+    def send(self, obj: Any) -> bool:
         with self.__lock:
             return self.__try_send(obj=obj)
 
     # Override
     def process(self) -> bool:
+        # send None to drive the arrow to resent delay objects
         self.send(obj=None)
         return False
 
@@ -107,16 +107,16 @@ class OutgoArrow(Runner):
     Station process IDs
     ~~~~~~~~~~~~~~~~~~~
     
-        0 - dispatcher     router (main)
-        1 - receptionist   login session, offline messages
-        2 - archivist      meta, document, search engine
+        0 - main           router, filter, dispatcher
+        1 - receptionist   handshake (offline messages), ...
+        2 - archivist      search engine
         3 - pusher         notification (ios, android)
         7 - monitor        statistic, session
 """
 
 
-class SessionArrows:
-    """ arrows between dispatcher and receptionist """
+class ReceptionistArrows:
+    """ arrows between router and receptionist """
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16
@@ -135,8 +135,8 @@ class SessionArrows:
                OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2)
 
 
-class SearchArrows:
-    """ arrows between dispatcher and archivist """
+class ArchivistArrows:
+    """ arrows between router and archivist """
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16
