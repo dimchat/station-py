@@ -51,7 +51,7 @@ from dimsdk import Messenger
 
 from ..utils import Logging
 
-from ..network import ShipDelegate, CommonGate, GateKeeper
+from ..network import CommonGate, GateKeeper
 from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 
 
@@ -137,13 +137,6 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
     #
     #   Send message to remote address
     #
-
-    def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
-        if not self.active:
-            # FIXME: connection lost?
-            self.warning(msg='session inactive')
-        self.debug(msg='sending %d byte(s), priority: %d' % (len(payload), priority))
-        return self.keeper.send_payload(payload=payload, priority=priority, delegate=delegate)
 
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         if not self.active:

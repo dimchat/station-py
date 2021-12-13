@@ -212,7 +212,7 @@ class GateKeeper(Runner):
             return True
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        ok = self.send_payload(payload=data, priority=wrapper.priority, delegate=wrapper)
+        ok = self.__send_payload(payload=data, priority=wrapper.priority, delegate=wrapper)
         if ok:
             wrapper.success()
         else:
@@ -220,7 +220,7 @@ class GateKeeper(Runner):
             wrapper.failed(error=error)
         return True
 
-    def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def __send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
         """ Send data via the gate """
         gate = self.gate
         return gate.send_payload(payload=payload, local=None, remote=self.__remote,

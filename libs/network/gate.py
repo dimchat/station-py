@@ -105,11 +105,11 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
         # TODO: remove advance party for this connection
         pass
 
-    # Override
-    def _heartbeat(self, connection: Connection):
-        # let the client to do the job
-        if isinstance(connection, ActiveConnection):
-            super()._heartbeat(connection=connection)
+    # # Override
+    # def _heartbeat(self, connection: Connection):
+    #     # let the client to do the job
+    #     if isinstance(connection, ActiveConnection):
+    #         super()._heartbeat(connection=connection)
 
     def __kill(self, remote: tuple = None, local: Optional[tuple] = None, connection: Connection = None):
         # if conn is null, disconnect with (remote, local);

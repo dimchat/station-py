@@ -185,11 +185,9 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         # carry meta, visa for first handshaking
         r_msg.meta = user.meta
         r_msg.visa = user.visa
-        data = self.messenger.serialize_message(msg=r_msg)
-        # send out directly
         self.info('shaking hands: %s -> %s' % (r_msg.sender, r_msg.receiver))
         # Urgent Command
-        session.send_payload(payload=data, priority=DeparturePriority.URGENT)
+        session.send_reliable_message(msg=r_msg, priority=DeparturePriority.URGENT)
 
     def handshake_success(self):
         # check FSM state == 'Handshaking'
