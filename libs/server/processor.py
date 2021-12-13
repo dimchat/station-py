@@ -34,7 +34,7 @@ from typing import List, Optional
 from dimp import NetworkType
 from dimp import ReliableMessage
 from dimp import Content, TextContent, Command
-from dimsdk import ReceiptCommand
+from dimsdk import ReceiptCommand, HandshakeCommand
 from dimsdk import CommandProcessor, ProcessorFactory
 
 from ..utils import get_msg_sig
@@ -143,8 +143,18 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        # 0. process first
         responses = super().process_content(content=content, r_msg=r_msg)
+        messenger = self.messenger
         sender = r_msg.sender
+        # 1. check login
+        session = messenger.session
+        if session.identifier is None or not session.active:
+            # not login yet, force to handshake again
+            if not isinstance(content, HandshakeCommand):
+                handshake = HandshakeCommand.ask(session=session.key)
+                responses.insert(0, handshake)
+        # 2. check response
         contents = []
         for res in responses:
             if res is None:
