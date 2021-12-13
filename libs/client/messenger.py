@@ -42,6 +42,7 @@ from dimp import Command
 from dimp import Transceiver
 from dimsdk import LoginCommand
 
+from ..common import BaseSession
 from ..common import CommonMessenger, CommonFacebook, SharedFacebook
 
 from .network import Terminal, Server
@@ -78,6 +79,10 @@ class ClientMessenger(CommonMessenger):
         client = self.terminal
         if client is not None:
             return client.server
+
+    @property
+    def session(self) -> BaseSession:
+        return self.server.connect()
 
     #
     #   Sending command
