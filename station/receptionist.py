@@ -86,6 +86,8 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         try:
             if msg is None:
                 self.__process_users(users=self.get_guests())
+            elif msg.get('name') is not None and msg.get('info') is not None:
+                self.__process_notification(event=msg)
             else:
                 msg = ReliableMessage.parse(msg=msg)
                 self.__process_message(msg=msg)
@@ -98,6 +100,14 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         responses = g_messenger.process_reliable_message(msg=msg)
         for res in responses:
             self.send(res)
+
+    def __process_notification(self, event: dict):
+        name = event.get('name')
+        info = event.get('info')
+        if name in [NotificationNames.USER_LOGIN, NotificationNames.USER_ONLINE]:
+            identifier = ID.parse(identifier=info.get('ID'))
+            if identifier is not None:
+                self.add_guest(identifier=identifier)
 
     def __process_users(self, users: Set[ID]):
         for identifier in users:

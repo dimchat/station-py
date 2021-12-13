@@ -105,6 +105,7 @@ class ReceptionistCaller(Runner):
         return True
 
 
+@Singleton
 class MonitorCaller(NotificationObserver):
     """ handling user events """
 
@@ -120,9 +121,15 @@ class MonitorCaller(NotificationObserver):
 
     # Override
     def received_notification(self, notification: Notification):
+        name = notification.name
+        info = notification.info
         self.__outgo_arrow.send(obj={
-            'name': notification.name,
-            'info': notification.info,
+            'name': name,
+            'info': info,
+        })
+        ReceptionistCaller().send(msg={
+            'name': name,
+            'info': info,
         })
 
 
