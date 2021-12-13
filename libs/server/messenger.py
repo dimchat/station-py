@@ -49,7 +49,6 @@ from .dispatcher import Dispatcher
 
 g_database = Database()
 g_session_server = SessionServer()
-g_dispatcher = Dispatcher()
 
 
 class ServerMessenger(CommonMessenger):
@@ -71,7 +70,7 @@ class ServerMessenger(CommonMessenger):
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
             g_database.save_message(msg=msg)
-            res = g_dispatcher.deliver(msg=msg)
+            res = Dispatcher().deliver(msg=msg)
         # pack response
         if res is None:
             return []
@@ -135,17 +134,7 @@ class ServerMessenger(CommonMessenger):
         if receiver is None:
             receiver = ID.parse(identifier='stations@everywhere')
         srv = self.facebook.current_user
-        env = Envelope.create(sender=srv.identifier, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=cmd)
-        s_msg = self.encrypt_message(msg=i_msg)
-        if s_msg is None:
-            # failed to encrypt message
-            return False
-        r_msg = self.sign_message(msg=s_msg)
-        assert r_msg is not None, 'failed to sign message: %s' % s_msg
-        r_msg.delegate = self
-        g_dispatcher.deliver(msg=r_msg)
-        return True
+        return self.send_content(content=cmd, priority=priority, receiver=receiver, sender=srv.identifier)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):

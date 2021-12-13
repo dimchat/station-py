@@ -55,7 +55,7 @@ from libs.common import NotificationNames
 from libs.server import ServerMessenger
 
 from etc.cfg_init import g_database
-from station.config import g_dispatcher, g_facebook, g_station
+from station.config import g_facebook, g_station
 
 
 class ReceptionistWorker(Runner, Logging, NotificationObserver):
@@ -69,8 +69,10 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         self.__guests = set()
         self.__lock = threading.Lock()
         # pipe
-        self.__bus: ShuttleBus[dict] = ShuttleBus()
-        self.__bus.set_arrows(arrows=ReceptionistArrows.secondary(delegate=self.__bus))
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=ReceptionistArrows.secondary(delegate=bus))
+        threading.Thread(target=bus.run, daemon=True).start()
+        self.__bus: ShuttleBus[dict] = bus
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
@@ -104,7 +106,7 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
             self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
             # 2. sent messages one by one
             for msg in messages:
-                g_dispatcher.deliver(msg=msg)
+                self.send(msg=msg)
 
     def get_guests(self) -> Set[ID]:
         with self.__lock:

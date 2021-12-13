@@ -48,9 +48,13 @@ monkey.patch_all()
 
 from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
+from libs.push import PushCenter
+from libs.server import Dispatcher
 from libs.server import SearchEngineCaller
 
-from station.config import g_station, g_dispatcher
+from etc.cfg_init import neighbor_stations
+
+from station.config import g_station
 from station.config import ReceptionistCaller, MonitorCaller
 from station.handler import RequestHandler
 
@@ -85,6 +89,25 @@ class TCPServer(Logging):
         except Exception as error:
             self.error(msg='handle request error: %s' % error)
             traceback.print_exc()
+
+
+"""
+    Message Dispatcher
+    ~~~~~~~~~~~~~~~~~~
+
+    A dispatcher to decide which way to deliver message.
+"""
+g_dispatcher = Dispatcher()
+g_dispatcher.push_service = PushCenter()
+# set current station for dispatcher
+g_dispatcher.station = g_station.identifier
+
+# load neighbour station for delivering message
+Log.info('-------- Loading neighbor stations: %d' % len(neighbor_stations))
+for node in neighbor_stations:
+    assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
+    Log.info('add node: %s' % node)
+    g_dispatcher.add_neighbor(station=node.identifier)
 
 
 """

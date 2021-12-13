@@ -64,15 +64,17 @@ g_database = Database()
 
 
 @Singleton
-class SearchEngineCaller(Runner):
+class SearchEngineCaller(Runner, Logging):
     """ handling 'search' command """
 
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
         # pipe
-        self.__bus: ShuttleBus[dict] = ShuttleBus()
-        self.__bus.set_arrows(arrows=ArchivistArrows.primary(delegate=self.__bus))
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=ArchivistArrows.primary(delegate=bus))
+        threading.Thread(target=bus.run, daemon=True).start()
+        self.__bus: ShuttleBus[dict] = bus
         threading.Thread(target=self.run, daemon=True).start()
 
     def send(self, msg: Union[dict, ReliableMessage]):
@@ -83,9 +85,17 @@ class SearchEngineCaller(Runner):
     # Override
     def process(self) -> bool:
         obj = self.__bus.receive()
-        msg = ReliableMessage.parse(msg=obj)
-        if msg is None:
+        if obj is None:
             return False
+        try:
+            return self.__try_process(obj=obj)
+        except Exception as error:
+            self.error(msg='search engine error: %s, %s' % (error, obj))
+            traceback.print_exc()
+
+    def __try_process(self, obj: dict) -> bool:
+        msg = ReliableMessage.parse(msg=obj)
+        assert msg is not None, 'msg error: %s' % obj
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
         # check remote address
         remote = msg.get('remote')

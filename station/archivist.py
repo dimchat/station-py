@@ -31,6 +31,7 @@
     Managing meta & documents
 """
 
+import threading
 import traceback
 from typing import Optional, Union, Dict, List
 
@@ -211,8 +212,10 @@ class SearchEngineWorker(Runner, Logging):
         self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         # pipe
-        self.__bus: ShuttleBus[dict] = ShuttleBus()
-        self.__bus.set_arrows(arrows=ArchivistArrows.secondary(delegate=self.__bus))
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=ArchivistArrows.secondary(delegate=bus))
+        threading.Thread(target=bus.run, daemon=True).start()
+        self.__bus: ShuttleBus[dict] = bus
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):

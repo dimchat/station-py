@@ -31,6 +31,7 @@
 """
 
 import threading
+import traceback
 from typing import Union
 
 from startrek.fsm import Runner
@@ -42,10 +43,8 @@ from libs.utils.log import Log
 from libs.utils.ipc import ShuttleBus, ReceptionistArrows, MonitorArrow
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.push import PushCenter
 from libs.common import NotificationNames
 from libs.server import ServerMessenger
-from libs.server import Dispatcher
 from libs.server import SessionServer
 
 #
@@ -54,7 +53,7 @@ from libs.server import SessionServer
 from etc.config import bind_host, bind_port
 
 from etc.cfg_init import g_facebook, g_keystore
-from etc.cfg_init import station_id, create_station, neighbor_stations
+from etc.cfg_init import station_id, create_station
 
 
 @Singleton
@@ -65,8 +64,10 @@ class ReceptionistCaller(Runner):
         super().__init__()
         self.__ss = SessionServer()
         # pipe
-        self.__bus: ShuttleBus[dict] = ShuttleBus()
-        self.__bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=self.__bus))
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=bus))
+        threading.Thread(target=bus.run, daemon=True).start()
+        self.__bus: ShuttleBus[dict] = bus
         threading.Thread(target=self.run, daemon=True).start()
 
     def send(self, msg: Union[dict, ReliableMessage]):
@@ -77,9 +78,17 @@ class ReceptionistCaller(Runner):
     # Override
     def process(self) -> bool:
         obj = self.__bus.receive()
-        msg = ReliableMessage.parse(msg=obj)
-        if msg is None:
+        if obj is None:
             return False
+        try:
+            return self.__try_process(obj=obj)
+        except Exception as error:
+            self.error(msg='failed to process: %s, %s' % (error, obj))
+            traceback.print_exc()
+
+    def __try_process(self, obj: dict) -> bool:
+        msg = ReliableMessage.parse(msg=obj)
+        assert msg is not None, 'msg error: %s' % obj
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
         # check remote address
         remote = msg.get('remote')
@@ -128,16 +137,6 @@ g_facebook.messenger = g_messenger
 
 
 """
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
-
-    A dispatcher to decide which way to deliver message.
-"""
-g_dispatcher = Dispatcher()
-g_dispatcher.push_service = PushCenter()
-
-
-"""
     Local Station
     ~~~~~~~~~~~~~
 """
@@ -157,14 +156,5 @@ g_facebook.local_users = [g_station]
 g_facebook.current_user = g_station
 # set current station for key store
 g_keystore.user = g_station
-# set current station for dispatcher
-g_dispatcher.station = g_station.identifier
-
-# load neighbour station for delivering message
-Log.info('-------- Loading neighbor stations: %d' % len(neighbor_stations))
-for node in neighbor_stations:
-    assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
-    Log.info('add node: %s' % node)
-    g_dispatcher.add_neighbor(station=node.identifier)
 
 Log.info('======== configuration OK! ========')
