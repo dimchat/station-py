@@ -52,6 +52,7 @@ from .table_device import DeviceTable
 from .table_user import UserTable
 from .table_login import LoginTable
 from .table_group import GroupTable
+from .table_session import SessionTable
 from .table_message import MessageTable
 
 
@@ -68,6 +69,7 @@ __all__ = [
     'DocumentTable', 'DeviceTable',
     'UserTable', 'PrivateKeyTable', 'LoginTable',
     'GroupTable',
+    'SessionTable',
     'MessageTable',
 
     'Database',
@@ -87,6 +89,8 @@ class Database:
         self.__user_table = UserTable()
         self.__group_table = GroupTable()
         self.__message_table = MessageTable()
+        # Session
+        self.__session_table = SessionTable()
         # Network
         self.__network_table = NetworkTable()
         # ANS
@@ -292,6 +296,22 @@ class Database:
 
     def messages(self, receiver: ID) -> List[ReliableMessage]:
         return self.__message_table.messages(receiver=receiver)
+
+    """
+        Session info
+        ~~~~~~~~~~~~
+        
+        redis key: 'mkm.session.{ID}.addresses'
+        redis key: 'mkm.session.{address}.info'
+    """
+    def active_sessions(self, identifier: ID) -> Set[dict]:
+        return self.__session_table.active_sessions(identifier=identifier)
+
+    def fetch_session(self, address: tuple) -> dict:
+        return self.__session_table.fetch_session(address=address)
+
+    def update_session(self, address: tuple, identifier: ID) -> bool:
+        return self.__session_table.update_session(address=address, identifier=identifier)
 
     """
         Address Name Service

@@ -39,6 +39,13 @@ from typing import Optional, Set
 from dimp import ID, NetworkType
 from dimsdk import Station
 
+import sys
+import os
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+
 from libs.utils import Log, Logging
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter

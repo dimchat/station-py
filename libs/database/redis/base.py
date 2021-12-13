@@ -33,6 +33,7 @@ g_db_1 = Redis(db=1)  # mkm.meta
 g_db_2 = Redis(db=2)  # mkm.document
 g_db_3 = Redis(db=3)  # mkm.user
 g_db_4 = Redis(db=4)  # mkm.group
+g_db_7 = Redis(db=7)  # mkm.session
 g_db_8 = Redis(db=8)  # dkd.msg
 
 g_dbs = {
@@ -90,6 +91,11 @@ class Cache:
     def delete(self, *names):
         """ Remove value with name """
         self.redis.delete(*names)
+        return True
+
+    def expire(self, name: str, ti: int) -> bool:
+        """ Update expired time with name """
+        self.redis.expire(name=name, time=ti)
         return True
 
     #
