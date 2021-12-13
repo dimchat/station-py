@@ -39,17 +39,17 @@ from typing import Optional, Set
 from dimp import ID, NetworkType
 from dimsdk import Station
 
-from libs.utils import Logging
+from libs.utils import Log, Logging
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 
 from etc.cfg_init import g_database
-from station.config import g_dispatcher
+from station.config import g_dispatcher, g_facebook, g_station
 
 
 @Singleton
-class Receptionist(threading.Thread, NotificationObserver, Logging):
+class Receptionist(NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
@@ -152,3 +152,11 @@ class Receptionist(threading.Thread, NotificationObserver, Logging):
 
     def stop(self):
         self.__running = False
+
+
+if __name__ == '__main__':
+    Log.info(msg='>>> starting receptionist ...')
+    g_facebook.current_user = g_station
+    g_worker = Receptionist()
+    g_worker.run()
+    Log.info(msg='>>> receptionist exists.')

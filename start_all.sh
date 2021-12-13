@@ -2,14 +2,24 @@
 
 root=$(cd "$(dirname "$0")" || exit;pwd)
 
-start=${root}/shell_start.sh
-stop=${root}/shell_stop.sh
+start_shell=${root}/shell_start.sh
+stop_shell=${root}/shell_stop.sh
+
+# start "name" "path/to/script.py"
+function start() {
+    ${start_shell} "$1" "${root}/$2"
+}
+
+# stop "path/to/script.py"
+function stop() {
+    ${stop_shell} "${root}/$1"
+}
 
 # restart "name" "path/to/script.py"
 function restart() {
-    ${stop} "${root}/$2"
+    stop "$2"
     sleep 1
-    ${start} "$1" "${root}/$2"
+    start "$1" "$2"
 }
 
 function title() {
@@ -20,23 +30,22 @@ function title() {
 
 
 title "DIM Station"
-restart dims "station/start.py"
-
-title "Notification Pusher"
-restart pusher "station/pusher.py"
-
-title "Event Monitor"
-restart monitor "station/monitor.py"
+stop "station/start.py"
+stop "station/receptionist.py"
+stop "station/archivist.py"
+stop "station/pusher.py"
+stop "station/monitor.py"
+sleep 2
+start "monitor" "station/monitor.py"
+start "pusher" "station/pusher.py"
+start "search" "station/archivist.py"
+start "station" "station/receptionist.py"
+start "dims" "station/start.py"
 
 sleep 2
 
 title "DIM Station Bridge"
 restart octopus "robots/sbot_octopus.py"
-
-sleep 5
-
-title "DIM Search Engine"
-restart search "robots/sbot_archivist.py"
 
 #title "DIM Group Assistant"
 #restart group "robots/gbot_assistant.py"
