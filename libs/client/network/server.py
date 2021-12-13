@@ -33,14 +33,13 @@
 import weakref
 from typing import Optional
 
+from startrek.fsm import StateDelegate
+
 from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Command
+from dimp import Content, Command
 from dimsdk import HandshakeCommand
 from dimsdk import Station
-from dimsdk import Callback as MessengerCallback
-
-from startrek.fsm import StateDelegate
 
 from ...utils import Logging
 from ...network import GateStatus, DeparturePriority
@@ -205,22 +204,21 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         self.__fsm.session_key = session_key
         self.messenger.handshake_accepted(identifier=user.identifier)
 
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        session = self.connect()
+        return session.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
+
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        session = self.connect()
+        return session.send_instant_message(msg=msg, priority=priority)
+
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        session = self.connect()
+        return session.send_reliable_message(msg=msg, priority=priority)
+
     #
     #   MessengerDelegate
     #
-
-    # Override
-    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
-        """ Send out a data package onto network """
-        session = self.connect()
-        ok = session.send_payload(payload=data, priority=priority)
-        if callback is not None:
-            if ok:
-                callback.success()
-            else:
-                error = IOError('Server error: failed to send data package')
-                callback.failed(error=error)
-        return ok
 
     # Override
     def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:

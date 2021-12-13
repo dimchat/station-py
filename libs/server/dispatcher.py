@@ -38,6 +38,7 @@ from abc import abstractmethod
 from typing import Optional, List, Set, Any
 
 from ipx import SharedMemoryArrow
+from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, ANYONE, EVERYONE
 from dimp import ReliableMessage
@@ -80,7 +81,7 @@ class SearchEngineCaller(ArrowDelegate):
         msg = ReliableMessage.parse(msg=obj)
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
         for sess in sessions:
-            sess.push_message(msg=msg)
+            sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
 
     def send(self, msg: ReliableMessage):
         self.__outgo_arrow.send(obj=msg.dictionary)
@@ -214,7 +215,7 @@ def _push_message(msg: ReliableMessage, receiver: ID) -> int:
     success = 0
     sessions = g_session_server.active_sessions(identifier=receiver)
     for sess in sessions:
-        if sess.push_message(msg=msg):
+        if sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL):
             success += 1
     return success
 

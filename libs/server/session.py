@@ -41,7 +41,7 @@ import time
 import weakref
 from typing import Optional, Dict, Set
 
-from startrek import GateStatus, Gate
+from startrek import GateStatus, Gate, DeparturePriority
 
 from dimp import hex_encode
 from dimp import ID
@@ -80,7 +80,7 @@ class Session(BaseSession):
     @property  # Override
     def running(self) -> bool:
         if super().running:
-            gate = self.keeper.gate
+            gate = self.gate
             conn = gate.get_connection(remote=self.remote_address, local=None)
             if conn is not None:
                 return conn.opened
@@ -104,7 +104,7 @@ class Session(BaseSession):
         messages = g_database.messages(receiver=self.identifier)
         self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
         for msg in messages:
-            self.push_message(msg=msg)
+            self.send_reliable_message(msg=msg, priority=DeparturePriority.SLOWER)
         return True
 
     # Override

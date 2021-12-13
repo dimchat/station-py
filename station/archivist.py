@@ -37,6 +37,7 @@ from typing import Optional, Dict, List, Any
 
 from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
+from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
@@ -44,7 +45,6 @@ from dimp import Content, Command
 from dimp import MetaCommand, DocumentCommand
 from dimp import Transceiver
 from dimsdk import CommandProcessor, ProcessorFactory
-from dimsdk import Callback as MessengerCallback
 from dimsdk import Station
 
 import sys
@@ -193,7 +193,7 @@ def send_command(cmd: Command, stations: List[Station]):
     for station in stations:
         env = Envelope.create(sender=user.identifier, receiver=station.identifier)
         msg = InstantMessage.create(head=env, body=cmd)
-        g_messenger.send_instant_message(msg=msg)
+        g_messenger.send_instant_message(msg=msg, priority=DeparturePriority.NORMAL)
 
 
 #
@@ -274,10 +274,6 @@ class ArchivistMessenger(ServerMessenger, ArrowDelegate):
         return ArchivistMessageProcessor(messenger=self)
 
     # Override
-    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
-        self.__outgo_arrow.send(obj=data)
-
-    # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         self.__outgo_arrow.send(obj=msg.dictionary)
         return []
@@ -291,6 +287,33 @@ class ArchivistMessenger(ServerMessenger, ArrowDelegate):
     def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
         assert isinstance(obj, dict), 'event error: %s' % obj
         g_worker.append(msg=obj)
+
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        g_worker.append(msg=msg.dictionary)
+        return True
+
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        s_msg = g_messenger.encrypt_message(msg=msg)
+        if s_msg is None:
+            # public key not found?
+            return False
+        r_msg = g_messenger.sign_message(msg=s_msg)
+        if r_msg is None:
+            # TODO: set msg.state = error
+            raise AssertionError('failed to sign message: %s' % s_msg)
+        self.send_reliable_message(msg=r_msg, priority=priority)
+
+    # Override
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        if sender is None:
+            user = g_messenger.facebook.current_user
+            assert user is not None, 'current user not set'
+            sender = user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        msg = InstantMessage.create(head=env, body=content)
+        return self.send_instant_message(msg=msg, priority=priority)
 
 
 #
@@ -335,7 +358,7 @@ class ArchivistWorker(Runner, Logging):
                 msg = ReliableMessage.parse(msg=msg)
                 responses = g_messenger.process_reliable_message(msg=msg)
                 for res in responses:
-                    g_messenger.send_reliable_message(msg=res)
+                    g_messenger.send_reliable_message(msg=res, priority=DeparturePriority.NORMAL)
                 return True
         except Exception as error:
             self.error('archivist error: %s, %s' % (msg, error))

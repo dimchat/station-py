@@ -45,7 +45,8 @@ from startrek import Connection, ActiveConnection
 from startrek import GateDelegate
 from startrek import Arrival, Departure, DepartureShip
 
-from dimp import ID, ReliableMessage
+from dimp import ID, Content
+from dimp import InstantMessage, ReliableMessage
 from dimsdk import Messenger
 
 from ..utils import Logging
@@ -96,6 +97,11 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
     def active(self, flag: bool):
         self.keeper.active = flag
 
+    # Override
+    def stop(self):
+        super().stop()
+        self.keeper.stop()
+
     @property
     def key(self) -> Optional[str]:
         """ session key """
@@ -133,10 +139,32 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
     #
 
     def send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending %d byte(s), priority: %d' % (len(payload), priority))
         return self.keeper.send_payload(payload=payload, priority=priority, delegate=delegate)
 
-    def push_message(self, msg: ReliableMessage) -> bool:
-        return self.keeper.push_message(msg=msg)
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending msg to: %s, priority: %d' % (msg.receiver, priority))
+        return self.keeper.send_reliable_message(msg=msg, priority=priority)
+
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending msg to: %s, priority: %d' % (msg.receiver, priority))
+        return self.keeper.send_instant_message(msg=msg, priority=priority)
+
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending content to: %s, priority: %d' % (receiver, priority))
+        return self.keeper.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
 
     #
     #   GateDelegate

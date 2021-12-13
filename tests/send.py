@@ -29,6 +29,8 @@ import sys
 import time
 from typing import List
 
+from startrek import DeparturePriority
+
 from dimp import ID
 from dimp import Content, TextContent
 from dimp import ReliableMessage
@@ -133,7 +135,7 @@ def parse_command(argv: list):
 
 def send_text(text: str, receiver: ID):
     content = TextContent(text=text)
-    g_client.messenger.send_content(sender=None, receiver=receiver, content=content)
+    g_client.messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=receiver)
 
 
 # TODO: write test code here

@@ -98,7 +98,7 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         messenger = self.messenger
         # from ..messenger import ServerMessenger
         # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.current_session
+        session = messenger.session
         if session is not None:
             assert session.identifier == msg.sender, 'session ID not match: %s, %s' % (msg.sender, session)
             session.active = active
@@ -152,7 +152,7 @@ class OnlineCommandProcessor(ReportCommandProcessor):
         messenger = self.messenger
         # from ..messenger import ServerMessenger
         # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.current_session
+        session = messenger.session
         if session is not None:
             session.active = True
             self._post_notification(cmd=cmd, session=session)
@@ -174,7 +174,7 @@ class OfflineCommandProcessor(ReportCommandProcessor):
         messenger = self.messenger
         # from ..messenger import ServerMessenger
         # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.current_session
+        session = messenger.session
         if session is not None:
             session.active = False
             self._post_notification(cmd=cmd, session=session)

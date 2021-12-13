@@ -32,6 +32,8 @@
 
 from typing import Optional, List
 
+from startrek import DeparturePriority
+
 from dimp import ID
 from dimp import Content, Command, GroupCommand
 from dimp import MetaCommand, DocumentCommand
@@ -84,13 +86,13 @@ class GroupManager:
             self.messenger.query_group(group=self.group, users=assistants)
             return False
         # let group assistant to split and deliver this message to all members
-        return self.messenger.send_content(sender=None, receiver=self.group, content=content)
+        return self.messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=self.group)
 
     def __send_group_command(self, cmd: Command, members: List[ID]) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
-            if not messenger.send_content(sender=None, receiver=identifier, content=cmd):
+            if not messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL, receiver=identifier):
                 ok = False
         return ok
 

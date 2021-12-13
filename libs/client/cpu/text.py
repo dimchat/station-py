@@ -33,6 +33,8 @@ import time
 from typing import Optional, Union, List
 from urllib.error import URLError
 
+from startrek import DeparturePriority
+
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
@@ -127,7 +129,7 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
             self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
             messenger = self.messenger
             assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
-            if messenger.send_content(sender=None, receiver=group, content=res):
+            if messenger.send_content(content=res, priority=DeparturePriority.NORMAL, receiver=group):
                 text = 'Group message responded'
             else:
                 text = 'Group message respond failed'

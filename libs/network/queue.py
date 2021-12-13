@@ -37,40 +37,35 @@
 
 import threading
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from startrek import Connection
 from startrek import ShipDelegate
 from startrek import Arrival, Departure
 
 from dimp import ReliableMessage
-from dimsdk import Callback as MessengerCallback
 
 from ..utils import get_msg_sig
 
-from ..database.redis.message import is_broadcast_message
 from ..database import Database
 
 
 g_database = Database()
 
 
-class MessageWrapper(ShipDelegate, MessengerCallback):
+class MessageWrapper(ShipDelegate):
 
     EXPIRES = 600  # 10 minutes
 
-    def __init__(self, msg: ReliableMessage):
+    def __init__(self, msg: ReliableMessage, priority: int):
         super().__init__()
         self.__time = 0
         self.__msg = msg
+        self.__priority = priority
 
     @property
     def priority(self) -> int:
-        msg = self.__msg
-        if msg is not None:
-            if is_broadcast_message(msg=msg):
-                return 1  # SLOWER
-        return 0  # NORMAL
+        return self.__priority
 
     @property
     def msg(self) -> Optional[ReliableMessage]:
@@ -93,6 +88,16 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
             expired = self.__time + self.EXPIRES
             return now > expired
 
+    def success(self):
+        # this message was assigned to the worker of StarGate,
+        # update sent time
+        self.__time = int(time.time())
+
+    # noinspection PyUnusedLocal
+    def failed(self, error: Exception):
+        # gate error, failed to append
+        self.__time = -1
+
     #
     #   ShipDelegate
     #
@@ -114,75 +119,88 @@ class MessageWrapper(ShipDelegate, MessengerCallback):
     def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         self.__time = -1
 
-    #
-    #   Callback
-    #
-
-    # Override
-    def success(self):
-        # this message was assigned to the worker of StarGate,
-        # update sent time
-        self.__time = int(time.time())
-
-    # Override
-    def failed(self, error: Exception):
-        # failed
-        self.__time = -1
-
 
 class MessageQueue:
 
     def __init__(self):
         super().__init__()
-        self.__wrappers: List[MessageWrapper] = []
+        self.__priorities: List[int] = []
+        self.__fleets: Dict[int, List[MessageWrapper]] = {}  # priority => List[MessageWrapper]
         self.__lock = threading.Lock()
 
-    @property
-    def length(self) -> int:
+    def append(self, msg: ReliableMessage, priority: int) -> bool:
         with self.__lock:
-            return len(self.__wrappers)
-
-    def append(self, msg: ReliableMessage) -> bool:
-        with self.__lock:
-            # check duplicated
-            signature = msg.get('signature')
-            for wrapper in self.__wrappers:
-                item = wrapper.msg
-                if item is not None and item.get('signature') == signature:
-                    print('[QUEUE] duplicated message: %s' % signature)
-                    return True
-            # append with wrapper
-            wrapper = MessageWrapper(msg=msg)
-            self.__wrappers.append(wrapper)
+            # 1. choose an array with priority
+            fleet = self.__fleets.get(priority)
+            if fleet is None:
+                # 1.1. create new array for this priority
+                fleet = []
+                self.__fleets[priority] = fleet
+                # 1.2. insert the priority in a sorted list
+                self.__insert(priority=priority)
+            else:
+                # 1.3. check duplicated
+                signature = msg.get('signature')
+                for wrapper in fleet:
+                    item = wrapper.msg
+                    if item is not None and item.get('signature') == signature:
+                        print('[QUEUE] duplicated message: %s' % signature)
+                        return True
+            # 2. append with wrapper
+            wrapper = MessageWrapper(msg=msg, priority=priority)
+            fleet.append(wrapper)
             return True
 
-    # def pop(self) -> Optional[MessageWrapper]:
-    #     with self.__lock:
-    #         if len(self.__wrappers) > 0:
-    #             return self.__wrappers.pop(0)
+    def __insert(self, priority: int) -> bool:
+        index = 0
+        for value in self.__priorities:
+            if value == priority:
+                # duplicated
+                return False
+            elif value > priority:
+                # got it
+                break
+            else:
+                # current value is smaller than the new value,
+                # keep going
+                index += 1
+        # insert new value before the bigger one
+        self.__priorities.insert(index, priority)
+        return True
 
     def next(self) -> Optional[MessageWrapper]:
         """ Get next new message """
         with self.__lock:
-            for wrapper in self.__wrappers:
-                if wrapper.virgin:
-                    wrapper.mark()  # mark sent
-                    return wrapper
+            for priority in self.__priorities:
+                # 1. get messages with priority
+                fleet = self.__fleets.get(priority)
+                if fleet is None:
+                    continue
+                # 2. seeking new task in this priority
+                for wrapper in fleet:
+                    if wrapper.virgin:
+                        wrapper.mark()  # got it, mark sent
+                        return wrapper
 
-    def eject(self, now: int) -> Optional[MessageWrapper]:
+    def __eject(self, now: int) -> Optional[MessageWrapper]:
         """ Get any message sent or failed """
         with self.__lock:
-            for wrapper in self.__wrappers:
-                if wrapper.msg is None or wrapper.is_failed(now=now):
-                    self.__wrappers.remove(wrapper)
-                    return wrapper
+            for priority in self.__priorities:
+                # 1. get messages with priority
+                fleet = self.__fleets.get(priority)
+                if fleet is None:
+                    continue
+                for wrapper in fleet:
+                    if wrapper.msg is None or wrapper.is_failed(now=now):
+                        fleet.remove(wrapper)  # got it, remove from the queue
+                        return wrapper
 
     def purge(self) -> int:
         count = 0
         now = int(time.time())
-        wrapper = self.eject(now=now)
+        wrapper = self.__eject(now=now)
         while wrapper is not None:
             count += 1
             # TODO: callback for failed task?
-            wrapper = self.eject(now=now)
+            wrapper = self.__eject(now=now)
         return count

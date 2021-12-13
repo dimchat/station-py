@@ -39,7 +39,6 @@ from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
-from ..messenger import ServerMessenger
 from ..session import SessionServer
 
 
@@ -51,8 +50,9 @@ class HandshakeCommandProcessor(CommandProcessor):
     def __offer(self, sender: ID, session_key: str = None) -> Content:
         # set/update session in session server with new session key
         messenger = self.messenger
-        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.current_session
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        session = messenger.session
         if session_key == session.key:
             # session verified success
             session.active = True

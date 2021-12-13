@@ -35,9 +35,8 @@ from socketserver import StreamRequestHandler
 from typing import Optional
 
 from dimp import InstantMessage
-from dimsdk import Callback as MessengerCallback
 
-from libs.utils import Logging
+from libs.utils.log import Logging
 from libs.common import MessengerDelegate
 from libs.server import ServerMessenger, SessionServer
 
@@ -50,7 +49,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         mess.delegate = self
         # session
         sess = SessionServer().get_session(client_address=client_address, messenger=mess, sock=request)
-        mess.current_session = sess
+        mess.session = sess
         self.__messenger = mess
         # init
         super().__init__(request=request, client_address=client_address, server=server)
@@ -59,26 +58,25 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def messenger(self) -> ServerMessenger:
         return self.__messenger
 
-    #
-    #
-    #
+    # Override
     def setup(self):
         super().setup()
         try:
-            session = self.messenger.current_session
+            session = self.messenger.session
             self.info('client connected: %s' % session)
             session.setup()
         except Exception as error:
             self.error('setup request handler error: %s' % error)
             traceback.print_exc()
 
+    # Override
     def finish(self):
         try:
-            session = self.messenger.current_session
+            session = self.messenger.session
             self.info('client disconnected: %s' % session)
             SessionServer().remove_session(session=session)
             session.finish()
-            self.messenger.current_session = None
+            self.messenger.session = None
         except Exception as error:
             self.error('finish request handler error: %s' % error)
             traceback.print_exc()
@@ -88,11 +86,12 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         DIM Request Handler
     """
 
+    # Override
     def handle(self):
         super().handle()
         try:
             self.info('session started: %s' % str(self.client_address))
-            session = self.messenger.current_session
+            session = self.messenger.session
             session.handle()
             self.info('session finished: %s' % str(self.client_address))
         except Exception as error:
@@ -102,18 +101,6 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     #
     #   MessengerDelegate
     #
-
-    # Override
-    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
-        session = self.messenger.current_session
-        ok = session is not None and session.send_payload(payload=data, priority=priority)
-        if callback is not None:
-            if ok:
-                callback.success()
-            else:
-                error = IOError('MessengerDelegate error: failed to send data package')
-                callback.failed(error=error)
-        return ok
 
     # Override
     def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:

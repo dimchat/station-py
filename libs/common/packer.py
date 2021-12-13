@@ -29,6 +29,8 @@
 """
 from typing import Optional
 
+from startrek import DeparturePriority
+
 from dimp import base64_encode, sha256
 from dimp import ID
 from dimp import InstantMessage, SecureMessage, ReliableMessage
@@ -184,6 +186,7 @@ class CommonPacker(MessagePacker):
                 visa = user.visa
                 assert visa is not None and visa.valid, 'user visa error: %s' % identifier
                 cmd = DocumentCommand.response(document=visa, identifier=identifier)
-                self.messenger.send_content(sender=identifier, receiver=msg.sender, content=cmd)
+                self.messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL,
+                                            receiver=msg.sender, sender=identifier)
             else:
                 raise error

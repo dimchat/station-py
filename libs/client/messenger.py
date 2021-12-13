@@ -34,6 +34,8 @@ import time
 import weakref
 from typing import Optional, List
 
+from startrek import DeparturePriority
+
 from dimp import NetworkType
 from dimp import ID, EVERYONE
 from dimp import Command
@@ -57,6 +59,7 @@ class ClientMessenger(CommonMessenger):
         facebook.messenger = self
         return facebook
 
+    # Override
     def _create_processor(self) -> Transceiver.Processor:
         from .processor import ClientProcessor
         return ClientProcessor(messenger=self)
@@ -79,7 +82,7 @@ class ClientMessenger(CommonMessenger):
     #
     #   Sending command
     #
-    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
             station = self.server
             if station is None:
@@ -87,7 +90,7 @@ class ClientMessenger(CommonMessenger):
                 return False
             else:
                 receiver = station.identifier
-        return self.send_content(sender=None, receiver=receiver, content=cmd)
+        return self.send_content(content=cmd, priority=priority, receiver=receiver)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):
@@ -109,7 +112,7 @@ class ClientMessenger(CommonMessenger):
         login = LoginCommand(identifier=identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
         login.station = self.server
-        return self.send_content(sender=identifier, receiver=EVERYONE, content=login)
+        return self.send_content(content=login, priority=DeparturePriority.NORMAL, sender=identifier, receiver=EVERYONE)
 
     # Override
     def process_package(self, data: bytes) -> List[bytes]:

@@ -37,6 +37,8 @@ import time
 from enum import IntEnum
 from typing import Optional, List
 
+from startrek import DeparturePriority
+
 from dimp import ID, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, ForwardContent, Command
@@ -377,7 +379,7 @@ class ChatRoom(Logging):
         messages = r_msg.split(members=users)
         # send one by one
         for msg in messages:
-            messenger.send_reliable_message(msg=msg)
+            messenger.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
 
     def __online(self) -> Content:
         """ Get online users """
@@ -412,7 +414,7 @@ class ChatRoom(Logging):
         messenger = self.messenger
         histories = self.__history.all()
         for content in histories:
-            messenger.send_content(sender=None, receiver=receiver, content=content)
+            messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=receiver)
         count = len(histories)
         if count == 0:
             text = 'No history record found.'
@@ -435,7 +437,7 @@ class ChatRoom(Logging):
         for item in users:
             if item == sender:
                 continue
-            messenger.send_content(sender=None, receiver=item, content=content)
+            messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=item)
         return ReceiptCommand(message='message forwarded')
 
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:

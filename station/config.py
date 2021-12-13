@@ -33,6 +33,7 @@
 from typing import Any
 
 from ipx import SharedMemoryArrow
+from startrek import DeparturePriority
 
 from dimp import ReliableMessage
 
@@ -77,13 +78,13 @@ class ReceptionistCaller(ArrowDelegate):
         if remote is None:
             # push to all active sessions
             for sess in sessions:
-                sess.push_message(msg=msg)
+                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
         else:
             # push to active session with same remote address
             msg.pop('remote')
             for sess in sessions:
                 if sess.remote_address == remote:
-                    sess.push_message(msg=msg)
+                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
 
     def send(self, msg: ReliableMessage) -> bool:
         return self.__outgo_arrow.send(obj=msg.dictionary)

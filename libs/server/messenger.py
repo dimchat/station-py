@@ -58,7 +58,7 @@ class ServerMessenger(CommonMessenger):
         super().__init__()
         from .filter import Filter
         self.__filter = Filter(messenger=self)
-        self.__current_session: Optional[Session] = None
+        self.__session: Optional[Session] = None
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
@@ -115,23 +115,23 @@ class ServerMessenger(CommonMessenger):
     #   Session
     #
     @property
-    def current_session(self) -> Session:
-        return self.__current_session
+    def session(self) -> Session:
+        return self.__session
 
-    @current_session.setter
-    def current_session(self, session: Session):
-        self.__current_session = session
+    @session.setter
+    def session(self, session: Session):
+        self.__session = session
 
     @property
     def current_id(self) -> Optional[ID]:
-        session = self.__current_session
+        session = self.__session
         if session is not None:
             return session.identifier
 
     #
     #   Sending command
     #
-    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
             receiver = ID.parse(identifier='stations@everywhere')
         srv = self.facebook.current_user

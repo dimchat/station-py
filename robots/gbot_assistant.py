@@ -35,6 +35,8 @@ import sys
 import os
 from typing import Optional, List
 
+from startrek import DeparturePriority
+
 from dimp import ID
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType
@@ -180,7 +182,7 @@ class AssistantMessenger(ClientMessenger, Logging):
                 if len(expel_list) > 0:
                     # send 'expel' command to the sender
                     cmd = GroupCommand.expel(group=receiver, members=expel_list)
-                    g_messenger.send_content(sender=None, receiver=sender, content=cmd)
+                    g_messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL, receiver=sender)
                 # update key map
                 g_database.update_group_keys(keys=keys, sender=sender, group=receiver)
             # split and forward group message,
@@ -221,7 +223,7 @@ class AssistantMessenger(ClientMessenger, Logging):
             sender = msg.sender
             group = msg.receiver
             cmd = GroupCommand.invite(group=group, members=failed_list)
-            self.send_content(sender=None, receiver=sender, content=cmd)
+            self.send_content(content=cmd, priority=DeparturePriority.NORMAL, receiver=sender)
         return response
 
     def __forward_group_message(self, msg: ReliableMessage) -> bool:
@@ -244,7 +246,7 @@ class AssistantMessenger(ClientMessenger, Logging):
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=forward)
         i_msg['origin'] = {'sender': str(msg.sender), 'group': str(msg.group), 'type': msg.type}
-        return self.send_instant_message(msg=i_msg)
+        return self.send_instant_message(msg=i_msg, priority=DeparturePriority.NORMAL)
 
 
 """

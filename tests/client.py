@@ -34,6 +34,8 @@
 from cmd import Cmd
 from typing import Optional
 
+from startrek import DeparturePriority
+
 from dimp import json_decode, utf8_encode
 from dimp import ID, Document
 from dimp import TextContent
@@ -46,6 +48,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from libs.utils import Logging
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import dims_connect
@@ -59,7 +62,7 @@ from robots.config import g_station
 g_messenger = ClientMessenger()
 
 
-class Console(Cmd):
+class Console(Cmd, Logging):
 
     prompt = '[DIM] > '
     intro = '\n\tWelcome to DIM world!\n'
@@ -69,10 +72,6 @@ class Console(Cmd):
         self.client: Optional[Terminal] = None
         self.receiver = None
         self.do_call('station')
-
-    # noinspection PyMethodMayBeStatic
-    def info(self, msg: str):
-        print('\r%s' % msg)
 
     def login(self, identifier: ID):
         # logout first
@@ -120,7 +119,7 @@ class Console(Cmd):
         if client is not None:
             client.stop()
             self.client = None
-        print('Bye!')
+        self.info(msg='Bye!')
         return True
 
     def do_login(self, name: str):
@@ -162,7 +161,7 @@ class Console(Cmd):
             return
         if len(msg) > 0:
             content = TextContent(text=msg)
-            self.client.messenger.send_content(sender=None, receiver=self.receiver, content=content)
+            g_messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=self.receiver)
 
     def do_broadcast(self, msg: str):
         if self.client is None:

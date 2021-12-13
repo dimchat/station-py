@@ -47,7 +47,8 @@ from startrek import Hub, GateDelegate, ShipDelegate
 from tcp import StreamChannel
 from tcp import ServerHub as TCPServerHub, ClientHub
 
-from dimp import ReliableMessage
+from dimp import ID, Envelope, Content
+from dimp import InstantMessage, ReliableMessage
 from dimsdk import Messenger
 
 from ..utils import Logging
@@ -225,6 +226,38 @@ class GateKeeper(Runner):
         return gate.send_payload(payload=payload, local=None, remote=self.__remote,
                                  priority=priority, delegate=delegate)
 
-    def push_message(self, msg: ReliableMessage) -> bool:
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         """ Push message into a waiting queue """
-        return self.__queue.append(msg=msg)
+        return self.__queue.append(msg=msg, priority=priority)
+
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        """ Push message into q waiting queue after encrypted and signed """
+        messenger = self.messenger
+        # send message (secured + certified) to target station
+        s_msg = messenger.encrypt_message(msg=msg)
+        if s_msg is None:
+            # public key not found?
+            return False
+        r_msg = messenger.sign_message(msg=s_msg)
+        if r_msg is None:
+            # TODO: set msg.state = error
+            raise AssertionError('failed to sign message: %s' % s_msg)
+        self.send_reliable_message(msg=r_msg, priority=priority)
+        # TODO: if OK, set msg.state = sending; else set msg.state = waiting
+        # save signature for receipt
+        msg['signature'] = r_msg.get('signature')
+        from ..common import CommonMessenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        return messenger.save_message(msg=msg)
+
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None):
+        """ Send message content with priority """
+        # Application Layer should make sure user is already login before it send message to server.
+        # Application layer should put message into queue so that it will send automatically after user login
+        if sender is None:
+            user = self.messenger.facebook.current_user
+            assert user is not None, 'current user not set'
+            sender = user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        msg = InstantMessage.create(head=env, body=content)
+        return self.send_instant_message(msg=msg, priority=priority)

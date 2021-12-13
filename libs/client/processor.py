@@ -31,9 +31,11 @@
 import time
 from typing import List, Optional
 
+from startrek import DeparturePriority
+
 from dimp import NetworkType
-from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Envelope, Content, TextContent, Command
+from dimp import SecureMessage, ReliableMessage
+from dimp import Content, TextContent, Command
 from dimsdk import HandshakeCommand, ReceiptCommand
 from dimsdk import CommandProcessor, ProcessorFactory
 
@@ -84,11 +86,9 @@ class ClientProcessor(CommonProcessor):
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
                     continue
-            # pack message
-            env = Envelope.create(sender=user.identifier, receiver=r_msg.sender)
-            i_msg = InstantMessage.create(head=env, body=res)
             # normal response
-            messenger.send_instant_message(msg=i_msg)
+            messenger.send_content(content=res, priority=DeparturePriority.NORMAL,
+                                   sender=user.identifier, receiver=r_msg.sender)
         # DON'T respond to station directly
         return []
 

@@ -35,18 +35,21 @@ import weakref
 from abc import abstractmethod
 from typing import Optional, Union, List
 
+from startrek import DeparturePriority
+
 from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
 from dimp import Packer, Processor, CipherKeyDelegate
-from dimsdk import Messenger, Callback as MessengerCallback
+from dimsdk import Messenger
 
 from ..utils import Logging
 from ..database import FrequencyChecker
 
 from .keystore import KeyStore
 from .facebook import CommonFacebook, SharedFacebook
+from .session import BaseSession
 
 
 class MessengerDelegate:
@@ -73,18 +76,6 @@ class MessengerDelegate:
         """
         raise NotImplemented
 
-    @abstractmethod
-    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
-        """
-        Send out a message data package onto network
-
-        :param data:     message data
-        :param callback: completion handler
-        :param priority: task priority (smaller is faster)
-        :return: True on success
-        """
-        raise NotImplemented
-
 
 class CommonMessenger(Messenger, Logging):
 
@@ -99,6 +90,10 @@ class CommonMessenger(Messenger, Logging):
         self.__message_transmitter = None
         # for checking duplicated queries
         self.__group_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+
+    @property
+    def session(self) -> BaseSession:
+        raise NotImplemented
 
     #
     #   Delegate for sending data
@@ -187,42 +182,16 @@ class CommonMessenger(Messenger, Logging):
         return CommonProcessor(messenger=self)
 
     #
-    #   Message Transmitter
-    #
-    @property
-    def transmitter(self) -> Messenger.Transmitter:
-        delegate = super().transmitter
-        if delegate is None:
-            delegate = self.__get_transmitter()
-        return delegate
-
-    @transmitter.setter
-    def transmitter(self, delegate: Messenger.Transmitter):
-        Messenger.transmitter.__set__(self, delegate)
-        from .transmitter import CommonTransmitter
-        assert isinstance(delegate, CommonTransmitter), 'Transmitter error: %s' % delegate
-        self.__message_transmitter = delegate
-
-    def __get_transmitter(self):  # -> MessageTransmitter:
-        if self.__message_transmitter is None:
-            self.__message_transmitter = self._create_transmitter()
-        return self.__message_transmitter
-
-    def _create_transmitter(self):  # -> MessageTransmitter:
-        from .transmitter import CommonTransmitter
-        return CommonTransmitter(messenger=self)
-
-    #
     #   FPU
     #
     def __file_content_processor(self):  # -> FileContentProcessor:
         processor = self.processor
         from .processor import CommonProcessor
         assert isinstance(processor, CommonProcessor), 'message processor error: %s' % processor
-        cpu = processor.get_processor_by_type(msg_type=ContentType.FILE)
+        fpu = processor.get_processor_by_type(msg_type=ContentType.FILE)
         from .cpu import FileContentProcessor
-        assert isinstance(cpu, FileContentProcessor), 'failed to get file content processor'
-        return cpu
+        assert isinstance(fpu, FileContentProcessor), 'failed to get file content processor'
+        return fpu
 
     # Override
     def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
@@ -313,11 +282,20 @@ class CommonMessenger(Messenger, Logging):
         self.warning('TODO: suspending msg: %s -> %s\n time=[%s] traces=%s' % (sender, receiver, when, traces))
         return True
 
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        return self.session.send_reliable_message(msg=msg, priority=priority)
+
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        return self.session.send_instant_message(msg=msg, priority=priority)
+
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        return self.session.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
+
     #
     #   Interfaces for Sending Commands
     #
     @abstractmethod
-    def _send_command(self, cmd: Command, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         raise NotImplemented
 
     # FIXME: separate checking for querying each user
@@ -332,7 +310,7 @@ class CommonMessenger(Messenger, Logging):
         for item in users:
             if item == current:
                 continue
-            if self._send_command(cmd=cmd, receiver=item):
+            if self.send_command(cmd=cmd, priority=DeparturePriority.SLOWER, receiver=item):
                 checking = True
         return checking
 
@@ -344,9 +322,6 @@ class CommonMessenger(Messenger, Logging):
 
     def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
         return self.delegate.download_encrypted_data(url=url, msg=msg)
-
-    def send_message_data(self, data: bytes, callback: Optional[MessengerCallback], priority: int = 0) -> bool:
-        return self.delegate.send_message_data(data=data, callback=callback, priority=priority)
 
     #
     #   Events

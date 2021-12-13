@@ -61,9 +61,6 @@ class Session(BaseSession):
         t.start()
 
     def __force_stop(self):
-        keeper = self.keeper
-        if keeper.running:
-            keeper.stop()
         t: Thread = self.__thread
         if t is not None:
             # waiting 2 seconds for stopping the thread

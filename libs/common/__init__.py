@@ -48,7 +48,6 @@ from .facebook import CommonFacebook, SharedFacebook
 from .messenger import CommonMessenger, MessengerDelegate
 from .packer import CommonPacker
 from .processor import CommonProcessor, CommonProcessorFactory
-from .transmitter import CommonTransmitter
 
 
 def msg_receipt(msg: ReliableMessage, text: str) -> Content:
@@ -129,7 +128,7 @@ __all__ = [
     'AddressNameServer',
 
     'KeyStore', 'CommonFacebook', 'SharedFacebook',
-    'CommonMessenger', 'CommonPacker', 'CommonProcessor', 'CommonTransmitter',
+    'CommonMessenger', 'CommonPacker', 'CommonProcessor',
     'CommonProcessorFactory',
     'MessengerDelegate',
 
