@@ -30,15 +30,16 @@
     Configuration for DIM network server node
 """
 
-from typing import Any
+import threading
+from typing import Union
 
-from ipx import SharedMemoryArrow
+from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import ReliableMessage
 
 from libs.utils.log import Log
-from libs.utils.ipc import ArrowDelegate, ReceptionistArrows, MonitorArrow
+from libs.utils.ipc import ShuttleBus, ReceptionistArrows, MonitorArrow
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.push import PushCenter
@@ -57,22 +58,29 @@ from etc.cfg_init import station_id, create_station, neighbor_stations
 
 
 @Singleton
-class ReceptionistCaller(ArrowDelegate):
+class ReceptionistCaller(Runner):
     """ handling 'handshake' commands """
 
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
         # pipe
-        arrows = ReceptionistArrows.primary(delegate=self)
-        self.__income_arrow = arrows[0]
-        self.__outgo_arrow = arrows[1]
+        self.__bus: ShuttleBus[dict] = ShuttleBus()
+        self.__bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=self.__bus))
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
 
     # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        assert isinstance(obj, dict), 'message error: %s' % obj
+    def process(self) -> bool:
+        obj = self.__bus.receive()
         msg = ReliableMessage.parse(msg=obj)
-        sessions = SessionServer().active_sessions(identifier=msg.receiver)
+        if msg is None:
+            return False
+        sessions = self.__ss.active_sessions(identifier=msg.receiver)
         # check remote address
         remote = msg.get('remote')
         if remote is None:
@@ -85,9 +93,7 @@ class ReceptionistCaller(ArrowDelegate):
             for sess in sessions:
                 if sess.remote_address == remote:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-
-    def send(self, msg: ReliableMessage) -> bool:
-        return self.__outgo_arrow.send(obj=msg.dictionary)
+        return True
 
 
 class MonitorCaller(NotificationObserver):

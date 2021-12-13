@@ -31,11 +31,9 @@
     Managing meta & documents
 """
 
-import threading
 import traceback
-from typing import Optional, Dict, List, Any
+from typing import Optional, Union, Dict, List
 
-from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
 from startrek import DeparturePriority
 
@@ -55,7 +53,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ArrowDelegate, ArchivistArrows
+from libs.utils.ipc import ShuttleBus, ArchivistArrows
 from libs.common import SearchCommand
 from libs.database import FrequencyChecker
 
@@ -105,7 +103,7 @@ def reload_user_info():
     g_info['loading'] = False
 
 
-def search(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
+def search_users(keywords: List[str], start: int, limit: int) -> (List[ID], dict):
     users: List[ID] = []
     results = {}
     if limit > 0:
@@ -197,158 +195,34 @@ def send_command(cmd: Command, stations: List[Station]):
 
 
 #
-#   DIMP
+#   Search Engine
 #
 
 
-class SearchCommandProcessor(CommandProcessor, Logging):
-
-    def __init__(self, messenger):
-        super().__init__(messenger=messenger)
-
-    # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
-        if cmd.users is not None or cmd.results is not None:
-            # this is a response
-            self.info('saving search respond: %s' % cmd)
-            save_response(station=msg.sender, users=cmd.users, results=cmd.results)
-            return []
-        # this is a request
-        keywords = cmd.keywords
-        if keywords is None:
-            # return [TextContent(text='Search command error')]
-            self.error('Search command error: %s' % cmd)
-            return []
-        keywords = keywords.lower()
-        if keywords == SearchCommand.ONLINE_USERS:
-            # let the station to do the job
-            return []
-        elif keywords == 'all users':
-            users, results = recent_users(start=cmd.start, limit=cmd.limit)
-            self.info('Got %d recent online user(s)' % len(results))
-        else:
-            users, results = search(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
-            self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
-        # respond
-        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
-        return [res]
-
-
-class ArchivistProcessorFactory(ServerProcessorFactory):
-
-    # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
-        # search
-        if cmd_name == SearchCommand.SEARCH:
-            return SearchCommandProcessor(messenger=self.messenger)
-        elif cmd_name == SearchCommand.ONLINE_USERS:
-            # share the same processor
-            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
-            if cpu is None:
-                cpu = SearchCommandProcessor(messenger=self.messenger)
-                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
-            return cpu
-        # others
-        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
-
-
-class ArchivistMessageProcessor(ServerProcessor):
-
-    # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return ArchivistProcessorFactory(messenger=self.messenger)
-
-
-class ArchivistMessenger(ServerMessenger, ArrowDelegate):
-
-    def __init__(self):
-        super().__init__()
-        # shared memory pipe
-        arrows = ArchivistArrows.secondary(delegate=self)
-        self.__income_arrow = arrows[0]
-        self.__outgo_arrow = arrows[1]
-
-    # Override
-    def _create_processor(self) -> Transceiver.Processor:
-        return ArchivistMessageProcessor(messenger=self)
-
-    # Override
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        self.__outgo_arrow.send(obj=msg.dictionary)
-        return []
-
-    # Override
-    def _deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        self.__outgo_arrow.send(obj=msg.dictionary)
-        return None
-
-    # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        assert isinstance(obj, dict), 'event error: %s' % obj
-        g_worker.append(msg=obj)
-
-    # Override
-    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
-        g_worker.append(msg=msg.dictionary)
-        return True
-
-    # Override
-    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
-        s_msg = g_messenger.encrypt_message(msg=msg)
-        if s_msg is None:
-            # public key not found?
-            return False
-        r_msg = g_messenger.sign_message(msg=s_msg)
-        if r_msg is None:
-            # TODO: set msg.state = error
-            raise AssertionError('failed to sign message: %s' % s_msg)
-        self.send_reliable_message(msg=r_msg, priority=priority)
-
-    # Override
-    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
-        if sender is None:
-            user = g_messenger.facebook.current_user
-            assert user is not None, 'current user not set'
-            sender = user.identifier
-        env = Envelope.create(sender=sender, receiver=receiver)
-        msg = InstantMessage.create(head=env, body=content)
-        return self.send_instant_message(msg=msg, priority=priority)
-
-
-#
-#   Worker
-#
-
-
-class ArchivistWorker(Runner, Logging):
+class SearchEngineWorker(Runner, Logging):
 
     # each query will be expired after 10 minutes
     QUERY_EXPIRES = 600  # seconds
 
     def __init__(self):
         super().__init__()
-        self.__messages = []
-        self.__lock = threading.Lock()
         # for checking duplicated queries
         self.__users_queries: FrequencyChecker[str] = FrequencyChecker()
         self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+        # pipe
+        self.__bus: ShuttleBus[dict] = ShuttleBus()
+        self.__bus.set_arrows(arrows=ArchivistArrows.secondary(delegate=self.__bus))
 
-    def append(self, msg: dict):
-        with self.__lock:
-            self.__messages.append(msg)
-
-    def shift(self) -> Optional[dict]:
-        with self.__lock:
-            if len(self.__messages) > 0:
-                return self.__messages.pop(0)
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
 
     # Override
     def process(self) -> bool:
-        msg = None
+        msg = self.__bus.receive()
         try:
-            msg = self.shift()
             if msg is None:
                 self.__scan_all_users()
                 self.__query_online_users()
@@ -404,6 +278,110 @@ class ArchivistWorker(Runner, Logging):
                 send_command(cmd=cmd, stations=neighbor_stations)
 
 
+#
+#   DIMP
+#
+
+
+class SearchCommandProcessor(CommandProcessor, Logging):
+
+    def __init__(self, messenger):
+        super().__init__(messenger=messenger)
+
+    # Override
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
+        if cmd.users is not None or cmd.results is not None:
+            # this is a response
+            self.info('saving search respond: %s' % cmd)
+            save_response(station=msg.sender, users=cmd.users, results=cmd.results)
+            return []
+        # this is a request
+        keywords = cmd.keywords
+        if keywords is None:
+            # return [TextContent(text='Search command error')]
+            self.error('Search command error: %s' % cmd)
+            return []
+        keywords = keywords.lower()
+        if keywords == SearchCommand.ONLINE_USERS:
+            # let the station to do the job
+            return []
+        elif keywords == 'all users':
+            users, results = recent_users(start=cmd.start, limit=cmd.limit)
+            self.info('Got %d recent online user(s)' % len(results))
+        else:
+            users, results = search_users(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
+            self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
+        # respond
+        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
+        return [res]
+
+
+class ArchivistProcessorFactory(ServerProcessorFactory):
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # search
+        if cmd_name == SearchCommand.SEARCH:
+            return SearchCommandProcessor(messenger=self.messenger)
+        elif cmd_name == SearchCommand.ONLINE_USERS:
+            # share the same processor
+            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
+            if cpu is None:
+                cpu = SearchCommandProcessor(messenger=self.messenger)
+                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
+            return cpu
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+
+
+class ArchivistMessageProcessor(ServerProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return ArchivistProcessorFactory(messenger=self.messenger)
+
+
+class ArchivistMessenger(ServerMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return ArchivistMessageProcessor(messenger=self)
+
+    # Override
+    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        g_engine.send(msg=msg)
+        return []
+
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        g_engine.send(msg=msg)
+        return True
+
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        s_msg = g_messenger.encrypt_message(msg=msg)
+        if s_msg is None:
+            # public key not found?
+            return False
+        r_msg = g_messenger.sign_message(msg=s_msg)
+        if r_msg is None:
+            # TODO: set msg.state = error
+            raise AssertionError('failed to sign message: %s' % s_msg)
+        self.send_reliable_message(msg=r_msg, priority=priority)
+
+    # Override
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        if sender is None:
+            user = g_messenger.facebook.current_user
+            assert user is not None, 'current user not set'
+            sender = user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        msg = InstantMessage.create(head=env, body=content)
+        return self.send_instant_message(msg=msg, priority=priority)
+
+
+g_engine = SearchEngineWorker()
 g_messenger = ArchivistMessenger()
 
 
@@ -412,6 +390,5 @@ if __name__ == '__main__':
     # set current user
     bot_id = ID.parse(identifier='archivist')
     g_facebook.current_user = g_facebook.user(identifier=bot_id)
-    g_worker = ArchivistWorker()
-    g_worker.run()
+    g_engine.run()
     Log.info(msg='>>> search engine exists.')

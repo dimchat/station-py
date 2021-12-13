@@ -35,9 +35,9 @@ import threading
 import traceback
 import weakref
 from abc import abstractmethod
-from typing import Optional, List, Set, Any
+from typing import Optional, Union, List, Set
 
-from ipx import SharedMemoryArrow
+from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, ANYONE, EVERYONE
@@ -45,7 +45,7 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
 from ..utils.log import Log, Logging
-from ..utils.ipc import ArrowDelegate, ArchivistArrows
+from ..utils.ipc import ShuttleBus, ArchivistArrows
 from ..utils import get_msg_sig
 from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
@@ -64,27 +64,42 @@ g_database = Database()
 
 
 @Singleton
-class SearchEngineCaller(ArrowDelegate):
+class SearchEngineCaller(Runner):
     """ handling 'search' command """
 
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
         # pipe
-        arrows = ArchivistArrows.primary(delegate=self)
-        self.__income_arrow = arrows[0]
-        self.__outgo_arrow = arrows[1]
+        self.__bus: ShuttleBus[dict] = ShuttleBus()
+        self.__bus.set_arrows(arrows=ArchivistArrows.primary(delegate=self.__bus))
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
 
     # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        assert isinstance(obj, dict), '[SE] msg error: %s' % obj
+    def process(self) -> bool:
+        obj = self.__bus.receive()
         msg = ReliableMessage.parse(msg=obj)
+        if msg is None:
+            return False
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
-        for sess in sessions:
-            sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
-
-    def send(self, msg: ReliableMessage):
-        self.__outgo_arrow.send(obj=msg.dictionary)
+        # check remote address
+        remote = msg.get('remote')
+        if remote is None:
+            # push to all active sessions
+            for sess in sessions:
+                sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
+        else:
+            # push to active session with same remote address
+            msg.pop('remote')
+            for sess in sessions:
+                if sess.remote_address == remote:
+                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+        return True
 
 
 @Singleton

@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -31,13 +32,14 @@
 """
 
 import threading
-import time
 import traceback
-from json import JSONDecodeError
-from typing import Optional, Set
+from typing import Union, Set, List
+
+from startrek.fsm import Runner
 
 from dimp import ID, NetworkType
-from dimsdk import Station
+from dimp import Envelope, Content
+from dimp import InstantMessage, ReliableMessage
 
 import sys
 import os
@@ -46,53 +48,73 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Log, Logging
-from libs.utils import Singleton
+from libs.utils.log import Log, Logging
+from libs.utils.ipc import ShuttleBus, ReceptionistArrows
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
+from libs.server import ServerMessenger
 
 from etc.cfg_init import g_database
 from station.config import g_dispatcher, g_facebook, g_station
 
 
-@Singleton
-class Receptionist(NotificationObserver, Logging):
+class ReceptionistWorker(Runner, Logging, NotificationObserver):
 
     def __init__(self):
         super().__init__()
-        self.__running = True
-        self.__lock = threading.Lock()
-        # current station and guests
-        self.__station: Optional[ID] = None
-        self.__roamers = set()
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
         nc.add(observer=self, name=NotificationNames.USER_ROAMING)
+        # waiting queue for offline messages
+        self.__guests = set()
+        self.__lock = threading.Lock()
+        # pipe
+        self.__bus: ShuttleBus[dict] = ShuttleBus()
+        self.__bus.set_arrows(arrows=ReceptionistArrows.secondary(delegate=self.__bus))
 
-    def __del__(self):
-        nc = NotificationCenter()
-        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
-        nc.remove(observer=self, name=NotificationNames.USER_ROAMING)
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
 
-    @property
-    def station(self) -> ID:
-        return self.__station
+    # Override
+    def process(self) -> bool:
+        msg = self.__bus.receive()
+        # process roamers
+        try:
+            if msg is None:
+                self.__process_users(users=self.get_guests())
+            else:
+                msg = ReliableMessage.parse(msg=msg)
+                self.__process_message(msg=msg)
+                return True
+        except Exception as error:
+            self.error('receptionist error: %s, %s' % (msg, error))
+            traceback.print_exc()
 
-    @station.setter
-    def station(self, server: ID):
-        if isinstance(server, Station):
-            server = server.identifier
-        self.__station = server
+    def __process_message(self, msg: ReliableMessage):
+        responses = g_messenger.process_reliable_message(msg=msg)
+        for res in responses:
+            self.send(res)
 
-    def get_roamers(self) -> Set[ID]:
+    def __process_users(self, users: Set[ID]):
+        for identifier in users:
+            # 1. get cached messages
+            messages = g_database.messages(receiver=identifier)
+            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
+            # 2. sent messages one by one
+            for msg in messages:
+                g_dispatcher.deliver(msg=msg)
+
+    def get_guests(self) -> Set[ID]:
         with self.__lock:
-            roamers = self.__roamers.copy()
-            self.__roamers.clear()
-            return roamers
+            guests = self.__guests.copy()
+            self.__guests.clear()
+            return guests
 
-    def add_roamer(self, identifier: ID):
+    def add_guest(self, identifier: ID):
         with self.__lock:
-            self.__roamers.add(identifier)
+            self.__guests.add(identifier)
 
     #
     #    Notification Observer
@@ -106,64 +128,53 @@ class Receptionist(NotificationObserver, Logging):
         elif name == NotificationNames.USER_ONLINE:
             # sid = info.get('station')
             # if sid is not None and sid != self.station:
-            self.add_roamer(identifier=user)
+            self.add_guest(identifier=user)
         elif name == NotificationNames.USER_ROAMING:
             # add the new roamer for checking cached messages
-            self.add_roamer(identifier=user)
+            self.add_guest(identifier=user)
 
-    #
-    #  Process roamers
-    #
 
-    def __process_users(self, users: Set[ID]):
-        for identifier in users:
-            # 1. get cached messages
-            messages = g_database.messages(receiver=identifier)
-            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
-            # 2. sent messages one by one
-            for msg in messages:
-                g_dispatcher.deliver(msg=msg)
+class ReceptionistMessenger(ServerMessenger):
 
-    #
-    #   Run Loop
-    #
-    def __run_unsafe(self):
-        # process roamers
-        try:
-            self.__process_users(users=self.get_roamers())
-        except IOError as error:
-            self.error('IO error %s' % error)
-        except JSONDecodeError as error:
-            self.error('JSON decode error %s' % error)
-        except TypeError as error:
-            self.error('type error %s' % error)
-        except ValueError as error:
-            self.error('value error %s' % error)
-        finally:
-            # sleep for next loop
-            time.sleep(0.25)
+    # Override
+    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        g_worker.send(msg=msg)
+        return []
 
-    def run(self):
-        self.info('receptionist starting...')
-        while self.__running:
-            # noinspection PyBroadException
-            try:
-                self.__run_unsafe()
-            except Exception as error:
-                self.error('receptionist error: %s' % error)
-                traceback.print_exc()
-            finally:
-                # sleep for next loop
-                time.sleep(0.25)
-        self.info('receptionist exit!')
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        g_worker.send(msg=msg)
+        return True
 
-    def stop(self):
-        self.__running = False
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        s_msg = g_messenger.encrypt_message(msg=msg)
+        if s_msg is None:
+            # public key not found?
+            return False
+        r_msg = g_messenger.sign_message(msg=s_msg)
+        if r_msg is None:
+            # TODO: set msg.state = error
+            raise AssertionError('failed to sign message: %s' % s_msg)
+        self.send_reliable_message(msg=r_msg, priority=priority)
+
+    # Override
+    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+        if sender is None:
+            user = g_messenger.facebook.current_user
+            assert user is not None, 'current user not set'
+            sender = user.identifier
+        env = Envelope.create(sender=sender, receiver=receiver)
+        msg = InstantMessage.create(head=env, body=content)
+        return self.send_instant_message(msg=msg, priority=priority)
+
+
+g_worker = ReceptionistWorker()
+g_messenger = ReceptionistMessenger()
 
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting receptionist ...')
     g_facebook.current_user = g_station
-    g_worker = Receptionist()
     g_worker.run()
     Log.info(msg='>>> receptionist exists.')

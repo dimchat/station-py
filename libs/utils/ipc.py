@@ -31,7 +31,7 @@
 import threading
 import weakref
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import TypeVar, Generic, Optional, Any, Tuple, List
 
 from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
@@ -101,6 +101,65 @@ class OutgoArrow(Runner):
         # send None to drive the arrow to resent delay objects
         self.send(obj=None)
         return False
+
+
+T = TypeVar('T')
+
+
+class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
+
+    def __init__(self):
+        super().__init__()
+        self.__income_arrow: Optional[IncomeArrow] = None
+        self.__outgo_arrow: Optional[OutgoArrow] = None
+        # caches
+        self.__incomes: List[T] = []
+        self.__outgoes: List[T] = []
+        self.__income_lock = threading.Lock()
+        self.__outgo_lock = threading.Lock()
+
+    def set_arrows(self, arrows: Tuple[IncomeArrow, OutgoArrow]):
+        self.__income_arrow = arrows[0]
+        self.__outgo_arrow = arrows[1]
+
+    def __next(self) -> Optional[T]:
+        """ get first outgo object from the waiting queue """
+        with self.__outgo_lock:
+            if len(self.__outgoes) > 0:
+                return self.__outgoes.pop(0)
+
+    def __push(self, obj):
+        """ put outgo object back to the front of the waiting queue """
+        with self.__outgo_lock:
+            self.__outgoes.insert(0, obj)
+
+    def send(self, obj: T):
+        """ Put the obj in a waiting queue for sending out """
+        with self.__outgo_lock:
+            self.__outgoes.append(obj)
+
+    def receive(self) -> Optional[T]:
+        """ Get an obj from a waiting queue for received object """
+        with self.__income_lock:
+            if len(self.__incomes) > 0:
+                return self.__incomes.pop(0)
+
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        with self.__income_lock:
+            self.__incomes.append(obj)
+
+    # Override
+    def process(self) -> bool:
+        obj = self.__next()
+        if obj is None:
+            # nothing to send now, return False to have a rest
+            return False
+        elif self.__outgo_arrow.send(obj=obj):
+            return True
+        else:
+            # put it back to the front
+            self.__push(obj=obj)
 
 
 """
