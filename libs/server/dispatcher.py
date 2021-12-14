@@ -45,7 +45,7 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
 from ..utils.log import Log, Logging
-from ..utils.ipc import ShuttleBus, ArchivistArrows
+from ..utils.ipc import ShuttleBus, ArchivistArrows, OctopusArrows
 from ..utils import get_msg_sig
 from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
@@ -73,7 +73,7 @@ class SearchEngineCaller(Runner, Logging):
         # pipe
         bus = ShuttleBus()
         bus.set_arrows(arrows=ArchivistArrows.primary(delegate=bus))
-        threading.Thread(target=bus.run, daemon=True).start()
+        bus.start()
         self.__bus: ShuttleBus[dict] = bus
         threading.Thread(target=self.run, daemon=True).start()
 
@@ -110,6 +110,44 @@ class SearchEngineCaller(Runner, Logging):
                 if sess.remote_address == remote:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
         return True
+
+
+@Singleton
+class OctopusCaller(Runner, Logging):
+
+    def __init__(self):
+        super().__init__()
+        self.__ss = SessionServer()
+        # pipe
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=OctopusArrows.primary(delegate=bus))
+        bus.start()
+        self.__bus: ShuttleBus[dict] = bus
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
+
+    # Override
+    def process(self) -> bool:
+        obj = None
+        try:
+            obj = self.__bus.receive()
+            if obj is None:
+                return False
+            msg = ReliableMessage.parse(msg=obj)
+            assert msg is not None, 'msg error: %s' % obj
+            sessions = self.__ss.active_sessions(identifier=msg.receiver)
+            self.debug(msg='received from bridge for %s (%d sessions)' % (msg.receiver, len(sessions)))
+            # push to all active sessions
+            for sess in sessions:
+                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+            return True
+        except Exception as error:
+            self.error(msg='failed to process: %s, %s' % (error, obj))
+            traceback.print_exc()
 
 
 @Singleton
@@ -245,17 +283,14 @@ def _push_message(msg: ReliableMessage, receiver: ID) -> int:
     return success
 
 
-def _redirect_message(msg: ReliableMessage, neighbor: ID, bridge: ID) -> int:
+def _redirect_message(msg: ReliableMessage, neighbor: ID) -> int:
     """ redirect message to neighbor station for roaming user """
     cnt = _push_message(msg=msg, receiver=neighbor)
     if cnt == 0:
-        Log.warning('remote station (%s) not connected, trying bridge (%s)...' % (neighbor, bridge))
+        Log.warning('remote station (%s) not connected, trying bridge...' % neighbor)
         clone = msg.copy_dictionary()
         clone['target'] = str(neighbor)
-        msg = ReliableMessage.parse(msg=clone)
-        cnt = _push_message(msg=msg, receiver=bridge)
-        if cnt == 0:
-            Log.error('station bridge (%s) not connected, cannot redirect.' % bridge)
+        OctopusCaller().send(msg=clone)
     return cnt
 
 
@@ -268,7 +303,7 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
         if sid == station:
             continue
         # 2.1. redirect message to the roaming station
-        cnt += _redirect_message(msg=msg, neighbor=sid, bridge=station)
+        cnt += _redirect_message(msg=msg, neighbor=sid)
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
     # 3. push notification
@@ -481,10 +516,7 @@ class BroadcastDispatcher(Worker):
         sent_neighbors.append(str(self.station))
         msg['sent_neighbors'] = sent_neighbors
         self.info('push to the bridge (%s) ignoring sent stations: %s' % (self.station, sent_neighbors))
-        cnt = _push_message(msg=msg, receiver=self.station)
-        if cnt == 0:
-            # FIXME: what about the failures
-            self.error('failed to push message to station bridge: %s' % self.station)
+        OctopusCaller().send(msg=msg)
         # response
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
         res = TextContent(text=text)

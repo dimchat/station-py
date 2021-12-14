@@ -76,7 +76,7 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         # pipe
         bus = ShuttleBus()
         bus.set_arrows(arrows=ReceptionistArrows.secondary(delegate=bus))
-        threading.Thread(target=bus.run, daemon=True).start()
+        bus.start()
         self.__bus: ShuttleBus[dict] = bus
 
     def send(self, msg: Union[dict, ReliableMessage]):
@@ -169,7 +169,7 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
             return self._respond_text(text=text)
         # C -> S: Hello world!
         assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
-        remote = msg.get('socket')
+        remote = msg.get('client_address')
         assert isinstance(remote, tuple), 'remote address error: %s' % remote
         session = g_database.fetch_session(address=remote)
         session_key = session['key']

@@ -214,7 +214,7 @@ class SearchEngineWorker(Runner, Logging):
         # pipe
         bus = ShuttleBus()
         bus.set_arrows(arrows=ArchivistArrows.secondary(delegate=bus))
-        threading.Thread(target=bus.run, daemon=True).start()
+        bus.start()
         self.__bus: ShuttleBus[dict] = bus
 
     def send(self, msg: Union[dict, ReliableMessage]):

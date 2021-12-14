@@ -39,7 +39,7 @@ from startrek import DeparturePriority
 
 from dimp import ReliableMessage
 
-from libs.utils.log import Log
+from libs.utils.log import Log, Logging
 from libs.utils.ipc import ShuttleBus, ReceptionistArrows, MonitorArrow
 from libs.utils import Singleton
 from libs.utils import Notification, NotificationObserver, NotificationCenter
@@ -57,7 +57,7 @@ from etc.cfg_init import station_id, create_station
 
 
 @Singleton
-class ReceptionistCaller(Runner):
+class ReceptionistCaller(Runner, Logging):
     """ handling 'handshake' commands """
 
     def __init__(self):
@@ -66,7 +66,7 @@ class ReceptionistCaller(Runner):
         # pipe
         bus = ShuttleBus()
         bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=bus))
-        threading.Thread(target=bus.run, daemon=True).start()
+        bus.start()
         self.__bus: ShuttleBus[dict] = bus
         threading.Thread(target=self.run, daemon=True).start()
 
@@ -77,32 +77,30 @@ class ReceptionistCaller(Runner):
 
     # Override
     def process(self) -> bool:
-        obj = self.__bus.receive()
-        if obj is None:
-            return False
+        obj = None
         try:
-            return self.__try_process(obj=obj)
+            obj = self.__bus.receive()
+            if obj is None:
+                return False
+            msg = ReliableMessage.parse(msg=obj)
+            assert msg is not None, 'msg error: %s' % obj
+            sessions = self.__ss.active_sessions(identifier=msg.receiver)
+            # check remote address
+            remote = msg.get('client_address')
+            if remote is None:
+                # push to all active sessions
+                for sess in sessions:
+                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+            else:
+                # push to active session with same remote address
+                msg.pop('client_address')
+                for sess in sessions:
+                    if sess.remote_address == remote:
+                        sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+            return True
         except Exception as error:
             self.error(msg='failed to process: %s, %s' % (error, obj))
             traceback.print_exc()
-
-    def __try_process(self, obj: dict) -> bool:
-        msg = ReliableMessage.parse(msg=obj)
-        assert msg is not None, 'msg error: %s' % obj
-        sessions = self.__ss.active_sessions(identifier=msg.receiver)
-        # check remote address
-        remote = msg.get('remote')
-        if remote is None:
-            # push to all active sessions
-            for sess in sessions:
-                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-        else:
-            # push to active session with same remote address
-            msg.pop('remote')
-            for sess in sessions:
-                if sess.remote_address == remote:
-                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-        return True
 
 
 @Singleton

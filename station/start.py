@@ -50,7 +50,7 @@ from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 from libs.push import PushCenter
 from libs.server import Dispatcher
-from libs.server import SearchEngineCaller
+from libs.server import SearchEngineCaller, OctopusCaller
 
 from etc.cfg_init import neighbor_stations
 
@@ -126,6 +126,12 @@ g_search_engine = SearchEngineCaller()
     A dispatcher for sending reports to administrator(s)
 """
 g_monitor = MonitorCaller()
+
+
+"""
+    
+"""
+g_octopus = OctopusCaller()
 
 
 """

@@ -35,20 +35,20 @@ import sys
 import os
 import threading
 import traceback
-from typing import Optional, Dict, List
+from typing import Optional, Union, Dict, List
 
 from dimp import ID, ReliableMessage
 from dimp import ContentType
 from dimsdk import Station, HandshakeCommand
 from startrek.fsm import Runner
+from startrek import DeparturePriority
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Logging
-from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.common import NotificationNames
+from libs.utils.log import Logging
+from libs.utils.ipc import ShuttleBus, OctopusArrows
 from libs.common import msg_traced, is_broadcast_message
 from libs.client import Server, Terminal, ClientMessenger
 
@@ -57,27 +57,12 @@ from robots.config import g_station
 from robots.config import dims_connect
 
 
-class OctopusMessenger(ClientMessenger, NotificationObserver):
+class OctopusMessenger(ClientMessenger):
+    """ Messenger for processing message from remote station """
 
     def __init__(self):
         super().__init__()
         self.__accepted = False
-        # observing notifications
-        nc = NotificationCenter()
-        nc.add(observer=self, name=NotificationNames.CONNECTED)
-
-    def __del__(self):
-        nc = NotificationCenter()
-        nc.remove(observer=self, name=NotificationNames.CONNECTED)
-
-    #
-    #    Notification Observer
-    #
-    def received_notification(self, notification: Notification):
-        name = notification.name
-        if name == NotificationNames.CONNECTED:
-            # reconnected?
-            self.__accepted = False
 
     @property
     def accepted(self) -> bool:
@@ -97,34 +82,6 @@ class OctopusMessenger(ClientMessenger, NotificationObserver):
         self.info('start bridge for: %s' % self.server)
         super()._broadcast_login(identifier=identifier)
 
-
-class InnerMessenger(OctopusMessenger):
-    """ Messenger for processing message from local station """
-
-    # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        # check for HandshakeCommand
-        if self._is_handshaking(msg=msg):
-            self.info('inner handshaking: %s' % msg.sender)
-            return super().process_reliable_message(msg=msg)
-        elif msg.receiver == g_station.identifier:
-            traces = msg.get('traces')
-            self.error('drop inner msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
-            return []
-        # handshake accepted, delivering message
-        self.info('outgoing msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
-        if msg.delegate is None:
-            msg.delegate = self
-        r_msg = octopus.departure(msg=msg)
-        if r_msg is None:
-            return []
-        else:
-            return [r_msg]
-
-
-class OuterMessenger(OctopusMessenger):
-    """ Messenger for processing message from remote station """
-
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         # check for HandshakeCommand
@@ -134,16 +91,12 @@ class OuterMessenger(OctopusMessenger):
         elif msg.receiver == msg.sender:
             traces = msg.get('traces')
             self.error('drop outer msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, traces))
-            return []
-        # handshake accepted, receiving message
-        self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
-        if msg.delegate is None:
-            msg.delegate = self
-        r_msg = octopus.arrival(msg=msg)
-        if r_msg is None:
-            return []
         else:
-            return [r_msg]
+            # handshake accepted, receiving message
+            self.info('incoming msg(type=%d): %s -> %s | %s' % (msg.type, msg.sender, msg.receiver, msg.get('traces')))
+            g_database.save_message(msg=msg)
+            g_octopus.send(msg=msg)
+        return []
 
 
 class Worker(Runner, Logging):
@@ -187,69 +140,53 @@ class Worker(Runner, Logging):
         threading.Thread(target=self.run).start()
 
     # Override
-    def finish(self):
-        self.info('octopus finished: %s' % self.server)
-        self.info('saving %d message(s)' % self.msg_cnt())
-        while True:
-            msg = self.pop_msg()
-            if msg is None:
-                break
-            else:
-                g_database.save_message(msg=msg)
-        super().finish()
-
-    # Override
     def process(self) -> bool:
         try:
-            if self.messenger.accepted:
-                return self.__process()
+            if not self.messenger.accepted:
+                # handshake first
+                return False
+            msg = self.pop_msg()
+            if msg is None:
+                # nothing to do now
+                return False
+            elif is_broadcast_message(msg=msg):
+                priority = DeparturePriority.SLOWER
+            else:
+                priority = DeparturePriority.NORMAL
+            # send to neighbour station
+            if self.messenger.send_reliable_message(msg=msg, priority=priority):
+                return True
+            else:
+                self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
         except Exception as error:
             self.error('octopus error: %s -> %s' % (self.server, error))
             traceback.print_exc()
 
-    def __process(self) -> bool:
-        msg = self.pop_msg()
-        if msg is not None:
-            if is_broadcast_message(msg=msg):
-                priority = 1  # SLOWER
-            else:
-                priority = 0  # NORMAL
-            if not self.messenger.send_reliable_message(msg=msg, priority=priority):
-                self.error('failed to send message, store it: %s -> %s' % (msg.sender, msg.receiver))
-                g_database.save_message(msg=msg)
-            return True
 
-
-class Octopus(Logging):
+class Octopus(Runner, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__home: Optional[Worker] = None
         self.__neighbors: Dict[ID, Worker] = {}  # ID -> Worker
+        # pipe
+        bus = ShuttleBus()
+        bus.set_arrows(arrows=OctopusArrows.secondary(delegate=bus))
+        bus.start()
+        self.__bus: ShuttleBus[dict] = bus
 
     def start(self):
-        # local station
-        self.__home.start()
-        # remote station
+        # remote stations
         neighbors = self.__neighbors.keys()
         for sid in neighbors:
             self.__neighbors[sid].start()
+        self.run()
 
     def stop(self):
         # remote station
         neighbors = self.__neighbors.keys()
         for sid in neighbors:
             self.__neighbors[sid].stop()
-        # local station
-        self.__home.stop()
-
-    def set_home(self, station: ID) -> bool:
-        assert station == g_station.identifier, 'home station ID error: %s, %s' % (station, g_station)
-        if self.__home is None:
-            # worker for local station
-            self.info('bridge for local station: %s' % g_station)
-            self.__home = Worker(client=Terminal(), server=g_station, messenger=InnerMessenger())
-            return True
+        super().stop()
 
     def add_neighbor(self, station: ID) -> bool:
         assert station != g_station.identifier, 'neighbor station ID error: %s, %s' % (station, g_station)
@@ -262,27 +199,32 @@ class Octopus(Logging):
                 g_facebook.cache_user(user=server)
             # worker for remote station
             self.info('bridge for neighbor station: %s' % server)
-            self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=OuterMessenger())
+            self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=OctopusMessenger())
             return True
 
-    def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:
-        if neighbor == g_station.identifier:
-            worker = self.__home
-        else:
-            worker = self.__neighbors.get(neighbor)
-            # TODO: if not connected directly, forward to the middle station
-        if worker is None:
-            self.error('neighbor station not defined: %s' % neighbor)
-            return False
-        else:
-            worker.add_msg(msg=msg)
-            return True
+    def send(self, msg: Union[dict, ReliableMessage]):
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        self.__bus.send(obj=msg)
 
-    def departure(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        receiver = msg.receiver
-        if receiver == g_station.identifier:
-            self.warning('msg for %s will be stopped here' % receiver)
-            return None
+    # Override
+    def process(self) -> bool:
+        msg = None
+        try:
+            msg = self.__bus.receive()
+            msg = ReliableMessage.parse(msg=msg)
+            if msg is None:
+                return False
+            if msg.receiver == g_station.identifier:
+                self.warning('msg for %s will be stopped here' % msg.receiver)
+            else:
+                self.__departure(msg=msg)
+            return True
+        except Exception as error:
+            self.error('octopus error: %s, %s' % (msg, error))
+            traceback.print_exc()
+
+    def __departure(self, msg: ReliableMessage):
         target = ID.parse(identifier=msg.get('target'))
         if target is None:
             # broadcast to all neighbors
@@ -306,18 +248,20 @@ class Octopus(Logging):
         else:
             # redirect to single neighbor
             msg.pop('target')
-            if not self.__deliver_message(msg=msg, neighbor=target):
-                self.error('failed to deliver message to: %s, save roaming message' % target)
-                g_database.save_message(msg=msg)
-            else:
+            if self.__deliver_message(msg=msg, neighbor=target):
                 self.info('message redirect to neighbor station: %s' % target)
+            else:
+                self.error('failed to deliver message to: %s, save roaming message' % target)
 
-    def arrival(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
-        sid = g_station.identifier
-        if not self.__deliver_message(msg=msg, neighbor=sid):
-            self.error('failed to deliver income msg: %s -> %s, %s' % (msg.sender, msg.receiver, msg.get('traces')))
-            g_database.save_message(msg=msg)
-        return None
+    def __deliver_message(self, msg: ReliableMessage, neighbor: ID) -> bool:
+        worker = self.__neighbors.get(neighbor)
+        # TODO: if not connected directly, forward to the middle station
+        if worker is None:
+            self.error('neighbor station not defined: %s' % neighbor)
+            return False
+        else:
+            worker.add_msg(msg=msg)
+            return True
 
 
 def update_neighbors(station: ID, neighbors: List[Station]) -> bool:
@@ -343,12 +287,10 @@ if __name__ == '__main__':
     # set current user
     g_facebook.current_user = g_station
 
-    octopus = Octopus()
-    # set local station
-    octopus.set_home(station=g_station.identifier)
+    g_octopus = Octopus()
     # add neighbors
     for node in neighbor_stations:
         assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
-        octopus.add_neighbor(station=node.identifier)
+        g_octopus.add_neighbor(station=node.identifier)
     # start all
-    octopus.start()
+    g_octopus.start()

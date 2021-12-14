@@ -122,6 +122,9 @@ class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
         self.__income_arrow = arrows[0]
         self.__outgo_arrow = arrows[1]
 
+    def start(self):
+        threading.Thread(target=self.run, daemon=True).start()
+
     def __next(self) -> Optional[T]:
         """ get first outgo object from the waiting queue """
         with self.__outgo_lock:
@@ -171,6 +174,7 @@ class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
         2 - archivist      search engine
         3 - pusher         notification (ios, android)
         7 - monitor        statistic, session
+        8 - octopus        station bridge
 """
 
 
@@ -202,6 +206,26 @@ class ArchivistArrows:
 
     SHM_KEY1 = "0xD1350201"  # A -> B
     SHM_KEY2 = "0xD1350202"  # B -> A
+
+    @classmethod
+    def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
+        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2, delegate=delegate),\
+               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1)
+
+    @classmethod
+    def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
+        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1, delegate=delegate),\
+               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2)
+
+
+class OctopusArrows:
+    """ arrows between router and bridge """
+
+    # Memory cache size: 64KB
+    SHM_SIZE = 1 << 16
+
+    SHM_KEY1 = "0xD1350801"  # A -> B
+    SHM_KEY2 = "0xD1350802"  # B -> A
 
     @classmethod
     def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
