@@ -33,13 +33,16 @@
 
 import threading
 import traceback
-from typing import Union, Set, List
+from typing import Optional, Union, Set, List
 
 from startrek.fsm import Runner
 
 from dimp import ID, NetworkType
-from dimp import Envelope, Content
+from dimp import Envelope, Content, Command
 from dimp import InstantMessage, ReliableMessage
+from dimp import Transceiver
+from dimsdk import HandshakeCommand
+from dimsdk import CommandProcessor, ProcessorFactory
 
 import sys
 import os
@@ -52,6 +55,8 @@ from libs.utils.log import Log, Logging
 from libs.utils.ipc import ShuttleBus, ReceptionistArrows
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
+
+from libs.server import ServerProcessor, ServerProcessorFactory
 from libs.server import ServerMessenger
 
 from etc.cfg_init import g_database
@@ -146,7 +151,68 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
             self.add_guest(identifier=user)
 
 
+#
+#   DIMP
+#
+
+
+class HandshakeCommandProcessor(CommandProcessor, Logging):
+
+    # Override
+    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
+        message = cmd.message
+        if message in ['DIM?', 'DIM!']:
+            # S -> C
+            text = 'Handshake command error: %s' % message
+            self.error(msg=text)
+            return self._respond_text(text=text)
+        # C -> S: Hello world!
+        assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
+        remote = msg.get('socket')
+        assert isinstance(remote, tuple), 'remote address error: %s' % remote
+        session = g_database.fetch_session(address=remote)
+        session_key = session['key']
+        self.debug(msg='session info: %s, %s, %s' % (msg.sender, remote, session_key))
+        if session_key != cmd.session:
+            res = HandshakeCommand.again(session=session.key)
+            return [res]
+        else:
+            # session verify success
+            g_database.update_session(address=remote, identifier=msg.sender)
+            g_worker.send(msg={
+                'command': 'handshake accepted',
+                'ID': msg.sender,
+                'session_key': session_key,
+                'address': remote,
+            })
+            res = HandshakeCommand.success(session=session_key)
+            return [res]
+
+
+class ReceptionistProcessorFactory(ServerProcessorFactory):
+
+    # Override
+    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+        # handshake
+        if cmd_name == Command.HANDSHAKE:
+            return HandshakeCommandProcessor(messenger=self.messenger)
+        # others
+        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+
+
+class ReceptionistMessageProcessor(ServerProcessor):
+
+    # Override
+    def _create_processor_factory(self) -> ProcessorFactory:
+        return ReceptionistProcessorFactory(messenger=self.messenger)
+
+
 class ReceptionistMessenger(ServerMessenger):
+
+    # Override
+    def _create_processor(self) -> Transceiver.Processor:
+        return ReceptionistMessageProcessor(messenger=self)
 
     # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

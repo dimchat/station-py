@@ -31,10 +31,15 @@
 """
 
 import socket
+import traceback
 from threading import Thread
 from typing import Optional
 
+from startrek import Connection
+from startrek import Arrival
+
 from ...network import Hub, Gate, GateStatus
+from ...network import MTPStreamArrival
 
 from ...common import BaseSession, CommonMessenger
 
@@ -94,3 +99,36 @@ class Session(BaseSession):
             hub = self.gate.hub
             assert isinstance(hub, Hub), 'hub error: %s' % hub
             hub.connect(remote=remote, local=local)
+
+    # Override
+    def gate_received(self, ship: Arrival,
+                      source: tuple, destination: Optional[tuple], connection: Connection):
+        assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
+        payload = ship.payload
+        # check payload
+        if payload.startswith(b'{'):
+            # JsON in lines
+            packages = payload.splitlines()
+        else:
+            packages = [payload]
+        array = []
+        messenger = self.messenger
+        for pack in packages:
+            try:
+                responses = messenger.process_package(data=pack)
+                for res in responses:
+                    if res is None or len(res) == 0:
+                        # should not happen
+                        continue
+                    array.append(res)
+            except Exception as error:
+                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
+                self.error('payload: %s' % payload)
+                traceback.print_exc()
+                # from dimsdk import TextContent
+                # return TextContent.new(text='parse message failed: %s' % error)
+        if len(array) == 0:
+            return
+        gate = self.gate
+        for item in array:
+            gate.send_response(payload=item, ship=ship, remote=source, local=destination)

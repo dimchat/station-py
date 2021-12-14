@@ -36,14 +36,13 @@
 """
 
 import socket
-import traceback
 from abc import ABC
 from typing import Optional
 
 from startrek.fsm import Runner
-from startrek import Connection, ActiveConnection
+from startrek import Connection
 from startrek import GateDelegate
-from startrek import Arrival, Departure, DepartureShip
+from startrek import Departure, DepartureShip
 
 from dimp import ID, Content
 from dimp import InstantMessage, ReliableMessage
@@ -52,7 +51,6 @@ from dimsdk import Messenger
 from ..utils import Logging
 
 from ..network import CommonGate, GateKeeper
-from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 
 
 class BaseSession(Runner, GateDelegate, Logging, ABC):
@@ -162,48 +160,6 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
     #
     #   GateDelegate
     #
-
-    # Override
-    def gate_received(self, ship: Arrival,
-                      source: tuple, destination: Optional[tuple], connection: Connection):
-        if isinstance(ship, MTPStreamArrival):
-            payload = ship.payload
-        elif isinstance(ship, MarsStreamArrival):
-            payload = ship.payload
-        elif isinstance(ship, WSArrival):
-            payload = ship.payload
-        else:
-            raise ValueError('unknown arrival ship: %s' % ship)
-        # check payload
-        if payload.startswith(b'{'):
-            # JsON in lines
-            packages = payload.splitlines()
-        else:
-            packages = [payload]
-        array = []
-        messenger = self.messenger
-        for pack in packages:
-            try:
-                responses = messenger.process_package(data=pack)
-                for res in responses:
-                    if res is None or len(res) == 0:
-                        # should not happen
-                        continue
-                    array.append(res)
-            except Exception as error:
-                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
-                self.error('payload: %s' % payload)
-                traceback.print_exc()
-                # from dimsdk import TextContent
-                # return TextContent.new(text='parse message failed: %s' % error)
-        gate = self.gate
-        if len(array) == 0:
-            if connection is not None and not isinstance(connection, ActiveConnection):
-                # station MUST respond something to client request (Tencent Mars)
-                gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
-        else:
-            for item in array:
-                gate.send_response(payload=item, ship=ship, remote=source, local=destination)
 
     # Override
     def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):

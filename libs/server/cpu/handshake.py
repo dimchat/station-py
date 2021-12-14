@@ -70,12 +70,9 @@ class HandshakeCommandProcessor(CommandProcessor):
         if message in ['DIM?', 'DIM!']:
             # S -> C
             text = 'Handshake command error: %s' % message
-            res = self._respond_text(text=text)
+            return self._respond_text(text=text)
         else:
             # C -> S: Hello world!
             assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
             res = self.__offer(session_key=cmd.session, sender=msg.sender)
-        if res is None:
-            return []
-        else:
             return [res]

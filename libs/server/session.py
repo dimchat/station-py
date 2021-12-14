@@ -38,15 +38,19 @@
 import socket
 import threading
 import time
+import traceback
 import weakref
 from typing import Optional, Dict, Set
 
 from startrek import GateStatus, Gate, DeparturePriority
+from startrek import Connection, ActiveConnection
+from startrek import Arrival
 
 from dimp import hex_encode
 from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
+from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 from ..utils import Singleton
 from ..utils import NotificationCenter
 from ..database import Database
@@ -107,6 +111,10 @@ class Session(BaseSession):
             self.send_reliable_message(msg=msg, priority=DeparturePriority.SLOWER)
         return True
 
+    #
+    #   GateDelegate
+    #
+
     # Override
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
@@ -122,6 +130,48 @@ class Session(BaseSession):
             NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
                 'session': self,
             })
+
+    # Override
+    def gate_received(self, ship: Arrival,
+                      source: tuple, destination: Optional[tuple], connection: Connection):
+        if isinstance(ship, MTPStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, MarsStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, WSArrival):
+            payload = ship.payload
+        else:
+            raise ValueError('unknown arrival ship: %s' % ship)
+        # check payload
+        if payload.startswith(b'{'):
+            # JsON in lines
+            packages = payload.splitlines()
+        else:
+            packages = [payload]
+        array = []
+        messenger = self.messenger
+        for pack in packages:
+            try:
+                responses = messenger.process_package(data=pack)
+                for res in responses:
+                    if res is None or len(res) == 0:
+                        # should not happen
+                        continue
+                    array.append(res)
+            except Exception as error:
+                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
+                self.error('payload: %s' % payload)
+                traceback.print_exc()
+                # from dimsdk import TextContent
+                # return TextContent.new(text='parse message failed: %s' % error)
+        gate = self.gate
+        if len(array) == 0:
+            if connection is not None and not isinstance(connection, ActiveConnection):
+                # station MUST respond something to client request (Tencent Mars)
+                gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+        else:
+            for item in array:
+                gate.send_response(payload=item, ship=ship, remote=source, local=destination)
 
 
 @Singleton

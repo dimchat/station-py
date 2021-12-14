@@ -62,7 +62,7 @@ from libs.server import ServerProcessor, ServerProcessorFactory
 from libs.server import ServerMessenger
 
 from etc.cfg_init import all_stations, neighbor_stations, g_database
-from station.config import g_facebook
+from station.config import g_facebook, g_station
 
 
 #
@@ -353,12 +353,12 @@ class ArchivistMessenger(ServerMessenger):
 
     # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        g_engine.send(msg=msg)
+        g_worker.send(msg=msg)
         return []
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
-        g_engine.send(msg=msg)
+        g_worker.send(msg=msg)
         return True
 
     # Override
@@ -384,14 +384,12 @@ class ArchivistMessenger(ServerMessenger):
         return self.send_instant_message(msg=msg, priority=priority)
 
 
-g_engine = SearchEngineWorker()
+g_worker = SearchEngineWorker()
 g_messenger = ArchivistMessenger()
 
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting search engine ...')
-    # set current user
-    bot_id = ID.parse(identifier='archivist')
-    g_facebook.current_user = g_facebook.user(identifier=bot_id)
-    g_engine.run()
+    g_facebook.current_user = g_station
+    g_worker.run()
     Log.info(msg='>>> search engine exists.')
