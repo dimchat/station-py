@@ -30,22 +30,8 @@
     Configuration for DIM network server node
 """
 
-import threading
-import traceback
-from typing import Union
-
-from startrek.fsm import Runner
-from startrek import DeparturePriority
-
-from dimp import ReliableMessage
-
-from libs.utils.log import Log, Logging
-from libs.utils.ipc import ShuttleBus, ReceptionistArrows, MonitorArrow
-from libs.utils import Singleton
-from libs.utils import Notification, NotificationObserver, NotificationCenter
-from libs.common import NotificationNames
+from libs.utils.log import Log
 from libs.server import ServerMessenger
-from libs.server import SessionServer
 
 #
 #  Configurations
@@ -54,81 +40,6 @@ from etc.config import bind_host, bind_port
 
 from etc.cfg_init import g_facebook, g_keystore
 from etc.cfg_init import station_id, create_station
-
-
-@Singleton
-class ReceptionistCaller(Runner, Logging):
-    """ handling 'handshake' commands """
-
-    def __init__(self):
-        super().__init__()
-        self.__ss = SessionServer()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
-        threading.Thread(target=self.run, daemon=True).start()
-
-    def send(self, msg: Union[dict, ReliableMessage]):
-        if isinstance(msg, ReliableMessage):
-            msg = msg.dictionary
-        self.__bus.send(obj=msg)
-
-    # Override
-    def process(self) -> bool:
-        obj = None
-        try:
-            obj = self.__bus.receive()
-            if obj is None:
-                return False
-            msg = ReliableMessage.parse(msg=obj)
-            assert msg is not None, 'msg error: %s' % obj
-            sessions = self.__ss.active_sessions(identifier=msg.receiver)
-            # check remote address
-            remote = msg.get('client_address')
-            if remote is None:
-                # push to all active sessions
-                for sess in sessions:
-                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-            else:
-                # push to active session with same remote address
-                msg.pop('client_address')
-                for sess in sessions:
-                    if sess.remote_address == remote:
-                        sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-            return True
-        except Exception as error:
-            self.error(msg='failed to process: %s, %s' % (error, obj))
-            traceback.print_exc()
-
-
-@Singleton
-class MonitorCaller(NotificationObserver):
-    """ handling user events """
-
-    def __init__(self):
-        super().__init__()
-        self.__outgo_arrow = MonitorArrow.primary()
-        # observing local notifications
-        nc = NotificationCenter()
-        nc.add(observer=self, name=NotificationNames.USER_LOGIN)
-        nc.add(observer=self, name=NotificationNames.USER_ONLINE)
-        nc.add(observer=self, name=NotificationNames.USER_OFFLINE)
-        nc.add(observer=self, name=NotificationNames.DELIVER_MESSAGE)
-
-    # Override
-    def received_notification(self, notification: Notification):
-        name = notification.name
-        info = notification.info
-        self.__outgo_arrow.send(obj={
-            'name': name,
-            'info': info,
-        })
-        ReceptionistCaller().send(msg={
-            'name': name,
-            'info': info,
-        })
 
 
 """

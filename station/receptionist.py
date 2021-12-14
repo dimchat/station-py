@@ -184,7 +184,7 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
                 'command': 'handshake accepted',
                 'ID': msg.sender,
                 'session_key': session_key,
-                'address': remote,
+                'client_address': remote,
             })
             res = HandshakeCommand.success(session=session_key)
             return [res]

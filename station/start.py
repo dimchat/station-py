@@ -50,12 +50,12 @@ from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 from libs.push import PushCenter
 from libs.server import Dispatcher
-from libs.server import SearchEngineCaller, OctopusCaller
+from libs.server import ReceptionistCaller, SearchEngineCaller
+from libs.server import OctopusCaller, MonitorCaller
 
 from etc.cfg_init import neighbor_stations
 
 from station.config import g_station
-from station.config import ReceptionistCaller, MonitorCaller
 from station.handler import RequestHandler
 
 

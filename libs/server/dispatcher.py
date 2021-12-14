@@ -35,9 +35,8 @@ import threading
 import traceback
 import weakref
 from abc import abstractmethod
-from typing import Optional, Union, List, Set
+from typing import Optional, List, Set
 
-from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, ANYONE, EVERYONE
@@ -45,7 +44,6 @@ from dimp import ReliableMessage
 from dimp import ContentType, Content, TextContent
 
 from ..utils.log import Log, Logging
-from ..utils.ipc import ShuttleBus, ArchivistArrows, OctopusArrows
 from ..utils import get_msg_sig
 from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
@@ -55,99 +53,13 @@ from ..common import NotificationNames
 from ..common import SharedFacebook
 from ..common import msg_receipt, msg_traced
 
+from .callers import SearchEngineCaller, OctopusCaller
 from .session import Session, SessionServer
 
 
 g_session_server = SessionServer()
 g_facebook = SharedFacebook()
 g_database = Database()
-
-
-@Singleton
-class SearchEngineCaller(Runner, Logging):
-    """ handling 'search' command """
-
-    def __init__(self):
-        super().__init__()
-        self.__ss = SessionServer()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ArchivistArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
-        threading.Thread(target=self.run, daemon=True).start()
-
-    def send(self, msg: Union[dict, ReliableMessage]):
-        if isinstance(msg, ReliableMessage):
-            msg = msg.dictionary
-        self.__bus.send(obj=msg)
-
-    # Override
-    def process(self) -> bool:
-        obj = self.__bus.receive()
-        if obj is None:
-            return False
-        try:
-            return self.__try_process(obj=obj)
-        except Exception as error:
-            self.error(msg='search engine error: %s, %s' % (error, obj))
-            traceback.print_exc()
-
-    def __try_process(self, obj: dict) -> bool:
-        msg = ReliableMessage.parse(msg=obj)
-        assert msg is not None, 'msg error: %s' % obj
-        sessions = self.__ss.active_sessions(identifier=msg.receiver)
-        # check remote address
-        remote = msg.get('remote')
-        if remote is None:
-            # push to all active sessions
-            for sess in sessions:
-                sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
-        else:
-            # push to active session with same remote address
-            msg.pop('remote')
-            for sess in sessions:
-                if sess.remote_address == remote:
-                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-        return True
-
-
-@Singleton
-class OctopusCaller(Runner, Logging):
-
-    def __init__(self):
-        super().__init__()
-        self.__ss = SessionServer()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=OctopusArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
-        threading.Thread(target=self.run, daemon=True).start()
-
-    def send(self, msg: Union[dict, ReliableMessage]):
-        if isinstance(msg, ReliableMessage):
-            msg = msg.dictionary
-        self.__bus.send(obj=msg)
-
-    # Override
-    def process(self) -> bool:
-        obj = None
-        try:
-            obj = self.__bus.receive()
-            if obj is None:
-                return False
-            msg = ReliableMessage.parse(msg=obj)
-            assert msg is not None, 'msg error: %s' % obj
-            sessions = self.__ss.active_sessions(identifier=msg.receiver)
-            self.debug(msg='received from bridge for %s (%d sessions)' % (msg.receiver, len(sessions)))
-            # push to all active sessions
-            for sess in sessions:
-                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-            return True
-        except Exception as error:
-            self.error(msg='failed to process: %s, %s' % (error, obj))
-            traceback.print_exc()
 
 
 @Singleton
