@@ -36,9 +36,10 @@ import time
 import traceback
 from typing import Optional, Any
 
-from dimp import ID, NetworkType
 from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
+
+from dimp import ID, NetworkType
 
 import sys
 import os
@@ -49,11 +50,11 @@ sys.path.append(rootPath)
 
 from libs.utils.log import current_time
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ArrowDelegate
+from libs.utils.ipc import ArrowDelegate, MonitorArrow
 from libs.database import Storage, Database
 from libs.common import NotificationNames
 
-from station.config import MonitorArrow
+from etc.config import base_dir
 
 
 #
@@ -66,7 +67,7 @@ def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
 
         file path: '.dim/counter.txt
     """
-    path = os.path.join(Storage.root, 'counter.txt')
+    path = os.path.join(base_dir, 'counter.txt')
     now = current_time()
     new_line = '%s\t%d\t%d\t%d\n' % (now, login_cnt, msg_cnt, g_msg_cnt)
     return Storage.append_text(text=new_line, path=path)
@@ -90,13 +91,10 @@ class Recorder(Runner, Logging, ArrowDelegate):
     # Override
     def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
         assert isinstance(obj, dict), 'event error: %s' % obj
-        self.append(event=obj)
-
-    def append(self, event: dict):
         with self.__lock:
-            self.__events.append(event)
+            self.__events.append(obj)
 
-    def shift(self) -> Optional[dict]:
+    def next(self) -> Optional[dict]:
         with self.__lock:
             if len(self.__events) > 0:
                 return self.__events.pop(0)
@@ -173,7 +171,7 @@ class Recorder(Runner, Logging, ArrowDelegate):
     def process(self) -> bool:
         event = None
         try:
-            event = self.shift()
+            event = self.next()
             if event is None:
                 # save statistics
                 self.__save()

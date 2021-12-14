@@ -143,7 +143,7 @@ class SearchEngineCaller(Runner, Logging):
                 return False
             msg = ReliableMessage.parse(msg=obj)
             self.__deliver_message(msg=msg)
-            return self.__try_process(obj=obj)
+            return True
         except Exception as error:
             self.error(msg='search engine error: %s, %s' % (error, obj))
             traceback.print_exc()
@@ -163,7 +163,6 @@ class SearchEngineCaller(Runner, Logging):
             for sess in sessions:
                 if sess.remote_address == remote:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
-        return True
 
 
 @Singleton

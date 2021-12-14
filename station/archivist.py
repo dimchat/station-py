@@ -31,7 +31,6 @@
     Managing meta & documents
 """
 
-import threading
 import traceback
 from typing import Optional, Union, Dict, List
 
@@ -343,6 +342,27 @@ class ArchivistMessageProcessor(ServerProcessor):
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
         return ArchivistProcessorFactory(messenger=self.messenger)
+
+    # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        messenger = self.messenger
+        # 1. no need to verify message here
+        # 2. process secure message
+        responses = messenger.process_secure_message(msg=msg, r_msg=msg)
+        # 3. sign responses
+        messages = []
+        for res in responses:
+            r_msg = messenger.sign_message(msg=res)
+            if r_msg is None:
+                # should not happen
+                continue
+            messages.append(r_msg)
+        return messages
+
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, SearchCommand), 'search command error: %s' % content
+        cpu = self.get_processor(content=content)
+        return cpu.process(content=content, msg=r_msg)
 
 
 class ArchivistMessenger(ServerMessenger):
