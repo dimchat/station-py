@@ -48,7 +48,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Logging
-from libs.utils.ipc import ShuttleBus, OctopusArrows
+from libs.utils.ipc import OctopusPipe
 from libs.common import msg_traced, is_broadcast_message
 from libs.client import Server, Terminal, ClientMessenger
 
@@ -168,13 +168,10 @@ class OctopusWorker(Runner, Logging):
     def __init__(self):
         super().__init__()
         self.__neighbors: Dict[ID, Worker] = {}  # ID -> Worker
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=OctopusArrows.secondary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = OctopusPipe.secondary()
 
     def start(self):
+        self.__pipe.start()
         # remote stations
         neighbors = self.__neighbors.keys()
         for sid in neighbors:
@@ -205,13 +202,13 @@ class OctopusWorker(Runner, Logging):
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
         msg = None
         try:
-            msg = self.__bus.receive()
+            msg = self.__pipe.receive()
             msg = ReliableMessage.parse(msg=msg)
             if msg is None:
                 return False

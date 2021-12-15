@@ -53,7 +53,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ShuttleBus, ArchivistArrows
+from libs.utils.ipc import ArchivistPipe
 from libs.common import SearchCommand
 from libs.database import FrequencyChecker
 
@@ -210,20 +210,25 @@ class SearchEngineWorker(Runner, Logging):
         self.__users_queries: FrequencyChecker[str] = FrequencyChecker()
         self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
         self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ArchivistArrows.secondary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = ArchivistPipe.secondary()
+
+    def start(self):
+        self.__pipe.start()
+        self.run()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
-        msg = self.__bus.receive()
+        msg = self.__pipe.receive()
         try:
             if msg is None:
                 self.__scan_all_users()
@@ -411,5 +416,5 @@ g_messenger = ArchivistMessenger()
 if __name__ == '__main__':
     Log.info(msg='>>> starting search engine ...')
     g_facebook.current_user = g_station
-    g_worker.run()
+    g_worker.start()
     Log.info(msg='>>> search engine exists.')

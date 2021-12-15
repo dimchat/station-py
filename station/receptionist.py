@@ -52,7 +52,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ShuttleBus, ReceptionistArrows
+from libs.utils.ipc import ReceptionistPipe
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 
@@ -73,20 +73,25 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         # waiting queue for offline messages
         self.__guests = set()
         self.__lock = threading.Lock()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ReceptionistArrows.secondary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = ReceptionistPipe.secondary()
+
+    def start(self):
+        self.__pipe.start()
+        self.run()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
-        msg = self.__bus.receive()
+        msg = self.__pipe.receive()
         # process roamers
         try:
             if msg is None:
@@ -261,5 +266,5 @@ g_messenger = ReceptionistMessenger()
 if __name__ == '__main__':
     Log.info(msg='>>> starting receptionist ...')
     g_facebook.current_user = g_station
-    g_worker.run()
+    g_worker.start()
     Log.info(msg='>>> receptionist exists.')

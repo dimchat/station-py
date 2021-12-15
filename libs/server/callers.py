@@ -40,7 +40,7 @@ from dimp import ID, ReliableMessage
 from dimsdk import Station
 
 from ..utils.log import Logging
-from ..utils.ipc import ShuttleBus, ReceptionistArrows, ArchivistArrows, OctopusArrows, MonitorArrow
+from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton
 from ..database import Database
@@ -61,23 +61,28 @@ class ReceptionistCaller(Runner, Logging):
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ReceptionistArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = ReceptionistPipe.primary()
+        self.start()
+
+    def start(self):
+        self.__pipe.start()
         threading.Thread(target=self.run, daemon=True).start()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
         obj = None
         try:
-            obj = self.__bus.receive()
+            obj = self.__pipe.receive()
             if obj is None:
                 return False
             if 'command' in obj:
@@ -123,23 +128,28 @@ class SearchEngineCaller(Runner, Logging):
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=ArchivistArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = ArchivistPipe.primary()
+        self.start()
+
+    def start(self):
+        self.__pipe.start()
         threading.Thread(target=self.run, daemon=True).start()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
         obj = None
         try:
-            obj = self.__bus.receive()
+            obj = self.__pipe.receive()
             if obj is None:
                 return False
             msg = ReliableMessage.parse(msg=obj)
@@ -173,12 +183,17 @@ class OctopusCaller(Runner, Logging):
         super().__init__()
         self.__ss = SessionServer()
         self.__station = None
-        # pipe
-        bus = ShuttleBus()
-        bus.set_arrows(arrows=OctopusArrows.primary(delegate=bus))
-        bus.start()
-        self.__bus: ShuttleBus[dict] = bus
+        self.__pipe = OctopusPipe.primary()
+        self.start()
+
+    def start(self):
+        self.__pipe.start()
         threading.Thread(target=self.run, daemon=True).start()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     @property
     def station(self) -> Station:
@@ -191,13 +206,13 @@ class OctopusCaller(Runner, Logging):
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__bus.send(obj=msg)
+        self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
         obj = None
         try:
-            obj = self.__bus.receive()
+            obj = self.__pipe.receive()
             if obj is None:
                 return False
             msg = ReliableMessage.parse(msg=obj)
@@ -229,8 +244,8 @@ class MonitorCaller(NotificationObserver):
 
     def __init__(self):
         super().__init__()
-        self.__outgo_arrow = MonitorArrow.primary()
-        self.__outgo_arrow.start()
+        self.__pipe = MonitorPipe.primary()
+        self.__pipe.start()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
@@ -244,5 +259,5 @@ class MonitorCaller(NotificationObserver):
             'name': notification.name,
             'info': notification.info,
         }
-        self.__outgo_arrow.send(obj=event)
+        self.__pipe.send(obj=event)
         ReceptionistCaller().send(msg=event)

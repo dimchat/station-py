@@ -31,12 +31,9 @@
     Recording DIM network events
 """
 
-import threading
 import time
 import traceback
-from typing import Optional, Any
 
-from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
 
 from dimp import ID, NetworkType
@@ -50,7 +47,7 @@ sys.path.append(rootPath)
 
 from libs.utils.log import current_time
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ArrowDelegate, MonitorArrow
+from libs.utils.ipc import MonitorPipe
 from libs.database import Storage, Database
 from libs.common import NotificationNames
 
@@ -73,32 +70,27 @@ def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
     return Storage.append_text(text=new_line, path=path)
 
 
-class Recorder(Runner, Logging, ArrowDelegate):
+class Recorder(Runner, Logging):
 
     FLUSH_INTERVAL = 3600
 
     def __init__(self):
         super().__init__()
-        self.__events = []
-        self.__lock = threading.Lock()
         # statistics
         self.__login_count = 0
         self.__message_count = 0
         self.__group_message_count = 0
         self.__flush_time = time.time() + self.FLUSH_INTERVAL  # next time to save statistics
-        self.__income_arrow = MonitorArrow.secondary(delegate=self)
-        self.__income_arrow.start()
+        self.__pipe = MonitorPipe.secondary()
+
+    def start(self):
+        self.__pipe.start()
+        self.run()
 
     # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        assert isinstance(obj, dict), 'event error: %s' % obj
-        with self.__lock:
-            self.__events.append(obj)
-
-    def next(self) -> Optional[dict]:
-        with self.__lock:
-            if len(self.__events) > 0:
-                return self.__events.pop(0)
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
 
     def __save(self) -> bool:
         now = time.time()
@@ -172,7 +164,7 @@ class Recorder(Runner, Logging, ArrowDelegate):
     def process(self) -> bool:
         event = None
         try:
-            event = self.next()
+            event = self.__pipe.receive()
             if event is None:
                 # save statistics
                 self.__save()
@@ -183,12 +175,10 @@ class Recorder(Runner, Logging, ArrowDelegate):
         except Exception as error:
             self.error('failed to process: %s, %s' % (event, error))
             traceback.print_exc()
-        finally:
-            time.sleep(0.5)
 
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting monitor ...')
     g_monitor = Recorder()
-    g_monitor.run()
+    g_monitor.start()
     Log.info(msg='>>> monitor exits.')

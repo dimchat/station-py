@@ -32,9 +32,9 @@
 """
 
 import threading
-from typing import Set, Dict, List, Optional, Any
+import traceback
+from typing import Set, Dict, List, Optional, Union
 
-from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
 
 from dimp import ID
@@ -47,8 +47,8 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ArrowDelegate
-from libs.push import PushArrow, PushService, PushInfo
+from libs.utils.ipc import PusherPipe
+from libs.push import PushService, PushInfo
 from libs.push import ApplePushNotificationService
 
 from etc.config import apns_credentials, apns_use_sandbox, apns_topic
@@ -92,27 +92,18 @@ class Worker(Runner):
         return worker
 
 
-class Pusher(Runner, Logging, ArrowDelegate):
+class Pusher(Runner, Logging):
     """ Push process """
 
     def __init__(self):
         super().__init__()
         self.__workers: Set[Worker] = set()
         self.__badges: Dict[ID, int] = {}
-        self.__tasks = []
-        self.__lock = threading.Lock()
-        self.__income_arrow = PushArrow.secondary(delegate=self)
-        self.__income_arrow.start()
+        self.__pipe = PusherPipe.secondary()
 
-    # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        with self.__lock:
-            self.__tasks.append(obj)
-
-    def next(self) -> Optional[Any]:
-        with self.__lock:
-            if len(self.__tasks) > 0:
-                return self.__tasks.pop(0)
+    def start(self):
+        self.__pipe.start()
+        self.run()
 
     def add_service(self, service: PushService):
         """ add push notification service """
@@ -128,18 +119,13 @@ class Pusher(Runner, Logging, ArrowDelegate):
         """ clear badge for user """
         self.__badges.pop(identifier, None)
 
-    # Override
-    def process(self) -> bool:
-        obj = self.next()
-        if obj is None:
-            # nothing to do now, return False to have a rest
-            return False
-        elif isinstance(obj, str):
-            info = PushInfo.from_json(string=obj)
-        elif isinstance(obj, dict):
-            info = PushInfo.from_dict(info=obj)
+    def __process(self, info: Union[dict, str]):
+        if isinstance(info, str):
+            info = PushInfo.from_json(string=info)
+        elif isinstance(info, dict):
+            info = PushInfo.from_dict(info=info)
         else:
-            raise ValueError('unknown push info: %s' % obj)
+            raise ValueError('unknown push info: %s' % info)
         assert isinstance(info, PushInfo), 'push info error: %s' % info
         # check command
         if info.receiver == PushInfo.PUSHER_ID:
@@ -147,19 +133,33 @@ class Pusher(Runner, Logging, ArrowDelegate):
             if info.message == PushInfo.MSG_CLEAR_BADGE:
                 # CMD: CLEAR BADGE.
                 self.__clear_badge(identifier=info.sender)
-            return True
-        # check badge
-        if info.badge is None:
-            info.badge = self.__increase_badge(identifier=info.receiver)
-        # push to all workers
-        self.info(msg='%d worker(s), pushing: %s' % (len(self.__workers), info))
-        for worker in self.__workers:
-            worker.append(job=info)
-        return len(self.__workers) > 0
+        else:
+            # check badge
+            if info.badge is None:
+                info.badge = self.__increase_badge(identifier=info.receiver)
+            # push to all workers
+            self.info(msg='%d worker(s), pushing: %s' % (len(self.__workers), info))
+            for worker in self.__workers:
+                worker.append(job=info)
+
+    # Override
+    def process(self) -> bool:
+        info = None
+        try:
+            info = self.__pipe.receive()
+            if info is None:
+                # nothing to do now, return False to have a rest
+                return False
+            else:
+                self.__process(info=info)
+                return len(self.__workers) > 0
+        except Exception as error:
+            self.error('failed to process: %s, %s' % (info, error))
+            traceback.print_exc()
 
     # Override
     def stop(self):
-        self.__income_arrow.stop()
+        self.__pipe.stop()
         for worker in self.__workers:
             worker.stop()
         super().stop()
@@ -184,5 +184,5 @@ if apns_credentials is not None:
 
 if __name__ == '__main__':
     Log.info(msg='>>> starting pusher ...')
-    g_pusher.run()
+    g_pusher.start()
     Log.info(msg='>>> pusher exits.')

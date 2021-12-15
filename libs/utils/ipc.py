@@ -29,20 +29,11 @@
 # ==============================================================================
 
 import threading
-import weakref
-from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional, Any, Tuple, List
+from abc import ABC
+from typing import Optional, Tuple, Any
 
 from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
-
-
-class ArrowDelegate(ABC):
-
-    @abstractmethod
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        """ callback when received something from the arrow """
-        raise NotImplementedError
 
 
 class AutoArrow(Runner, ABC):
@@ -62,24 +53,25 @@ class AutoArrow(Runner, ABC):
 class IncomeArrow(AutoArrow):
     """ auto receiving """
 
-    def __init__(self, name: str, delegate: ArrowDelegate):
+    def __init__(self, name: str):
         super().__init__(name=name)
-        self.__delegate = weakref.ref(delegate)
+        self.__lock = threading.Lock()
+        self.__pool = []
 
-    @property
-    def delegate(self) -> ArrowDelegate:
-        return self.__delegate()
+    def receive(self) -> Optional[Any]:
+        with self.__lock:
+            if len(self.__pool) > 0:
+                return self.__pool.pop(0)
 
     # Override
     def process(self) -> bool:
-        obj = None
-        try:
-            obj = self._arrow.receive()
-            if obj is not None:
-                self.delegate.arrow_received(obj=obj, arrow=self._arrow)
-                return True
-        except Exception as error:
-            print('[IPC] failed to process received object: %s, %s' % (obj, error))
+        # drive the arrow to receive objects
+        obj = self._arrow.receive()
+        if obj is None:
+            return False
+        with self.__lock:
+            self.__pool.append(obj)
+        return True
 
 
 class OutgoArrow(AutoArrow):
@@ -100,27 +92,15 @@ class OutgoArrow(AutoArrow):
 
     # Override
     def process(self) -> bool:
-        # send None to drive the arrow to resent delay objects
+        # send None to drive the arrow to re-send delay objects
         self.send(obj=None)
         return False
 
 
-T = TypeVar('T')
+class Pipe(Runner):
 
-
-class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
-
-    def __init__(self):
+    def __init__(self, arrows: Tuple[Optional[IncomeArrow], Optional[OutgoArrow]]):
         super().__init__()
-        self.__income_arrow: Optional[IncomeArrow] = None
-        self.__outgo_arrow: Optional[OutgoArrow] = None
-        # caches
-        self.__incomes: List[T] = []
-        self.__outgoes: List[T] = []
-        self.__income_lock = threading.Lock()
-        self.__outgo_lock = threading.Lock()
-
-    def set_arrows(self, arrows: Tuple[IncomeArrow, OutgoArrow]):
         self.__income_arrow = arrows[0]
         self.__outgo_arrow = arrows[1]
 
@@ -128,50 +108,22 @@ class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
         threading.Thread(target=self.run, daemon=True).start()
         return self
 
-    def __next(self) -> Optional[T]:
-        """ get first outgo object from the waiting queue """
-        with self.__outgo_lock:
-            if len(self.__outgoes) > 0:
-                return self.__outgoes.pop(0)
+    def send(self, obj: Optional[Any]) -> int:
+        return self.__outgo_arrow.send(obj=obj)
 
-    def __push(self, obj):
-        """ put outgo object back to the front of the waiting queue """
-        with self.__outgo_lock:
-            self.__outgoes.insert(0, obj)
-
-    def send(self, obj: T):
-        """ Put the obj in a waiting queue for sending out """
-        with self.__outgo_lock:
-            self.__outgoes.append(obj)
-
-    def receive(self) -> Optional[T]:
-        """ Get an obj from a waiting queue for received object """
-        with self.__income_lock:
-            if len(self.__incomes) > 0:
-                return self.__incomes.pop(0)
-
-    # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        with self.__income_lock:
-            self.__incomes.append(obj)
+    def receive(self) -> Optional[Any]:
+        return self.__income_arrow.receive()
 
     # Override
     def process(self) -> bool:
-        # process incoming tasks
-        busy = self.__income_arrow.process()
-        # process outgoing tasks
-        obj = self.__next()
-        if obj is None:
-            # send None to drive the arrow to resent delay objects
-            self.__outgo_arrow.send(obj=None)
-            # nothing to send now, return False to have a rest
-        elif self.__outgo_arrow.send(obj=obj) < 0:
-            # failed, put it back to the front
-            self.__push(obj=obj)
-        else:
-            # sent
-            busy = True
-        return busy
+        incoming = self.__income_arrow
+        outgoing = self.__outgo_arrow
+        # drive outgo arrow to re-send delay objects
+        if outgoing is not None:
+            outgoing.process()
+        # drive income arrow to receive objects
+        if incoming is not None:
+            return incoming.process()
 
 
 class SHM:
@@ -201,77 +153,77 @@ class SHM:
     OCTOPUS_KEY2 = '0x%X' % 0xD1350802  # B -> A
 
 
-class ReceptionistArrows:
+class ReceptionistPipe(Pipe):
     """ arrows between router and receptionist """
 
     @classmethod
-    def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for router
-        return IncomeArrow(name=SHM.RECEPTIONIST_KEY2, delegate=delegate),\
-               OutgoArrow(name=SHM.RECEPTIONIST_KEY1)
+    def primary(cls) -> Pipe:  # arrows for router
+        incoming = IncomeArrow(name=SHM.RECEPTIONIST_KEY2)
+        outgoing = OutgoArrow(name=SHM.RECEPTIONIST_KEY1)
+        return cls(arrows=(incoming, outgoing))
 
     @classmethod
-    def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for receptionist
-        return IncomeArrow(name=SHM.RECEPTIONIST_KEY1, delegate=delegate),\
-               OutgoArrow(name=SHM.RECEPTIONIST_KEY2)
+    def secondary(cls) -> Pipe:  # arrows for receptionist
+        incoming = IncomeArrow(name=SHM.RECEPTIONIST_KEY1)
+        outgoing = OutgoArrow(name=SHM.RECEPTIONIST_KEY2)
+        return cls(arrows=(incoming, outgoing))
 
 
-class ArchivistArrows:
+class ArchivistPipe(Pipe):
     """ arrows between router and archivist """
 
     @classmethod
-    def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for router
-        return IncomeArrow(name=SHM.ARCHIVIST_KEY2, delegate=delegate),\
-               OutgoArrow(name=SHM.ARCHIVIST_KEY1)
+    def primary(cls) -> Pipe:  # arrows for router
+        incoming = IncomeArrow(name=SHM.ARCHIVIST_KEY2)
+        outgoing = OutgoArrow(name=SHM.ARCHIVIST_KEY1)
+        return cls(arrows=(incoming, outgoing))
 
     @classmethod
-    def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for archivist
-        return IncomeArrow(name=SHM.ARCHIVIST_KEY1, delegate=delegate),\
-               OutgoArrow(name=SHM.ARCHIVIST_KEY2)
+    def secondary(cls) -> Pipe:  # arrows for archivist
+        incoming = IncomeArrow(name=SHM.ARCHIVIST_KEY1)
+        outgoing = OutgoArrow(name=SHM.ARCHIVIST_KEY2)
+        return cls(arrows=(incoming, outgoing))
 
 
-class OctopusArrows:
+class OctopusPipe(Pipe):
     """ arrows between router and bridge """
 
     @classmethod
-    def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for router
-        return IncomeArrow(name=SHM.OCTOPUS_KEY2, delegate=delegate),\
-               OutgoArrow(name=SHM.OCTOPUS_KEY1)
+    def primary(cls) -> Pipe:  # arrows for router
+        incoming = IncomeArrow(name=SHM.OCTOPUS_KEY2)
+        outgoing = OutgoArrow(name=SHM.OCTOPUS_KEY1)
+        return cls(arrows=(incoming, outgoing))
 
     @classmethod
-    def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        # arrows for octopus
-        return IncomeArrow(name=SHM.OCTOPUS_KEY1, delegate=delegate),\
-               OutgoArrow(name=SHM.OCTOPUS_KEY2)
+    def secondary(cls) -> Pipe:  # arrows for octopus
+        incoming = IncomeArrow(name=SHM.OCTOPUS_KEY1)
+        outgoing = OutgoArrow(name=SHM.OCTOPUS_KEY2)
+        return cls(arrows=(incoming, outgoing))
 
 
-class PushArrow:
+class PusherPipe(Pipe):
     """ arrow from router(dispatcher) to pusher """
 
     @classmethod
-    def primary(cls) -> OutgoArrow:
-        # arrow for router(dispatcher)
-        return OutgoArrow(name=SHM.PUSHER_KEY)
+    def primary(cls) -> Pipe:  # arrow for router(dispatcher)
+        outgoing = OutgoArrow(name=SHM.PUSHER_KEY)
+        return cls(arrows=(None, outgoing))
 
     @classmethod
-    def secondary(cls, delegate: ArrowDelegate) -> IncomeArrow:
-        # arrow for pusher
-        return IncomeArrow(name=SHM.PUSHER_KEY, delegate=delegate)
+    def secondary(cls) -> Pipe:  # arrow for pusher
+        incoming = IncomeArrow(name=SHM.PUSHER_KEY)
+        return cls(arrows=(incoming, None))
 
 
-class MonitorArrow:
+class MonitorPipe(Pipe):
     """ arrow from router(dispatcher) to monitor """
 
     @classmethod
-    def primary(cls) -> OutgoArrow:
-        # arrow for router(dispatcher)
-        return OutgoArrow(name=SHM.MONITOR_KEY)
+    def primary(cls) -> Pipe:  # arrow for router(dispatcher)
+        outgoing = OutgoArrow(name=SHM.MONITOR_KEY)
+        return cls(arrows=(None, outgoing))
 
     @classmethod
-    def secondary(cls, delegate: ArrowDelegate) -> IncomeArrow:
-        # arrow for monitor
-        return IncomeArrow(name=SHM.MONITOR_KEY, delegate=delegate)
+    def secondary(cls) -> Pipe:  # arrow for monitor
+        incoming = IncomeArrow(name=SHM.MONITOR_KEY)
+        return cls(arrows=(incoming, None))
