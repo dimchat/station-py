@@ -219,8 +219,9 @@ def _deliver_message(msg: ReliableMessage, receiver: ID, station: ID) -> Optiona
     if cnt > 0:
         return msg_receipt(msg=msg, text='Message delivered to %d session(s)' % cnt)
     # 3. push notification
-    res = _push_notification(msg=msg, receiver=receiver)
-    return msg_receipt(msg=msg, text=res)
+    if len(neighbors) == 0 or station in neighbors:
+        res = _push_notification(msg=msg, receiver=receiver)
+        return msg_receipt(msg=msg, text=res)
 
 
 def _push_notification(msg: ReliableMessage, receiver: ID) -> str:

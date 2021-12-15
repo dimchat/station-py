@@ -104,7 +104,7 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
     def __process_message(self, msg: ReliableMessage):
         responses = g_messenger.process_reliable_message(msg=msg)
         for res in responses:
-            self.send(res)
+            self.send(msg=res)
 
     def __process_notification(self, event: dict):
         name = event.get('name')
@@ -206,6 +206,13 @@ class ReceptionistMessageProcessor(ServerProcessor):
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
         return ReceptionistProcessorFactory(messenger=self.messenger)
+
+    # Override
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+        # TODO: override to check group
+        cpu = self.get_processor(content=content)
+        return cpu.process(content=content, msg=r_msg)
+        # TODO: override to filter the response
 
 
 class ReceptionistMessenger(ServerMessenger):
