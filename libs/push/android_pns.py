@@ -14,12 +14,10 @@ import jpush
 from dimp import ID
 
 from ..utils import Logging
-from ..utils import Singleton
 
 from .service import PushService
 
 
-@Singleton
 class AndroidPushNotificationService(PushService, Logging):
 
     app_key = "db6d7573a1643e36cf2451c6"

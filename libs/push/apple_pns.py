@@ -46,12 +46,10 @@ from apns2.payload import Payload
 from dimp import ID
 
 from ..utils import Logging
-from ..utils import Singleton
 
 from .service import PushService
 
 
-@Singleton
 class ApplePushNotificationService(PushService, Logging):
 
     class Delegate(ABC):

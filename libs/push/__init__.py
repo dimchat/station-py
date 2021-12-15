@@ -31,7 +31,6 @@
 
 from .message import build_message
 
-from .service import PushArrow
 from .service import PushService, PushInfo
 from .service import PushCenter
 
@@ -41,7 +40,6 @@ from .android_pns import AndroidPushNotificationService
 __all__ = [
     'build_message',
 
-    'PushArrow',
     'PushService', 'PushInfo',
     'PushCenter',
 
