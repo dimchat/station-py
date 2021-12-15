@@ -86,7 +86,8 @@ class Recorder(Runner, Logging, ArrowDelegate):
         self.__message_count = 0
         self.__group_message_count = 0
         self.__flush_time = time.time() + self.FLUSH_INTERVAL  # next time to save statistics
-        self.__arrow = MonitorArrow.secondary(delegate=self)
+        self.__income_arrow = MonitorArrow.secondary(delegate=self)
+        self.__income_arrow.start()
 
     # Override
     def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):

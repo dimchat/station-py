@@ -132,6 +132,7 @@ g_monitor = MonitorCaller()
     
 """
 g_octopus = OctopusCaller()
+g_octopus.station = g_station
 
 
 """

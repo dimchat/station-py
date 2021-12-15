@@ -32,12 +32,12 @@
 """
 
 import threading
-import time
 from typing import Set, Dict, List, Optional, Any
 
-from dimp import ID
 from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
+
+from dimp import ID
 
 import sys
 import os
@@ -92,14 +92,27 @@ class Worker(Runner):
         return worker
 
 
-class Pusher(Logging, ArrowDelegate):
+class Pusher(Runner, Logging, ArrowDelegate):
     """ Push process """
 
     def __init__(self):
         super().__init__()
         self.__workers: Set[Worker] = set()
         self.__badges: Dict[ID, int] = {}
-        self.__arrow = PushArrow.secondary(delegate=self)
+        self.__tasks = []
+        self.__lock = threading.Lock()
+        self.__income_arrow = PushArrow.secondary(delegate=self)
+        self.__income_arrow.start()
+
+    # Override
+    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
+        with self.__lock:
+            self.__tasks.append(obj)
+
+    def next(self) -> Optional[Any]:
+        with self.__lock:
+            if len(self.__tasks) > 0:
+                return self.__tasks.pop(0)
 
     def add_service(self, service: PushService):
         """ add push notification service """
@@ -116,8 +129,12 @@ class Pusher(Logging, ArrowDelegate):
         self.__badges.pop(identifier, None)
 
     # Override
-    def arrow_received(self, obj: Any, arrow: SharedMemoryArrow):
-        if isinstance(obj, str):
+    def process(self) -> bool:
+        obj = self.next()
+        if obj is None:
+            # nothing to do now, return False to have a rest
+            return False
+        elif isinstance(obj, str):
             info = PushInfo.from_json(string=obj)
         elif isinstance(obj, dict):
             info = PushInfo.from_dict(info=obj)
@@ -140,14 +157,12 @@ class Pusher(Logging, ArrowDelegate):
             worker.append(job=info)
         return len(self.__workers) > 0
 
-    def run(self):
-        while self.__arrow.running:
-            time.sleep(2)
-
+    # Override
     def stop(self):
-        self.__arrow.stop()
+        self.__income_arrow.stop()
         for worker in self.__workers:
             worker.stop()
+        super().stop()
 
 
 #

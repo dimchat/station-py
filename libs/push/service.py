@@ -100,7 +100,8 @@ class PushCenter(PushService, NotificationObserver, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__arrow = PushArrow.primary()
+        self.__outgo_arrow = PushArrow.primary()
+        self.__outgo_arrow.start()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name='user_online')
@@ -125,5 +126,5 @@ class PushCenter(PushService, NotificationObserver, Logging):
     def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
         info = PushInfo(sender=sender, receiver=receiver, message=message, badge=badge)
         data = info.to_json()
-        self.__arrow.send(obj=data)
+        self.__outgo_arrow.send(obj=data)
         return True

@@ -45,56 +45,58 @@ class ArrowDelegate(ABC):
         raise NotImplementedError
 
 
-class IncomeArrow(Runner):
+class AutoArrow(Runner, ABC):
+
+    # Memory cache size: 64KB
+    SHM_SIZE = 1 << 16
+
+    def __init__(self, name: str):
+        super().__init__()
+        self._arrow = SharedMemoryArrow.new(size=self.SHM_SIZE, name=name)
+
+    def start(self):
+        threading.Thread(target=self.run, daemon=True).start()
+        return self
+
+
+class IncomeArrow(AutoArrow):
     """ auto receiving """
 
-    def __init__(self, size: int, name: str, delegate: ArrowDelegate):
-        super().__init__()
-        self.__arrow = SharedMemoryArrow.new(size=size, name=name)
+    def __init__(self, name: str, delegate: ArrowDelegate):
+        super().__init__(name=name)
         self.__delegate = weakref.ref(delegate)
-        threading.Thread(target=self.run, daemon=True).start()
 
     @property
     def delegate(self) -> ArrowDelegate:
         return self.__delegate()
 
-    def __try_receive(self) -> Optional[Any]:
-        try:
-            return self.__arrow.receive()
-        except Exception as error:
-            print('[IPC] receive error: %s' % error)
-
     # Override
     def process(self) -> bool:
-        obj = self.__try_receive()
-        if obj is None:
-            # received nothing
-            return False
+        obj = None
         try:
-            self.delegate.arrow_received(obj=obj, arrow=self.__arrow)
-            return True
+            obj = self._arrow.receive()
+            if obj is not None:
+                self.delegate.arrow_received(obj=obj, arrow=self._arrow)
+                return True
         except Exception as error:
             print('[IPC] failed to process received object: %s, %s' % (obj, error))
 
 
-class OutgoArrow(Runner):
+class OutgoArrow(AutoArrow):
     """ auto sending """
 
-    def __init__(self, size: int, name: str):
-        super().__init__()
-        self.__arrow = SharedMemoryArrow.new(size=size, name=name)
+    def __init__(self, name: str):
+        super().__init__(name=name)
         self.__lock = threading.Lock()
-        threading.Thread(target=self.run, daemon=True).start()
 
-    def __try_send(self, obj: Optional[Any]) -> bool:
-        try:
-            return self.__arrow.send(obj=obj) >= 0
-        except Exception as error:
-            print('[IPC] failed to send: %s, %s' % (obj, error))
-
-    def send(self, obj: Any) -> bool:
+    def send(self, obj: Optional[Any]) -> int:
+        """ return -1 on failed """
         with self.__lock:
-            return self.__try_send(obj=obj)
+            try:
+                return self._arrow.send(obj=obj)
+            except Exception as error:
+                print('[IPC] failed to send: %s, %s' % (obj, error))
+                return -1
 
     # Override
     def process(self) -> bool:
@@ -124,6 +126,7 @@ class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
 
     def start(self):
         threading.Thread(target=self.run, daemon=True).start()
+        return self
 
     def __next(self) -> Optional[T]:
         """ get first outgo object from the waiting queue """
@@ -154,119 +157,121 @@ class ShuttleBus(Runner, ArrowDelegate, Generic[T]):
 
     # Override
     def process(self) -> bool:
+        # process incoming tasks
+        busy = self.__income_arrow.process()
+        # process outgoing tasks
         obj = self.__next()
         if obj is None:
+            # send None to drive the arrow to resent delay objects
+            self.__outgo_arrow.send(obj=None)
             # nothing to send now, return False to have a rest
-            return False
-        elif self.__outgo_arrow.send(obj=obj):
-            return True
-        else:
-            # put it back to the front
+        elif self.__outgo_arrow.send(obj=obj) < 0:
+            # failed, put it back to the front
             self.__push(obj=obj)
+        else:
+            # sent
+            busy = True
+        return busy
 
 
-"""
-    Station process IDs
-    ~~~~~~~~~~~~~~~~~~~
-    
-        0 - main           router, filter, dispatcher
-        1 - receptionist   handshake (offline messages), ...
-        2 - archivist      search engine
-        3 - pusher         notification (ios, android)
-        7 - monitor        statistic, session
-        8 - octopus        station bridge
-"""
+class SHM:
+    """
+        Station process IDs
+        ~~~~~~~~~~~~~~~~~~~
+
+            0 - main           router, filter, dispatcher
+            1 - receptionist   handshake (offline messages), ...
+            2 - archivist      search engine
+            3 - pusher         notification (ios, android)
+            7 - monitor        statistic, session
+            8 - octopus        station bridge
+    """
+
+    RECEPTIONIST_KEY1 = '0x%X' % 0xD1350101  # A -> B
+    RECEPTIONIST_KEY2 = '0x%X' % 0xD1350102  # B -> A
+
+    ARCHIVIST_KEY1 = '0x%X' % 0xD1350201  # A -> B
+    ARCHIVIST_KEY2 = '0x%X' % 0xD1350202  # B -> A
+
+    PUSHER_KEY = "0x%X" % 0xD1350301  # A -> B
+
+    MONITOR_KEY = "0x%X" % 0xD1350701  # A -> B
+
+    OCTOPUS_KEY1 = '0x%X' % 0xD1350801  # A -> B
+    OCTOPUS_KEY2 = '0x%X' % 0xD1350802  # B -> A
 
 
 class ReceptionistArrows:
     """ arrows between router and receptionist """
 
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    SHM_KEY1 = "0xD1350101"  # A -> B
-    SHM_KEY2 = "0xD1350102"  # B -> A
-
     @classmethod
     def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1)
+        # arrows for router
+        return IncomeArrow(name=SHM.RECEPTIONIST_KEY2, delegate=delegate),\
+               OutgoArrow(name=SHM.RECEPTIONIST_KEY1)
 
     @classmethod
     def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2)
+        # arrows for receptionist
+        return IncomeArrow(name=SHM.RECEPTIONIST_KEY1, delegate=delegate),\
+               OutgoArrow(name=SHM.RECEPTIONIST_KEY2)
 
 
 class ArchivistArrows:
     """ arrows between router and archivist """
 
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    SHM_KEY1 = "0xD1350201"  # A -> B
-    SHM_KEY2 = "0xD1350202"  # B -> A
-
     @classmethod
     def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1)
+        # arrows for router
+        return IncomeArrow(name=SHM.ARCHIVIST_KEY2, delegate=delegate),\
+               OutgoArrow(name=SHM.ARCHIVIST_KEY1)
 
     @classmethod
     def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2)
+        # arrows for archivist
+        return IncomeArrow(name=SHM.ARCHIVIST_KEY1, delegate=delegate),\
+               OutgoArrow(name=SHM.ARCHIVIST_KEY2)
 
 
 class OctopusArrows:
     """ arrows between router and bridge """
 
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    SHM_KEY1 = "0xD1350801"  # A -> B
-    SHM_KEY2 = "0xD1350802"  # B -> A
-
     @classmethod
     def primary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1)
+        # arrows for router
+        return IncomeArrow(name=SHM.OCTOPUS_KEY2, delegate=delegate),\
+               OutgoArrow(name=SHM.OCTOPUS_KEY1)
 
     @classmethod
     def secondary(cls, delegate: ArrowDelegate) -> (IncomeArrow, OutgoArrow):
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY1, delegate=delegate),\
-               OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY2)
+        # arrows for octopus
+        return IncomeArrow(name=SHM.OCTOPUS_KEY1, delegate=delegate),\
+               OutgoArrow(name=SHM.OCTOPUS_KEY2)
 
 
 class PushArrow:
-    """ arrow from dispatcher to pusher """
-
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    SHM_KEY = "0xD1350301"  # A -> B
+    """ arrow from router(dispatcher) to pusher """
 
     @classmethod
     def primary(cls) -> OutgoArrow:
-        return OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY)
+        # arrow for router(dispatcher)
+        return OutgoArrow(name=SHM.PUSHER_KEY)
 
     @classmethod
     def secondary(cls, delegate: ArrowDelegate) -> IncomeArrow:
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY, delegate=delegate)
+        # arrow for pusher
+        return IncomeArrow(name=SHM.PUSHER_KEY, delegate=delegate)
 
 
 class MonitorArrow:
-    """ arrow from dispatcher to monitor """
-
-    # Memory cache size: 64KB
-    SHM_SIZE = 1 << 16
-
-    SHM_KEY = "0xD1350701"  # A -> B
+    """ arrow from router(dispatcher) to monitor """
 
     @classmethod
     def primary(cls) -> OutgoArrow:
-        return OutgoArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY)
+        # arrow for router(dispatcher)
+        return OutgoArrow(name=SHM.MONITOR_KEY)
 
     @classmethod
     def secondary(cls, delegate: ArrowDelegate) -> IncomeArrow:
-        return IncomeArrow(size=cls.SHM_SIZE, name=cls.SHM_KEY, delegate=delegate)
+        # arrow for monitor
+        return IncomeArrow(name=SHM.MONITOR_KEY, delegate=delegate)

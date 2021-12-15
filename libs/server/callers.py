@@ -37,6 +37,7 @@ from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import ID, ReliableMessage
+from dimsdk import Station
 
 from ..utils.log import Logging
 from ..utils.ipc import ShuttleBus, ReceptionistArrows, ArchivistArrows, OctopusArrows, MonitorArrow
@@ -171,12 +172,21 @@ class OctopusCaller(Runner, Logging):
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
+        self.__station = None
         # pipe
         bus = ShuttleBus()
         bus.set_arrows(arrows=OctopusArrows.primary(delegate=bus))
         bus.start()
         self.__bus: ShuttleBus[dict] = bus
         threading.Thread(target=self.run, daemon=True).start()
+
+    @property
+    def station(self) -> Station:
+        return self.__station
+
+    @station.setter
+    def station(self, server: Station):
+        self.__station = server
 
     def send(self, msg: Union[dict, ReliableMessage]):
         if isinstance(msg, ReliableMessage):
@@ -198,11 +208,19 @@ class OctopusCaller(Runner, Logging):
             traceback.print_exc()
 
     def __deliver_message(self, msg: ReliableMessage):
-        sessions = self.__ss.active_sessions(identifier=msg.receiver)
-        self.debug(msg='received from bridge for %s (%d sessions)' % (msg.receiver, len(sessions)))
-        # push to all active sessions
-        for sess in sessions:
-            sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+        receiver = msg.receiver
+        sessions = self.__ss.active_sessions(identifier=receiver)
+        if len(sessions) > 0:
+            self.debug(msg='received from bridge for %s (%d sessions)' % (receiver, len(sessions)))
+            # push to all active sessions
+            for sess in sessions:
+                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+        elif receiver == self.station.identifier:
+            self.debug(msg='received from bridge for station %s' % receiver)
+            ReceptionistCaller().send(msg=msg)
+        elif receiver.is_broadcast:
+            self.debug(msg='received broadcast from bridge: %s' % receiver)
+            ReceptionistCaller().send(msg=msg)
 
 
 @Singleton
@@ -212,6 +230,7 @@ class MonitorCaller(NotificationObserver):
     def __init__(self):
         super().__init__()
         self.__outgo_arrow = MonitorArrow.primary()
+        self.__outgo_arrow.start()
         # observing local notifications
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)

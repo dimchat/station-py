@@ -137,7 +137,7 @@ class Worker(Runner, Logging):
 
     def start(self):
         self.info('octopus starting: %s' % self.server)
-        threading.Thread(target=self.run).start()
+        threading.Thread(target=self.run, daemon=True).start()
 
     # Override
     def process(self) -> bool:
@@ -163,7 +163,7 @@ class Worker(Runner, Logging):
             traceback.print_exc()
 
 
-class Octopus(Runner, Logging):
+class OctopusWorker(Runner, Logging):
 
     def __init__(self):
         super().__init__()
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     # set current user
     g_facebook.current_user = g_station
 
-    g_octopus = Octopus()
+    g_octopus = OctopusWorker()
     # add neighbors
     for node in neighbor_stations:
         assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
