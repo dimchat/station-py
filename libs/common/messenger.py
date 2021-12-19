@@ -41,8 +41,8 @@ from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
-from dimp import Packer, Processor, CipherKeyDelegate
-from dimsdk import Messenger
+from dimp import Packer, Processor
+from dimsdk import Messenger, CipherKeyDelegate
 
 from ..utils import Logging
 from ..database import FrequencyChecker
@@ -85,11 +85,39 @@ class CommonMessenger(Messenger, Logging):
     def __init__(self):
         super().__init__()
         self.__delegate: Optional[weakref.ReferenceType] = None
-        self.__message_packer = None
-        self.__message_processor = None
-        self.__message_transmitter = None
+        self.__message_packer = self._create_packer()
+        self.__message_processor = self._create_processor()
+        self.packer = self.__message_packer
+        self.processor = self.__message_processor
+        self.facebook = self._create_facebook()
+        self.key_cache = self._create_key_cache()
         # for checking duplicated queries
         self.__group_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+
+    def _create_facebook(self) -> CommonFacebook:
+        return SharedFacebook()
+
+    # noinspection PyMethodMayBeStatic
+    def _create_key_cache(self) -> CipherKeyDelegate:
+        return KeyStore()
+
+    def _create_packer(self) -> Packer:
+        from .packer import CommonPacker
+        return CommonPacker(messenger=self)
+
+    def _create_processor(self) -> Processor:
+        from .processor import CommonProcessor
+        return CommonProcessor(messenger=self)
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @facebook.setter
+    def facebook(self, barrack: CommonFacebook):
+        Messenger.facebook.__set__(self, barrack)
 
     @property
     def session(self) -> BaseSession:
@@ -106,80 +134,6 @@ class CommonMessenger(Messenger, Logging):
     @delegate.setter
     def delegate(self, value: Optional[MessengerDelegate]):
         self.__delegate = weakref.ref(value)
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        transceiver = super().facebook
-        assert isinstance(transceiver, CommonFacebook), 'facebook error: %s' % transceiver
-        return transceiver
-
-    # Override
-    def _create_facebook(self) -> CommonFacebook:
-        return SharedFacebook()
-
-    @property
-    def key_cache(self) -> CipherKeyDelegate:
-        delegate = super().key_cache
-        if delegate is None:
-            """ Key Store
-                ~~~~~~~~~
-                Memory cache for reused passwords (symmetric key)
-            """
-            delegate = KeyStore()
-            Messenger.key_cache.__set__(self, delegate)
-        return delegate
-
-    #
-    #   Message Packer
-    #
-    @property
-    def packer(self) -> Messenger.Packer:
-        delegate = super().packer
-        if delegate is None:
-            delegate = self.__get_packer()
-        return delegate
-
-    @packer.setter
-    def packer(self, delegate: Messenger.Packer):
-        Messenger.packer.__set__(self, delegate)
-        from .packer import MessagePacker
-        if isinstance(delegate, MessagePacker):
-            self.__message_packer = delegate
-
-    def __get_packer(self):  # -> MessagePacker:
-        if self.__message_packer is None:
-            self.__message_packer = self._create_packer()
-        return self.__message_packer
-
-    def _create_packer(self) -> Packer:
-        from .packer import CommonPacker
-        return CommonPacker(messenger=self)
-
-    #
-    #   Message Processor
-    #
-    @property
-    def processor(self) -> Messenger.Processor:
-        delegate = super().processor
-        if delegate is None:
-            delegate = self.__get_processor()
-        return delegate
-
-    @processor.setter
-    def processor(self, delegate: Messenger.Processor):
-        Messenger.processor.__set__(self, delegate)
-        from .processor import MessageProcessor
-        if isinstance(delegate, MessageProcessor):
-            self.__message_processor = delegate
-
-    def __get_processor(self):  # -> MessageProcessor
-        if self.__message_processor is None:
-            self.__message_processor = self._create_processor()
-        return self.__message_processor
-
-    def _create_processor(self) -> Processor:
-        from .processor import CommonProcessor
-        return CommonProcessor(messenger=self)
 
     #
     #   FPU

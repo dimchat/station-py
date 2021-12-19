@@ -32,7 +32,7 @@ from typing import Optional
 from startrek import DeparturePriority
 
 from dimp import base64_encode, sha256
-from dimp import ID
+from dimp import ID, Meta
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import DocumentCommand
 from dimsdk import MessagePacker
@@ -133,7 +133,7 @@ class CommonPacker(MessagePacker):
         meta = msg.meta
         if meta is None:
             meta = self.facebook.meta(identifier=sender)
-        elif not meta.match_identifier(identifier=sender):
+        elif not Meta.matches(meta=meta, identifier=sender):
             meta = None
         if meta is None:
             # NOTICE: the application will query meta automatically,

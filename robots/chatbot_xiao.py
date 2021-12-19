@@ -37,7 +37,7 @@ from typing import Optional, List
 
 from dimp import ID
 from dimp import ContentType, Content, TextContent
-from dimp import Transceiver
+from dimp import Processor
 from dimsdk import ContentProcessor, ProcessorFactory
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -145,7 +145,7 @@ class BotMessageProcessor(ClientProcessor):
 class BotMessenger(ClientMessenger):
 
     # Override
-    def _create_processor(self) -> Transceiver.Processor:
+    def _create_processor(self) -> Processor:
         return BotMessageProcessor(messenger=self)
 
 

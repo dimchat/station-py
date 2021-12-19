@@ -118,7 +118,7 @@ class Immortals(UserDataSource):
             return doc.sign(private_key=key)
 
     def cache_meta(self, meta: Meta, identifier: ID) -> bool:
-        if meta.match_identifier(identifier):
+        if Meta.matches(meta=meta, identifier=identifier):
             self.__metas[identifier] = meta
             return True
 

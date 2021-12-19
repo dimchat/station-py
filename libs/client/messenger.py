@@ -39,7 +39,7 @@ from startrek import DeparturePriority
 from dimp import NetworkType
 from dimp import ID, EVERYONE
 from dimp import Command
-from dimp import Transceiver
+from dimp import Processor
 from dimsdk import LoginCommand
 
 from ..common import BaseSession
@@ -61,7 +61,7 @@ class ClientMessenger(CommonMessenger):
         return facebook
 
     # Override
-    def _create_processor(self) -> Transceiver.Processor:
+    def _create_processor(self) -> Processor:
         from .processor import ClientProcessor
         return ClientProcessor(messenger=self)
 

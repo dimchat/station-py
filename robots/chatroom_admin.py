@@ -42,7 +42,7 @@ from startrek import DeparturePriority
 from dimp import ID, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, ForwardContent, Command
-from dimp import Transceiver
+from dimp import Processor
 from dimsdk import ReceiptCommand
 from dimsdk import ContentProcessor, CommandProcessor
 from dimsdk import ProcessorFactory
@@ -155,7 +155,7 @@ class BotMessageProcessor(ClientProcessor):
 class BotMessenger(ClientMessenger):
 
     # Override
-    def _create_processor(self) -> Transceiver.Processor:
+    def _create_processor(self) -> Processor:
         return BotMessageProcessor(messenger=self)
 
 

@@ -32,6 +32,7 @@
 
 from typing import Optional, Union
 
+from mkm.id_impl import IdentifierFactory
 from dimp import ID, Address
 from dimsdk import AddressNameService
 
@@ -59,7 +60,7 @@ class AddressNameServer(AddressNameService):
         return ok
 
 
-class IDFactory(ID.Factory):
+class ANSFactory(IdentifierFactory):
 
     def __init__(self):
         super().__init__()
@@ -79,4 +80,4 @@ class IDFactory(ID.Factory):
 
 g_ans = AddressNameServer()
 s_id_factory = ID.factory()
-ID.register(factory=IDFactory())
+ID.register(factory=ANSFactory())

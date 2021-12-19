@@ -121,7 +121,7 @@ class Soldier(Runner, Logging):
         messenger = self.messenger
         facebook.current_user = self.user
         messenger.delegate = server
-        messenger.barrack = facebook
+        messenger.facebook = facebook
         messenger.terminal = terminal
         server.messenger = messenger
         server.server_delegate = terminal

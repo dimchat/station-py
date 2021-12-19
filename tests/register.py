@@ -166,7 +166,7 @@ def do_generate(path: str, args):
             meta = Meta.generate(version=meta_version, key=pri_key, seed=seed)
             assert isinstance(meta, Meta), 'failed to generate meta'
             # 3. generate ID
-            identifier = meta.generate_identifier(network=network_type)
+            identifier = ID.generate(meta=meta, network=network_type)
             assert isinstance(identifier, ID), 'failed to generate ID'
             print('\n'
                   '\n    New ID: %s'

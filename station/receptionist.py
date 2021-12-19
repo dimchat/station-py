@@ -28,7 +28,6 @@
     Station Receptionist
     ~~~~~~~~~~~~~~~~~~~~
 
-    A message scanner for new guests who have just come in.
 """
 
 import threading
@@ -40,7 +39,7 @@ from startrek.fsm import Runner
 from dimp import ID, NetworkType
 from dimp import Envelope, Content, Command
 from dimp import InstantMessage, ReliableMessage
-from dimp import Transceiver
+from dimp import Processor
 from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor, ProcessorFactory
 
@@ -91,17 +90,18 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
 
     # Override
     def process(self) -> bool:
-        msg = self.__pipe.receive()
-        # process roamers
+        msg = None
         try:
+            msg = self.__pipe.receive()
             if msg is None:
                 self.__process_users(users=self.get_guests())
-            elif msg.get('name') is not None and msg.get('info') is not None:
+                return False
+            if msg.get('name') is not None and msg.get('info') is not None:
                 self.__process_notification(event=msg)
             else:
                 msg = ReliableMessage.parse(msg=msg)
                 self.__process_message(msg=msg)
-                return True
+            return True
         except Exception as error:
             self.error('receptionist error: %s, %s' % (msg, error))
             traceback.print_exc()
@@ -114,7 +114,10 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
     def __process_notification(self, event: dict):
         name = event.get('name')
         info = event.get('info')
-        if name in [NotificationNames.USER_LOGIN, NotificationNames.USER_ONLINE]:
+        if name == NotificationNames.CONNECTED:
+            identifier = ID.parse(identifier=info.get('ID'))
+            remote = info.get('client_address')
+        elif name in [NotificationNames.USER_LOGIN, NotificationNames.USER_ONLINE]:
             identifier = ID.parse(identifier=info.get('ID'))
             if identifier is not None:
                 self.add_guest(identifier=identifier)
@@ -163,6 +166,22 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
 
 class HandshakeCommandProcessor(CommandProcessor, Logging):
 
+    @classmethod
+    def offer(cls, identifier: ID, client_address: tuple, session_key: Optional[str]) -> Command:
+        session = g_database.fetch_session(address=client_address)
+        if session_key != session['key']:
+            # session key not match
+            return HandshakeCommand.again(session=session['key'])
+        # session verify success
+        g_database.update_session(address=client_address, identifier=identifier)
+        g_worker.send(msg={
+            'command': 'handshake accepted',
+            'ID': identifier,
+            'session_key': session_key,
+            'client_address': client_address,
+        })
+        return HandshakeCommand.success(session=session_key)
+
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
@@ -176,23 +195,8 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
         assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
         remote = msg.get('client_address')
         assert isinstance(remote, tuple), 'remote address error: %s' % remote
-        session = g_database.fetch_session(address=remote)
-        session_key = session['key']
-        self.debug(msg='session info: %s, %s, %s' % (msg.sender, remote, session_key))
-        if session_key != cmd.session:
-            res = HandshakeCommand.again(session=session.key)
-            return [res]
-        else:
-            # session verify success
-            g_database.update_session(address=remote, identifier=msg.sender)
-            g_worker.send(msg={
-                'command': 'handshake accepted',
-                'ID': msg.sender,
-                'session_key': session_key,
-                'client_address': remote,
-            })
-            res = HandshakeCommand.success(session=session_key)
-            return [res]
+        cmd = self.offer(identifier=msg.sender, client_address=remote, session_key=cmd.session)
+        return [cmd]
 
 
 class ReceptionistProcessorFactory(ServerProcessorFactory):
@@ -223,7 +227,7 @@ class ReceptionistMessageProcessor(ServerProcessor):
 class ReceptionistMessenger(ServerMessenger):
 
     # Override
-    def _create_processor(self) -> Transceiver.Processor:
+    def _create_processor(self) -> Processor:
         return ReceptionistMessageProcessor(messenger=self)
 
     # Override

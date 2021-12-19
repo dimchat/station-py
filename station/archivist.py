@@ -41,7 +41,7 @@ from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, Command
 from dimp import MetaCommand, DocumentCommand
-from dimp import Transceiver
+from dimp import Processor
 from dimsdk import CommandProcessor, ProcessorFactory
 from dimsdk import Station
 
@@ -175,7 +175,7 @@ def save_response(station: ID, users: List[ID], results: dict):
         identifier = ID.parse(identifier=key)
         meta = Meta.parse(meta=value)
         if identifier is not None and meta is not None:
-            # assert meta.match_identifier(identifier=identifier), 'meta error'
+            # assert Meta.matches(meta=meta, identifier=identifier), 'meta error'
             g_facebook.save_meta(meta=meta, identifier=identifier)
     # store in redis server
     for item in users:
@@ -373,7 +373,7 @@ class ArchivistMessageProcessor(ServerProcessor):
 class ArchivistMessenger(ServerMessenger):
 
     # Override
-    def _create_processor(self) -> Transceiver.Processor:
+    def _create_processor(self) -> Processor:
         return ArchivistMessageProcessor(messenger=self)
 
     # Override

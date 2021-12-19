@@ -125,7 +125,7 @@ class Database:
         redis key: 'mkm.meta.{ID}'
     """
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if meta.match_identifier(identifier=identifier):
+        if Meta.matches(meta=meta, identifier=identifier):
             # no need to update existed meta
             if self.meta(identifier=identifier) is None:
                 return self.__meta_table.save_meta(meta=meta, identifier=identifier)

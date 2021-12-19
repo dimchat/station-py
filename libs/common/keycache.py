@@ -39,7 +39,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from dimp import SymmetricKey, ID
-from dimp import CipherKeyDelegate
+from dimsdk import CipherKeyDelegate
 
 from dimsdk.plugins import PlainKey
 
@@ -97,7 +97,7 @@ class KeyCache(CipherKeyDelegate):
         for _from in key_map:
             sender = ID.parse(identifier=_from)
             table = key_map.get(_from)
-            assert isinstance(table, dict), 'sender table error: %s, %s' % (_from, table)
+            # assert isinstance(table, dict), 'sender table error: %s, %s' % (_from, table)
             for _to in table:
                 receiver = ID.parse(identifier=_to)
                 pw = table.get(_to)
