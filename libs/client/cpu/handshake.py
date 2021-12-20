@@ -53,8 +53,12 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
         server = self.messenger.server
         # from ..network import Server
         # assert isinstance(server, Server), 'server error: %s' % server
+        if server is None:
+            # FIXME: why?
+            self.error(msg='!!! server stopped? ignore handshake: %s' % sender)
+            return []
         if server.identifier != sender:
-            self.error('!!! ignore error handshake from this sender: %s, %s' % (sender, server))
+            self.error(msg='!!! ignore error handshake from this sender: %s, %s' % (sender, server))
             return []
         if 'DIM?' == message:
             # S -> C: station ask client to handshake again
@@ -66,5 +70,5 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
             server.handshake_success()
         else:
             # C -> S: Hello world!
-            print('[Error] handshake command from %s: %s' % (sender, cmd))
+            self.error(msg='[Error] handshake command from %s: %s' % (sender, cmd))
         return []

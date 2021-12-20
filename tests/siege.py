@@ -138,6 +138,10 @@ class Soldier(Runner, Logging):
         return False
 
 
+# Log.LEVEL = Log.DEBUG
+# Log.LEVEL = Log.DEVELOP
+Log.LEVEL = Log.RELEASE
+
 # robots
 all_soldiers = [ID.parse(identifier=did) for did in [
     'tide@2PeCKQWq3aYGvns5x2nf6gsyjgkcGcgtscW',
@@ -170,7 +174,7 @@ def fire(soldier: ID, target: ID, host: str, offset: int):
     all_threads = []
     for i in range(g_count):
         j = offset + i
-        Log.info(msg='starting bot (%d+%d=%d) %s ...' % (offset, i, j, soldier))
+        print('**** starting thread (%d+%d=%d), bot: %s ...' % (offset, i, j, soldier))
         client = Soldier(index=j, client_id=soldier, server_id=target, host=host)
         thr = threading.Thread(target=client.run, daemon=True)
         thr.start()
@@ -178,7 +182,7 @@ def fire(soldier: ID, target: ID, host: str, offset: int):
         time.sleep(1)
     for thr in all_threads:
         thr.join()
-        Log.info(msg='thread stop: %s' % thr)
+        print('**** thread stopped: %s' % thr)
 
 
 def open_fire():
@@ -191,6 +195,7 @@ def open_fire():
     for item in all_soldiers:
         keys = g_facebook.private_key_for_signature(identifier=item)
         assert len(keys) > 0, 'private key not found: %s' % item
+        print('**** starting process: %s -> %s ...' % (item, sid))
         proc = multiprocessing.Process(target=fire, args=(str(item), str(sid), sip, g_offset), daemon=True)
         proc.start()
         all_processes.append(proc)
@@ -198,21 +203,21 @@ def open_fire():
         g_offset += g_count
     for proc in all_processes:
         proc.join()
-        Log.info(msg='process stop: %s' % proc)
+        print('**** process stopped: %s' % proc)
 
 
 if __name__ == '__main__':
-    Log.info(msg='Starting ...')
+    print('**** Starting ...')
     while True:
         open_fire()
-        Log.info(msg='====================================================')
-        Log.info(msg='== All soldiers retreated, retry after 16 seconds...')
-        Log.info(msg='====================================================')
-        Log.info(msg='sleeping ...')
+        print('====================================================')
+        print('== All soldiers retreated, retry after 16 seconds...')
+        print('====================================================')
+        print('sleeping ...')
         for z in range(16):
-            Log.info(msg='%d ..zzZZ' % z)
+            print('%d ..zzZZ' % z)
             time.sleep(1)
-        Log.info(msg='wake up.')
-        Log.info(msg='====================================================')
-        Log.info(msg='== Attack !!!')
-        Log.info(msg='====================================================')
+        print('wake up.')
+        print('====================================================')
+        print('== Attack !!!')
+        print('====================================================')
