@@ -62,6 +62,20 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
         return self.__dialog
 
     def _query(self, content: Content, sender: ID) -> Optional[TextContent]:
+        assert isinstance(content, TextContent), 'content error: %s' % content
+        text = content.text
+        if text.startswith('ping') or text.startswith('Ping'):
+            # ping
+            facebook = self.facebook
+            assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+            user = facebook.current_user
+            me = '@%s' % facebook.name(identifier=user.identifier)
+            text = 'Pong%s from %s' % (text[4:], me)
+            res = TextContent(text=text)
+            group = content.group
+            if group is not None:
+                res.group = group
+            return res
         if self.__bots is None:
             self.error('chat bots not set')
             return None
