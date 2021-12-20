@@ -42,8 +42,7 @@ from dimsdk import ContentProcessor
 
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
-from ...common import CommonFacebook
-from ..messenger import CommonMessenger
+from ...common import CommonFacebook, CommonMessenger
 
 
 class ChatTextContentProcessor(ContentProcessor, Logging):
@@ -81,6 +80,7 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
             return None
         dialog = self.dialog
         if dialog is None:
+            # chat bots empty
             return None
         try:
             return dialog.query(content=content, sender=sender)

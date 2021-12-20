@@ -35,11 +35,13 @@ from startrek import DeparturePriority
 
 from dimp import NetworkType
 from dimp import SecureMessage, ReliableMessage
-from dimp import Content, TextContent, Command
+from dimp import ContentType, Content, TextContent, Command
 from dimsdk import HandshakeCommand, ReceiptCommand
-from dimsdk import CommandProcessor, ProcessorFactory
+from dimsdk import ContentProcessor, CommandProcessor, ProcessorFactory
 
 from ..common import CommonProcessor, CommonProcessorFactory
+
+from .cpu import ChatTextContentProcessor
 
 
 class ClientProcessor(CommonProcessor):
@@ -98,6 +100,14 @@ class ClientProcessor(CommonProcessor):
 
 
 class ClientProcessorFactory(CommonProcessorFactory):
+
+    # Override
+    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return ChatTextContentProcessor(messenger=self.messenger, bots=[])
+        # others
+        return super()._create_content_processor(msg_type=msg_type)
 
     # Override
     def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
