@@ -158,7 +158,7 @@ all_stations = [
     ('', ''),
     ('', ''),
 ]
-test_station = all_stations[1]
+test_station = all_stations[4]
 
 g_offset = 0
 g_count = 10
@@ -172,7 +172,7 @@ def fire(soldier: ID, target: ID, host: str, offset: int):
         j = offset + i
         Log.info(msg='starting bot (%d+%d=%d) %s ...' % (offset, i, j, soldier))
         client = Soldier(index=j, client_id=soldier, server_id=target, host=host)
-        thr = threading.Thread(target=client.run)
+        thr = threading.Thread(target=client.run, daemon=True)
         thr.start()
         all_threads.append(thr)
         time.sleep(1)
@@ -191,7 +191,7 @@ def open_fire():
     for item in all_soldiers:
         keys = g_facebook.private_key_for_signature(identifier=item)
         assert len(keys) > 0, 'private key not found: %s' % item
-        proc = multiprocessing.Process(target=fire, args=(str(item), str(sid), sip, g_offset))
+        proc = multiprocessing.Process(target=fire, args=(str(item), str(sid), sip, g_offset), daemon=True)
         proc.start()
         all_processes.append(proc)
         time.sleep(1)
