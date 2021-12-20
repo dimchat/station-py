@@ -30,13 +30,15 @@
 
 """
 
-import sys
-import os
+import multiprocessing
 import threading
 import time
 
 from dimp import ID, User
 from startrek.fsm import Runner
+
+import sys
+import os
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -99,11 +101,6 @@ class Soldier(Runner, Logging):
             self.__server = srv
         return srv
 
-    def start(self) -> threading.Thread:
-        thr = threading.Thread(target=self.run)
-        thr.start()
-        return thr
-
     @property
     def running(self) -> bool:
         if super().running:
@@ -161,30 +158,47 @@ all_stations = [
     ('', ''),
     ('', ''),
 ]
-test_station = all_stations[4]
+test_station = all_stations[1]
+
+g_offset = 0
+g_count = 10
+
+
+def fire(soldier: ID, target: ID, host: str, offset: int):
+    soldier = ID.parse(identifier=soldier)
+    target = ID.parse(identifier=target)
+    all_threads = []
+    for i in range(g_count):
+        j = offset + i
+        Log.info(msg='starting bot (%d+%d=%d) %s ...' % (offset, i, j, soldier))
+        client = Soldier(index=j, client_id=soldier, server_id=target, host=host)
+        thr = threading.Thread(target=client.run)
+        thr.start()
+        all_threads.append(thr)
+        time.sleep(1)
+    for thr in all_threads:
+        thr.join()
+        Log.info(msg='thread stop: %s' % thr)
 
 
 def open_fire():
+    global g_offset
     # current station IP & ID
     sip = test_station[0]
     sid = test_station[1]
     sid = ID.parse(identifier=sid)
-    # test
-    g_threads = []
-    j = 0
-    for i in range(10):
-        for item in all_soldiers:
-            keys = g_facebook.private_key_for_signature(identifier=item)
-            assert len(keys) > 0, 'private key not found: %s' % item
-            j += 1
-            Log.info(msg='starting bot %d (%s)...' % (j, item))
-            client = Soldier(index=j, client_id=item, server_id=sid, host=sip)
-            thr = client.start()
-            g_threads.append(thr)
+    all_processes = []
+    for item in all_soldiers:
+        keys = g_facebook.private_key_for_signature(identifier=item)
+        assert len(keys) > 0, 'private key not found: %s' % item
+        proc = multiprocessing.Process(target=fire, args=(str(item), str(sid), sip, g_offset))
+        proc.start()
+        all_processes.append(proc)
         time.sleep(1)
-    for thr in g_threads:
-        thr.join()
-        Log.info(msg='thread stop: %s' % thr)
+        g_offset += g_count
+    for proc in all_processes:
+        proc.join()
+        Log.info(msg='process stop: %s' % proc)
 
 
 if __name__ == '__main__':
@@ -195,7 +209,9 @@ if __name__ == '__main__':
         Log.info(msg='== All soldiers retreated, retry after 16 seconds...')
         Log.info(msg='====================================================')
         Log.info(msg='sleeping ...')
-        time.sleep(16)
+        for z in range(16):
+            Log.info(msg='%d ..zzZZ' % z)
+            time.sleep(1)
         Log.info(msg='wake up.')
         Log.info(msg='====================================================')
         Log.info(msg='== Attack !!!')
