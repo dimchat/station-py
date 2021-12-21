@@ -33,8 +33,12 @@
 import multiprocessing
 import threading
 import time
+from typing import List
 
-from dimp import ID, User
+from dimp import PrivateKey
+from dimp import MetaType, Meta, Document
+from dimp import NetworkType, ID
+from dimp import User
 from startrek.fsm import Runner
 
 import sys
@@ -46,36 +50,44 @@ sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
 from libs.common import CommonFacebook
+from libs.database import Storage
 from libs.client import Server, Terminal, ClientMessenger
 
+from etc.config import base_dir
 from robots.config import g_facebook
 
 
 class Soldier(Runner, Logging):
 
-    def __init__(self, index: int, client_id: ID, server_id: ID, host: str, port: int = 9394):
+    def __init__(self, client_id: ID):
         super().__init__()
-        self.__time = 0
-        self.__index = index
-        self.__cid = client_id
-        self.__sid = server_id
-        self.__host = host
-        self.__port = port
-        self.__server = None
+        self.__time_to_retreat = time.time() + 32
         self.__terminal = Terminal()
         self.__messenger = ClientMessenger()
         self.__facebook = CommonFacebook()
+        self.__user = self.__create_user(identifier=client_id)
+        self.__server = None
+
+    def __create_user(self, identifier: ID) -> User:
+        facebook = self.facebook
+        keys = facebook.private_key_for_signature(identifier=identifier)
+        assert len(keys) > 0, 'private key not found: %s' % identifier
+        keys = facebook.private_keys_for_decryption(identifier=identifier)
+        assert len(keys) > 0, 'private key not found: %s' % identifier
+        return facebook.user(identifier=identifier)
 
     def __del__(self):
         self.warning(msg='killing %s' % self)
 
     def __str__(self) -> str:
-        clazz = self.__class__.__name__
-        return '<%s: %d| local="%s" remote="%s" />' % (clazz, self.__index, self.__cid, self.__sid)
+        mod = self.__module__
+        cname = self.__class__.__name__
+        return '<%s>%s\n%s\n</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     def __repr__(self) -> str:
-        clazz = self.__class__.__name__
-        return '<%s: %d| local="%s" remote="%s" />' % (clazz, self.__index, self.__cid, self.__sid)
+        mod = self.__module__
+        cname = self.__class__.__name__
+        return '<%s>%s\n%s\n</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -91,25 +103,20 @@ class Soldier(Runner, Logging):
 
     @property
     def user(self) -> User:
-        return self.facebook.user(identifier=self.__cid)
+        return self.__user
 
     @property
     def server(self) -> Server:
-        srv = self.__server
-        if srv is None:
-            srv = Server(identifier=self.__sid, host=self.__host, port=self.__port)
-            self.__server = srv
-        return srv
+        return self.__server
 
-    @property
+    @property  # Override
     def running(self) -> bool:
         if super().running:
-            return int(time.time()) < self.__time
+            return time.time() < self.__time_to_retreat
 
     # Override
     def setup(self):
         super().setup()
-        self.__time = int(time.time()) + 16
         self.info(msg='setup client: %s' % self)
         # create client and connect to the station
         server = self.server
@@ -137,79 +144,142 @@ class Soldier(Runner, Logging):
     def process(self) -> bool:
         return False
 
-
-# Log.LEVEL = Log.DEBUG
-# Log.LEVEL = Log.DEVELOP
-Log.LEVEL = Log.RELEASE
-
-# robots
-all_soldiers = [ID.parse(identifier=did) for did in [
-    'tide@2PeCKQWq3aYGvns5x2nf6gsyjgkcGcgtscW',
-    'soldier1@2PgzJbRsmvxaBCh3ym7m3hb1PdKt1xwdf2Y',
-    'soldier2@2PZg987298L5y9oNnuaMm6ZtBivUjtF2NqH',
-    'soldier3@2PV3a4CTLKGJbtiGBnFJjroTwxqmHMWRAf4',
-    'soldier4@2PmBTxstjxMhrY1bA4eBnae4xRduMCfJ8Q6',
-    'soldier5@2PnbNB6n1R4GXKX9KARTnqNmrzuYM2G7SaV',
-]]
-# candidates
-all_stations = [
-    ('127.0.0.1', 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'),
-    ('106.52.25.169', 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW'),
-    ('147.139.30.182', 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw'),
-    ('47.254.237.224', 'gsp-jlp@x8Eudmgq4rHvTm2ongrwk6BVdS1wuE7ctE'),
-    ('149.129.234.145', 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq'),
-    ('', ''),
-    ('', ''),
-    ('', ''),
-]
-test_station = all_stations[4]
-
-g_offset = 0
-g_count = 10
-
-
-def fire(soldier: ID, target: ID, host: str, offset: int):
-    soldier = ID.parse(identifier=soldier)
-    target = ID.parse(identifier=target)
-    all_threads = []
-    for i in range(g_count):
-        j = offset + i
-        print('**** starting thread (%d+%d=%d), bot: %s ...' % (offset, i, j, soldier))
-        client = Soldier(index=j, client_id=soldier, server_id=target, host=host)
-        thr = threading.Thread(target=client.run, daemon=True)
+    def attack(self, target: ID, host: str, port: int = 9394) -> threading.Thread:
+        self.__server = Server(identifier=target, host=host, port=port)
+        thr = threading.Thread(target=self.run, daemon=True)
         thr.start()
-        all_threads.append(thr)
-        time.sleep(1)
-    for thr in all_threads:
-        thr.join()
-        print('**** thread stopped: %s' % thr)
+        return thr
 
 
-def open_fire():
-    global g_offset
-    # current station IP & ID
-    sip = test_station[0]
-    sid = test_station[1]
-    sid = ID.parse(identifier=sid)
-    all_processes = []
-    for item in all_soldiers:
-        keys = g_facebook.private_key_for_signature(identifier=item)
-        assert len(keys) > 0, 'private key not found: %s' % item
-        print('**** starting process: %s -> %s ...' % (item, sid))
-        proc = multiprocessing.Process(target=fire, args=(str(item), str(sid), sip, g_offset), daemon=True)
+class Sergeant:
+
+    LANDING_POINT = 'normandy'
+
+    UNITS = 10  # threads count
+
+    def __init__(self, client_id: ID, offset: int):
+        super().__init__()
+        self.__cid = str(client_id)
+        self.__offset = offset
+        self.__target = None
+        self.__host = None
+        self.__port = 0
+
+    def run(self):
+        cid = ID.parse(identifier=self.__cid)
+        target = ID.parse(identifier=self.__target)
+        host = self.__host
+        port = self.__port
+        threads = []
+        for i in range(self.UNITS):
+            print('**** start thread (%d + %d): %s' % (self.__offset, i, cid))
+            soldier = Soldier(client_id=cid)
+            thr = soldier.attack(target=target, host=host, port=port)
+            threads.append(thr)
+            self.__offset += self.UNITS
+        for thr in threads:
+            thr.join()
+            print('**** thread stopped: %s' % thr)
+
+    def attack(self, target: ID, host: str, port: int = 9394) -> multiprocessing.Process:
+        self.__target = str(target)
+        self.__host = host
+        self.__port = port
+        proc = multiprocessing.Process(target=self.run, daemon=True)
         proc.start()
-        all_processes.append(proc)
-        time.sleep(1)
-        g_offset += g_count
-    for proc in all_processes:
-        proc.join()
-        print('**** process stopped: %s' % proc)
+        return proc
+
+    @classmethod
+    def training(cls, sn: int) -> ID:
+        """ create new robot """
+        seed = 'soldier%03d' % sn
+        # 1. generate private key
+        pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
+        # 2. generate meta
+        meta = Meta.generate(version=MetaType.DEFAULT, key=pri_key, seed=seed)
+        # 3. generate ID
+        identifier = ID.generate(meta=meta, network=NetworkType.ROBOT)
+        print('\n    Net ID: %s\n' % identifier)
+        # 4. save private key & meta
+        g_facebook.save_private_key(key=pri_key, identifier=identifier)
+        g_facebook.save_meta(meta=meta, identifier=identifier)
+        # 5. create visa
+        visa = Document.create(doc_type=Document.VISA, identifier=identifier)
+        visa.name = 'Soldier %03d @%s' % (sn, cls.LANDING_POINT)
+        # 6. sign and save visa
+        visa.sign(private_key=pri_key)
+        g_facebook.save_document(document=visa)
+        return identifier
 
 
-if __name__ == '__main__':
-    print('**** Starting ...')
-    while True:
-        open_fire()
+class Colonel(Runner):
+
+    TROOPS = 16  # progresses count
+
+    def __init__(self):
+        super().__init__()
+        self.__soldiers: List[ID] = []
+        self.__offset = 0
+        # target station
+        self.__sid = None
+        self.__host = None
+        self.__port = 0
+
+    def attack(self, target: ID, host: str, port: int = 9394):
+        self.__sid = target
+        self.__host = host
+        self.__port = port
+        self.run()
+
+    # Override
+    def setup(self):
+        super().setup()
+        # load soldiers
+        path = os.path.join(base_dir, 'soldiers.txt')
+        text = Storage.read_text(path=path)
+        if text is not None:
+            array = text.splitlines()
+            for item in array:
+                if len(item) < 45 or len(item) > 55:
+                    print('*** ID error: %s' % item)
+                    continue
+                cid = ID.parse(identifier=item)
+                if cid is not None:
+                    self.__soldiers.append(cid)
+        # count
+        count = len(self.__soldiers)
+        if count < self.TROOPS:
+            # more soldiers
+            for i in range(count, self.TROOPS):
+                cid = Sergeant.training(sn=i)
+                assert cid is not None, 'failed to train new soldier'
+                self.__soldiers.append(cid)
+                # save to '.dim/soldiers.txt'
+                line = '%s\n' % cid
+                Storage.append_text(text=line, path=path)
+
+    # Override
+    def process(self) -> bool:
+        server_id = self.__sid
+        host = self.__host
+        port = self.__port
+        processes = []
+        for i in range(self.TROOPS):
+            soldier = self.__soldiers[i]
+            print('**** starting process [%d]: %s -> %s (%s:%d)' % (i, soldier, server_id, host, port))
+            sergeant = Sergeant(client_id=soldier, offset=self.__offset)
+            proc = sergeant.attack(target=server_id, host=host, port=port)
+            processes.append(proc)
+            time.sleep(1)
+            self.__offset += Sergeant.UNITS
+        for proc in processes:
+            proc.join()
+            print('**** process stopped: %s' % proc)
+        # return False to have a rest
+        return False
+
+    # Override
+    def _idle(self):
         print('====================================================')
         print('== All soldiers retreated, retry after 16 seconds...')
         print('====================================================')
@@ -221,3 +291,33 @@ if __name__ == '__main__':
         print('====================================================')
         print('== Attack !!!')
         print('====================================================')
+
+
+# Log.LEVEL = Log.DEBUG
+# Log.LEVEL = Log.DEVELOP
+Log.LEVEL = Log.RELEASE
+
+Sergeant.LANDING_POINT = 'macbook'
+Sergeant.UNITS = 10
+Colonel.TROOPS = 16
+
+# candidates
+all_stations = [
+    ('127.0.0.1', 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'),
+    ('106.52.25.169', 'gsp-s002@wpjUWg1oYDnkHh74tHQFPxii6q9j3ymnyW'),
+    ('147.139.30.182', 'gsp-india@x15NniVboopEtD3d81cbUibftcewMxzZLw'),
+    ('47.254.237.224', 'gsp-jlp@x8Eudmgq4rHvTm2ongrwk6BVdS1wuE7ctE'),
+    ('149.129.234.145', 'gsp-yjd@wjPLYSyaZ7fe4aNL8DJAvHBNnFcgK76eYq'),
+    ('', ''),
+    ('', ''),
+    ('', ''),
+]
+test_station = all_stations[1]
+test_ip = test_station[0]
+test_id = test_station[1]
+
+
+if __name__ == '__main__':
+    sid = ID.parse(identifier=test_id)
+    print('**** Start testing %s ...' % sid)
+    Colonel().attack(target=sid, host=test_ip, port=9394)
