@@ -85,7 +85,10 @@ class OutgoArrow(AutoArrow):
         """ return -1 on failed """
         with self.__lock:
             try:
-                return self._arrow.send(obj=obj)
+                cnt = self._arrow.send(obj=obj)
+                if cnt < 0:
+                    print('[IPC] waiting queue is full, dropped: %s' % obj)
+                return cnt
             except Exception as error:
                 print('[IPC] failed to send: %s, %s' % (obj, error))
                 return -1
