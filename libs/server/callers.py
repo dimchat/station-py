@@ -40,7 +40,7 @@ from dimp import ID, ReliableMessage
 from dimsdk import Station
 
 from ..utils.log import Logging
-from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPipe
+from ..utils.ipc import AgentPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton
 from ..database import Database
@@ -55,13 +55,13 @@ g_database = Database()
 
 
 @Singleton
-class ReceptionistCaller(Runner, Logging):
+class AgentCaller(Runner, Logging):
     """ handling 'handshake' commands """
 
     def __init__(self):
         super().__init__()
         self.__ss = SessionServer()
-        self.__pipe = ReceptionistPipe.primary()
+        self.__pipe = AgentPipe.primary()
         self.start()
 
     def start(self):
@@ -232,10 +232,10 @@ class OctopusCaller(Runner, Logging):
                 sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
         elif receiver == self.station.identifier:
             self.debug(msg='received from bridge for station %s' % receiver)
-            ReceptionistCaller().send(msg=msg)
+            AgentCaller().send(msg=msg)
         elif receiver.is_broadcast:
             self.debug(msg='received broadcast from bridge: %s' % receiver)
-            ReceptionistCaller().send(msg=msg)
+            AgentCaller().send(msg=msg)
 
 
 @Singleton
@@ -260,4 +260,4 @@ class MonitorCaller(NotificationObserver):
             'info': notification.info,
         }
         self.__pipe.send(obj=event)
-        ReceptionistCaller().send(msg=event)
+        AgentCaller().send(msg=event)

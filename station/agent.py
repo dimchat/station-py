@@ -25,9 +25,10 @@
 # ==============================================================================
 
 """
-    Station Receptionist
-    ~~~~~~~~~~~~~~~~~~~~
+    Message Transfer Agent
+    ~~~~~~~~~~~~~~~~~~~~~~
 
+    station receptionist
 """
 
 import threading
@@ -51,7 +52,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
-from libs.utils.ipc import ReceptionistPipe
+from libs.utils.ipc import AgentPipe
 from libs.utils import Notification, NotificationObserver, NotificationCenter
 from libs.common import NotificationNames
 
@@ -62,7 +63,7 @@ from etc.cfg_init import g_database
 from station.config import g_facebook, g_station
 
 
-class ReceptionistWorker(Runner, Logging, NotificationObserver):
+class AgentWorker(Runner, Logging, NotificationObserver):
 
     def __init__(self):
         super().__init__()
@@ -72,7 +73,7 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
         # waiting queue for offline messages
         self.__guests = set()
         self.__lock = threading.Lock()
-        self.__pipe = ReceptionistPipe.secondary()
+        self.__pipe = AgentPipe.secondary()
 
     def start(self):
         self.__pipe.start()
@@ -103,7 +104,7 @@ class ReceptionistWorker(Runner, Logging, NotificationObserver):
                 self.__process_message(msg=msg)
             return True
         except Exception as error:
-            self.error('receptionist error: %s, %s' % (msg, error))
+            self.error('MTA error: %s, %s' % (msg, error))
             traceback.print_exc()
 
     def __process_message(self, msg: ReliableMessage):
@@ -199,7 +200,7 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
         return [cmd]
 
 
-class ReceptionistProcessorFactory(ServerProcessorFactory):
+class AgentProcessorFactory(ServerProcessorFactory):
 
     # Override
     def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
@@ -210,11 +211,11 @@ class ReceptionistProcessorFactory(ServerProcessorFactory):
         return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
 
 
-class ReceptionistMessageProcessor(ServerProcessor):
+class AgentMessageProcessor(ServerProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return ReceptionistProcessorFactory(messenger=self.messenger)
+        return AgentProcessorFactory(messenger=self.messenger)
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
@@ -224,11 +225,11 @@ class ReceptionistMessageProcessor(ServerProcessor):
         # TODO: override to filter the response
 
 
-class ReceptionistMessenger(ServerMessenger):
+class AgentMessenger(ServerMessenger):
 
     # Override
     def _create_processor(self) -> Processor:
-        return ReceptionistMessageProcessor(messenger=self)
+        return AgentMessageProcessor(messenger=self)
 
     # Override
     def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -263,12 +264,12 @@ class ReceptionistMessenger(ServerMessenger):
         return self.send_instant_message(msg=msg, priority=priority)
 
 
-g_worker = ReceptionistWorker()
-g_messenger = ReceptionistMessenger()
+g_worker = AgentWorker()
+g_messenger = AgentMessenger()
 
 
 if __name__ == '__main__':
-    Log.info(msg='>>> starting receptionist ...')
+    Log.info(msg='>>> starting MTA ...')
     g_facebook.current_user = g_station
     g_worker.start()
-    Log.info(msg='>>> receptionist exists.')
+    Log.info(msg='>>> MTA exists.')

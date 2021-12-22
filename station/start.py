@@ -50,7 +50,7 @@ from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 from libs.push import PushCenter
 from libs.server import Dispatcher
-from libs.server import ReceptionistCaller, SearchEngineCaller
+from libs.server import AgentCaller, SearchEngineCaller
 from libs.server import OctopusCaller, MonitorCaller
 
 from etc.cfg_init import neighbor_stations
@@ -141,7 +141,7 @@ g_octopus.station = g_station
 
     A message scanner for new guests who have just come in.
 """
-g_receptionist = ReceptionistCaller()
+g_receptionist = AgentCaller()
 # set current station for receptionist
 g_receptionist.station = g_station.identifier
 
