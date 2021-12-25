@@ -69,7 +69,7 @@ class AddressNameTable:
             identifier = self.__redis.record(name=name)
             # update memory cache
             holder = CacheHolder(value=identifier)
-            self.__caches[name] = CacheHolder(value=identifier)
+            self.__caches[name] = holder
         # OK, return cached value
         return holder.value
 

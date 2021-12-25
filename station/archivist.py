@@ -146,16 +146,16 @@ def search_users(keywords: List[str], start: int, limit: int) -> (List[ID], dict
 
 def recent_users(start: int, limit: int, station: Station = None) -> (list, dict):
     if station is None:
-        # users = set()
-        # for station in all_stations:
-        #     online_users = g_database.get_online_users(station=station.identifier)
-        #     for item in online_users:
-        #         users.add(item)
-        # users = list(users)
+        users = set()
+        for station in all_stations:
+            online_users = g_database.get_online_users(station=station.identifier)
+            for item in online_users:
+                users.add(item)
+        users = list(users)
+    else:
+        # users = g_database.get_online_users(station=station.identifier)
         sessions = g_database.all_sessions()
         users = sessions.keys()
-    else:
-        users = g_database.get_online_users(station=station.identifier)
     # count of users
     end = len(users)
     if limit > 0:
@@ -176,9 +176,9 @@ def recent_users(start: int, limit: int, station: Station = None) -> (list, dict
 
 
 def save_response(station: ID, users: List[ID], results: dict):
-    for key, value in results.items():
+    for key in results:
         identifier = ID.parse(identifier=key)
-        meta = Meta.parse(meta=value)
+        meta = Meta.parse(meta=results[key])
         if identifier is not None and meta is not None:
             # assert Meta.matches(meta=meta, identifier=identifier), 'meta error'
             g_facebook.save_meta(meta=meta, identifier=identifier)

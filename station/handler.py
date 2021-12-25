@@ -268,7 +268,7 @@ class RequestHandler(StreamRequestHandler, Logging, Session, GateDelegate):
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         # respond for Tencent/mars
-        if isinstance(ship, MarsStreamArrival):
+        if isinstance(ship, MarsStreamArrival) and len(payload) > 0:
             if connection is not None and not isinstance(connection, ActiveConnection):
                 # station MUST respond something to client request (Tencent Mars)
                 self.gate.send_response(payload=b'', ship=ship, remote=source, local=destination)

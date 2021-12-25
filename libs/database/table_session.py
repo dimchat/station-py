@@ -58,7 +58,7 @@ class SessionTable:
                 holder.renewal()
             # 2. check redis server
             array = self.__redis.load_addresses(identifier=identifier)
-            holder = CacheHolder(value=array)
+            holder = CacheHolder(value=array, life_span=300)
             # update memory cache
             self.__session_addresses[identifier] = holder
         # OK, return cache value
@@ -89,7 +89,7 @@ class SessionTable:
                 holder.renewal()
             # 2. check redis server
             info = self.__redis.load_info(address=address)
-            holder = CacheHolder(value=info)
+            holder = CacheHolder(value=info, life_span=300)
             # update memory cache
             self.__session_table[address] = holder
         # OK, return cache value
