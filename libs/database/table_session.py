@@ -142,3 +142,17 @@ class SessionTable:
         info['ID'] = str(identifier)
         if self._save_info(info=info, address=address):
             return self._save_address(address=address, identifier=identifier)
+
+    def renew_session(self, address: tuple, identifier: Optional[ID]) -> bool:
+        """ Update expired time for session """
+        return self.__redis.renew(address=address, identifier=identifier)
+
+    def all_sessions(self) -> Dict[ID, Set[dict]]:
+        """ Get all active sessions """
+        results: Dict[ID, Set[dict]] = {}
+        all_users = self.__session_addresses.keys()
+        for user in all_users:
+            sessions = self.active_sessions(identifier=user)
+            if len(sessions) > 0:
+                results[user] = sessions
+        return results

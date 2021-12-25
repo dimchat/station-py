@@ -74,12 +74,12 @@ class SessionCache(Cache):
     """
 
     def load_addresses(self, identifier: ID) -> List[tuple]:
-        addr_key = self.__addresses_key(identifier=identifier)
+        a_key = self.__addresses_key(identifier=identifier)
         # 0. clear expired socket addresses (5 hours ago)
         expired = int(time.time()) - self.EXPIRES
-        self.zremrangebyscore(name=addr_key, min_score=0, max_score=expired)
+        self.zremrangebyscore(name=a_key, min_score=0, max_score=expired)
         # 1. get all socket addresses in the last 5 hours
-        data = self.zrange(name=addr_key)
+        data = self.zrange(name=a_key)
         if data is None:
             return []
         array = []
@@ -88,15 +88,18 @@ class SessionCache(Cache):
         return array
 
     def save_address(self, address: tuple, identifier: ID) -> bool:
-        addr_key = self.__addresses_key(identifier=identifier)
+        a_key = self.__addresses_key(identifier=identifier)
         data = encode_address(address=address)
         now = int(time.time())
-        return self.zadd(name=addr_key, mapping={data: now})
+        ok = self.zadd(name=a_key, mapping={data: now})
+        if ok:
+            self.expire(name=a_key, ti=self.EXPIRES)
+        return ok
 
     def remove_address(self, address: tuple, identifier: ID) -> bool:
-        addr_key = self.__addresses_key(identifier=identifier)
+        a_key = self.__addresses_key(identifier=identifier)
         data = encode_address(address=address)
-        return self.zrem(addr_key, data)
+        return self.zrem(a_key, data)
 
     """
         socket address -> session info
@@ -117,10 +120,10 @@ class SessionCache(Cache):
         info_key = self.__info_key(address=address)
         return self.delete(info_key)
 
-    def renew(self, address: tuple, identifier: ID = None) -> bool:
+    def renew(self, address: tuple, identifier: Optional[ID]) -> bool:
         info_key = self.__info_key(address=address)
         if self.exists(info_key):
             self.expire(name=info_key, ti=self.EXPIRES)
             if identifier is not None:
-                self.save_address(identifier=identifier, address=address)
+                self.save_address(address=address, identifier=identifier)
             return True

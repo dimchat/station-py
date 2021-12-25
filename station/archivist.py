@@ -144,14 +144,19 @@ def search_users(keywords: List[str], start: int, limit: int) -> (List[ID], dict
     return users, results
 
 
-def recent_users(start: int, limit: int) -> (list, dict):
-    all_users = set()
-    for station in all_stations:
+def recent_users(start: int, limit: int, station: Station = None) -> (list, dict):
+    if station is None:
+        # users = set()
+        # for station in all_stations:
+        #     online_users = g_database.get_online_users(station=station.identifier)
+        #     for item in online_users:
+        #         users.add(item)
+        # users = list(users)
+        sessions = g_database.all_sessions()
+        users = sessions.keys()
+    else:
         users = g_database.get_online_users(station=station.identifier)
-        for item in users:
-            all_users.add(item)
-    # user ID list
-    users = list(all_users)
+    # count of users
     end = len(users)
     if limit > 0:
         if start + limit < len(users):
@@ -311,11 +316,11 @@ class SearchCommandProcessor(CommandProcessor, Logging):
             return []
         keywords = keywords.lower()
         if keywords == SearchCommand.ONLINE_USERS:
-            # let the station to do the job
-            return []
+            users, results = recent_users(start=cmd.start, limit=cmd.limit, station=g_station)
+            self.info('Got %d recent online user(s) in %s' % (len(results), g_station.identifier))
         elif keywords == 'all users':
             users, results = recent_users(start=cmd.start, limit=cmd.limit)
-            self.info('Got %d recent online user(s)' % len(results))
+            self.info('Got %d recent online user(s) in %d station(s)' % (len(results), len(all_stations)))
         else:
             users, results = search_users(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
             self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))

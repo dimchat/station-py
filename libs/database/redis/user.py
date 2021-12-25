@@ -25,7 +25,7 @@
 
 from typing import List, Optional
 
-from dimp import utf8_decode, json_encode, json_decode
+from dimp import utf8_encode, utf8_decode, json_encode, json_decode
 from dimp import ID, Command
 
 from .base import Cache
@@ -57,7 +57,8 @@ class UserCache(Cache):
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
         contacts = ID.revert(members=contacts)
-        text = b'\n'.join(contacts)
+        text = '\n'.join(contacts)
+        text = utf8_encode(string=text)
         key = self.__contacts_key(identifier=user)
         self.set(name=key, value=text, expires=self.EXPIRES)
         return True

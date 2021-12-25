@@ -313,6 +313,12 @@ class Database:
     def update_session(self, address: tuple, identifier: ID) -> bool:
         return self.__session_table.update_session(address=address, identifier=identifier)
 
+    def renew_session(self, address: tuple, identifier: Optional[ID]) -> bool:
+        return self.__session_table.renew_session(address=address, identifier=identifier)
+
+    def all_sessions(self) -> Dict[ID, Set[dict]]:
+        return self.__session_table.all_sessions()
+
     """
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
