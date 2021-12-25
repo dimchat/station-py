@@ -72,26 +72,26 @@ class ServerProcessor(CommonProcessor):
             self.error('failed to verify message: %s -> %s' % (sender, receiver))
             # waiting for sender's meta if not exists
             return []
-        # 1.1. check traces
-        current = self.facebook.current_user
-        sid = current.identifier
-        if msg_traced(msg=msg, node=sid, append=True):
-            sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-            self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
-            if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-                self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return []
-            if is_broadcast_message(msg=msg):
-                self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return []
-            sessions = g_session_server.active_sessions(identifier=receiver)
-            if len(sessions) > 0:
-                self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return messenger.deliver_message(msg=msg)
-            else:
-                self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
-                g_database.save_message(msg=msg)
-                return []
+        # # 1.1. check traces
+        # current = self.facebook.current_user
+        # sid = current.identifier
+        # if msg_traced(msg=msg, node=sid, append=True):
+        #     sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+        #     self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
+        #     if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+        #         self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
+        #         return []
+        #     if is_broadcast_message(msg=msg):
+        #         self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
+        #         return []
+        #     sessions = g_session_server.active_sessions(identifier=receiver)
+        #     if len(sessions) > 0:
+        #         self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+        #         return messenger.deliver_message(msg=msg)
+        #     else:
+        #         self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+        #         g_database.save_message(msg=msg)
+        #         return []
         # 1.2. check broadcast/group message
         deliver_responses = []
         if receiver.is_broadcast:

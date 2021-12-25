@@ -73,10 +73,10 @@ class AgentCaller(Runner, Logging):
         self.__pipe.stop()
         super().stop()
 
-    def send(self, msg: Union[dict, ReliableMessage]):
+    def send(self, msg: Union[dict, ReliableMessage]) -> int:
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__pipe.send(obj=msg)
+        return self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
@@ -85,11 +85,11 @@ class AgentCaller(Runner, Logging):
             obj = self.__pipe.receive()
             if obj is None:
                 return False
-            if 'command' in obj:
-                identifier = ID.parse(identifier=obj['ID'])
-                client_address = obj['client_address']
-                session_key = obj['session_key']
-                self.__update_session(identifier=identifier, address=client_address, key=session_key)
+            assert isinstance(obj, dict), 'piped object error: %s' % obj
+            name = obj.get('name')
+            info = obj.get('info')
+            if name is not None and info is not None:
+                self.__process_notification(name=name, info=info)
             else:
                 msg = ReliableMessage.parse(msg=obj)
                 self.__deliver_message(msg=msg)
@@ -98,27 +98,41 @@ class AgentCaller(Runner, Logging):
             self.error(msg='failed to process: %s, %s' % (error, obj))
             traceback.print_exc()
 
-    def __update_session(self, identifier: ID, address: tuple, key: str):
-        session = self.__ss.get_session(client_address=address)
+    def __process_notification(self, name: str, info: dict):
+        self.debug(msg='notification: %s' % name)
+        if name == NotificationNames.USER_LOGIN:
+            identifier = ID.parse(identifier=info['ID'])
+            client_address = info['client_address']
+            key = info['session_key']
+            assert identifier is not None, 'ID not found: %s' % info
+            if client_address is not None and key is not None:
+                client_address = (client_address[0], client_address[1])
+                self.__update_session(identifier=identifier, address=client_address)
+                return
+        # post for monitor
+        NotificationCenter().post(name=name, sender='agent', info=info)
+
+    def __update_session(self, identifier: ID, address: tuple):
+        session = self.__ss.get_session(address=address)
         if session is not None:
-            assert key == session.key, 'session keys not match %s: %s, %s' % (identifier, key, session.key)
             session.active = True
             self.__ss.update_session(session=session, identifier=identifier)
 
     def __deliver_message(self, msg: ReliableMessage):
-        sessions = self.__ss.active_sessions(identifier=msg.receiver)
         # check remote address
-        remote = msg.get('client_address')
-        if remote is None:
+        client_address = msg.get('client_address')
+        if client_address is None:
             # push to all active sessions
+            sessions = self.__ss.active_sessions(identifier=msg.receiver)
             for sess in sessions:
                 sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
         else:
             # push to active session with same remote address
-            msg.pop('client_address')
-            for sess in sessions:
-                if sess.remote_address == remote:
-                    sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
+            client_address = (client_address[0], client_address[1])
+            sess = self.__ss.get_session(address=client_address)
+            if sess is not None:
+                msg.pop('client_address')
+                sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
 
 
 @Singleton
@@ -140,10 +154,10 @@ class SearchEngineCaller(Runner, Logging):
         self.__pipe.stop()
         super().stop()
 
-    def send(self, msg: Union[dict, ReliableMessage]):
+    def send(self, msg: Union[dict, ReliableMessage]) -> int:
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__pipe.send(obj=msg)
+        return self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:
@@ -163,16 +177,17 @@ class SearchEngineCaller(Runner, Logging):
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
         self.debug(msg='received from search engine for %s (%d sessions)' % (msg.receiver, len(sessions)))
         # check remote address
-        remote = msg.get('client_address')
-        if remote is None:
+        client_address = msg.get('client_address')
+        if client_address is None:
             # push to all active sessions
             for sess in sessions:
                 sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
         else:
             # push to active session with same remote address
+            client_address = (client_address[0], client_address[1])
             msg.pop('client_address')
             for sess in sessions:
-                if sess.remote_address == remote:
+                if sess.client_address == client_address:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
 
 
@@ -203,10 +218,10 @@ class OctopusCaller(Runner, Logging):
     def station(self, server: Station):
         self.__station = server
 
-    def send(self, msg: Union[dict, ReliableMessage]):
+    def send(self, msg: Union[dict, ReliableMessage]) -> int:
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__pipe.send(obj=msg)
+        return self.__pipe.send(obj=msg)
 
     # Override
     def process(self) -> bool:

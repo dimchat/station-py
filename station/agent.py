@@ -32,6 +32,7 @@
 """
 
 import threading
+import time
 import traceback
 from typing import Optional, Union, Set, List
 
@@ -84,10 +85,29 @@ class AgentWorker(Runner, Logging, NotificationObserver):
         self.__pipe.stop()
         super().stop()
 
-    def send(self, msg: Union[dict, ReliableMessage]):
+    def send(self, msg: Union[dict, ReliableMessage]) -> int:
         if isinstance(msg, ReliableMessage):
             msg = msg.dictionary
-        self.__pipe.send(obj=msg)
+        return self.__pipe.send(obj=msg)
+
+    def send_notification(self, name: str, info: dict):
+        self.debug(msg='notification: %s' % name)
+        self.__pipe.send(obj={
+            'sender': 'agent',
+            'name': name,
+            'info': info,
+        })
+
+    def __handshake(self, identifier: ID, client_address: tuple):
+        cmd = HandshakeCommandProcessor.offer(identifier=identifier, client_address=client_address, session_key=None)
+        env = Envelope.create(sender=g_station.identifier, receiver=identifier)
+        i_msg = InstantMessage.create(head=env, body=cmd)
+        s_msg = g_messenger.encrypt_message(msg=i_msg)
+        assert s_msg is not None, 'failed to encrypt message: %s' % env
+        r_msg = g_messenger.sign_message(msg=s_msg)
+        assert r_msg is not None, 'failed to sign message: %s' % s_msg
+        r_msg['client_address'] = client_address
+        return self.send(msg=r_msg)
 
     # Override
     def process(self) -> bool:
@@ -108,20 +128,35 @@ class AgentWorker(Runner, Logging, NotificationObserver):
             traceback.print_exc()
 
     def __process_message(self, msg: ReliableMessage):
+        client_address = msg.get('client_address')
+        # if remote is not None:
+        #     msg.pop('client_address')
         responses = g_messenger.process_reliable_message(msg=msg)
-        for res in responses:
-            self.send(msg=res)
+        if client_address is None:
+            for res in responses:
+                self.send(msg=res)
+        else:
+            for res in responses:
+                res['client_address'] = client_address
+                self.send(msg=res)
 
     def __process_notification(self, event: dict):
         name = event.get('name')
         info = event.get('info')
+        self.debug(msg='received event: %s' % name)
         if name == NotificationNames.CONNECTED:
             identifier = ID.parse(identifier=info.get('ID'))
-            remote = info.get('client_address')
+            client_address = info.get('client_address')
+            if identifier is not None and client_address is not None:
+                client_address = (client_address[0], client_address[1])
+                self.__handshake(identifier=identifier, client_address=client_address)
+                return True
         elif name in [NotificationNames.USER_LOGIN, NotificationNames.USER_ONLINE]:
             identifier = ID.parse(identifier=info.get('ID'))
             if identifier is not None:
                 self.add_guest(identifier=identifier)
+                return True
+        self.warning(msg='unknown event: %s' % event)
 
     def __process_users(self, users: Set[ID]):
         for identifier in users:
@@ -158,6 +193,8 @@ class AgentWorker(Runner, Logging, NotificationObserver):
         elif name == NotificationNames.USER_ROAMING:
             # add the new roamer for checking cached messages
             self.add_guest(identifier=user)
+        # send to main progress
+        self.send_notification(name=name, info=info)
 
 
 #
@@ -170,18 +207,20 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
     @classmethod
     def offer(cls, identifier: ID, client_address: tuple, session_key: Optional[str]) -> Command:
         session = g_database.fetch_session(address=client_address)
-        if session_key != session['key']:
+        s_key = session['key']
+        if session_key != s_key:
             # session key not match
             return HandshakeCommand.again(session=session['key'])
         # session verify success
         g_database.update_session(address=client_address, identifier=identifier)
-        g_worker.send(msg={
-            'command': 'handshake accepted',
-            'ID': identifier,
-            'session_key': session_key,
+        g_worker.send_notification(name=NotificationNames.USER_LOGIN, info={
+            'ID': str(identifier),
+            'session_key': s_key,
             'client_address': client_address,
+            'station': str(g_station.identifier),
+            'time': int(time.time()),
         })
-        return HandshakeCommand.success(session=session_key)
+        return HandshakeCommand.success(session=s_key)
 
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
@@ -194,9 +233,9 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
             return self._respond_text(text=text)
         # C -> S: Hello world!
         assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
-        remote = msg.get('client_address')
-        assert isinstance(remote, tuple), 'remote address error: %s' % remote
-        cmd = self.offer(identifier=msg.sender, client_address=remote, session_key=cmd.session)
+        client_address = msg.get('client_address')
+        client_address = (client_address[0], client_address[1])
+        cmd = self.offer(identifier=msg.sender, client_address=client_address, session_key=cmd.session)
         return [cmd]
 
 

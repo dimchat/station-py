@@ -37,11 +37,11 @@
 
 import threading
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 from startrek import Connection
 from startrek import ShipDelegate
-from startrek import Arrival, Departure
+from startrek import Arrival, Departure, DeparturePriority
 
 from dimp import ReliableMessage
 
@@ -128,7 +128,9 @@ class MessageQueue:
         self.__fleets: Dict[int, List[MessageWrapper]] = {}  # priority => List[MessageWrapper]
         self.__lock = threading.Lock()
 
-    def append(self, msg: ReliableMessage, priority: int) -> bool:
+    def append(self, msg: ReliableMessage, priority: Union[int, DeparturePriority]) -> bool:
+        if isinstance(priority, DeparturePriority):
+            priority = priority.value
         with self.__lock:
             # 1. choose an array with priority
             fleet = self.__fleets.get(priority)

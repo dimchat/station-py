@@ -32,6 +32,7 @@ function title() {
 title "DIM Station"
 stop "station/start.py"
 stop "station/agent.py"
+stop "station/receptionist.py"
 stop "station/archivist.py"
 stop "station/pusher.py"
 stop "station/monitor.py"

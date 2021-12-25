@@ -68,14 +68,14 @@ class SessionTable:
         # save to redis server
         if self.__redis.save_address(address=address, identifier=identifier):
             # clear cache to reload
-            self.__session_addresses.pop(identifier)
+            self.__session_addresses.pop(identifier, None)
             return True
 
     def _remove_address(self, address: tuple, identifier: ID) -> bool:
         # remove from redis server
         if self.__redis.remove_address(address=address, identifier=identifier):
             # clear cache to reload
-            self.__session_addresses.pop(identifier)
+            self.__session_addresses.pop(identifier, None)
             return True
 
     def _get_info(self, address: tuple) -> Optional[dict]:
@@ -99,14 +99,14 @@ class SessionTable:
         # save to redis server
         if self.__redis.save_info(info=info, address=address):
             # clear cache to reload
-            self.__session_table.pop(address)
+            self.__session_table.pop(address, None)
             return True
 
     def _remove_info(self, address: tuple) -> bool:
         # remove from redis server
         if self.__redis.remove_info(address=address):
             # clear cache to reload
-            self.__session_table.pop(address)
+            self.__session_table.pop(address, None)
             return True
 
     def active_sessions(self, identifier: ID) -> Set[dict]:
