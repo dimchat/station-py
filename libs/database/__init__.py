@@ -316,9 +316,6 @@ class Database:
     def renew_session(self, address: tuple, identifier: Optional[ID]) -> bool:
         return self.__session_table.renew_session(address=address, identifier=identifier)
 
-    def all_sessions(self) -> Dict[ID, Set[dict]]:
-        return self.__session_table.all_sessions()
-
     """
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~

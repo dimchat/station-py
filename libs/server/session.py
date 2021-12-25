@@ -132,11 +132,15 @@ class SessionServer:
             self.__sessions[address] = session
         return True
 
-    def update_session(self, session: Session, identifier: ID):
+    def update_session(self, session: Session, identifier: ID = None):
         """ Update ID in this session """
         address = session.client_address
         assert address is not None, 'session error: %s' % session
         old = session.identifier
+        if identifier is None:
+            if old is not None:
+                g_database.renew_session(address=address, identifier=old)
+            return False
         if old == identifier:
             # nothing changed
             return False

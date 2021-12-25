@@ -30,6 +30,7 @@
 """
 
 import threading
+import time
 import traceback
 from typing import Union
 
@@ -39,7 +40,7 @@ from startrek import DeparturePriority
 from dimp import ID, ReliableMessage
 from dimsdk import Station
 
-from ..utils.log import Logging
+from ..utils.log import Log, Logging
 from ..utils.ipc import AgentPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton
@@ -52,6 +53,19 @@ from .session import SessionServer
 g_session_server = SessionServer()
 g_facebook = SharedFacebook()
 g_database = Database()
+
+
+def update_online_users():
+    station = g_facebook.current_user
+    if station is None:
+        station = OctopusCaller().station
+        if station is None:
+            return False
+    sid = station.identifier
+    users = g_session_server.active_users(start=0, limit=-1)
+    Log.info(msg='update online users in %s: %s' % (sid, users))
+    for item in users:
+        g_database.add_online_user(station=sid, user=item)
 
 
 @Singleton
@@ -143,6 +157,7 @@ class SearchEngineCaller(Runner, Logging):
         super().__init__()
         self.__ss = SessionServer()
         self.__pipe = ArchivistPipe.primary()
+        self.__time = time.time()
         self.start()
 
     def start(self):
@@ -165,6 +180,10 @@ class SearchEngineCaller(Runner, Logging):
         try:
             obj = self.__pipe.receive()
             if obj is None:
+                next_time = time.time() + 300
+                if next_time > self.__time:
+                    self.__time = next_time
+                    update_online_users()
                 return False
             msg = ReliableMessage.parse(msg=obj)
             self.__deliver_message(msg=msg)

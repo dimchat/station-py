@@ -232,6 +232,8 @@ class RequestHandler(StreamRequestHandler, Logging, Session, GateDelegate):
                 'session': self,
             })
         elif current == GateStatus.READY:
+            # keep session info stay in redis
+            SessionServer().update_session(session=self)
             # connected/reconnected
             NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
                 'session': self,

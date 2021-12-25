@@ -153,9 +153,7 @@ def recent_users(start: int, limit: int, station: Station = None) -> (list, dict
                 users.add(item)
         users = list(users)
     else:
-        # users = g_database.get_online_users(station=station.identifier)
-        sessions = g_database.all_sessions()
-        users = sessions.keys()
+        users = g_database.get_online_users(station=station.identifier)
     # count of users
     end = len(users)
     if limit > 0:
