@@ -143,30 +143,39 @@ class RequestHandler(StreamRequestHandler, Logging, Session, GateDelegate):
 
     def __process_message(self, msg: ReliableMessage):
         """ processing message from socket """
-        suspended = self.__suspended_messages
+        sender = msg.sender
+        receiver = msg.receiver
         agent = AgentCaller()
+        if receiver == g_station.identifier or receiver == 'station@anywhere':
+            msg['client_address'] = self.client_address
+            return agent.send(msg=msg)
         # check login
-        if self.identifier is None and msg.receiver != g_station.identifier:
+        if self.identifier is None:
             # not login yet
-            self.debug(msg='not login yet, let the agent to shake hands with sender: %s' % msg.sender)
-            if suspended is not None:
-                if len(suspended) > self.MAX_SUSPENDED:
-                    suspended.pop(0)
-                msg['client_address'] = self.client_address
-                suspended.append(msg)
+            self.debug(msg='not login yet, let the agent to shake hands with sender: %s' % sender)
+            msg['client_address'] = self.client_address
+            if self.__suspended_messages is None:
+                self.__suspended_messages = [msg]
+            else:
+                if len(self.__suspended_messages) > self.MAX_SUSPENDED:
+                    self.__suspended_messages.pop(0)
+                self.__suspended_messages.append(msg)
             return agent.send(msg={
                 'name': NotificationNames.CONNECTED,
                 'info': {
-                    'ID': str(msg.sender),
+                    'ID': str(sender),
                     'client_address': self.client_address,
                 }
             })
-        # resend suspended message
-        if suspended is not None:
-            for delayed in suspended:
-                if agent.send(msg=delayed) < 0:
-                    break
-                self.__suspended_messages.pop(0)
+        elif self.__suspended_messages is not None:
+            # resend suspended message
+            suspended_messages = self.__suspended_messages.copy()
+            self.__suspended_messages = None
+            for delayed in suspended_messages:
+                self.__deliver_message(msg=delayed)
+        return self.__deliver_message(msg=msg)
+
+    def __deliver_message(self, msg: ReliableMessage):
         # check cycled
         sender = msg.sender
         receiver = msg.receiver
@@ -180,6 +189,7 @@ class RequestHandler(StreamRequestHandler, Logging, Session, GateDelegate):
                 self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
                 return -2
         # check receiver
+        agent = AgentCaller()
         receiver = msg.receiver
         if receiver == g_station.identifier:
             self.info('forward msg to agent: %s -> %s' % (sender, receiver))
@@ -214,7 +224,9 @@ class RequestHandler(StreamRequestHandler, Logging, Session, GateDelegate):
         if not self.active:
             # FIXME: connection lost?
             self.warning(msg='session inactive')
-        self.debug(msg='sending content to: %s, priority: %d' % (msg.receiver, priority))
+        self.debug(msg='sending msg to: %s, priority: %d' % (msg.receiver, priority))
+        if msg.receiver == '0x620507866ccf492b89E36152e1Aea9f271980f85':
+            self.error(msg='error')
         return self.keeper.send_reliable_message(msg=msg, priority=priority)
 
     #
