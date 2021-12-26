@@ -401,12 +401,12 @@ class ChatRoom(Logging):
         u_cnt = len(login)
         # login count
         l_cnt = 0
-        for u, a in login.items():
-            l_cnt += len(a)
+        for u in login:
+            l_cnt += len(info[u])
         # message count
         m_cnt = 0
-        for u, c in message.items():
-            m_cnt += c
+        for u in message:
+            m_cnt += message[u]
         text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
         return TextContent(text=text)
 

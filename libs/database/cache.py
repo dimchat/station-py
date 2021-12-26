@@ -125,9 +125,8 @@ class CacheCleaner:
     def start(self):
         self.__force_stop()
         self.__running = True
-        t = Thread(target=self.run)
+        t = Thread(target=self.run, daemon=True)
         self.__thread = t
-        t.daemon = True
         t.start()
 
     def __force_stop(self):

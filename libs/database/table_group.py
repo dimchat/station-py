@@ -101,7 +101,8 @@ class GroupTable:
         else:
             # digests equal, update keys one by one
             dirty = False
-            for (member, value) in keys.items():
+            for member in keys:
+                value = keys[member]
                 if value is None or len(value) == 0:
                     # should not happen
                     continue

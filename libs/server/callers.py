@@ -157,7 +157,7 @@ class SearchEngineCaller(Runner, Logging):
         super().__init__()
         self.__ss = SessionServer()
         self.__pipe = ArchivistPipe.primary()
-        self.__time = time.time()
+        self.__next_time = 0
         self.start()
 
     def start(self):
@@ -180,9 +180,9 @@ class SearchEngineCaller(Runner, Logging):
         try:
             obj = self.__pipe.receive()
             if obj is None:
-                next_time = time.time() + 300
-                if next_time > self.__time:
-                    self.__time = next_time
+                now = time.time()
+                if now > self.__next_time:
+                    self.__next_time = now + 300
                     update_online_users()
                 return False
             msg = ReliableMessage.parse(msg=obj)

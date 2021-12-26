@@ -69,9 +69,9 @@ def update_ans(name: str, identifier: Optional[ID] = None):
 
 
 Log.info('-------- Loading ANS reserved records')
-for key, value in ans_reserved_records.items():
-    _id = ID.parse(identifier=value)
-    assert _id is not None, 'ANS record error: %s, %s' % (key, value)
+for key in ans_reserved_records:
+    _id = ID.parse(identifier=ans_reserved_records[key])
+    assert _id is not None, 'ANS record error: %s, %s' % (key, ans_reserved_records[key])
     update_ans(name=key, identifier=_id)
 
 

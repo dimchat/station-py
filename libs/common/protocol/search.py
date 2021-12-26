@@ -178,6 +178,6 @@ class SearchCommand(Command):
         info.pop('keywords', None)
         info.pop('users', None)
         info.pop('results', None)
-        for key, value in info.items():
-            cmd[key] = value
+        for key in info:
+            cmd[key] = info[key]
         return cmd

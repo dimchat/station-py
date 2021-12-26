@@ -156,8 +156,9 @@ def parse_keys(data: ByteArray) -> dict:
 
 def build_keys(keys: dict) -> bytes:
     data = MutableData(capacity=512)
-    for (identifier, base64) in keys.items():
+    for identifier in keys:
         id_value = StringValue.new(string=identifier)
+        base64 = keys[identifier]
         if id_value.size > 0 and base64 is not None and len(base64) > 0:
             key_value = BinaryValue(data=base64_decode(string=base64))
             data.append(VarIntData.from_int(value=id_value.size))

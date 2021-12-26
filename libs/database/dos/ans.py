@@ -68,11 +68,10 @@ class AddressNameStorage(Storage):
 
     def save_records(self, records: Dict[str, ID]) -> bool:
         text = ''
-        keys = records.keys()
-        for k in keys:
-            v = records.get(k)
+        for k in records:
+            v = records[k]
             if v is not None:
                 text = text + k + '\t' + v + '\n'
         path = self.__path()
-        self.info('Saving ANS records(%d) into: %s' % (len(keys), path))
+        self.info('Saving ANS records(%d) into: %s' % (len(records), path))
         return self.write_text(text=text, path=path)

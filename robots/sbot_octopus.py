@@ -173,15 +173,13 @@ class OctopusWorker(Runner, Logging):
     def start(self):
         self.__pipe.start()
         # remote stations
-        neighbors = self.__neighbors.keys()
-        for sid in neighbors:
+        for sid in self.__neighbors:
             self.__neighbors[sid].start()
         self.run()
 
     def stop(self):
         # remote station
-        neighbors = self.__neighbors.keys()
-        for sid in neighbors:
+        for sid in self.__neighbors:
             self.__neighbors[sid].stop()
         super().stop()
 

@@ -64,7 +64,7 @@ class AddressNameCache(Cache):
         strings = set()
         dictionary = self.hgetall(name=self.__key())
         if dictionary is not None:
-            for key, value in dictionary.items():
-                if identifier == value:
+            for key in dictionary:
+                if identifier == dictionary[key]:
                     strings.add(key)
         return strings
