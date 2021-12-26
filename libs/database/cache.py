@@ -83,7 +83,7 @@ class CachePool(Generic[K, V]):
                 continue
             expired: Set = set()
             for key, holder in caches.items():
-                if holder is not None and not holder.alive:
+                if holder is None or not holder.alive:
                     expired.add(key)
             # remove expired holders
             for key in expired:
