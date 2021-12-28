@@ -32,9 +32,11 @@
 
 from typing import List, Optional
 
+from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
 from dimsdk import CommandProcessor
+from dimsdk import Station
 
 from ...utils import Logging
 from ...utils import NotificationCenter
@@ -51,6 +53,21 @@ g_database = Database()
 
 class ReportCommandProcessor(CommandProcessor, Logging):
 
+    @property
+    def current_station(self) -> Station:
+        facebook = self.facebook
+        assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+        current = facebook.current_user
+        assert isinstance(current, Station), 'current station error: %s' % current
+        return current
+
+    @property
+    def current_session(self) -> Session:
+        messenger = self.messenger
+        # from ..messenger import ServerMessenger
+        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        return messenger.session
+
     def processor_for_name(self, name: str) -> Optional[CommandProcessor]:
         messenger = self.messenger
         # from ..messenger import ServerMessenger
@@ -59,23 +76,6 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         # from ..processor import ServerProcessor
         # assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
         return processor.get_processor_by_name(cmd_name=name)
-
-    def _post_notification(self, cmd: Command, session: Session):
-        if session.active:
-            notification = NotificationNames.USER_ONLINE
-        else:
-            notification = NotificationNames.USER_OFFLINE
-        facebook = self.facebook
-        assert isinstance(facebook, CommonFacebook), 'facebook error'
-        station = facebook.current_user
-        sid = station.identifier
-        # post notification
-        NotificationCenter().post(name=notification, sender=self, info={
-            'ID': str(session.identifier),
-            'client_address': session.client_address,
-            'station': str(sid),
-            'time': cmd.time,
-        })
 
     def __process_old_report(self, cmd: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # compatible with v1.0
@@ -88,21 +88,13 @@ class ReportCommandProcessor(CommandProcessor, Logging):
             if not g_database.save_offline(cmd=cmd, msg=msg):
                 self.error('offline command error/expired: %s' % cmd)
                 return []
-            active = False
+            post_from_rcp(cpu=self, online=False, cmd=cmd, sender=msg.sender)
         else:  # 'foreground'
             # save as 'online'
             if not g_database.save_online(cmd=cmd, msg=msg):
                 self.error('online command error/expired: %s' % cmd)
                 return []
-            active = True
-        messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.session
-        if session is not None:
-            assert session.identifier == msg.sender, 'session ID not match: %s, %s' % (msg.sender, session)
-            session.active = active
-            self._post_notification(cmd=cmd, session=session)
+            post_from_rcp(cpu=self, online=True, cmd=cmd, sender=msg.sender)
         text = 'Client state received.'
         return self._respond_receipt(text=text)
 
@@ -149,14 +141,8 @@ class OnlineCommandProcessor(ReportCommandProcessor):
             self.error('online command error/expired: %s' % cmd)
             return []
         # welcome back!
-        messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.session
-        if session is not None:
-            session.active = True
-            self._post_notification(cmd=cmd, session=session)
-            # TODO: notification for pushing offline message(s) from 'last_time'
+        post_from_rcp(cpu=self, online=True, cmd=cmd, sender=msg.sender)
+        # TODO: notification for pushing offline message(s) from 'last_time'
         text = 'Client online received.'
         return self._respond_receipt(text=text)
 
@@ -171,12 +157,30 @@ class OfflineCommandProcessor(ReportCommandProcessor):
             self.error('online command error/expired: %s' % cmd)
             return []
         # goodbye!
-        messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        session = messenger.session
-        if session is not None:
-            session.active = False
-            self._post_notification(cmd=cmd, session=session)
+        post_from_rcp(cpu=self, online=False, cmd=cmd, sender=msg.sender)
         text = 'Client offline received.'
         return self._respond_receipt(text=text)
+
+
+def post_from_rcp(cpu: ReportCommandProcessor, online: bool, cmd: Command, sender: ID):
+    if online:
+        notification = NotificationNames.USER_ONLINE
+    else:
+        notification = NotificationNames.USER_OFFLINE
+    # check session
+    session = cpu.current_session
+    if session is not None and session.identifier == sender:
+        # login this station
+        session.active = online
+        NotificationCenter().post(notification=notification, sender=cpu, info={
+            'ID': str(sender),
+            'client_address': session.client_address,
+            'station': str(cpu.current_station.identifier),
+            'time': cmd.time,
+        })
+    else:
+        # login other station
+        NotificationCenter().post(notification=notification, sender=cpu, info={
+            'ID': str(sender),
+            'time': cmd.time,
+        })
