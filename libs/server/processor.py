@@ -37,9 +37,7 @@ from dimp import Content, TextContent, Command
 from dimsdk import ReceiptCommand, HandshakeCommand
 from dimsdk import CommandProcessor, ProcessorFactory
 
-from ..utils import get_msg_sig
 from ..database import Database
-from ..common import msg_traced, is_broadcast_message
 from ..common import ReportCommand, SearchCommand
 from ..common import CommonProcessor, CommonProcessorFactory
 
@@ -58,88 +56,6 @@ class ServerProcessor(CommonProcessor):
         transceiver = super().messenger
         assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
         return transceiver
-
-    # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        messenger = self.messenger
-        sender = msg.sender
-        receiver = msg.receiver
-        #
-        # 1. verify message
-        #
-        s_msg = messenger.verify_message(msg=msg)
-        if s_msg is None:
-            self.error('failed to verify message: %s -> %s' % (sender, receiver))
-            # waiting for sender's meta if not exists
-            return []
-        # # 1.1. check traces
-        # current = self.facebook.current_user
-        # sid = current.identifier
-        # if msg_traced(msg=msg, node=sid, append=True):
-        #     sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        #     self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
-        #     if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
-        #         self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
-        #         return []
-        #     if is_broadcast_message(msg=msg):
-        #         self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
-        #         return []
-        #     sessions = g_session_server.active_sessions(identifier=receiver)
-        #     if len(sessions) > 0:
-        #         self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
-        #         return messenger.deliver_message(msg=msg)
-        #     else:
-        #         self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
-        #         g_database.save_message(msg=msg)
-        #         return []
-        # 1.2. check broadcast/group message
-        deliver_responses = []
-        if receiver.is_broadcast:
-            deliver_responses = messenger.deliver_message(msg=msg)
-            # if this is a broadcast, deliver it, send back the response
-            # and continue to process it with the station.
-            # because this station is also a recipient too.
-        elif receiver.is_group:
-            # or, if this is is an ordinary group message,
-            # just deliver it to the group assistant
-            # and return the response to the sender.
-            return messenger.deliver_message(msg=msg)
-        elif receiver.type != NetworkType.STATION:
-            # receiver not station, deliver it
-            return messenger.deliver_message(msg=msg)
-        #
-        # 2. process message
-        #
-        try:
-            responses = messenger.process_secure_message(msg=s_msg, r_msg=msg)
-        except LookupError as error:
-            if str(error).startswith('receiver error'):
-                # not mine? deliver it
-                return messenger.deliver_message(msg=msg)
-            else:
-                raise error
-        #
-        # 3. sign messages
-        #
-        messages = []
-        for res in responses:
-            r_msg = messenger.sign_message(msg=res)
-            if r_msg is None:
-                # should not happen
-                continue
-            group = msg.group
-            if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
-                # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
-                # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
-                # so respond them as message attachments.
-                user = self.facebook.user(identifier=r_msg.sender)
-                r_msg.meta = user.meta
-                r_msg.visa = user.visa
-            messages.append(r_msg)
-        # append deliver responses
-        for r_msg in deliver_responses:
-            messages.append(r_msg)
-        return messages
 
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:

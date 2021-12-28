@@ -54,11 +54,9 @@ sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
 from libs.utils.ipc import ArchivistPipe
-from libs.common import SearchCommand
 from libs.database import FrequencyChecker
-
-from libs.server import ServerProcessor, ServerProcessorFactory
-from libs.server import ServerMessenger
+from libs.common import SearchCommand
+from libs.common import CommonMessenger, CommonProcessor, CommonProcessorFactory
 
 from etc.cfg_init import all_stations, neighbor_stations, g_database
 from station.config import g_facebook, g_station
@@ -327,7 +325,7 @@ class SearchCommandProcessor(CommandProcessor, Logging):
         return [res]
 
 
-class ArchivistProcessorFactory(ServerProcessorFactory):
+class ArchivistProcessorFactory(CommonProcessorFactory):
 
     # Override
     def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
@@ -345,7 +343,7 @@ class ArchivistProcessorFactory(ServerProcessorFactory):
         return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
 
 
-class ArchivistMessageProcessor(ServerProcessor):
+class ArchivistMessageProcessor(CommonProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
@@ -373,7 +371,7 @@ class ArchivistMessageProcessor(ServerProcessor):
         return cpu.process(content=content, msg=r_msg)
 
 
-class ArchivistMessenger(ServerMessenger):
+class ArchivistMessenger(CommonMessenger):
 
     # Override
     def _create_processor(self) -> Processor:
@@ -410,6 +408,10 @@ class ArchivistMessenger(ServerMessenger):
         env = Envelope.create(sender=sender, receiver=receiver)
         msg = InstantMessage.create(head=env, body=content)
         return self.send_instant_message(msg=msg, priority=priority)
+
+    # Override
+    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+        raise AssertionError('should not send command here: %s, %s' % (receiver, cmd))
 
 
 g_worker = SearchEngineWorker()

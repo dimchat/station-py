@@ -35,49 +35,142 @@
     for login user
 """
 
+import socket
 import threading
+import time
+import traceback
 import weakref
-from abc import ABC, abstractmethod
-from typing import Optional, Set, Dict, MutableMapping, Union
+from typing import Optional, Set, Dict, MutableMapping
 
-from startrek import DeparturePriority
+from startrek import GateStatus, Gate
+from startrek import Connection, ActiveConnection
+from startrek import Arrival, DeparturePriority
 
-from dimp import ID, ReliableMessage
+from dimp import hex_encode
+from dimp import ID
+from dimsdk.plugins.aes import random_bytes
 
 from ..utils import Singleton
+from ..utils import NotificationCenter
+from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 from ..database import Database
+from ..common import NotificationNames
+from ..common import BaseSession, CommonMessenger
 
 
 g_database = Database()
 
 
-class Session(ABC):
+def generate_session_key() -> str:
+    return hex_encode(random_bytes(32))
+
+
+class Session(BaseSession):
+
+    def __init__(self, messenger: CommonMessenger, address: tuple, sock: socket.socket):
+        super().__init__(messenger=messenger, address=address, sock=sock)
+        self.__key = generate_session_key()
+        self.__scan_time = 0
 
     @property
     def client_address(self) -> tuple:
-        """ client_address of socket """
-        raise NotImplemented
+        return self.remote_address
 
     @property
-    def identifier(self) -> Optional[ID]:
-        """ user ID """
-        raise NotImplemented
+    def key(self) -> str:
+        return self.__key
 
-    @identifier.setter
-    def identifier(self, value: ID):
-        raise NotImplemented
+    @property  # Override
+    def running(self) -> bool:
+        if super().running:
+            gate = self.gate
+            conn = gate.get_connection(remote=self.remote_address, local=None)
+            if conn is not None:
+                return conn.opened
 
-    @property
-    def active(self) -> bool:
-        raise NotImplemented
+    # Override
+    def process(self) -> bool:
+        if super().process():
+            # busy now
+            return True
+        if not self.active:
+            # inactive, wait a while to check again
+            return False
+        now = int(time.time())
+        if now < self.__scan_time:
+            # wait
+            return False
+        else:
+            # set next scan time
+            self.__scan_time = now + 300  # scan after 5 minutes
+        # get all messages from redis server
+        messages = g_database.messages(receiver=self.identifier)
+        self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
+        for msg in messages:
+            self.send_reliable_message(msg=msg, priority=DeparturePriority.SLOWER)
+        return True
 
-    @active.setter
-    def active(self, flag: bool):
-        raise NotImplemented
+    #
+    #   GateDelegate
+    #
 
-    @abstractmethod
-    def send_reliable_message(self, msg: ReliableMessage, priority: Union[int, DeparturePriority]) -> bool:
-        raise NotImplemented
+    # Override
+    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
+                            remote: tuple, local: Optional[tuple], gate: Gate):
+        if current is None or current == GateStatus.ERROR:
+            # connection error or session finished
+            self.active = False
+            self.stop()
+            NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
+                'session': self,
+            })
+        elif current == GateStatus.READY:
+            # connected/reconnected
+            NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
+                'session': self,
+            })
+
+    # Override
+    def gate_received(self, ship: Arrival,
+                      source: tuple, destination: Optional[tuple], connection: Connection):
+        if isinstance(ship, MTPStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, MarsStreamArrival):
+            payload = ship.payload
+        elif isinstance(ship, WSArrival):
+            payload = ship.payload
+        else:
+            raise ValueError('unknown arrival ship: %s' % ship)
+        # check payload
+        if payload.startswith(b'{'):
+            # JsON in lines
+            packages = payload.splitlines()
+        else:
+            packages = [payload]
+        array = []
+        messenger = self.messenger
+        for pack in packages:
+            try:
+                responses = messenger.process_package(data=pack)
+                for res in responses:
+                    if res is None or len(res) == 0:
+                        # should not happen
+                        continue
+                    array.append(res)
+            except Exception as error:
+                self.error('parse message failed (%s): %s, %s' % (source, error, pack))
+                self.error('payload: %s' % payload)
+                traceback.print_exc()
+                # from dimsdk import TextContent
+                # return TextContent.new(text='parse message failed: %s' % error)
+        gate = self.gate
+        if len(array) == 0:
+            if connection is not None and not isinstance(connection, ActiveConnection):
+                # station MUST respond something to client request (Tencent Mars)
+                gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
+        else:
+            for item in array:
+                gate.send_response(payload=item, ship=ship, remote=source, local=destination)
 
 
 @Singleton
@@ -174,7 +267,8 @@ class SessionServer:
     #
     def all_users(self) -> Set[ID]:
         """ Get all users """
-        return set(self.__client_addresses.keys())
+        with self.__lock:
+            return set(self.__client_addresses.keys())
 
     def is_active(self, identifier: ID) -> bool:
         """ Check whether user has active session """

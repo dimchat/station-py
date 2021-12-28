@@ -135,15 +135,15 @@ class SHM:
         ~~~~~~~~~~~~~~~~~~~
 
             0 - main           dispatcher, filter
-            1 - agent          receptionist (handshake, offline messages, ...)
+            1 - receptionist   offline messages
             2 - archivist      search engine
             3 - pusher         notification (ios, android)
             7 - monitor        statistic, session
             8 - octopus        station bridge
     """
 
-    AGENT_KEY1 = '0x%X' % 0xD1350101  # A -> B
-    AGENT_KEY2 = '0x%X' % 0xD1350102  # B -> A
+    RECEPTIONIST_KEY1 = '0x%X' % 0xD1350101  # A -> B
+    RECEPTIONIST_KEY2 = '0x%X' % 0xD1350102  # B -> A
 
     ARCHIVIST_KEY1 = '0x%X' % 0xD1350201  # A -> B
     ARCHIVIST_KEY2 = '0x%X' % 0xD1350202  # B -> A
@@ -156,19 +156,19 @@ class SHM:
     OCTOPUS_KEY2 = '0x%X' % 0xD1350802  # B -> A
 
 
-class AgentPipe(Pipe):
-    """ arrows between router and agent """
+class ReceptionistPipe(Pipe):
+    """ arrows between router and receptionist """
 
     @classmethod
     def primary(cls) -> Pipe:  # arrows for router
-        incoming = IncomeArrow(name=SHM.AGENT_KEY2)
-        outgoing = OutgoArrow(name=SHM.AGENT_KEY1)
+        incoming = IncomeArrow(name=SHM.RECEPTIONIST_KEY2)
+        outgoing = OutgoArrow(name=SHM.RECEPTIONIST_KEY1)
         return cls(arrows=(incoming, outgoing))
 
     @classmethod
-    def secondary(cls) -> Pipe:  # arrows for agent
-        incoming = IncomeArrow(name=SHM.AGENT_KEY1)
-        outgoing = OutgoArrow(name=SHM.AGENT_KEY2)
+    def secondary(cls) -> Pipe:  # arrows for receptionist
+        incoming = IncomeArrow(name=SHM.RECEPTIONIST_KEY1)
+        outgoing = OutgoArrow(name=SHM.RECEPTIONIST_KEY2)
         return cls(arrows=(incoming, outgoing))
 
 

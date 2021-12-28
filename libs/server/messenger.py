@@ -33,13 +33,15 @@
 import time
 from typing import Optional, List
 
-from dimp import ID
+from dimp import NetworkType, ID
 from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
 
+from ..utils import get_msg_sig
 from ..utils import NotificationCenter
 from ..database import Database
+from ..common import msg_traced, is_broadcast_message
 from ..common import NotificationNames
 from ..common import CommonMessenger
 
@@ -84,6 +86,72 @@ class ServerMessenger(CommonMessenger):
         assert s_msg is not None, 'failed to respond to: %s' % msg.sender
         r_msg = self.sign_message(msg=s_msg)
         return [r_msg]
+
+    # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        sender = msg.sender
+        receiver = msg.receiver
+        # 1.1. check traces
+        current = self.facebook.current_user
+        sid = current.identifier
+        if msg_traced(msg=msg, node=sid, append=True):
+            sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+            self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
+            if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+                self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return []
+            if is_broadcast_message(msg=msg):
+                self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return []
+            sessions = g_session_server.active_sessions(identifier=receiver)
+            if len(sessions) > 0:
+                self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return self.deliver_message(msg=msg)
+            else:
+                self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+                g_database.save_message(msg=msg)
+                return []
+        # 1.2. check broadcast/group message
+        deliver_responses = []
+        if receiver.is_broadcast:
+            deliver_responses = self.deliver_message(msg=msg)
+            # if this is a broadcast, deliver it, send back the response
+            # and continue to process it with the station.
+            # because this station is also a recipient too.
+        elif receiver.is_group:
+            # or, if this is is an ordinary group message,
+            # just deliver it to the group assistant
+            # and return the response to the sender.
+            return self.deliver_message(msg=msg)
+        elif receiver.type != NetworkType.STATION:
+            # receiver not station, deliver it
+            return self.deliver_message(msg=msg)
+        # call super
+        try:
+            responses = super().process_reliable_message(msg=msg)
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                # not mine? deliver it
+                return self.deliver_message(msg=msg)
+            else:
+                raise error
+        if len(responses) == 0:
+            return deliver_responses
+        # check for first login
+        group = msg.group
+        if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
+            # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
+            # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
+            # so respond them as message attachments.
+            user = self.facebook.current_user
+            for res in responses:
+                res.meta = user.meta
+                res.visa = user.visa
+        # check response for delivering broadcast message
+        if len(deliver_responses) > 0:
+            for res in deliver_responses:
+                responses.append(res)
+        return responses
 
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:

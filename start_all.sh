@@ -31,7 +31,6 @@ function title() {
 
 title "DIM Station"
 stop "station/start.py"
-stop "station/agent.py"
 stop "station/receptionist.py"
 stop "station/archivist.py"
 stop "station/pusher.py"
@@ -40,7 +39,7 @@ sleep 2
 start "monitor" "station/monitor.py"
 start "pusher" "station/pusher.py"
 start "search" "station/archivist.py"
-start "mta" "station/agent.py"
+start "sabrina" "station/receptionist.py"
 start "dims" "station/start.py"
 
 sleep 2
