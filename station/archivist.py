@@ -378,11 +378,6 @@ class ArchivistMessenger(CommonMessenger):
         return ArchivistMessageProcessor(messenger=self)
 
     # Override
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        g_worker.send(msg=msg)
-        return []
-
-    # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         g_worker.send(msg=msg)
         return True

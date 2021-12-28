@@ -65,7 +65,7 @@ class ServerMessenger(CommonMessenger):
         from .processor import ServerProcessor
         return ServerProcessor(messenger=self)
 
-    def deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    def __deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
         # FIXME: check deliver permission
         res = self.__filter.check_deliver(msg=msg)
@@ -106,7 +106,7 @@ class ServerMessenger(CommonMessenger):
             sessions = g_session_server.active_sessions(identifier=receiver)
             if len(sessions) > 0:
                 self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
-                return self.deliver_message(msg=msg)
+                return self.__deliver_message(msg=msg)
             else:
                 self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
                 g_database.save_message(msg=msg)
@@ -114,7 +114,7 @@ class ServerMessenger(CommonMessenger):
         # 1.2. check broadcast/group message
         deliver_responses = []
         if receiver.is_broadcast:
-            deliver_responses = self.deliver_message(msg=msg)
+            deliver_responses = self.__deliver_message(msg=msg)
             # if this is a broadcast, deliver it, send back the response
             # and continue to process it with the station.
             # because this station is also a recipient too.
@@ -122,17 +122,17 @@ class ServerMessenger(CommonMessenger):
             # or, if this is is an ordinary group message,
             # just deliver it to the group assistant
             # and return the response to the sender.
-            return self.deliver_message(msg=msg)
+            return self.__deliver_message(msg=msg)
         elif receiver.type != NetworkType.STATION:
             # receiver not station, deliver it
-            return self.deliver_message(msg=msg)
+            return self.__deliver_message(msg=msg)
         # call super
         try:
             responses = super().process_reliable_message(msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
-                return self.deliver_message(msg=msg)
+                return self.__deliver_message(msg=msg)
             else:
                 raise error
         if len(responses) == 0:
