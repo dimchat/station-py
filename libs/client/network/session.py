@@ -95,7 +95,10 @@ class Session(BaseSession):
     def gate_status_changed(self, previous: GateStatus, current: GateStatus,
                             remote: tuple, local: Optional[tuple], gate: Gate):
         if current is None or current == GateStatus.ERROR:
+            # clear session key
+            self.key = None
             self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
+            # reconnect
             hub = self.gate.hub
             assert isinstance(hub, Hub), 'hub error: %s' % hub
             hub.connect(remote=remote, local=local)
