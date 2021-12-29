@@ -31,7 +31,7 @@
 
 from typing import Optional, List, Set, Dict
 
-from dimp import PrivateKey, SignKey, DecryptKey
+from dimp import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimp import ID, Meta, Document
 from dimp import Command
 from dimp import ReliableMessage
@@ -54,6 +54,7 @@ from .table_login import LoginTable
 from .table_group import GroupTable
 from .table_session import SessionTable
 from .table_message import MessageTable
+from .table_msg_key import MessageKeyTable
 
 
 __all__ = [
@@ -81,21 +82,23 @@ class Database:
 
     def __init__(self):
         super().__init__()
-        # data tables
+        # Entity
         self.__private_table = PrivateKeyTable()
         self.__meta_table = MetaTable()
         self.__document_table = DocumentTable()
         self.__device_table = DeviceTable()
         self.__user_table = UserTable()
         self.__group_table = GroupTable()
+        # Message
         self.__message_table = MessageTable()
+        self.__msg_key_table = MessageKeyTable()
         # Session
         self.__session_table = SessionTable()
         # Network
         self.__network_table = NetworkTable()
         # ANS
         self.__ans_table = AddressNameTable()
-        # login info
+        # Login info
         self.__login_table = LoginTable()
 
     """
@@ -296,6 +299,18 @@ class Database:
 
     def messages(self, receiver: ID) -> List[ReliableMessage]:
         return self.__message_table.messages(receiver=receiver)
+
+    """
+        Message Keys
+        ~~~~~~~~~~~~
+
+        redis key: 'dkd.key.{sender}'
+    """
+    def cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
+        return self.__msg_key_table.cipher_key(sender=sender, receiver=receiver)
+
+    def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
+        return self.__msg_key_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     """
         Session info

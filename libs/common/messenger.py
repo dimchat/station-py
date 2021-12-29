@@ -47,7 +47,7 @@ from dimsdk import Messenger, CipherKeyDelegate
 from ..utils import Logging
 from ..database import FrequencyChecker
 
-from .keystore import KeyStore
+from .keycache import KeyCache
 from .facebook import CommonFacebook, SharedFacebook
 from .session import BaseSession
 
@@ -99,7 +99,7 @@ class CommonMessenger(Messenger, Logging):
 
     # noinspection PyMethodMayBeStatic
     def _create_key_cache(self) -> CipherKeyDelegate:
-        return KeyStore()
+        return KeyCache()
 
     def _create_packer(self) -> Packer:
         from .packer import CommonPacker
@@ -109,13 +109,13 @@ class CommonMessenger(Messenger, Logging):
         from .processor import CommonProcessor
         return CommonProcessor(messenger=self)
 
-    @property
+    @property  # Override
     def facebook(self) -> CommonFacebook:
         barrack = super().facebook
         assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
         return barrack
 
-    @facebook.setter
+    @facebook.setter  # Override
     def facebook(self, barrack: CommonFacebook):
         Messenger.facebook.__set__(self, barrack)
 
@@ -189,6 +189,7 @@ class CommonMessenger(Messenger, Logging):
             key['reused'] = reused
         return data
 
+    # Override
     def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
         pk = self.facebook.public_key_for_encryption(identifier=receiver)
         if pk is None:

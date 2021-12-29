@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2021 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,52 +23,41 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    DIM Station Config
-    ~~~~~~~~~~~~~~~~~~
+from typing import Optional
 
-    Configuration for DIM network server node
-"""
+from dimp import json_encode, json_decode
+from dimp import ID, SymmetricKey
 
-from libs.utils.log import Log
-from libs.server import ServerMessenger
-
-#
-#  Configurations
-#
-from etc.config import bind_host, bind_port
-
-from etc.cfg_init import g_facebook
-from etc.cfg_init import station_id, create_station
+from .base import Cache
 
 
-"""
-    Messenger
-    ~~~~~~~~~
+class MessageKeyCache(Cache):
 
-    Transceiver for processing messages
-"""
-g_messenger = ServerMessenger()
-g_facebook.messenger = g_messenger
+    @property  # Override
+    def database(self) -> Optional[str]:
+        return 'dkd'
 
+    @property  # Override
+    def table(self) -> str:
+        return 'key'
 
-"""
-    Local Station
-    ~~~~~~~~~~~~~
-"""
-Log.info('-------- Creating local server: %s (%s:%d)' % (station_id, bind_host, bind_port))
-g_station = create_station(info={
-    'ID': station_id,
-    'host': bind_host,
-    'port': bind_port
-})
-assert g_station is not None, 'current station not created: %s' % station_id
-decrypt_keys = g_facebook.private_keys_for_decryption(identifier=station_id)
-assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % station_id
-Log.info('Current station with %d private key(s): %s' % (len(decrypt_keys), g_station))
+    """
+        Message Keys
+        ~~~~~~~~~~~~
 
-# set local users for facebook
-g_facebook.local_users = [g_station]
-g_facebook.current_user = g_station
+        redis key: 'dkd.key.{sender}'
+    """
+    def __name(self, sender: ID) -> str:
+        return '%s.%s.%s' % (self.database, self.table, sender)
 
-Log.info('======== configuration OK! ========')
+    def cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
+        name = self.__name(sender=sender)
+        data = self.hget(name=name, key=str(receiver))
+        if data is not None:
+            key = json_decode(data=data)
+            return SymmetricKey.parse(key=key)
+
+    def save_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
+        name = self.__name(sender=sender)
+        data = json_encode(o=key.dictionary)
+        return self.hset(name=name, key=str(receiver), value=data)

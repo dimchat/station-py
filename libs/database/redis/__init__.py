@@ -39,6 +39,7 @@ from .login import LoginCache
 from .group import GroupCache
 from .session import SessionCache
 from .message import MessageCache
+from .msg_key import MessageKeyCache
 
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     'GroupCache',
     'SessionCache',
     'MessageCache',
+    'MessageKeyCache',
 ]

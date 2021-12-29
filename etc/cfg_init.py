@@ -8,7 +8,7 @@ from dimsdk.ans import keywords as ans_keywords
 
 from libs.utils import Log
 from libs.database import Storage, Database
-from libs.common import KeyStore, SharedFacebook, AddressNameServer
+from libs.common import SharedFacebook, AddressNameServer
 
 from etc.config import base_dir
 from etc.config import gsp_conf
@@ -26,15 +26,6 @@ Log.info('======== Initializing Configurations ========')
 Log.info(">>> Local storage directory: %s" % base_dir)
 Storage.root = base_dir
 g_database = Database()
-
-
-"""
-    Key Store
-    ~~~~~~~~~
-
-    Memory cache for reused passwords (symmetric key)
-"""
-g_keystore = KeyStore()
 
 
 """

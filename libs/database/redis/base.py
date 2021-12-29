@@ -35,13 +35,16 @@ g_db_3 = Redis(db=3)  # mkm.user
 g_db_4 = Redis(db=4)  # mkm.group
 g_db_7 = Redis(db=7)  # mkm.session
 g_db_8 = Redis(db=8)  # dkd.msg
+g_db_9 = Redis(db=9)  # dkd.key
 
 g_dbs = {
     'mkm.meta': g_db_1,
     'mkm.document': g_db_2,
     'mkm.user': g_db_3,
     'mkm.group': g_db_4,
+    'mkm.session': g_db_7,
     'dkd.msg': g_db_8,
+    'dkd.key': g_db_9,
 }
 
 

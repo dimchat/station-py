@@ -38,7 +38,8 @@ def encode_address(address) -> bytes:
 
 def decode_address(data: bytes) -> tuple:
     address = json_decode(data=data)
-    assert isinstance(address, tuple), 'address error: %s' % data
+    if isinstance(address, list):
+        address = (address[0], address[1])
     return address
 
 

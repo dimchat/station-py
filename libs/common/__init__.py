@@ -43,7 +43,7 @@ from .session import BaseSession
 
 from .ans import AddressNameServer
 
-from .keystore import KeyStore
+from .keycache import KeyCache
 from .facebook import CommonFacebook, SharedFacebook
 from .messenger import CommonMessenger, MessengerDelegate
 from .packer import CommonPacker
@@ -127,7 +127,7 @@ __all__ = [
     'BaseSession',
     'AddressNameServer',
 
-    'KeyStore', 'CommonFacebook', 'SharedFacebook',
+    'KeyCache', 'CommonFacebook', 'SharedFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
     'CommonProcessorFactory',
     'MessengerDelegate',
