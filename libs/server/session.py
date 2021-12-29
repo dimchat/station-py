@@ -37,14 +37,13 @@
 
 import socket
 import threading
-import time
 import traceback
 import weakref
 from typing import Optional, Set, Dict, MutableMapping
 
 from startrek import GateStatus, Gate
 from startrek import Connection, ActiveConnection
-from startrek import Arrival, DeparturePriority
+from startrek import Arrival
 
 from dimp import hex_encode
 from dimp import ID
@@ -70,7 +69,6 @@ class Session(BaseSession):
     def __init__(self, messenger: CommonMessenger, address: tuple, sock: socket.socket):
         super().__init__(messenger=messenger, address=address, sock=sock)
         self.__key = generate_session_key()
-        self.__scan_time = 0
 
     @property
     def client_address(self) -> tuple:
@@ -87,28 +85,6 @@ class Session(BaseSession):
             conn = gate.get_connection(remote=self.remote_address, local=None)
             if conn is not None:
                 return conn.opened
-
-    # Override
-    def process(self) -> bool:
-        if super().process():
-            # busy now
-            return True
-        if not self.active:
-            # inactive, wait a while to check again
-            return False
-        now = int(time.time())
-        if now < self.__scan_time:
-            # wait
-            return False
-        else:
-            # set next scan time
-            self.__scan_time = now + 300  # scan after 5 minutes
-        # get all messages from redis server
-        messages = g_database.messages(receiver=self.identifier)
-        self.info('%d message(s) loaded for: %s' % (len(messages), self.identifier))
-        for msg in messages:
-            self.send_reliable_message(msg=msg, priority=DeparturePriority.SLOWER)
-        return True
 
     #
     #   GateDelegate

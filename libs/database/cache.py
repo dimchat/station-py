@@ -31,7 +31,7 @@
 
 import time
 from threading import Thread
-from typing import TypeVar, Generic, Optional, Dict, Set
+from typing import TypeVar, Generic, Optional, Dict
 
 from ..utils import Singleton
 
@@ -81,13 +81,12 @@ class CachePool(Generic[K, V]):
             caches = cls.shared_pool.get(name)
             if caches is None:
                 continue
-            expired: Set = set()
-            for key, holder in caches.items():
-                if holder is None or not holder.alive:
-                    expired.add(key)
-            # remove expired holders
-            for key in expired:
-                caches.pop(key, None)
+            for key in list(caches.keys()):
+                holder = caches.get(key)
+                if holder is not None and holder.alive:
+                    continue
+                # remove expired holders
+                caches.pop(key)
                 count += 1
         return count
 

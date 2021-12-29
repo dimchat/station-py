@@ -175,6 +175,11 @@ class GateKeeper(Runner):
             return self.gate.running
 
     # Override
+    def stop(self):
+        super().stop()
+        self.gate.stop()
+
+    # Override
     def setup(self):
         super().setup()
         self.gate.start()

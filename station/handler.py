@@ -78,6 +78,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
             SessionServer().remove_session(session=session)
             session.finish()
             self.messenger.session = None
+            self.__messenger = None
         except Exception as error:
             self.error('finish request handler error: %s' % error)
             traceback.print_exc()
