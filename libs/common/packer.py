@@ -39,6 +39,7 @@ from dimsdk import MessagePacker
 
 from ..utils.mtp import MTPUtils
 
+from .facebook import CommonFacebook
 from .messenger import CommonMessenger
 
 
@@ -47,8 +48,8 @@ class CommonPacker(MessagePacker):
     MTP_JSON = 0x01
     MTP_DMTP = 0x02
 
-    def __init__(self, messenger: CommonMessenger):
-        super().__init__(messenger=messenger)
+    def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger):
+        super().__init__(facebook=facebook, messenger=messenger)
         # Message Transfer Protocol
         self.mtp_format = self.MTP_JSON
 

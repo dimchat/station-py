@@ -47,8 +47,8 @@ from ...common import CommonFacebook, CommonMessenger
 
 class ChatTextContentProcessor(ContentProcessor, Logging):
 
-    def __init__(self, messenger, bots: Union[list, ChatBot]):
-        super().__init__(messenger=messenger)
+    def __init__(self, facebook, messenger, bots: Union[list, ChatBot]):
+        super().__init__(facebook=facebook, messenger=messenger)
         self.__bots = bots
         self.__dialog: Optional[Dialog] = None
 

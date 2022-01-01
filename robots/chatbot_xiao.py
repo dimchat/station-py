@@ -46,7 +46,7 @@ sys.path.append(rootPath)
 
 from libs.utils import Logging
 from libs.database import Storage
-
+from libs.common import SharedFacebook
 from libs.client import ChatTextContentProcessor
 from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
@@ -84,9 +84,9 @@ def stat_record(columns: List[str]) -> str:
 
 class BotTextContentProcessor(ChatTextContentProcessor, Logging):
 
-    def __init__(self, messenger):
+    def __init__(self, facebook, messenger):
         bots = chat_bots(names=['xiaoi'])  # chat bot
-        super().__init__(messenger=messenger, bots=bots)
+        super().__init__(facebook=facebook, messenger=messenger, bots=bots)
 
     def __stat(self, condition: str, group: Optional[ID]) -> Optional[TextContent]:
         results = load_statistics(prefix=condition.strip())
@@ -122,7 +122,7 @@ class BotProcessorFactory(ClientProcessorFactory):
     def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
         # text
         if msg_type == ContentType.TEXT:
-            return BotTextContentProcessor(messenger=self.messenger)
+            return BotTextContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super()._create_content_processor(msg_type=msg_type)
 
@@ -131,14 +131,14 @@ class BotMessageProcessor(ClientProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return BotProcessorFactory(messenger=self.messenger)
+        return BotProcessorFactory(facebook=self.facebook, messenger=self.messenger)
 
 
 class BotMessenger(ClientMessenger):
 
     # Override
     def _create_processor(self) -> Processor:
-        return BotMessageProcessor(messenger=self)
+        return BotMessageProcessor(facebook=self.facebook, messenger=self)
 
 
 """
@@ -146,7 +146,8 @@ class BotMessenger(ClientMessenger):
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = BotMessenger()
-g_facebook = g_messenger.facebook
+g_facebook = SharedFacebook()
+g_facebook.messenger = g_messenger
 
 
 if __name__ == '__main__':

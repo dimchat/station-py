@@ -96,7 +96,7 @@ class ClientProcessor(CommonProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return ClientProcessorFactory(messenger=self.messenger)
+        return ClientProcessorFactory(facebook=self.facebook, messenger=self.messenger)
 
 
 class ClientProcessorFactory(CommonProcessorFactory):
@@ -105,7 +105,7 @@ class ClientProcessorFactory(CommonProcessorFactory):
     def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
         # text
         if msg_type == ContentType.TEXT:
-            return ChatTextContentProcessor(messenger=self.messenger, bots=[])
+            return ChatTextContentProcessor(facebook=self.facebook, messenger=self.messenger, bots=[])
         # others
         return super()._create_content_processor(msg_type=msg_type)
 
@@ -114,10 +114,10 @@ class ClientProcessorFactory(CommonProcessorFactory):
         # handshake
         if cmd_name == Command.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
-            return HandshakeCommandProcessor(messenger=self.messenger)
+            return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
         if cmd_name == Command.LOGIN:
             from .cpu import LoginCommandProcessor
-            return LoginCommandProcessor(messenger=self.messenger)
+            return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

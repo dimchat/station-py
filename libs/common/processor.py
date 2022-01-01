@@ -60,7 +60,9 @@ class CommonProcessor(MessageProcessor, Logging):
 
     @property
     def facebook(self) -> CommonFacebook:
-        return self.messenger.facebook
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     def __is_waiting_group(self, content: Content, sender: ID) -> bool:
         """
@@ -166,7 +168,7 @@ class CommonProcessor(MessageProcessor, Logging):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return CommonProcessorFactory(messenger=self.messenger)
+        return CommonProcessorFactory(facebook=self.facebook, messenger=self.messenger)
 
 
 class CommonProcessorFactory(ProcessorFactory):
@@ -175,43 +177,43 @@ class CommonProcessorFactory(ProcessorFactory):
     def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
         # file
         if msg_type == ContentType.FILE.value:
-            return FileContentProcessor(messenger=self.messenger)
+            return FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
         elif msg_type in [ContentType.IMAGE.value, ContentType.AUDIO.value, ContentType.VIDEO.value]:
             cpu = self._get_content_processor(msg_type=ContentType.FILE.value)
             if cpu is None:
-                cpu = FileContentProcessor(messenger=self.messenger)
+                cpu = FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_content_processor(msg_type=ContentType.FILE.value, cpu=cpu)
             return cpu
         # others
         cpu = super()._create_content_processor(msg_type=msg_type)
         if cpu is None:
             # unknown
-            cpu = ContentProcessor(messenger=self.messenger)
+            cpu = ContentProcessor(facebook=self.facebook, messenger=self.messenger)
         return cpu
 
     # Override
     def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
         # receipt
         if cmd_name == Command.RECEIPT:
-            return ReceiptCommandProcessor(messenger=self.messenger)
+            return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # mute
         if cmd_name == MuteCommand.MUTE:
-            return MuteCommandProcessor(messenger=self.messenger)
+            return MuteCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # block
         if cmd_name == BlockCommand.BLOCK:
-            return BlockCommandProcessor(messenger=self.messenger)
+            return BlockCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # storage
         if cmd_name == StorageCommand.STORAGE:
-            return StorageCommandProcessor(messenger=self.messenger)
+            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name in [StorageCommand.CONTACTS, StorageCommand.PRIVATE_KEY]:
             cpu = self._get_command_processor(cmd_name=StorageCommand.STORAGE)
             if cpu is None:
-                cpu = StorageCommandProcessor(messenger=self.messenger)
+                cpu = StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_command_processor(cmd_name=StorageCommand.STORAGE, cpu=cpu)
             return cpu
         # others
         cpu = super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
         if cpu is None:
             # unknown
-            cpu = CommandProcessor(messenger=self.messenger)
+            cpu = CommandProcessor(facebook=self.facebook, messenger=self.messenger)
         return cpu

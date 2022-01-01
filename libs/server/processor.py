@@ -94,7 +94,7 @@ class ServerProcessor(CommonProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return ServerProcessorFactory(messenger=self.messenger)
+        return ServerProcessorFactory(facebook=self.facebook, messenger=self.messenger)
 
 
 class ServerProcessorFactory(CommonProcessorFactory):
@@ -104,54 +104,54 @@ class ServerProcessorFactory(CommonProcessorFactory):
         # document
         if cmd_name == Command.DOCUMENT:
             from .cpu import DocumentCommandProcessor
-            return DocumentCommandProcessor(messenger=self.messenger)
+            return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name in ['profile', 'visa', 'bulletin']:
             # share the same processor
             cpu = self._get_command_processor(cmd_name=Command.DOCUMENT)
             if cpu is None:
                 from .cpu import DocumentCommandProcessor
-                cpu = DocumentCommandProcessor(messenger=self.messenger)
+                cpu = DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_command_processor(cmd_name=Command.DOCUMENT, cpu=cpu)
             return cpu
         # handshake
         if cmd_name == Command.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
-            return HandshakeCommandProcessor(messenger=self.messenger)
+            return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
         if cmd_name == Command.LOGIN:
             from .cpu import LoginCommandProcessor
-            return LoginCommandProcessor(messenger=self.messenger)
+            return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
         if cmd_name == ReportCommand.REPORT:
             from .cpu import ReportCommandProcessor
-            return ReportCommandProcessor(messenger=self.messenger)
+            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == 'broadcast':
             # share the same processor
             cpu = self._get_command_processor(cmd_name=ReportCommand.REPORT)
             if cpu is None:
                 from .cpu import ReportCommandProcessor
-                cpu = ReportCommandProcessor(messenger=self.messenger)
+                cpu = ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_command_processor(cmd_name=ReportCommand.REPORT, cpu=cpu)
             return cpu
         elif cmd_name == 'apns':
             from .cpu import APNsCommandProcessor
-            return APNsCommandProcessor(messenger=self.messenger)
+            return APNsCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == ReportCommand.ONLINE:
             from .cpu import OnlineCommandProcessor
-            return OnlineCommandProcessor(messenger=self.messenger)
+            return OnlineCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == ReportCommand.OFFLINE:
             from .cpu import OfflineCommandProcessor
-            return OfflineCommandProcessor(messenger=self.messenger)
+            return OfflineCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # search
         if cmd_name == SearchCommand.SEARCH:
             from .cpu import SearchCommandProcessor
-            return SearchCommandProcessor(messenger=self.messenger)
+            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == SearchCommand.ONLINE_USERS:
             # share the same processor
             cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
             if cpu is None:
                 from .cpu import SearchCommandProcessor
-                cpu = SearchCommandProcessor(messenger=self.messenger)
+                cpu = SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
             return cpu
         # others

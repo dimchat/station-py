@@ -63,7 +63,7 @@ class ClientMessenger(CommonMessenger):
     # Override
     def _create_processor(self) -> Processor:
         from .processor import ClientProcessor
-        return ClientProcessor(messenger=self)
+        return ClientProcessor(facebook=self.facebook, messenger=self)
 
     @property
     def terminal(self) -> Terminal:

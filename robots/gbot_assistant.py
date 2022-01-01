@@ -48,7 +48,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
-
+from libs.common import SharedFacebook
 from libs.client import Terminal, ClientMessenger
 
 from robots.config import g_station
@@ -254,7 +254,8 @@ class AssistantMessenger(ClientMessenger, Logging):
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_messenger = AssistantMessenger()
-g_facebook = g_messenger.facebook
+g_facebook = SharedFacebook()
+g_facebook.messenger = g_messenger
 
 if __name__ == '__main__':
 

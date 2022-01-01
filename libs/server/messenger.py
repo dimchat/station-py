@@ -63,7 +63,7 @@ class ServerMessenger(CommonMessenger):
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
-        return ServerProcessor(messenger=self)
+        return ServerProcessor(facebook=self.facebook, messenger=self)
 
     def __deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """

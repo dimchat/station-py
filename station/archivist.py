@@ -293,9 +293,6 @@ class SearchEngineWorker(Runner, Logging):
 
 class SearchCommandProcessor(CommandProcessor, Logging):
 
-    def __init__(self, messenger):
-        super().__init__(messenger=messenger)
-
     # Override
     def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
         assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
@@ -331,12 +328,12 @@ class ArchivistProcessorFactory(CommonProcessorFactory):
     def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
         # search
         if cmd_name == SearchCommand.SEARCH:
-            return SearchCommandProcessor(messenger=self.messenger)
+            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == SearchCommand.ONLINE_USERS:
             # share the same processor
             cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
             if cpu is None:
-                cpu = SearchCommandProcessor(messenger=self.messenger)
+                cpu = SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
                 self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
             return cpu
         # others
@@ -347,7 +344,7 @@ class ArchivistMessageProcessor(CommonProcessor):
 
     # Override
     def _create_processor_factory(self) -> ProcessorFactory:
-        return ArchivistProcessorFactory(messenger=self.messenger)
+        return ArchivistProcessorFactory(facebook=self.facebook, messenger=self.messenger)
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -375,7 +372,7 @@ class ArchivistMessenger(CommonMessenger):
 
     # Override
     def _create_processor(self) -> Processor:
-        return ArchivistMessageProcessor(messenger=self)
+        return ArchivistMessageProcessor(facebook=self.facebook, messenger=self)
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:

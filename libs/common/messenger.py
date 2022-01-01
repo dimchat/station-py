@@ -41,7 +41,7 @@ from dimp import ID, SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
-from dimp import Packer, Processor
+from dimp import Packer, Processor, EntityDelegate
 from dimsdk import Messenger, CipherKeyDelegate
 
 from ..utils import Logging
@@ -87,41 +87,40 @@ class CommonMessenger(Messenger, Logging):
         self.__delegate: Optional[weakref.ReferenceType] = None
         self.__message_packer = self._create_packer()
         self.__message_processor = self._create_processor()
-        self.packer = self.__message_packer
-        self.processor = self.__message_processor
-        self.facebook = self._create_facebook()
-        self.key_cache = self._create_key_cache()
         # for checking duplicated queries
         self.__group_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
 
-    def _create_facebook(self) -> CommonFacebook:
-        return SharedFacebook()
-
-    # noinspection PyMethodMayBeStatic
-    def _create_key_cache(self) -> CipherKeyDelegate:
-        return KeyCache()
-
     def _create_packer(self) -> Packer:
         from .packer import CommonPacker
-        return CommonPacker(messenger=self)
+        return CommonPacker(facebook=self.facebook, messenger=self)
 
     def _create_processor(self) -> Processor:
         from .processor import CommonProcessor
-        return CommonProcessor(messenger=self)
-
-    @property  # Override
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
-
-    @facebook.setter  # Override
-    def facebook(self, barrack: CommonFacebook):
-        Messenger.facebook.__set__(self, barrack)
+        return CommonProcessor(facebook=self.facebook, messenger=self)
 
     @property
     def session(self) -> BaseSession:
         raise NotImplemented
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return SharedFacebook()
+
+    @property  # Override
+    def barrack(self) -> EntityDelegate:
+        return SharedFacebook()
+
+    @property  # Override
+    def key_cache(self) -> CipherKeyDelegate:
+        return KeyCache()
+
+    @property  # Override
+    def packer(self) -> Packer:
+        return self.__message_packer
+
+    @property  # Override
+    def processor(self) -> Processor:
+        return self.__message_processor
 
     #
     #   Delegate for sending data
