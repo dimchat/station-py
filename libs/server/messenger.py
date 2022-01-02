@@ -45,7 +45,8 @@ from ..common import msg_traced, is_broadcast_message
 from ..common import NotificationNames
 from ..common import CommonMessenger
 
-from .session import Session, SessionServer
+from .session import Session
+from .session_server import SessionServer
 from .dispatcher import Dispatcher
 
 

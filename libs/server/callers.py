@@ -40,14 +40,14 @@ from startrek import DeparturePriority
 from dimp import ReliableMessage
 from dimsdk import Station
 
-from ..utils.log import Log, Logging
+from ..utils.log import Logging
 from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton
 from ..database import Database
 from ..common import SharedFacebook, NotificationNames
 
-from .session import SessionServer
+from .session_server import SessionServer
 
 
 g_session_server = SessionServer()
@@ -60,17 +60,6 @@ def current_station() -> Optional[Station]:
     if station is None:
         station = OctopusCaller().station
     return station
-
-
-def update_online_users():
-    station = current_station()
-    if station is None:
-        return False
-    sid = station.identifier
-    users = g_session_server.active_users(start=0, limit=-1)
-    Log.info(msg='update online users in %s: %s' % (sid, users))
-    for item in users:
-        g_database.add_online_user(station=sid, user=item)
 
 
 @Singleton
@@ -159,7 +148,7 @@ class SearchEngineCaller(Runner, Logging):
                 now = time.time()
                 if now > self.__next_time:
                     self.__next_time = now + 180
-                    update_online_users()
+                    self.__update_online_users()
                 return False
             msg = ReliableMessage.parse(msg=obj)
             self.__deliver_message(msg=msg)
@@ -167,6 +156,16 @@ class SearchEngineCaller(Runner, Logging):
         except Exception as error:
             self.error(msg='search engine error: %s, %s' % (error, obj))
             traceback.print_exc()
+
+    def __update_online_users(self):
+        station = current_station()
+        if station is None:
+            return False
+        sid = station.identifier
+        users = g_session_server.active_users(start=0, limit=-1)
+        self.info(msg='update online users in %s: %s' % (sid, users))
+        for item in users:
+            g_database.add_online_user(station=sid, user=item)
 
     def __deliver_message(self, msg: ReliableMessage):
         sessions = self.__ss.active_sessions(identifier=msg.receiver)

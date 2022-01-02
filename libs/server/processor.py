@@ -41,7 +41,7 @@ from ..database import Database
 from ..common import ReportCommand, SearchCommand
 from ..common import CommonProcessor, CommonProcessorFactory
 
-from .session import SessionServer
+from .session_server import SessionServer
 from .messenger import ServerMessenger
 
 

@@ -64,9 +64,9 @@ class ReportCommandProcessor(CommandProcessor, Logging):
     @property
     def current_session(self) -> Session:
         messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
-        return messenger.session
+        from ..messenger import ServerMessenger
+        if isinstance(messenger, ServerMessenger):
+            return messenger.session
 
     def processor_for_name(self, name: str) -> Optional[CommandProcessor]:
         messenger = self.messenger

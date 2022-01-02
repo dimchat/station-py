@@ -54,7 +54,8 @@ from ..common import SharedFacebook
 from ..common import msg_receipt, msg_traced
 
 from .callers import SearchEngineCaller, OctopusCaller
-from .session import Session, SessionServer
+from .session import Session
+from .session_server import SessionServer
 
 
 g_session_server = SessionServer()
@@ -307,7 +308,7 @@ class Worker(threading.Thread, Logging):
 
     @abstractmethod
     def deliver(self, msg: ReliableMessage) -> Optional[Content]:
-        pass
+        raise NotImplemented
 
     #
     #   Run Loop
@@ -377,7 +378,7 @@ class BroadcastDispatcher(Worker):
             return self.__deliver_to_assistants(msg=msg)
         # check for neighbor stations
         if receiver in ['station@anywhere', 'stations@everywhere', str(ANYONE), str(EVERYONE)]:
-            self.info('forward message to neighbors: %s -> %s, %s' % (sender, receiver, group))
+            self.info('forward message to neighbors: %s -> %s, %s, %s' % (sender, receiver, group, msg.get('traces')))
             return self.__deliver_to_neighbors(msg=msg)
         # TODO: check for other broadcast IDs
         self.warning('failed to deliver message: %s' % msg)

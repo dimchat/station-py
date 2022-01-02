@@ -36,20 +36,16 @@
 """
 
 import socket
-import threading
 import traceback
-import weakref
-from typing import Optional, Set, Dict, MutableMapping
+from typing import Optional
 
 from startrek import GateStatus, Gate
 from startrek import Connection, ActiveConnection
 from startrek import Arrival
 
 from dimp import hex_encode
-from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
-from ..utils import Singleton
 from ..utils import NotificationCenter
 from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
 from ..common import NotificationNames
@@ -143,125 +139,3 @@ class Session(BaseSession):
         else:
             for item in array:
                 gate.send_response(payload=item, ship=ship, remote=source, local=destination)
-
-
-@Singleton
-class SessionServer:
-
-    def __init__(self):
-        super().__init__()
-        # memory cache
-        self.__client_addresses: Dict[ID, Set[tuple]] = {}
-        self.__sessions: MutableMapping[tuple, Session] = weakref.WeakValueDictionary()
-        self.__lock = threading.Lock()
-
-    def __insert_address(self, identifier: ID, client_address: tuple):
-        addresses = self.__client_addresses.get(identifier)
-        if addresses is None:
-            addresses = set()
-            self.__client_addresses[identifier] = addresses
-        addresses.add(client_address)
-
-    def __remove_address(self, identifier: ID, client_address: tuple):
-        addresses = self.__client_addresses.get(identifier)
-        if addresses is not None:
-            addresses.discard(client_address)
-            if len(addresses) == 0:
-                self.__client_addresses.pop(identifier)
-
-    def active_sessions(self, identifier: ID) -> Set[Session]:
-        """ Get all active sessions with user ID """
-        sessions: Set[Session] = set()
-        with self.__lock:
-            # 1. get all client addresses with ID
-            all_addresses = self.__client_addresses.get(identifier)
-            if all_addresses is not None:
-                # 2. get sessions by each address
-                for address in all_addresses:
-                    session = self.__sessions.get(address)
-                    if session is not None and session.active:
-                        sessions.add(session)
-        return sessions
-
-    def get_session(self, address: tuple) -> Optional[Session]:
-        """ Get session by client address """
-        with self.__lock:
-            return self.__sessions.get(address)
-
-    def add_session(self, session: Session):
-        """ Cache session with client address """
-        address = session.client_address
-        assert address is not None, 'session error: %s' % session
-        assert session.identifier is None, 'session error: %s' % session
-        with self.__lock:
-            self.__sessions[address] = session
-        return True
-
-    def update_session(self, session: Session, identifier: ID):
-        """ Update ID in this session """
-        address = session.client_address
-        assert address is not None, 'session error: %s' % session
-        old = session.identifier
-        if old == identifier:
-            # nothing changed
-            return False
-        with self.__lock:
-            if old is not None:
-                # 0. remove client address from old ID
-                self.__remove_address(identifier=old, client_address=address)
-            # 1. insert remote address for new ID
-            self.__insert_address(identifier=identifier, client_address=address)
-        # 2. update session ID
-        session.identifier = identifier
-        return True
-
-    def remove_session(self, session: Session):
-        """ Remove the session """
-        identifier = session.identifier
-        address = session.client_address
-        assert address is not None, 'session error: %s' % session
-        with self.__lock:
-            # 1. remove session with client address
-            self.__sessions.pop(address, None)
-            # 2. remove client address with ID if exists
-            if identifier is not None:
-                self.__remove_address(identifier=identifier, client_address=address)
-        # 3. set inactive
-        session.active = False
-        return True
-
-    #
-    #   Users
-    #
-    def all_users(self) -> Set[ID]:
-        """ Get all users """
-        with self.__lock:
-            return set(self.__client_addresses.keys())
-
-    def is_active(self, identifier: ID) -> bool:
-        """ Check whether user has active session """
-        sessions = self.active_sessions(identifier=identifier)
-        return len(sessions) > 0
-
-    def active_users(self, start: int, limit: int) -> Set[ID]:
-        """ Get active users """
-        users = set()
-        array = self.all_users()
-        if limit > 0:
-            end = start + limit
-        else:
-            end = 10240
-        index = -1
-        for item in array:
-            if self.is_active(identifier=item):
-                index += 1
-                if index < start:
-                    # skip
-                    continue
-                elif index < end:
-                    # OK
-                    users.add(item)
-                else:
-                    # finished
-                    break
-        return users

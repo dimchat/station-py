@@ -31,7 +31,8 @@
 
 from .cpu import *
 
-from .session import Session, SessionServer
+from .session import Session
+from .session_server import SessionServer
 from .messenger import ServerMessenger
 from .processor import ServerProcessor, ServerProcessorFactory
 from .callers import ReceptionistCaller, SearchEngineCaller, OctopusCaller, MonitorCaller

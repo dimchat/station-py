@@ -39,7 +39,7 @@ from dimp import Command
 from dimsdk import HandshakeCommand
 from dimsdk import CommandProcessor
 
-from ..session import SessionServer
+from ..session_server import SessionServer
 
 
 g_session_server = SessionServer()

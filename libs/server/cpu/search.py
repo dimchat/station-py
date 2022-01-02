@@ -38,7 +38,7 @@ from dimsdk import CommandProcessor
 from ...database import Database
 from ...common import SearchCommand
 
-from ..session import SessionServer
+from ..session_server import SessionServer
 
 
 g_session_server = SessionServer()
