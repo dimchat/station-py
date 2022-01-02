@@ -39,7 +39,7 @@ from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, Command
 from dimsdk import HandshakeCommand
-from dimsdk import Station
+from dimsdk import Station, Transmitter
 
 from ...utils import Logging
 from ...network import GateStatus, DeparturePriority
@@ -51,7 +51,7 @@ from ...common import MessengerDelegate
 from .session import Session
 
 
-class Server(Station, MessengerDelegate, StateDelegate, Logging):
+class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
     """
         Remote Station
         ~~~~~~~~~~~~~~
@@ -202,14 +202,21 @@ class Server(Station, MessengerDelegate, StateDelegate, Logging):
         self.__fsm.session_key = session_key
         self.messenger.handshake_accepted(identifier=user.identifier)
 
-    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
-        session = self.connect()
-        return session.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
+    #
+    #   Transmitter
+    #
 
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+        session = self.connect()
+        return session.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+
+    # Override
     def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
         session = self.connect()
         return session.send_instant_message(msg=msg, priority=priority)
 
+    # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         session = self.connect()
         return session.send_reliable_message(msg=msg, priority=priority)

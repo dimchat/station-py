@@ -161,7 +161,8 @@ class Console(Cmd, Logging):
             return
         if len(msg) > 0:
             content = TextContent(text=msg)
-            g_messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=self.receiver)
+            g_messenger.send_content(sender=None, receiver=self.receiver,
+                                     content=content, priority=DeparturePriority.NORMAL)
 
     def do_broadcast(self, msg: str):
         if self.client is None:

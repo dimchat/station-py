@@ -96,13 +96,12 @@ class Terminal:
 
     def send_command(self, cmd: Command) -> bool:
         """ Send command to current station """
-        sender = self.facebook.current_user.identifier
-        receiver = self.server_id
-        return self.messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL,
-                                           sender=sender, receiver=receiver)
+        current_user = self.facebook.current_user
+        return self.messenger.send_content(sender=current_user.identifier, receiver=self.server_id,
+                                           content=cmd, priority=DeparturePriority.NORMAL)
 
     def broadcast_content(self, content: Content, receiver: ID) -> bool:
-        sender = self.facebook.current_user.identifier
+        current_user = self.facebook.current_user
         content.group = EVERYONE
-        return self.messenger.send_content(content=content, priority=DeparturePriority.NORMAL,
-                                           sender=sender, receiver=receiver)
+        return self.messenger.send_content(sender=current_user.identifier, receiver=receiver,
+                                           content=content, priority=DeparturePriority.NORMAL)

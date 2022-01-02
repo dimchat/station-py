@@ -413,7 +413,7 @@ class ChatRoom(Logging):
         messenger = self.messenger
         histories = self.__history.all()
         for content in histories:
-            messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=receiver)
+            messenger.send_content(sender=None, receiver=receiver, content=content, priority=DeparturePriority.NORMAL)
         count = len(histories)
         if count == 0:
             text = 'No history record found.'
@@ -436,7 +436,7 @@ class ChatRoom(Logging):
         for item in users:
             if item == sender:
                 continue
-            messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=item)
+            messenger.send_content(sender=None, receiver=item, content=content, priority=DeparturePriority.NORMAL)
         return ReceiptCommand(message='message forwarded')
 
     def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:

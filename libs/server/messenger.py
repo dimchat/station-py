@@ -202,7 +202,7 @@ class ServerMessenger(CommonMessenger):
         if receiver is None:
             receiver = ID.parse(identifier='stations@everywhere')
         srv = self.facebook.current_user
-        return self.send_content(content=cmd, priority=priority, receiver=receiver, sender=srv.identifier)
+        return self.send_content(sender=srv.identifier, receiver=receiver, content=cmd, priority=priority)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):

@@ -183,11 +183,10 @@ class CommonPacker(MessagePacker):
             if err_msg.find('failed to decrypt key in msg') >= 0:
                 # visa.key not updated?
                 user = self.facebook.current_user
-                identifier = user.identifier
                 visa = user.visa
-                assert visa is not None and visa.valid, 'user visa error: %s' % identifier
-                cmd = DocumentCommand.response(document=visa, identifier=identifier)
-                self.messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL,
-                                            receiver=msg.sender, sender=identifier)
+                assert visa is not None and visa.valid, 'user visa error: %s' % user
+                cmd = DocumentCommand.response(document=visa, identifier=user.identifier)
+                self.messenger.send_content(sender=user.identifier, receiver=msg.sender,
+                                            content=cmd, priority=DeparturePriority.NORMAL)
             else:
                 raise error

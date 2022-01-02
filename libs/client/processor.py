@@ -89,8 +89,8 @@ class ClientProcessor(CommonProcessor):
                     self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
                     continue
             # normal response
-            messenger.send_content(content=res, priority=DeparturePriority.NORMAL,
-                                   sender=user.identifier, receiver=r_msg.sender)
+            messenger.send_content(sender=user.identifier, receiver=r_msg.sender,
+                                   content=res, priority=DeparturePriority.NORMAL)
         # DON'T respond to station directly
         return []
 

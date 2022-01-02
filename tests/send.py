@@ -135,7 +135,7 @@ def parse_command(argv: list):
 
 def send_text(text: str, receiver: ID):
     content = TextContent(text=text)
-    g_client.messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=receiver)
+    g_client.messenger.send_content(sender=None, receiver=receiver, content=content, priority=DeparturePriority.NORMAL)
 
 
 # TODO: write test code here

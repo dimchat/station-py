@@ -42,7 +42,7 @@ from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
 from dimp import Packer, Processor, EntityDelegate
-from dimsdk import Messenger, CipherKeyDelegate
+from dimsdk import Messenger, Transmitter, CipherKeyDelegate
 
 from ..utils import Logging
 from ..database import FrequencyChecker
@@ -101,6 +101,10 @@ class CommonMessenger(Messenger, Logging):
     @property
     def session(self) -> BaseSession:
         raise NotImplemented
+
+    @property  # Override
+    def transmitter(self) -> Transmitter:
+        return self.session
 
     @property
     def facebook(self) -> CommonFacebook:
@@ -235,15 +239,6 @@ class CommonMessenger(Messenger, Logging):
         traces = msg.get('traces')
         self.warning('TODO: suspending msg: %s -> %s\n time=[%s] traces=%s' % (sender, receiver, when, traces))
         return True
-
-    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
-        return self.session.send_reliable_message(msg=msg, priority=priority)
-
-    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
-        return self.session.send_instant_message(msg=msg, priority=priority)
-
-    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
-        return self.session.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
 
     #
     #   Interfaces for Sending Commands

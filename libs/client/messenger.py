@@ -95,7 +95,7 @@ class ClientMessenger(CommonMessenger):
                 return False
             else:
                 receiver = station.identifier
-        return self.send_content(content=cmd, priority=priority, receiver=receiver)
+        return self.send_content(sender=None, receiver=receiver, content=cmd, priority=priority)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):
@@ -117,7 +117,7 @@ class ClientMessenger(CommonMessenger):
         login = LoginCommand(identifier=identifier)
         login.agent = 'DIMP/0.4 (Server; Linux; en-US) DIMCoreKit/0.9 (Terminal) DIM-by-GSP/1.0'
         login.station = self.server
-        return self.send_content(content=login, priority=DeparturePriority.NORMAL, sender=identifier, receiver=EVERYONE)
+        return self.send_content(sender=identifier, receiver=EVERYONE, content=login, priority=DeparturePriority.NORMAL)
 
     # Override
     def process_package(self, data: bytes) -> List[bytes]:

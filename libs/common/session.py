@@ -46,14 +46,14 @@ from startrek import Departure, DepartureShip
 
 from dimp import ID, Content
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Messenger
+from dimsdk import Messenger, Transmitter
 
 from ..utils import Logging
 
 from ..network import CommonGate, GateKeeper
 
 
-class BaseSession(Runner, GateDelegate, Logging, ABC):
+class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
 
     def __init__(self, messenger: Messenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
@@ -133,29 +133,32 @@ class BaseSession(Runner, GateDelegate, Logging, ABC):
         return self.keeper.process()
 
     #
-    #   Send message to remote address
+    #   Transmitter
     #
 
+    # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         if not self.active:
             # FIXME: connection lost?
             self.warning(msg='session inactive')
-        self.debug(msg='sending msg to: %s, priority: %d' % (msg.receiver, priority))
+        self.debug(msg='sending reliable message to: %s, priority: %d' % (msg.receiver, priority))
         return self.keeper.send_reliable_message(msg=msg, priority=priority)
 
+    # Override
     def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
         if not self.active:
             # FIXME: connection lost?
             self.warning(msg='session inactive')
-        self.debug(msg='sending msg to: %s, priority: %d' % (msg.receiver, priority))
+        self.debug(msg='sending instant message to: %s, priority: %d' % (msg.receiver, priority))
         return self.keeper.send_instant_message(msg=msg, priority=priority)
 
-    def send_content(self, content: Content, priority: int, receiver: ID, sender: ID = None) -> bool:
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
         if not self.active:
             # FIXME: connection lost?
             self.warning(msg='session inactive')
         self.debug(msg='sending content to: %s, priority: %d' % (receiver, priority))
-        return self.keeper.send_content(content=content, priority=priority, receiver=receiver, sender=sender)
+        return self.keeper.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 
     #
     #   GateDelegate

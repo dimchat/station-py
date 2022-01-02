@@ -143,7 +143,7 @@ class ChatTextContentProcessor(ContentProcessor, Logging):
             self.debug('Group Dialog > %s(%s)@%s: "%s" -> "%s"' % (nickname, sender, group.name, question, answer))
             messenger = self.messenger
             assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % facebook
-            if messenger.send_content(content=res, priority=DeparturePriority.NORMAL, receiver=group):
+            if messenger.send_content(sender=None, receiver=group, content=res, priority=DeparturePriority.NORMAL):
                 text = 'Group message responded'
             else:
                 text = 'Group message respond failed'

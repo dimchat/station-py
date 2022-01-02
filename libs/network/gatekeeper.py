@@ -37,20 +37,19 @@
 
 import socket
 import weakref
-from typing import Optional, Set, Union
+from typing import Optional, Set
 
 from startrek.fsm import Runner
 from startrek.net.channel import get_remote_address, get_local_address
 from startrek import Channel, BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Hub, GateDelegate, ShipDelegate
-from startrek import DeparturePriority
 from tcp import StreamChannel
 from tcp import ServerHub as TCPServerHub, ClientHub
 
 from dimp import ID, Envelope, Content
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Messenger
+from dimsdk import Transmitter
 
 from ..utils import Logging
 
@@ -113,9 +112,9 @@ def reset_send_buffer_size(conn: Connection) -> bool:
 SEND_BUFFER_SIZE = 512 * 1024  # 512 KB
 
 
-class GateKeeper(Runner):
+class GateKeeper(Runner, Transmitter):
 
-    def __init__(self, address: tuple, sock: Optional[socket.socket], messenger: Messenger, delegate: GateDelegate):
+    def __init__(self, address: tuple, sock: Optional[socket.socket], messenger, delegate: GateDelegate):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
         self.__remote = address
@@ -150,8 +149,11 @@ class GateKeeper(Runner):
         return hub
 
     @property
-    def messenger(self) -> Optional[Messenger]:
-        return self.__messenger()
+    def messenger(self):  # -> Optional[CommonMessenger]:
+        transceiver = self.__messenger()
+        from ..common import CommonMessenger
+        assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
+        return transceiver
 
     @property
     def remote_address(self) -> tuple:
@@ -232,11 +234,13 @@ class GateKeeper(Runner):
         return gate.send_payload(payload=payload, local=None, remote=self.__remote,
                                  priority=priority, delegate=delegate)
 
-    def send_reliable_message(self, msg: ReliableMessage, priority: Union[int, DeparturePriority]) -> bool:
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         """ Push message into a waiting queue """
         return self.__queue.append(msg=msg, priority=priority)
 
-    def send_instant_message(self, msg: InstantMessage, priority: Union[int, DeparturePriority]) -> bool:
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
         """ Push message into q waiting queue after encrypted and signed """
         messenger = self.messenger
         # send message (secured + certified) to target station
@@ -252,11 +256,10 @@ class GateKeeper(Runner):
         # TODO: if OK, set msg.state = sending; else set msg.state = waiting
         # save signature for receipt
         msg['signature'] = r_msg.get('signature')
-        from ..common import CommonMessenger
-        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
         return messenger.save_message(msg=msg)
 
-    def send_content(self, content: Content, priority: Union[int, DeparturePriority], receiver: ID, sender: ID = None):
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
         """ Send message content with priority """
         # Application Layer should make sure user is already login before it send message to server.
         # Application layer should put message into queue so that it will send automatically after user login

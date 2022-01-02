@@ -71,6 +71,7 @@ class GroupManager:
         :return: True on success
         """
         facebook = self.facebook
+        messenger = self.messenger
         # check group ID
         gid = content.group
         if gid is None:
@@ -83,16 +84,18 @@ class GroupManager:
             if assistants is None or len(assistants) == 0:
                 raise LookupError('failed to get assistant for group: %s' % self.group)
             # querying assistants for group info
-            self.messenger.query_group(group=self.group, users=assistants)
+            messenger.query_group(group=self.group, users=assistants)
             return False
         # let group assistant to split and deliver this message to all members
-        return self.messenger.send_content(content=content, priority=DeparturePriority.NORMAL, receiver=self.group)
+        return messenger.send_content(sender=None, receiver=self.group,
+                                      content=content, priority=DeparturePriority.NORMAL)
 
     def __send_group_command(self, cmd: Command, members: List[ID]) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
-            if not messenger.send_content(content=cmd, priority=DeparturePriority.NORMAL, receiver=identifier):
+            if not messenger.send_content(sender=None, receiver=identifier,
+                                          content=cmd, priority=DeparturePriority.NORMAL):
                 ok = False
         return ok
 
