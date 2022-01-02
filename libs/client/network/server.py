@@ -202,6 +202,9 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
         self.__fsm.session_key = session_key
         self.messenger.handshake_accepted(identifier=user.identifier)
 
+    def handshake_again(self):
+        self.__fsm.session_key = None
+
     #
     #   Transmitter
     #

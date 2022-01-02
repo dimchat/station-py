@@ -202,10 +202,10 @@ class GateKeeper(Runner, Transmitter):
         if incoming or outgoing:
             # processed income/outgo packages
             return True
-        # if not self.active:
-        #     # inactive, wait a while to check again
-        #     self.__queue.purge()
-        #     return False
+        if not self.active:
+            # inactive, wait a while to check again
+            self.__queue.purge()
+            return False
         # get next message
         wrapper = self.__queue.next()
         if wrapper is None:

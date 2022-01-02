@@ -51,6 +51,13 @@ class Session(BaseSession):
         self.__key: Optional[str] = None
         self.__thread: Optional[Thread] = None
 
+    @property
+    def server(self):
+        messenger = self.messenger
+        from ..messenger import ClientMessenger
+        assert isinstance(messenger, ClientMessenger), 'client messenger error: %s' % messenger
+        return messenger.server
+
     @property  # Override
     def key(self) -> Optional[str]:
         return self.__key
@@ -96,7 +103,9 @@ class Session(BaseSession):
                             remote: tuple, local: Optional[tuple], gate: Gate):
         if current is None or current == GateStatus.ERROR:
             # clear session key
-            self.key = None
+            server = self.server
+            if server is not None:
+                server.handshake_again()
             self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
             # reconnect
             hub = self.gate.hub
