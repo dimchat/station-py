@@ -75,18 +75,6 @@ def get_sn(mars: NetMsg) -> bytes:
     return sn
 
 
-def parse_head(data: bytes) -> Optional[NetMsgHead]:
-    head = NetMsgHead.parse(data=data)
-    if head is not None:
-        if head.version != 200:
-            return None
-        if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
-            return None
-        if head.body_length < 0:
-            return None
-        return head
-
-
 class MarsHelper:
 
     seeker = MarsPackageSeeker()
@@ -180,7 +168,7 @@ class MarsStreamDeparture(DepartureShip):
 
     # Override
     def check_response(self, ship: Arrival) -> bool:
-        assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
+        # assert isinstance(ship, MarsStreamArrival), 'arrival ship error: %s' % ship
         assert ship.sn == self.sn, 'SN not match: %s, %s' % (ship.sn, self.sn)
         self.__fragments.clear()
         return True

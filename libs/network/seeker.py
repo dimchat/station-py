@@ -147,7 +147,10 @@ class MTPPackageSeeker(PackageSeeker[Header, Package]):
 
     # Override
     def parse_header(self, data: ByteArray) -> Optional[Header]:
-        return Header.parse(data=data)
+        try:
+            return Header.parse(data=data)
+        except Exception as error:
+            print('parse MTP head error: %s, data: %s' % (error, data))
 
     # Override
     def get_head_length(self, head: Header) -> int:
@@ -171,16 +174,23 @@ class MarsPackageSeeker(PackageSeeker[NetMsgHead, NetMsg]):
         length = NetMsgHead.MIN_HEAD_LEN + 12  # FIXME: len(options) > 12?
         super().__init__(magic_code=code, magic_offset=offset, max_head_length=length)
 
+    # Override
     def parse_header(self, data: ByteArray) -> Optional[NetMsgHead]:
-        data = data.get_bytes()
-        return parse_mars_head(data=data)
+        try:
+            data = data.get_bytes()
+            return NetMsgHead.parse(data=data)
+        except Exception as error:
+            print('parse Mars head error: %s, data: %s' % (error, data))
 
+    # Override
     def get_head_length(self, head: NetMsgHead) -> int:
         return head.length
 
+    # Override
     def get_body_length(self, head: NetMsgHead) -> int:
         return head.body_length
 
+    # Override
     def create_package(self, data: ByteArray, head: NetMsgHead, body: ByteArray) -> NetMsg:
         data = data.get_bytes()
         if body.size == 0:
@@ -188,15 +198,3 @@ class MarsPackageSeeker(PackageSeeker[NetMsgHead, NetMsg]):
         else:
             body = body.get_bytes()
         return NetMsg(data=data, head=head, body=body)
-
-
-def parse_mars_head(data: bytes) -> Optional[NetMsgHead]:
-    head = NetMsgHead.parse(data=data)
-    if head is not None:
-        if head.version != 200:
-            return None
-        if head.cmd not in [NetMsgHead.SEND_MSG, NetMsgHead.NOOP, NetMsgHead.PUSH_MESSAGE]:
-            return None
-        if head.body_length < 0:
-            return None
-        return head
