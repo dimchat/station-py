@@ -85,13 +85,13 @@ class NetworkCache(Cache):
     #   Online Users
     #
 
-    def add_online_user(self, station: ID, user: ID, login_time: int = None):
+    def add_online_user(self, station: ID, user: ID, last_time: int = None):
         key = self.__key(suffix=('%s.online-users' % station))
-        if login_time is None or login_time == 0:
-            login_time = int(time.time())
+        if last_time is None or last_time == 0:
+            last_time = int(time.time())
         value = utf8_encode(string=str(user))
         # add user ID with login time
-        self.zadd(name=key, mapping={value: login_time})
+        self.zadd(name=key, mapping={value: last_time})
         return True
 
     def remove_offline_users(self, station: ID, users: List[ID]):

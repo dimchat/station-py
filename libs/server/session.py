@@ -52,12 +52,8 @@ from dimsdk.plugins.aes import random_bytes
 from ..utils import Singleton
 from ..utils import NotificationCenter
 from ..network import WSArrival, MarsStreamArrival, MTPStreamArrival
-from ..database import Database
 from ..common import NotificationNames
 from ..common import BaseSession, CommonMessenger
-
-
-g_database = Database()
 
 
 def generate_session_key() -> str:
@@ -201,15 +197,11 @@ class SessionServer:
             self.__sessions[address] = session
         return True
 
-    def update_session(self, session: Session, identifier: ID = None):
+    def update_session(self, session: Session, identifier: ID):
         """ Update ID in this session """
         address = session.client_address
         assert address is not None, 'session error: %s' % session
         old = session.identifier
-        if identifier is None:
-            if old is not None:
-                g_database.renew_session(address=address, identifier=old)
-            return False
         if old == identifier:
             # nothing changed
             return False

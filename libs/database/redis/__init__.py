@@ -37,7 +37,6 @@ from .device import DeviceCache
 from .user import UserCache
 from .login import LoginCache
 from .group import GroupCache
-from .session import SessionCache
 from .message import MessageCache
 from .msg_key import MessageKeyCache
 
@@ -51,7 +50,6 @@ __all__ = [
     'DocumentCache', 'DeviceCache',
     'UserCache', 'LoginCache',
     'GroupCache',
-    'SessionCache',
     'MessageCache',
     'MessageKeyCache',
 ]

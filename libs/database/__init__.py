@@ -52,7 +52,6 @@ from .table_device import DeviceTable
 from .table_user import UserTable
 from .table_login import LoginTable
 from .table_group import GroupTable
-from .table_session import SessionTable
 from .table_message import MessageTable
 from .table_msg_key import MessageKeyTable
 
@@ -70,7 +69,6 @@ __all__ = [
     'DocumentTable', 'DeviceTable',
     'UserTable', 'PrivateKeyTable', 'LoginTable',
     'GroupTable',
-    'SessionTable',
     'MessageTable',
 
     'Database',
@@ -92,8 +90,6 @@ class Database:
         # Message
         self.__message_table = MessageTable()
         self.__msg_key_table = MessageKeyTable()
-        # Session
-        self.__session_table = SessionTable()
         # Network
         self.__network_table = NetworkTable()
         # ANS
@@ -313,25 +309,6 @@ class Database:
         return self.__msg_key_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     """
-        Session info
-        ~~~~~~~~~~~~
-        
-        redis key: 'mkm.session.{ID}.addresses'
-        redis key: 'mkm.session.{address}.info'
-    """
-    def active_sessions(self, identifier: ID) -> Set[dict]:
-        return self.__session_table.active_sessions(identifier=identifier)
-
-    def fetch_session(self, address: tuple) -> dict:
-        return self.__session_table.fetch_session(address=address)
-
-    def update_session(self, address: tuple, identifier: ID) -> bool:
-        return self.__session_table.update_session(address=address, identifier=identifier)
-
-    def renew_session(self, address: tuple, identifier: Optional[ID]) -> bool:
-        return self.__session_table.renew_session(address=address, identifier=identifier)
-
-    """
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
 
@@ -404,8 +381,8 @@ class Database:
     def pop_document_query(self) -> Optional[ID]:
         return self.__network_table.pop_document_query()
 
-    def add_online_user(self, station: ID, user: ID, login_time: int = None):
-        self.__network_table.add_online_user(station=station, user=user, login_time=login_time)
+    def add_online_user(self, station: ID, user: ID, last_time: int = None):
+        self.__network_table.add_online_user(station=station, user=user, last_time=last_time)
 
     def remove_offline_users(self, station: ID, users: List[ID]):
         self.__network_table.remove_offline_users(station=station, users=users)

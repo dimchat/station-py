@@ -158,7 +158,7 @@ class SearchEngineCaller(Runner, Logging):
             if obj is None:
                 now = time.time()
                 if now > self.__next_time:
-                    self.__next_time = now + 300
+                    self.__next_time = now + 180
                     update_online_users()
                 return False
             msg = ReliableMessage.parse(msg=obj)

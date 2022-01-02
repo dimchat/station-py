@@ -123,7 +123,7 @@ class Recorder(Runner, Logging):
                 self.error('user/station empty: %s' % info)
             else:
                 db = Database()
-                db.add_online_user(station=station, user=identifier, login_time=login_time)
+                db.add_online_user(station=station, user=identifier, last_time=login_time)
         elif name == NotificationNames.USER_ONLINE:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')
@@ -138,7 +138,7 @@ class Recorder(Runner, Logging):
                 self.error('user/station empty: %s' % info)
             else:
                 db = Database()
-                db.add_online_user(station=station, user=identifier, login_time=login_time)
+                db.add_online_user(station=station, user=identifier, last_time=login_time)
         elif name == NotificationNames.USER_OFFLINE:
             identifier = ID.parse(identifier=info.get('ID'))
             client_address = info.get('client_address')

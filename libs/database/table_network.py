@@ -48,8 +48,8 @@ class NetworkTable:
     def pop_document_query(self) -> Optional[ID]:
         return self.__redis.pop_document_query()
 
-    def add_online_user(self, station: ID, user: ID, login_time: int = None):
-        self.__redis.add_online_user(station=station, user=user, login_time=login_time)
+    def add_online_user(self, station: ID, user: ID, last_time: int = None):
+        self.__redis.add_online_user(station=station, user=user, last_time=last_time)
 
     def remove_offline_users(self, station: ID, users: List[ID]):
         self.__redis.remove_offline_users(station=station, users=users)
