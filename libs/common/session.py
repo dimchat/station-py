@@ -76,7 +76,7 @@ class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
         return self.__keeper
 
     @property
-    def messenger(self) -> Optional[Messenger]:
+    def messenger(self):  # -> Optional[CommonMessenger]:
         return self.keeper.messenger
 
     @property

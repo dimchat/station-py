@@ -45,7 +45,7 @@ from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPip
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton
 from ..database import Database
-from ..common import SharedFacebook, NotificationNames
+from ..common import SharedFacebook, CommonMessenger, NotificationNames
 
 from .session_server import SessionServer
 
@@ -217,6 +217,10 @@ class OctopusCaller(Runner, Logging):
 
     # Override
     def process(self) -> bool:
+        messenger = g_facebook.messenger
+        if not isinstance(messenger, CommonMessenger):
+            self.error(msg='messenger not set yet')
+            return False
         obj = None
         try:
             obj = self.__pipe.receive()
@@ -224,7 +228,7 @@ class OctopusCaller(Runner, Logging):
                 return False
             msg = ReliableMessage.parse(msg=obj)
             assert msg is not None, 'message error: %s' % obj
-            self.dispatcher.deliver(msg=msg)
+            messenger.process_reliable_message(msg=msg)
             return True
         except Exception as error:
             self.error(msg='failed to process: %s, %s' % (error, obj))

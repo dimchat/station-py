@@ -37,13 +37,14 @@
 
 import socket
 import traceback
-from typing import Optional
+from typing import Optional, List
 
 from startrek import GateStatus, Gate
 from startrek import Connection, ActiveConnection
 from startrek import Arrival
 
 from dimp import hex_encode
+from dimp import ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import NotificationCenter
@@ -110,16 +111,17 @@ class Session(BaseSession):
         else:
             raise ValueError('unknown arrival ship: %s' % ship)
         # check payload
-        if payload.startswith(b'{'):
+        if len(payload) == 0:
+            packages = []
+        elif payload.startswith(b'{'):
             # JsON in lines
             packages = payload.splitlines()
         else:
             packages = [payload]
         array = []
-        messenger = self.messenger
         for pack in packages:
             try:
-                responses = messenger.process_package(data=pack)
+                responses = self.__process_package(data=pack)
                 for res in responses:
                     if res is None or len(res) == 0:
                         # should not happen
@@ -139,3 +141,28 @@ class Session(BaseSession):
         else:
             for item in array:
                 gate.send_response(payload=item, ship=ship, remote=source, local=destination)
+
+    def __process_package(self, data: bytes) -> List[bytes]:
+        messenger = self.messenger
+        r_msg = messenger.deserialize_message(data=data)
+        if not self.__trusted_sender(sender=r_msg.sender):
+            s_msg = messenger.verify_message(msg=r_msg)
+            if s_msg is None:
+                self.error(msg='failed to verify message: %s' % r_msg)
+                return []
+        return messenger.process_package(data=data)
+
+    def __trusted_sender(self, sender: ID) -> bool:
+        current = self.identifier
+        if current is None:
+            # not login yet
+            return False
+        # handshake accepted, check current user with sender
+        if current == sender:
+            # no need to verify signature of this message
+            # which sender is equal to current id in session
+            return True
+        # if current.type == NetworkType.STATION:
+        #     # if it's a roaming message delivered from another neighbor station,
+        #     # shall we trust that neighbor totally and skip verifying too ???
+        #     return True

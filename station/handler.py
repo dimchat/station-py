@@ -38,6 +38,7 @@ from dimp import InstantMessage
 
 from libs.utils.log import Logging
 from libs.common import MessengerDelegate
+from libs.server import Filter
 from libs.server import Session, SessionServer
 from libs.server import ServerMessenger
 
@@ -47,6 +48,8 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def __init__(self, request, client_address, server):
         # messenger
         messenger = ServerMessenger()
+        messenger.session = Session(messenger=messenger, address=client_address, sock=request)
+        messenger.filter = Filter(messenger=messenger)
         messenger.delegate = self
         self.__messenger = messenger
         # init
@@ -60,9 +63,7 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def setup(self):
         super().setup()
         try:
-            messenger = self.messenger
-            session = Session(messenger=messenger, address=self.client_address, sock=self.request)
-            messenger.session = session
+            session = self.messenger.session
             SessionServer().add_session(session=session)
             self.info('client connected: %s' % session)
             session.setup()

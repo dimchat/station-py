@@ -65,11 +65,12 @@ class ServerProcessor(CommonProcessor):
         sender = r_msg.sender
         # 1. check login
         session = messenger.session
-        if session.identifier is None or not session.active:
-            # not login yet, force to handshake again
-            if not isinstance(content, HandshakeCommand):
-                handshake = HandshakeCommand.ask(session=session.key)
-                responses.insert(0, handshake)
+        if session is not None:
+            if session.identifier is None or not session.active:
+                # not login yet, force to handshake again
+                if not isinstance(content, HandshakeCommand):
+                    handshake = HandshakeCommand.ask(session=session.key)
+                    responses.insert(0, handshake)
         # 2. check response
         contents = []
         for res in responses:

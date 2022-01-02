@@ -34,7 +34,7 @@ import time
 from typing import Optional, List
 
 from dimp import NetworkType, ID
-from dimp import Envelope, InstantMessage, SecureMessage, ReliableMessage
+from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Command
 from dimp import Processor
 
@@ -58,9 +58,16 @@ class ServerMessenger(CommonMessenger):
 
     def __init__(self):
         super().__init__()
-        from .filter import Filter
-        self.__filter = Filter(messenger=self)
+        self.__filter = None  # NOTICE: create Filter by RequestHandler
         self.__session: Optional[Session] = None
+
+    @property
+    def filter(self):
+        return self.__filter
+
+    @filter.setter
+    def filter(self, checker):
+        self.__filter = checker
 
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
@@ -69,14 +76,17 @@ class ServerMessenger(CommonMessenger):
     def __deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         """ Deliver message to the receiver, or broadcast to neighbours """
         # FIXME: check deliver permission
-        res = self.__filter.check_deliver(msg=msg)
+        checker = self.filter
+        if checker is None:
+            res = None
+        else:
+            res = self.__filter.check_deliver(msg=msg)
         if res is None:
             # delivering is allowed, call dispatcher to deliver this message
             g_database.save_message(msg=msg)
             res = Dispatcher().deliver(msg=msg)
-        # pack response
-        if res is None:
-            return []
+            if res is None:
+                return []
         if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
             self.info('waiting visa key for: %s' % msg.sender)
             return []
@@ -87,6 +97,22 @@ class ServerMessenger(CommonMessenger):
         assert s_msg is not None, 'failed to respond to: %s' % msg.sender
         r_msg = self.sign_message(msg=s_msg)
         return [r_msg]
+
+    def __process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        # 1. skip verifying message
+        s_msg = msg
+        # 2. process message
+        responses = self.process_secure_message(msg=s_msg, r_msg=msg)
+        if responses is None or len(responses) == 0:
+            return []
+        # 3. sign message
+        messages = []
+        for res in responses:
+            signed = self.sign_message(msg=res)
+            if signed is not None:
+                messages.append(signed)
+        return messages
+        # TODO: override to deliver to the receiver when catch exception "receiver error ..."
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
@@ -129,7 +155,7 @@ class ServerMessenger(CommonMessenger):
             return self.__deliver_message(msg=msg)
         # call super
         try:
-            responses = super().process_reliable_message(msg=msg)
+            responses = self.__process_reliable_message(msg=msg)
         except LookupError as error:
             if str(error).startswith('receiver error'):
                 # not mine? deliver it
@@ -154,31 +180,6 @@ class ServerMessenger(CommonMessenger):
                 responses.append(res)
         return responses
 
-    # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        if self.__trusted_sender(sender=msg.sender):
-            self.debug('skip verifying message: %s -> %s' % (msg.sender, msg.receiver))
-            # FIXME: if stream hijacking occurs?
-            return msg
-        else:
-            self.debug('try verifying message: %s -> %s' % (msg.sender, msg.receiver))
-            return super().verify_message(msg=msg)
-
-    def __trusted_sender(self, sender: ID) -> bool:
-        current = self.current_id
-        if current is None:
-            # not login yet
-            return False
-        # handshake accepted, check current user with sender
-        if current == sender:
-            # no need to verify signature of this message
-            # which sender is equal to current id in session
-            return True
-        # if current.type == NetworkType.STATION:
-        #     # if it's a roaming message delivered from another neighbor station,
-        #     # shall we trust that neighbor totally and skip verifying too ???
-        #     return True
-
     #
     #   Session
     #
@@ -189,12 +190,6 @@ class ServerMessenger(CommonMessenger):
     @session.setter
     def session(self, session: Session):
         self.__session = session
-
-    @property
-    def current_id(self) -> Optional[ID]:
-        session = self.__session
-        if session is not None:
-            return session.identifier
 
     #
     #   Sending command
