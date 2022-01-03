@@ -49,6 +49,7 @@ from dimp import InstantMessage, ReliableMessage
 from dimsdk import Messenger, Transmitter
 
 from ..utils import Logging
+from ..utils import get_msg_sig
 
 from ..network import CommonGate, GateKeeper
 
@@ -141,7 +142,8 @@ class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
         if not self.active:
             # FIXME: connection lost?
             self.warning(msg='session inactive')
-        self.debug(msg='sending reliable message to: %s, priority: %d' % (msg.receiver, priority))
+        sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+        self.debug(msg='sending reliable message (%s) to: %s, priority: %d' % (sig, msg.receiver, priority))
         return self.keeper.send_reliable_message(msg=msg, priority=priority)
 
     # Override

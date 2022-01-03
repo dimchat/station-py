@@ -139,7 +139,9 @@ class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
     # Override
     def connection_error(self, error, data: Optional[bytes],
                          source: Optional[tuple], destination: Optional[tuple], connection: Optional[Connection]):
-        if connection is None:
+        if isinstance(error, IOError) and str(error).startswith('failed to send: '):
+            self.warning(msg='ignore socket error: %s' % error)
+        elif connection is None:
             # failed to receive data
             self.__kill(remote=source, local=destination)
         else:
