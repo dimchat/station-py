@@ -44,7 +44,7 @@ from startrek import Connection, ActiveConnection
 from startrek import Arrival
 
 from dimp import hex_encode
-from dimp import ID
+from dimp import NetworkType, ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import NotificationCenter
@@ -162,7 +162,7 @@ class Session(BaseSession):
             # no need to verify signature of this message
             # which sender is equal to current id in session
             return True
-        # if current.type == NetworkType.STATION:
-        #     # if it's a roaming message delivered from another neighbor station,
-        #     # shall we trust that neighbor totally and skip verifying too ???
-        #     return True
+        if current.type == NetworkType.STATION:
+            # if it's a roaming message delivered from another neighbor station,
+            # shall we trust that neighbor totally and skip verifying too ???
+            return True

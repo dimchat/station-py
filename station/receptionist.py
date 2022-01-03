@@ -32,8 +32,9 @@
 """
 
 import threading
+import time
 import traceback
-from typing import Union, Set
+from typing import Union, Set, Dict
 
 from startrek.fsm import Runner
 
@@ -55,22 +56,33 @@ from etc.cfg_init import g_database
 
 class Receptionist(Runner, Logging):
 
+    DELAY = 8  # seconds
+
     def __init__(self):
         super().__init__()
         # waiting queue for offline messages
-        self.__guests = set()
+        self.__guests: Set[ID] = set()
+        self.__times: Dict[ID, float] = {}
         self.__lock = threading.Lock()
         self.__pipe = ReceptionistPipe.secondary()
 
     def get_guests(self) -> Set[ID]:
         with self.__lock:
-            guests = self.__guests.copy()
-            self.__guests.clear()
+            guests = set()
+            now = time.time()
+            for g in self.__guests:
+                t = self.__times.get(g)
+                if t is None or t < now:
+                    guests.add(g)
+            for g in guests:
+                self.__times.pop(g, None)
+                self.__guests.discard(g)
             return guests
 
     def add_guest(self, identifier: ID):
         with self.__lock:
             self.__guests.add(identifier)
+            self.__times[identifier] = time.time() + self.DELAY
 
     def send(self, msg: Union[dict, ReliableMessage]) -> int:
         if isinstance(msg, ReliableMessage):

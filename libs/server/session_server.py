@@ -37,7 +37,8 @@
 
 import threading
 import weakref
-from typing import Optional, Set, Dict, MutableMapping
+from typing import MutableMapping, MutableSet
+from typing import Optional, Dict, Set
 
 from dimp import ID
 
@@ -52,7 +53,7 @@ class SessionServer:
     def __init__(self):
         super().__init__()
         # memory cache
-        self.__client_addresses: Dict[ID, Set[tuple]] = {}
+        self.__client_addresses: Dict[ID, MutableSet[tuple]] = {}
         self.__sessions: MutableMapping[tuple, Session] = weakref.WeakValueDictionary()
         self.__lock = threading.Lock()
 
@@ -78,10 +79,15 @@ class SessionServer:
             all_addresses = self.__client_addresses.get(identifier)
             if all_addresses is not None:
                 # 2. get sessions by each address
+                removed = set()
                 for address in all_addresses:
                     session = self.__sessions.get(address)
-                    if session is not None and session.active:
+                    if session is None:
+                        removed.add(address)
+                    elif session.active:
                         sessions.add(session)
+                for address in removed:
+                    all_addresses.discard(address)
         return sessions
 
     def get_session(self, address: tuple) -> Optional[Session]:
