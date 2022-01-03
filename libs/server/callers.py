@@ -107,7 +107,11 @@ class ReceptionistCaller(Runner, Logging, NotificationObserver):
             if obj is not None:
                 msg = ReliableMessage.parse(msg=obj)
                 assert msg is not None, 'message error: %s' % obj
-                self.dispatcher.deliver(msg=msg)
+                client_address = msg.get('client_address')
+                msg.pop('client_address', None)
+                if isinstance(client_address, list):
+                    client_address = (client_address[0], client_address[1])
+                self.dispatcher.deliver(msg=msg, client_address=client_address)
                 return True
         except Exception as error:
             self.error(msg='failed to process: %s, %s' % (error, obj))
@@ -151,7 +155,11 @@ class SearchEngineCaller(Runner, Logging):
                     self.__update_online_users()
                 return False
             msg = ReliableMessage.parse(msg=obj)
-            self.__deliver_message(msg=msg)
+            client_address = msg.get('client_address')
+            msg.pop('client_address', None)
+            if isinstance(client_address, list):
+                client_address = (client_address[0], client_address[1])
+            self.__deliver_message(msg=msg, client_address=client_address)
             return True
         except Exception as error:
             self.error(msg='search engine error: %s, %s' % (error, obj))
@@ -167,19 +175,16 @@ class SearchEngineCaller(Runner, Logging):
         for item in users:
             g_database.add_online_user(station=sid, user=item)
 
-    def __deliver_message(self, msg: ReliableMessage):
+    def __deliver_message(self, msg: ReliableMessage, client_address: Optional[tuple]):
         sessions = self.__ss.active_sessions(identifier=msg.receiver)
         self.debug(msg='received from search engine for %s (%d sessions)' % (msg.receiver, len(sessions)))
         # check remote address
-        client_address = msg.get('client_address')
         if client_address is None:
             # push to all active sessions
             for sess in sessions:
                 sess.send_reliable_message(msg=msg, priority=DeparturePriority.NORMAL)
         else:
             # push to active session with same remote address
-            client_address = (client_address[0], client_address[1])
-            msg.pop('client_address')
             for sess in sessions:
                 if sess.client_address == client_address:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)

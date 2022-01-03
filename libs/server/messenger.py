@@ -80,11 +80,16 @@ class ServerMessenger(CommonMessenger):
         if checker is None:
             res = None
         else:
-            res = self.__filter.check_deliver(msg=msg)
+            res = checker.check_deliver(msg=msg)
         if res is None:
+            session = self.session
+            if session is None:
+                client_address = None
+            else:
+                client_address = session.client_address
             # delivering is allowed, call dispatcher to deliver this message
             g_database.save_message(msg=msg)
-            res = Dispatcher().deliver(msg=msg)
+            res = Dispatcher().deliver(msg=msg, client_address=client_address)
             if res is None:
                 return []
         if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:

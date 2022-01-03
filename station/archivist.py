@@ -239,8 +239,14 @@ class SearchEngineWorker(Runner, Logging):
             else:
                 msg = ReliableMessage.parse(msg=msg)
                 responses = g_messenger.process_reliable_message(msg=msg)
-                for res in responses:
-                    g_messenger.send_reliable_message(msg=res, priority=DeparturePriority.NORMAL)
+                client_address = msg.get('client_address')
+                if client_address is None:
+                    for res in responses:
+                        g_messenger.send_reliable_message(msg=res, priority=DeparturePriority.NORMAL)
+                else:
+                    for res in responses:
+                        res['client_address'] = client_address
+                        g_messenger.send_reliable_message(msg=res, priority=DeparturePriority.NORMAL)
                 return True
         except Exception as error:
             self.error('archivist error: %s, %s' % (msg, error))

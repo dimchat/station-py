@@ -35,7 +35,7 @@ import threading
 import traceback
 import weakref
 from abc import abstractmethod
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Tuple
 
 from startrek import DeparturePriority
 
@@ -144,19 +144,19 @@ class Dispatcher(NotificationObserver):
         self.__group_worker.remove_neighbor(station=station)
         self.__broadcast_worker.remove_neighbor(station=station)
 
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    def deliver(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
         # post notification for monitor
         NotificationCenter().post(name=NotificationNames.DELIVER_MESSAGE, sender=self, info=msg.dictionary)
         # dispatch task to the worker
         receiver = msg.receiver
         if receiver.is_broadcast:
-            self.__broadcast_worker.add_msg(msg=msg)
+            self.__broadcast_worker.add_msg(msg=msg, client_address=client_address)
             res = 'Message broadcasting'
         elif receiver.is_group:
-            self.__group_worker.add_msg(msg=msg)
+            self.__group_worker.add_msg(msg=msg, client_address=client_address)
             res = 'Group Message delivering'
         else:
-            self.__single_worker.add_msg(msg=msg)
+            self.__single_worker.add_msg(msg=msg, client_address=client_address)
             res = 'Message delivering'
         sender = msg.sender
         if sender.type == NetworkType.STATION:
@@ -270,8 +270,8 @@ class Worker(threading.Thread, Logging):
         super().__init__()
         self.__running = True
         self.__station: Optional[ID] = None
-        self.__neighbors: Set[ID] = set()                # station ID list
-        self.__waiting_list: List[ReliableMessage] = []  # ReliableMessage list
+        self.__neighbors: Set[ID] = set()                              # station ID list
+        self.__waiting_list: List[Tuple[ReliableMessage, tuple]] = []  # ReliableMessage list
         self.__lock = threading.Lock()
 
     @property
@@ -297,17 +297,17 @@ class Worker(threading.Thread, Logging):
         with self.__lock:
             self.__neighbors.discard(station)
 
-    def add_msg(self, msg: ReliableMessage):
+    def add_msg(self, msg: ReliableMessage, client_address: Optional[tuple]):
         with self.__lock:
-            self.__waiting_list.append(msg)
+            self.__waiting_list.append((msg, client_address))
 
-    def pop_msg(self) -> Optional[ReliableMessage]:
+    def pop_msg(self) -> Optional[Tuple[ReliableMessage, Optional[tuple]]]:
         with self.__lock:
             if len(self.__waiting_list) > 0:
                 return self.__waiting_list.pop(0)
 
     @abstractmethod
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    def deliver(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
         raise NotImplemented
 
     #
@@ -318,11 +318,11 @@ class Worker(threading.Thread, Logging):
         while self.__running:
             try:
                 while self.__running:
-                    msg = self.pop_msg()
-                    if msg is None:
+                    pair = self.pop_msg()
+                    if pair is None:
                         time.sleep(0.25)
                         break
-                    res = self.deliver(msg=msg)
+                    res = self.deliver(msg=pair[0], client_address=pair[1])
                     if res is not None:
                         # TODO: respond the delivering result to the sender
                         pass
@@ -341,14 +341,16 @@ class Worker(threading.Thread, Logging):
 class SingleDispatcher(Worker):
     """ deliver personal message """
 
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    # Override
+    def deliver(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
         return _deliver_message(msg=msg, receiver=msg.receiver, station=self.station)
 
 
 class GroupDispatcher(Worker):
     """ let the assistant to process this group message """
 
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    # Override
+    def deliver(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
         assistants = g_facebook.assistants(identifier=msg.receiver)
         if assistants is None or len(assistants) == 0:
             raise LookupError('failed to get assistant for group: %s' % msg.receiver)
@@ -364,14 +366,15 @@ class BroadcastDispatcher(Worker):
         super().__init__()
         self.__search_engine = SearchEngineCaller()
 
-    def deliver(self, msg: ReliableMessage) -> Optional[Content]:
+    # Override
+    def deliver(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
         sender = msg.sender
         receiver = msg.receiver
         group = msg.group
         # check for search engine: 'archivist'
         if receiver in ['archivist@anywhere', 'archivists@everywhere']:
             self.info('forward search command to archivist: %s -> %s' % (sender, receiver))
-            return self.__deliver_to_archivists(msg=msg)
+            return self.__deliver_to_archivists(msg=msg, client_address=client_address)
         # check for group bots: assistants
         if receiver in ['assistant@anywhere', 'assistants@everywhere']:
             self.info('forward group message to assistants: %s -> %s, %s' % (sender, receiver, group))
@@ -383,7 +386,9 @@ class BroadcastDispatcher(Worker):
         # TODO: check for other broadcast IDs
         self.warning('failed to deliver message: %s' % msg)
 
-    def __deliver_to_archivists(self, msg: ReliableMessage) -> Optional[Content]:
+    def __deliver_to_archivists(self, msg: ReliableMessage, client_address: Optional[tuple]) -> Optional[Content]:
+        if client_address is not None:
+            msg['client_address'] = client_address
         self.__search_engine.send(msg=msg)
         return None
 

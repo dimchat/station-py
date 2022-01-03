@@ -172,7 +172,7 @@ def post_from_rcp(cpu: ReportCommandProcessor, online: bool, cmd: Command, sende
     if session is not None and session.identifier == sender:
         # login this station
         session.active = online
-        NotificationCenter().post(notification=notification, sender=cpu, info={
+        NotificationCenter().post(name=notification, sender=cpu, info={
             'ID': str(sender),
             'client_address': session.client_address,
             'station': str(cpu.current_station.identifier),
@@ -180,7 +180,7 @@ def post_from_rcp(cpu: ReportCommandProcessor, online: bool, cmd: Command, sende
         })
     else:
         # login other station
-        NotificationCenter().post(notification=notification, sender=cpu, info={
+        NotificationCenter().post(name=notification, sender=cpu, info={
             'ID': str(sender),
             'time': cmd.time,
         })
