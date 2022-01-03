@@ -31,6 +31,7 @@
 """
 
 import weakref
+from threading import Thread
 from typing import Optional
 
 from startrek.fsm import StateDelegate
@@ -110,6 +111,12 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
             session.stop()
         # stop FSM
         self.__fsm.stop()
+
+    @property
+    def thread(self) -> Optional[Thread]:
+        session = self.__session
+        if session is not None:
+            return session.thread
 
     @property
     def session_key(self) -> Optional[str]:

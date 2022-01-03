@@ -481,3 +481,4 @@ if __name__ == '__main__':
     client = Terminal()
     client.room = ChatRoom(g_messenger)
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
+    client.server.thread.join()

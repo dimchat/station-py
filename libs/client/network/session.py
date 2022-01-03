@@ -52,6 +52,10 @@ class Session(BaseSession):
         self.__thread: Optional[Thread] = None
 
     @property
+    def thread(self) -> Optional[Thread]:
+        return self.__thread
+
+    @property
     def server(self):
         messenger = self.messenger
         from ..messenger import ClientMessenger

@@ -182,7 +182,8 @@ class AssistantMessenger(ClientMessenger, Logging):
                 if len(expel_list) > 0:
                     # send 'expel' command to the sender
                     cmd = GroupCommand.expel(group=receiver, members=expel_list)
-                    g_messenger.send_content(sender=None, receiver=sender, content=cmd, priority=DeparturePriority.NORMAL)
+                    g_messenger.send_content(sender=None, receiver=sender,
+                                             content=cmd, priority=DeparturePriority.NORMAL)
                 # update key map
                 g_database.update_group_keys(keys=keys, sender=sender, group=receiver)
             # split and forward group message,
@@ -266,3 +267,4 @@ if __name__ == '__main__':
     # create client and connect to the station
     client = Terminal()
     dims_connect(terminal=client, messenger=g_messenger, server=g_station)
+    client.server.thread.join()
