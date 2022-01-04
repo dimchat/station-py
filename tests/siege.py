@@ -81,17 +81,17 @@ class Soldier(Runner, Logging):
         self.__time_to_retreat = time.time() + 32
 
     def __del__(self):
-        self.warning(msg='killing %s' % self)
+        self.warning(msg='soldier down: %s' % self.user)
 
     def __str__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__
-        return '<%s>%s\n%s\n</%s module="%s">' % (cname, self.user, self.server, cname, mod)
+        return '<%s>%s%s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     def __repr__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__
-        return '<%s>%s\n%s\n</%s module="%s">' % (cname, self.user, self.server, cname, mod)
+        return '<%s>%s%s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     @property
     def messenger(self) -> ClientMessenger:
@@ -138,7 +138,7 @@ class Soldier(Runner, Logging):
         return thr
 
 
-class Sergeant:
+class Sergeant(Logging):
 
     LANDING_POINT = 'normandy'
 
@@ -159,14 +159,14 @@ class Sergeant:
         port = self.__port
         threads = []
         for i in range(self.UNITS):
-            print('**** start thread (%d + %d): %s' % (self.__offset, i, cid))
+            self.warning(msg='**** thread starts (%d + %d): %s' % (self.__offset, i, cid))
             soldier = Soldier(client_id=cid)
             thr = soldier.attack(target=target, host=host, port=port)
             threads.append(thr)
             self.__offset += self.UNITS
         for thr in threads:
             thr.join()
-            print('**** thread stopped: %s' % thr)
+            self.warning(msg='**** thread stopped: %s' % thr)
 
     def attack(self, target: ID, host: str, port: int = 9394) -> multiprocessing.Process:
         self.__target = str(target)
@@ -199,7 +199,7 @@ class Sergeant:
         return identifier
 
 
-class Colonel(Runner):
+class Colonel(Runner, Logging):
 
     TROOPS = 16  # progresses count
 
@@ -228,7 +228,7 @@ class Colonel(Runner):
             array = text.splitlines()
             for item in array:
                 if len(item) < 45 or len(item) > 55:
-                    print('*** ID error: %s' % item)
+                    self.error(msg='*** ID error: %s' % item)
                     continue
                 cid = ID.parse(identifier=item)
                 if cid is not None:
@@ -253,7 +253,7 @@ class Colonel(Runner):
         processes = []
         for i in range(self.TROOPS):
             soldier = self.__soldiers[i]
-            print('**** starting process [%d]: %s -> %s (%s:%d)' % (i, soldier, server_id, host, port))
+            self.warning(msg='**** process starts [%d]: %s -> %s (%s:%d)' % (i, soldier, server_id, host, port))
             sergeant = Sergeant(client_id=soldier, offset=self.__offset)
             proc = sergeant.attack(target=server_id, host=host, port=port)
             processes.append(proc)
@@ -261,7 +261,7 @@ class Colonel(Runner):
             self.__offset += Sergeant.UNITS
         for proc in processes:
             proc.join()
-            print('**** process stopped: %s' % proc)
+            self.warning(msg='**** process stopped: %s' % proc)
         # return False to have a rest
         return False
 
@@ -284,9 +284,9 @@ class Colonel(Runner):
 # Log.LEVEL = Log.DEVELOP
 Log.LEVEL = Log.RELEASE
 
-Sergeant.LANDING_POINT = 'macbook'
+Sergeant.LANDING_POINT = 'normandy'
 Sergeant.UNITS = 10
-Colonel.TROOPS = 16
+Colonel.TROOPS = 10
 
 # candidates
 all_stations = [
