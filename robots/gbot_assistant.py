@@ -51,8 +51,7 @@ from libs.utils import Logging
 from libs.common import SharedFacebook
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import g_station
-from robots.config import dims_connect
+from robots.config import dims_connect, current_station
 
 from etc.cfg_init import g_database
 
@@ -254,17 +253,19 @@ class AssistantMessenger(ClientMessenger, Logging):
     Messenger for Group Assistant robot
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = AssistantMessenger()
 g_facebook = SharedFacebook()
+g_messenger = AssistantMessenger(facebook=g_facebook)
 g_facebook.messenger = g_messenger
 
 if __name__ == '__main__':
 
     # set current user
     assistant = ID.parse(identifier='assistant')
-    g_facebook.current_user = g_facebook.user(identifier=assistant)
+    user = g_facebook.user(identifier=assistant)
+    g_facebook.current_user = user
 
     # create client and connect to the station
     client = Terminal()
-    dims_connect(terminal=client, messenger=g_messenger, server=g_station)
-    client.server.thread.join()
+    server = current_station()
+    dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
+    server.thread.join()

@@ -413,7 +413,7 @@ class ArchivistMessenger(CommonMessenger):
 
 
 g_worker = SearchEngineWorker()
-g_messenger = ArchivistMessenger()
+g_messenger = ArchivistMessenger(facebook=g_facebook)
 
 
 if __name__ == '__main__':

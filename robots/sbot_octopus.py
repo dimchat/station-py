@@ -50,18 +50,18 @@ sys.path.append(rootPath)
 from libs.utils.log import Logging
 from libs.utils.ipc import OctopusPipe
 from libs.common import msg_traced, is_broadcast_message
+from libs.common import CommonFacebook
 from libs.client import Server, Terminal, ClientMessenger
 
 from etc.cfg_init import neighbor_stations, g_database, g_facebook
-from robots.config import g_station
-from robots.config import dims_connect
+from robots.config import dims_connect, current_station, station_id
 
 
 class OctopusMessenger(ClientMessenger):
     """ Messenger for processing message from remote station """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__(facebook=facebook)
         self.__accepted = False
 
     @property
@@ -69,7 +69,7 @@ class OctopusMessenger(ClientMessenger):
         return self.__accepted
 
     def _is_handshaking(self, msg: ReliableMessage) -> bool:
-        if msg.receiver != g_station.identifier or msg.type != ContentType.COMMAND:
+        if msg.receiver != station_id or msg.type != ContentType.COMMAND:
             # only check Command sent to this station
             return False
         i_msg = self.decrypt_message(msg=msg)
@@ -106,7 +106,7 @@ class Worker(Runner, Logging):
         super().__init__()
         self.__waiting_list: List[ReliableMessage] = []  # sending messages
         self.__lock = threading.Lock()
-        self.__client = dims_connect(terminal=client, messenger=messenger, server=server)
+        self.__client = dims_connect(terminal=client, server=server, user=g_facebook.current_user, messenger=messenger)
         self.__server = server
         self.__messenger = messenger
 
@@ -184,7 +184,7 @@ class OctopusWorker(Runner, Logging):
         super().stop()
 
     def add_neighbor(self, station: ID) -> bool:
-        assert station != g_station.identifier, 'neighbor station ID error: %s, %s' % (station, g_station)
+        assert station != station_id, 'neighbor station ID error: %s, %s' % (station, station_id)
         if self.__neighbors.get(station) is None:
             # create remote station
             server = g_facebook.user(identifier=station)
@@ -193,8 +193,9 @@ class OctopusWorker(Runner, Logging):
                 server = Server(identifier=station, host=server.host, port=server.port)
                 g_facebook.cache_user(user=server)
             # worker for remote station
+            messenger = OctopusMessenger(facebook=g_facebook)
             self.info('bridge for neighbor station: %s' % server)
-            self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=OctopusMessenger())
+            self.__neighbors[station] = Worker(client=Terminal(), server=server, messenger=messenger)
             return True
 
     def send(self, msg: Union[dict, ReliableMessage]):
@@ -210,7 +211,7 @@ class OctopusWorker(Runner, Logging):
             msg = ReliableMessage.parse(msg=msg)
             if msg is None:
                 return False
-            if msg.receiver == g_station.identifier:
+            if msg.receiver == station_id:
                 self.warning('msg for %s will be stopped here' % msg.receiver)
             else:
                 self.__departure(msg=msg)
@@ -272,20 +273,20 @@ def update_neighbors(station: ID, neighbors: List[Station]) -> bool:
 
 if __name__ == '__main__':
 
-    decrypt_keys = g_facebook.private_keys_for_decryption(identifier=g_station.identifier)
-    assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % g_station
-    print('Current station with %d private key(s): %s' % (len(decrypt_keys), g_station))
+    decrypt_keys = g_facebook.private_keys_for_decryption(identifier=station_id)
+    assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % station_id
+    print('Current station with %d private key(s): %s' % (len(decrypt_keys), station_id))
 
     # update for neighbor stations
-    update_neighbors(station=g_station.identifier, neighbors=neighbor_stations)
+    update_neighbors(station=station_id, neighbors=neighbor_stations)
 
     # set current user
-    g_facebook.current_user = g_station
+    g_facebook.current_user = current_station()
 
     g_octopus = OctopusWorker()
     # add neighbors
     for node in neighbor_stations:
-        assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
+        assert node.identifier != station_id, 'neighbor station error: %s, current station: %s' % (node, station_id)
         g_octopus.add_neighbor(station=node.identifier)
     # start all
     g_octopus.start()

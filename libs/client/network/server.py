@@ -60,6 +60,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
 
     def __init__(self, identifier: ID, host: str, port: int = 9394):
         super().__init__(identifier=identifier, host=host, port=port)
+        self.info(msg='server created: %s, (%s:%d)' % (identifier, host, port))
         self.__messenger: Optional[weakref.ReferenceType] = None
         self.__session: Optional[Session] = None
         self.__current_user: Optional[User] = None
@@ -254,7 +255,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
     # Override
     def enter_state(self, state, ctx):
         # called before state changed
-        pass
+        self.info(msg='enter state: %s, id=%s' % (state, self.identifier))
 
     # Override
     def exit_state(self, state, ctx):

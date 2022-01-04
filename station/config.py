@@ -48,7 +48,7 @@ from etc.cfg_init import station_id, create_station
 
     Transceiver for processing messages
 """
-g_messenger = ServerMessenger()
+g_messenger = ServerMessenger(facebook=g_facebook)
 g_facebook.messenger = g_messenger
 
 

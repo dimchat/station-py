@@ -52,8 +52,7 @@ from libs.client import ClientProcessor, ClientProcessorFactory
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
-from robots.config import g_station
-from robots.config import dims_connect
+from robots.config import dims_connect, current_station
 
 
 def load_statistics(prefix: str) -> List[str]:
@@ -145,8 +144,8 @@ class BotMessenger(ClientMessenger):
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = BotMessenger()
 g_facebook = SharedFacebook()
+g_messenger = BotMessenger(facebook=g_facebook)
 g_facebook.messenger = g_messenger
 
 
@@ -154,9 +153,11 @@ if __name__ == '__main__':
 
     # set current user
     bot_id = 'xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp'  # chat bot XiaoI
-    g_facebook.current_user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
+    user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
+    g_facebook.current_user = user
 
     # create client and connect to the station
     client = Terminal()
-    dims_connect(terminal=client, messenger=g_messenger, server=g_station)
-    client.server.thread.join()
+    server = current_station()
+    dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
+    server.thread.join()

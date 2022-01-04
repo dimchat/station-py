@@ -48,7 +48,7 @@ from ..utils import Logging
 from ..database import FrequencyChecker
 
 from .keycache import KeyCache
-from .facebook import CommonFacebook, SharedFacebook
+from .facebook import CommonFacebook
 from .session import BaseSession
 
 
@@ -82,9 +82,10 @@ class CommonMessenger(Messenger, Logging):
     # each query will be expired after 10 minutes
     QUERY_EXPIRES = 600  # seconds
 
-    def __init__(self):
+    def __init__(self, facebook: CommonFacebook):
         super().__init__()
         self.__delegate: Optional[weakref.ReferenceType] = None
+        self.__facebook = facebook
         self.__message_packer = self._create_packer()
         self.__message_processor = self._create_processor()
         # for checking duplicated queries
@@ -108,11 +109,11 @@ class CommonMessenger(Messenger, Logging):
 
     @property
     def facebook(self) -> CommonFacebook:
-        return SharedFacebook()
+        return self.__facebook
 
     @property  # Override
     def barrack(self) -> EntityDelegate:
-        return SharedFacebook()
+        return self.facebook
 
     @property  # Override
     def key_cache(self) -> CipherKeyDelegate:

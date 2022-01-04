@@ -30,6 +30,8 @@
     Configuration for Robot
 """
 
+from dimp import User
+
 #
 #  Common Libs
 #
@@ -46,15 +48,16 @@ from etc.cfg_init import station_id
 from etc.cfg_init import g_facebook
 
 
-def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger) -> Terminal:
+def dims_connect(terminal: Terminal, server: Server, user: User, messenger: ClientMessenger) -> Terminal:
     messenger.delegate = server
     messenger.terminal = terminal
     server.messenger = messenger
     server.server_delegate = terminal
+    server.current_user = user
     # client
     terminal.messenger = messenger
     terminal.start(server=server)
-    # server.handshake()
+    # server.handshake(session_key=None)
     return terminal
 
 
@@ -62,8 +65,13 @@ def dims_connect(terminal: Terminal, server: Server, messenger: ClientMessenger)
     Current Station
     ~~~~~~~~~~~~~~~
 """
-Log.info('-------- Current station: %s (%s:%d)' % (station_id, local_host, local_port))
-g_station = Server(identifier=station_id, host=local_host, port=local_port)
-g_facebook.cache_user(user=g_station)
+
+
+def current_station() -> Server:
+    Log.info('-------- Current station: %s (%s:%d)' % (station_id, local_host, local_port))
+    station = Server(identifier=station_id, host=local_host, port=local_port)
+    g_facebook.cache_user(user=station)
+    return station
+
 
 Log.info('======== configuration OK!')

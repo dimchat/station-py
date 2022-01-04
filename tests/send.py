@@ -78,7 +78,7 @@ class TestMessenger(ClientMessenger):
         return super().process_content(content=content, r_msg=r_msg)
 
 
-g_messenger = TestMessenger()
+g_messenger = TestMessenger(facebook=g_facebook)
 g_client = Terminal()
 
 
@@ -108,7 +108,7 @@ def login(identifier: ID):
     print('**** Login station: %s' % g_station)
     user = g_facebook.user(identifier=identifier)
     g_facebook.current_user = user
-    dims_connect(terminal=g_client, messenger=g_messenger, server=g_station)
+    dims_connect(terminal=g_client, server=g_station, user=user, messenger=g_messenger)
 
 
 def logout():

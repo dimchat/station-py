@@ -38,6 +38,7 @@ from dimp import InstantMessage
 
 from libs.utils.log import Logging
 from libs.common import MessengerDelegate
+from libs.common import SharedFacebook
 from libs.server import Filter
 from libs.server import Session, SessionServer
 from libs.server import ServerMessenger
@@ -46,8 +47,7 @@ from libs.server import ServerMessenger
 class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
 
     def __init__(self, request, client_address, server):
-        # messenger
-        messenger = ServerMessenger()
+        messenger = ServerMessenger(facebook=SharedFacebook())
         messenger.session = Session(messenger=messenger, address=client_address, sock=request)
         messenger.filter = Filter(messenger=messenger)
         messenger.delegate = self

@@ -49,32 +49,36 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
-from libs.common import CommonFacebook
 from libs.database import Storage
+from libs.common import CommonFacebook
 from libs.client import Server, Terminal, ClientMessenger
 
 from etc.config import base_dir
-from robots.config import g_facebook
+from robots.config import g_facebook, dims_connect
 
 
 class Soldier(Runner, Logging):
 
     def __init__(self, client_id: ID):
         super().__init__()
-        self.__time_to_retreat = time.time() + 32
-        self.__terminal = Terminal()
-        self.__messenger = ClientMessenger()
-        self.__facebook = CommonFacebook()
-        self.__user = self.__create_user(identifier=client_id)
+        # check private keys
+        facebook = CommonFacebook()
+        keys = facebook.private_key_for_signature(identifier=client_id)
+        assert len(keys) > 0, 'private key not found: %s' % client_id
+        keys = facebook.private_keys_for_decryption(identifier=client_id)
+        assert len(keys) > 0, 'private key not found: %s' % client_id
+        user = facebook.user(identifier=client_id)
+        assert user is not None, 'failed to get user: %s' % user
+        facebook.current_user = user
+        # client
+        client = Terminal()
+        messenger = ClientMessenger(facebook=facebook)
+        facebook.messenger = messenger
+        self.__terminal = client
+        self.__messenger = messenger
+        self.__user = user
         self.__server = None
-
-    def __create_user(self, identifier: ID) -> User:
-        facebook = self.facebook
-        keys = facebook.private_key_for_signature(identifier=identifier)
-        assert len(keys) > 0, 'private key not found: %s' % identifier
-        keys = facebook.private_keys_for_decryption(identifier=identifier)
-        assert len(keys) > 0, 'private key not found: %s' % identifier
-        return facebook.user(identifier=identifier)
+        self.__time_to_retreat = time.time() + 32
 
     def __del__(self):
         self.warning(msg='killing %s' % self)
@@ -92,10 +96,6 @@ class Soldier(Runner, Logging):
     @property
     def messenger(self) -> ClientMessenger:
         return self.__messenger
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        return self.__facebook
 
     @property
     def terminal(self) -> Terminal:
@@ -118,20 +118,7 @@ class Soldier(Runner, Logging):
     def setup(self):
         super().setup()
         self.info(msg='setup client: %s' % self)
-        # create client and connect to the station
-        server = self.server
-        terminal = self.terminal
-        facebook = self.facebook
-        messenger = self.messenger
-        facebook.current_user = self.user
-        messenger.delegate = server
-        messenger.facebook = facebook
-        messenger.terminal = terminal
-        server.messenger = messenger
-        server.server_delegate = terminal
-        # client
-        terminal.messenger = messenger
-        terminal.start(server=server)
+        dims_connect(terminal=self.terminal, server=self.server, user=self.user, messenger=self.messenger)
 
     # Override
     def finish(self):
@@ -312,7 +299,7 @@ all_stations = [
     ('', ''),
     ('', ''),
 ]
-test_station = all_stations[1]
+test_station = all_stations[4]
 test_ip = test_station[0]
 test_id = test_station[1]
 

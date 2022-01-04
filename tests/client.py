@@ -51,15 +51,16 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.client import Terminal, ClientMessenger
 
-from robots.config import dims_connect
-from robots.config import g_station
+from robots.config import dims_connect, current_station
+from robots.config import g_facebook
 
 
 """
     Messenger for Chat Bot client
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_messenger = ClientMessenger()
+g_messenger = ClientMessenger(facebook=g_facebook)
+g_facebook.messenger = g_messenger
 
 
 class Console(Cmd, Logging):
@@ -78,13 +79,14 @@ class Console(Cmd, Logging):
         self.logout()
         # login with user ID
         facebook = g_messenger.facebook
-        facebook.current_user = facebook.user(identifier=identifier)
-        self.info('connecting to %s ...' % g_station)
+        user = facebook.user(identifier=identifier)
+        facebook.current_user = user
         client = Terminal()
-        dims_connect(terminal=client, messenger=g_messenger, server=g_station)
+        server = current_station()
+        dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
         self.client = client
         if self.receiver is None:
-            self.receiver = g_station.identifier
+            self.receiver = server.identifier
 
     def logout(self):
         client = self.client

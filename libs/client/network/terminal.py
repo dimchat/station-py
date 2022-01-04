@@ -70,8 +70,6 @@ class Terminal:
             return server.identifier
 
     def start(self, server: Server):
-        facebook = self.facebook
-        server.current_user = facebook.current_user
         server.connect()
         self.__server = server
 

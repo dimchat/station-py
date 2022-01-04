@@ -43,7 +43,7 @@ from ..utils import NotificationCenter
 from ..database import Database
 from ..common import msg_traced, is_broadcast_message
 from ..common import NotificationNames
-from ..common import CommonMessenger
+from ..common import CommonMessenger, CommonFacebook
 
 from .session import Session
 from .session_server import SessionServer
@@ -56,8 +56,8 @@ g_session_server = SessionServer()
 
 class ServerMessenger(CommonMessenger):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__(facebook=facebook)
         self.__filter = None  # NOTICE: create Filter by RequestHandler
         self.__session: Optional[Session] = None
 

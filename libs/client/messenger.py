@@ -43,22 +43,17 @@ from dimp import Processor
 from dimsdk import LoginCommand
 
 from ..common import BaseSession
-from ..common import CommonMessenger, CommonFacebook, SharedFacebook
+from ..common import CommonMessenger, CommonFacebook
 
 from .network import Terminal, Server
 
 
 class ClientMessenger(CommonMessenger):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__(facebook=facebook)
         self.__terminal: Optional[weakref.ReferenceType] = None
         self.__last_login = 0
-
-    def _create_facebook(self) -> CommonFacebook:
-        facebook = SharedFacebook()
-        facebook.messenger = self
-        return facebook
 
     # Override
     def _create_processor(self) -> Processor:
@@ -77,7 +72,9 @@ class ClientMessenger(CommonMessenger):
     @property
     def server(self) -> Server:
         client = self.terminal
-        if client is not None:
+        if client is None:
+            self.error(msg='client not set')
+        else:
             return client.server
 
     @property
