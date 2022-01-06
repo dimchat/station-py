@@ -88,7 +88,7 @@ class MTPStreamArrival(PackageArrival):
     """ MTP Stream Arrival Ship """
 
     @property
-    def payload(self) -> bytes:
+    def payload(self) -> Optional[bytes]:
         pack = self.package
         if pack is not None:
             body = pack.body
@@ -153,6 +153,11 @@ class MTPStreamDocker(PackageDocker):
     def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
         assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
         pack = ship.package
+        if pack is None:
+            fragments = ship.fragments
+            count = len(fragments)
+            assert count > 0, 'fragments empty: %s' % ship
+            pack = fragments[count - 1]
         head = pack.head
         # check body length
         if head.body_length != pack.body.size:
