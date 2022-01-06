@@ -95,6 +95,14 @@ class NetMsgHead:
         self.__options = options
         self.__body_length = body_len
 
+    def __str__(self) -> str:
+        cname = self.__class__.__name__
+        return '<%s: %d| cmd=%d, seq=%d, body_len=%d />' % (cname, self.version, self.cmd, self.seq, self.body_length)
+
+    def __repr__(self) -> str:
+        cname = self.__class__.__name__
+        return '<%s: %d| cmd=%d, seq=%d, body_len=%d />' % (cname, self.version, self.cmd, self.seq, self.body_length)
+
     @property
     def data(self) -> bytes:
         return self.__data
@@ -191,6 +199,16 @@ class NetMsg:
         self.__head = head
         self.__body = body
 
+    def __str__(self) -> str:
+        mod = self.__module__
+        cname = self.__class__.__name__
+        return '<%s body_len=%d>%s</%s module="%s">' % (cname, self.body_length, self.head, cname, mod)
+
+    def __repr__(self) -> str:
+        mod = self.__module__
+        cname = self.__class__.__name__
+        return '<%s body_len=%d>%s</%s module="%s">' % (cname, self.body_length, self.head, cname, mod)
+
     @property
     def data(self) -> bytes:
         return self.__data
@@ -206,6 +224,14 @@ class NetMsg:
     @property
     def body(self) -> Optional[bytes]:
         return self.__body
+
+    @property
+    def body_length(self) -> int:
+        body = self.body
+        if body is None:
+            return 0
+        else:
+            return len(body)
 
     @classmethod
     def new(cls, head: NetMsgHead, body: bytes = None):

@@ -236,6 +236,11 @@ class MarsStreamDocker(PlainDocker):
             body_len = len(payload)
         mars = ship.package
         head = mars.head
+        # 0. check body length
+        if head.body_length != mars.body_length:
+            # sticky data?
+            print('[Mars] package not completed: body_len=%d, %s' % (body_len, mars))
+            return ship
         # 1. check head cmd
         cmd = head.cmd
         if cmd == NetMsgHead.SEND_MSG:

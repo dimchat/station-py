@@ -76,31 +76,36 @@ class PackageSeeker(Generic[H, P]):
         :param data: received data buffer
         :return: header and it's offset, -1 on data error
         """
-        head = self.parse_header(data=data)
-        if head is not None:
-            # got it (offset = 0)
-            return head, 0
         data_len = data.size
-        if data_len < self.__max_head_length:
-            # waiting for more data
-            return None, 0
-        # data error, locate next header
-        offset = self.__next_offset(data=data)
-        if offset < 0:
-            if data_len < 65536:
+        start = 0
+        while start < data_len:
+            # try to parse header
+            head = self.parse_header(data=data.slice(start=start))
+            if head is not None:
+                # got header with start position
+                return head, start
+            # header not found, check remaining data
+            remaining = data_len - start
+            if remaining < self.__max_head_length:
                 # waiting for more data
-                return None, 0
-            # skip the whole buffer
-            return None, -1
-        # next header found, skip data before it
-        data = data.slice(start=offset)
-        # try again from new offset
-        head = self.parse_header(data=data)
-        return head, offset
+                break
+            # data error, locate next header
+            offset = self.__next_offset(data=data, start=(start + 1))
+            if offset < 0:
+                # header not found
+                if remaining < 65536:
+                    # waiting for more data
+                    break
+                # skip the whole buffer
+                return None, -1
+            # try again from new offset
+            start += offset
+        # header not found, waiting for more data
+        return None, start
 
-    def __next_offset(self, data: ByteArray) -> int:
+    def __next_offset(self, data: ByteArray, start: int) -> int:
         """ locate next header """
-        start = self.__magic_offset + 1
+        start = self.__magic_offset + start
         end = start + len(self.__magic_code)
         if end > data.size:
             # not enough data
@@ -156,7 +161,11 @@ class PackageSeeker(Generic[H, P]):
             # check next header for sticky data
             if not self.__check_offset(data=data, start=pack_len):
                 print('[ERROR] sticky data: head_len=%d, body_len=%d, %s' % (head_len, body_len, data))
-                return None, offset + 1
+                _, next_offset = self.seek_header(data=data.slice(start=head_len))
+                print('[ERROR] sticky data: offset=%d, next_offset=%d' % (offset, next_offset))
+                if next_offset >= 0:
+                    # cut off next package
+                    pack_len = head_len + next_offset
             # cut the tail
             data = data.slice(start=0, end=pack_len)
         # OK

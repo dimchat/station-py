@@ -40,7 +40,7 @@ import traceback
 from typing import Optional, List
 
 from startrek import GateStatus, Gate
-from startrek import Connection, ActiveConnection
+from startrek import Connection
 from startrek import Arrival
 
 from dimp import hex_encode
@@ -135,7 +135,7 @@ class Session(BaseSession):
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
         if len(array) == 0:
-            if connection is not None and not isinstance(connection, ActiveConnection):
+            if isinstance(ship, MarsStreamArrival):
                 # station MUST respond something to client request (Tencent Mars)
                 gate.send_response(payload=b'', ship=ship, remote=source, local=destination)
         else:

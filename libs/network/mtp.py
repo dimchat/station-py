@@ -150,6 +150,19 @@ class MTPStreamDocker(PackageDocker):
             data = b''
 
     # Override
+    def _check_arrival(self, ship: Arrival) -> Optional[Arrival]:
+        assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
+        pack = ship.package
+        head = pack.head
+        # check body length
+        if head.body_length != pack.body.size:
+            # sticky data?
+            print('[MTP] package not completed: body_len=%d, %s' % (pack.body.size, pack))
+            return ship
+        # check for response
+        return super()._check_arrival(ship=ship)
+
+    # Override
     def _create_arrival(self, pack: Package) -> Arrival:
         return MTPStreamArrival(pack=pack)
 
