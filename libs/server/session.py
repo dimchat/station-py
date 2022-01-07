@@ -111,7 +111,7 @@ class Session(BaseSession):
         else:
             raise ValueError('unknown arrival ship: %s' % ship)
         # check payload
-        if len(payload) == 0:
+        if payload is None or len(payload) == 0:
             packages = []
         elif payload.startswith(b'{'):
             # JsON in lines

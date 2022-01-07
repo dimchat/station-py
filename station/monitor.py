@@ -34,8 +34,6 @@
 import time
 import traceback
 
-from startrek.fsm import Runner
-
 from dimp import ID, NetworkType
 
 import sys
@@ -48,6 +46,7 @@ sys.path.append(rootPath)
 from libs.utils.log import current_time
 from libs.utils.log import Log, Logging
 from libs.utils.ipc import MonitorPipe
+from libs.utils import Runner
 from libs.database import Storage, Database
 from libs.common import NotificationNames
 

@@ -39,7 +39,6 @@ from dimp import PrivateKey
 from dimp import MetaType, Meta, Document
 from dimp import NetworkType, ID
 from dimp import User
-from startrek.fsm import Runner
 
 import sys
 import os
@@ -49,6 +48,7 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Log, Logging
+from libs.utils import Runner
 from libs.database import Storage
 from libs.common import CommonFacebook
 from libs.client import Server, Terminal, ClientMessenger

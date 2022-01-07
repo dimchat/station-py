@@ -39,7 +39,6 @@ import socket
 import weakref
 from typing import Optional, Set
 
-from startrek.fsm import Runner
 from startrek.net.channel import get_remote_address, get_local_address
 from startrek import Channel, BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
@@ -51,7 +50,7 @@ from dimp import ID, Envelope, Content
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import Transmitter
 
-from ..utils import Logging
+from ..utils import Logging, Runner
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue

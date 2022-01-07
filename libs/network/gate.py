@@ -32,12 +32,11 @@ import time
 from abc import ABC
 from typing import Generic, TypeVar, Optional, List, Set
 
-from startrek.fsm import Runnable
 from startrek import Connection, ConnectionState, ActiveConnection
 from startrek import Hub, GateDelegate, StarGate, StarDocker
 from startrek import Docker, Arrival
 
-from ..utils import Logging
+from ..utils import Logging, Runnable
 
 from .mtp import TransactionID, MTPStreamDocker, MTPHelper
 from .mars import MarsStreamArrival, MarsStreamDocker, MarsHelper
@@ -47,7 +46,7 @@ from .ws import WSDocker
 H = TypeVar('H')
 
 
-class CommonGate(StarGate, Runnable, Logging, Generic[H], ABC):
+class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
     """ Gate with Hub for connections """
 
     def __init__(self, delegate: GateDelegate):

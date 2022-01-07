@@ -36,8 +36,6 @@ import time
 import traceback
 from typing import Union, Set, Dict
 
-from startrek.fsm import Runner
-
 from dimp import ID, ReliableMessage
 
 import sys
@@ -49,6 +47,7 @@ sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
 from libs.utils.ipc import ReceptionistPipe
+from libs.utils import Runner
 from libs.common import NotificationNames
 
 from etc.cfg_init import g_database

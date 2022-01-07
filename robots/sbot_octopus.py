@@ -40,7 +40,6 @@ from typing import Optional, Union, Dict, List
 from dimp import ID, ReliableMessage
 from dimp import ContentType
 from dimsdk import Station, HandshakeCommand
-from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -49,6 +48,7 @@ sys.path.append(rootPath)
 
 from libs.utils.log import Logging
 from libs.utils.ipc import OctopusPipe
+from libs.utils import Runner
 from libs.common import msg_traced, is_broadcast_message
 from libs.common import CommonFacebook
 from libs.client import Server, Terminal, ClientMessenger

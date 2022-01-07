@@ -38,13 +38,9 @@ from dimp import Content, TextContent
 from dimsdk import HandshakeCommand
 
 from ..database import Database
-from ..common import CommonFacebook, SharedFacebook
+from ..common import CommonFacebook
 
 from .messenger import ServerMessenger
-
-
-g_facebook = SharedFacebook()
-g_database = Database()
 
 
 class Filter:
@@ -52,6 +48,7 @@ class Filter:
     def __init__(self, messenger: ServerMessenger):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
+        self.__db = Database()
 
     @property
     def messenger(self) -> ServerMessenger:
@@ -59,11 +56,11 @@ class Filter:
 
     @property
     def facebook(self) -> CommonFacebook:
-        return g_facebook
+        return self.messenger.facebook
 
     @property
     def database(self) -> Database:
-        return g_database
+        return self.__db
 
     #
     #   check

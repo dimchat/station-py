@@ -34,7 +34,6 @@ import time
 import traceback
 from typing import Union, Optional
 
-from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import ReliableMessage
@@ -43,7 +42,7 @@ from dimsdk import Station
 from ..utils.log import Logging
 from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
-from ..utils import Singleton
+from ..utils import Singleton, Runner
 from ..database import Database
 from ..common import SharedFacebook, CommonMessenger, NotificationNames
 
@@ -75,6 +74,11 @@ class ReceptionistCaller(Runner, Logging, NotificationObserver):
         nc = NotificationCenter()
         nc.add(observer=self, name=NotificationNames.USER_LOGIN)
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     @property
     def dispatcher(self):
@@ -254,6 +258,13 @@ class MonitorCaller(NotificationObserver):
         nc.add(observer=self, name=NotificationNames.USER_ONLINE)
         nc.add(observer=self, name=NotificationNames.USER_OFFLINE)
         nc.add(observer=self, name=NotificationNames.DELIVER_MESSAGE)
+
+    def __del__(self):
+        nc = NotificationCenter()
+        nc.remove(observer=self, name=NotificationNames.DELIVER_MESSAGE)
+        nc.remove(observer=self, name=NotificationNames.USER_OFFLINE)
+        nc.remove(observer=self, name=NotificationNames.USER_ONLINE)
+        nc.remove(observer=self, name=NotificationNames.USER_LOGIN)
 
     # Override
     def received_notification(self, notification: Notification):

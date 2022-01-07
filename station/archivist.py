@@ -34,7 +34,6 @@
 import traceback
 from typing import Optional, Union, Dict, List
 
-from startrek.fsm import Runner
 from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, Meta
@@ -54,6 +53,7 @@ sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
 from libs.utils.ipc import ArchivistPipe
+from libs.utils import Runner
 from libs.database import FrequencyChecker
 from libs.common import SearchCommand
 from libs.common import CommonMessenger, CommonProcessor, CommonProcessorFactory

@@ -66,6 +66,14 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
         self.__current_user: Optional[User] = None
         self.__fsm = self._create_state_machine()
 
+    def __del__(self):
+        self.__stop_machine()
+
+    def __stop_machine(self):
+        fsm = self.__fsm
+        if fsm.running:
+            fsm.stop()
+
     def _create_state_machine(self):
         from .state import StateMachine
         fsm = StateMachine(server=self)
@@ -111,7 +119,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
             self.__session = None
             session.stop()
         # stop FSM
-        self.__fsm.stop()
+        self.__stop_machine()
 
     @property
     def thread(self) -> Optional[Thread]:

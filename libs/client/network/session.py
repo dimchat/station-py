@@ -122,7 +122,9 @@ class Session(BaseSession):
         assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
         payload = ship.payload
         # check payload
-        if payload.startswith(b'{'):
+        if payload is None or len(payload) == 0:
+            packages = []
+        elif payload.startswith(b'{'):
             # JsON in lines
             packages = payload.splitlines()
         else:

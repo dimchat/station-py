@@ -35,8 +35,6 @@ import threading
 import traceback
 from typing import Set, Dict, List, Optional, Union
 
-from startrek.fsm import Runner
-
 from dimp import ID
 
 import sys
@@ -48,6 +46,7 @@ sys.path.append(rootPath)
 
 from libs.utils.log import Log, Logging
 from libs.utils.ipc import PusherPipe
+from libs.utils import Runner
 from libs.push import PushService, PushInfo
 from libs.push import ApplePushNotificationService
 

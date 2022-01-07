@@ -39,7 +39,6 @@ import socket
 from abc import ABC
 from typing import Optional
 
-from startrek.fsm import Runner
 from startrek import Connection
 from startrek import GateDelegate
 from startrek import Departure, DepartureShip
@@ -48,7 +47,7 @@ from dimp import ID, Content
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import Messenger, Transmitter
 
-from ..utils import Logging
+from ..utils import Logging, Runner
 from ..utils import get_msg_sig
 
 from ..network import CommonGate, GateKeeper

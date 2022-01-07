@@ -33,6 +33,7 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
+from startrek.fsm import Runnable, Runner
 from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
 from .log import Log, Logging
@@ -63,10 +64,11 @@ __all__ = [
 
     'get_msg_sig',
 
+    'Runnable', 'Runner',
+    'Notification', 'NotificationObserver', 'NotificationCenter',
+
     'Log', 'Logging',
     'Singleton',
-
-    'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'File', 'TextFile', 'JSONFile',
 
