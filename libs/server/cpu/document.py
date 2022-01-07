@@ -39,7 +39,6 @@ from dimp import ForwardContent, Command, DocumentCommand
 from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...database import Database
-from ...common import CommonFacebook
 
 
 g_database = Database()
@@ -55,14 +54,15 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 # if the user is not roaming to this station, just ignore it,
                 # let the target station to respond.
                 facebook = self.facebook
-                assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
+                # from ...common import CommonFacebook
+                # assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
                 srv = facebook.current_user
                 if sender == srv.identifier:
                     # the station is querying itself, ignore it
                     return None
                 # get roaming station ID
                 station = cmd.station
-                assert isinstance(station, dict), 'login command error: %s' % cmd
+                # assert isinstance(station, dict), 'login command error: %s' % cmd
                 sid = ID.parse(identifier=station.get('ID'))
                 if sid != srv.identifier:
                     # not my guest, ignore it.

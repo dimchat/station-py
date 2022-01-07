@@ -55,7 +55,7 @@ from etc.cfg_init import g_database
 
 class Receptionist(Runner, Logging):
 
-    DELAY = 8  # seconds
+    DELAY = 5  # seconds
 
     def __init__(self):
         super().__init__()

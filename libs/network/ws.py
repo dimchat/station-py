@@ -92,7 +92,7 @@ class WSDeparture(DepartureShip):
 
     # Override
     def check_response(self, ship: Arrival) -> bool:
-        assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
+        # assert isinstance(ship, WSArrival), 'arrival ship error: %s' % ship
         assert ship.sn == self.sn, 'SN not match: %s, %s' % (ship.sn, self.sn)
         self.__fragments.clear()
         return True
