@@ -111,11 +111,7 @@ class ReceptionistCaller(Runner, Logging, NotificationObserver):
             if obj is not None:
                 msg = ReliableMessage.parse(msg=obj)
                 assert msg is not None, 'message error: %s' % obj
-                client_address = msg.get('client_address')
-                msg.pop('client_address', None)
-                if isinstance(client_address, list):
-                    client_address = (client_address[0], client_address[1])
-                self.dispatcher.deliver(msg=msg, client_address=client_address)
+                self.dispatcher.deliver(msg=msg, client_address=None)
                 return True
         except Exception as error:
             self.error(msg='failed to process: %s, %s' % (error, obj))

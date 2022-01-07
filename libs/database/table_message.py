@@ -70,10 +70,10 @@ class MessageTable:
             array = self.__redis.messages(receiver=receiver)
             # update memory cache
             if len(array) < MessageCache.LIMIT:
-                holder = CacheHolder(value=array)
-            else:
-                # maybe part of stored messages, reload 2 minutes later
                 holder = CacheHolder(value=array, life_span=128)
+            else:
+                # maybe part of stored messages, reload seconds later
+                holder = CacheHolder(value=array, life_span=8)
             self.__caches[receiver] = holder
         # OK, return cached value
         return holder.value
