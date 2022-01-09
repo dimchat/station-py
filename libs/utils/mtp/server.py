@@ -93,7 +93,7 @@ class Server(dmtp.Server, GateDelegate):
         pass
 
     # Override
-    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def gate_error(self, error: IOError, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         pass
 
     # Override

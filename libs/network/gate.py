@@ -136,7 +136,7 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
     # Override
-    def connection_error(self, error, data: Optional[bytes],
+    def connection_error(self, error: ConnectionError, data: Optional[bytes],
                          source: Optional[tuple], destination: Optional[tuple], connection: Optional[Connection]):
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s' % error)

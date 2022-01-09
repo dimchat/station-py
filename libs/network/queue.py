@@ -116,7 +116,7 @@ class MessageWrapper(ShipDelegate):
             g_database.remove_message(msg=msg)
 
     # Override
-    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def gate_error(self, error: IOError, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
         self.__time = -1
 
 

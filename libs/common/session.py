@@ -175,7 +175,8 @@ class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
             delegate.gate_sent(ship=ship, source=source, destination=destination, connection=connection)
 
     # Override
-    def gate_error(self, error, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def gate_error(self, error: IOError, ship: Departure,
+                   source: Optional[tuple], destination: tuple, connection: Connection):
         delegate = None
         if isinstance(ship, DepartureShip):
             delegate = ship.delegate

@@ -37,54 +37,23 @@
 
 import socket
 import weakref
-from typing import Optional, Set
+from typing import Optional
 
 from startrek.net.channel import get_remote_address, get_local_address
-from startrek import Channel, BaseChannel
+from startrek import BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
 from startrek import Hub, GateDelegate, ShipDelegate
 from tcp import StreamChannel
-from tcp import ServerHub as TCPServerHub, ClientHub
+from tcp import ServerHub, ClientHub
 
 from dimp import ID, Envelope, Content
 from dimp import InstantMessage, ReliableMessage
 from dimsdk import Transmitter
 
-from ..utils import Logging, Runner
+from ..utils import Runner
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue
-
-
-class ServerHub(TCPServerHub, Logging):
-
-    # Override
-    def _cleanup_channels(self, channels: Set[Channel]):
-        # super()._cleanup_channels(channels=channels)
-        closed_channels = set()
-        # 1. check closed channels
-        for sock in channels:
-            if not sock.opened:
-                closed_channels.add(sock)
-        # 2. remove closed channels
-        for sock in closed_channels:
-            self.warning(msg='socket channel closed, remove it: %s' % sock)
-            self.close_channel(channel=sock)
-
-    # Override
-    def _cleanup_connections(self, connections: Set[Connection]):
-        # super()._cleanup_connections(connections=connections)
-        closed_connections = set()
-        # 1. check closed connections
-        for conn in connections:
-            if not conn.opened:
-                closed_connections.add(conn)
-        # 2. remove closed connections
-        for conn in closed_connections:
-            remote = conn.remote_address
-            local = conn.local_address
-            self.warning(msg='connection closed, remove it: %s' % conn)
-            self.disconnect(remote=remote, local=local, connection=conn)
 
 
 def reset_send_buffer_size(conn: Connection) -> bool:

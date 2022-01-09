@@ -172,7 +172,8 @@ class Sergeant(Logging):
         self.__target = str(target)
         self.__host = host
         self.__port = port
-        proc = multiprocessing.Process(target=self.run, daemon=True)
+        proc = multiprocessing.Process(target=self.run)
+        proc.daemon = True
         proc.start()
         return proc
 
