@@ -34,7 +34,7 @@ from typing import Optional, List
 
 from startrek import ShipDelegate, Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
-from startrek import Hub, StarGate
+from startrek import Hub, Gate, StarGate
 
 from tcp import PlainDocker
 
@@ -104,14 +104,19 @@ class WSDocker(PlainDocker):
     MAX_PACK_LENGTH = 65536  # 64 KB
 
     def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate, hub: Hub):
-        super().__init__(remote=remote, local=local, gate=gate)
+        super().__init__(remote=remote, local=local)
+        self.__gate = weakref.ref(gate)
         self.__hub = weakref.ref(hub)
         self.__handshaking = True
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
 
-    @property
+    @property  # Override
+    def gate(self) -> Gate:
+        return self.__gate()
+
+    @property  # Override
     def hub(self) -> Hub:
         return self.__hub()
 
