@@ -30,11 +30,12 @@
 
 import time
 from abc import ABC
-from typing import Generic, TypeVar, Optional, List, Set
+from typing import Generic, TypeVar, Optional, List
 
 from startrek import Connection, ConnectionState, ActiveConnection
-from startrek import Hub, GateDelegate, StarGate, StarDocker
+from startrek import GateDelegate, StarGate
 from startrek import Docker, Arrival
+from udp import PackageDocker
 
 from ..utils import Logging, Runnable
 
@@ -111,18 +112,28 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
     #         super()._heartbeat(connection=connection)
 
     def __kill(self, remote: tuple = None, local: Optional[tuple] = None, connection: Connection = None):
-        # if conn is null, disconnect with (remote, local);
-        # else, disconnect with connection when local address matched.
-        hub = self.hub
-        assert isinstance(hub, Hub), 'hub error: %s' % hub
-        conn = hub.disconnect(remote=remote, local=local, connection=connection)
-        # if connection is not activated, means it's a server connection,
-        # remove the docker too.
-        if conn is not None and not isinstance(conn, ActiveConnection):
-            # remove docker for server connection
-            remote = conn.remote_address
-            local = conn.local_address
-            self._remove_docker(remote=remote, local=local, docker=None)
+        if connection is not None:
+            if remote is None:
+                remote = connection.remote_address
+            if local is None:
+                local = connection.local_address
+        # get docker ty (remote, local)
+        docker = self._get_docker(remote=remote, local=local)
+        if docker is None:
+            self.error(msg='failed to get docker: %s, %s' % (remote, local))
+            if connection is not None and connection.opened:
+                self.info(msg='close connection: %s' % connection)
+                connection.close()
+        else:
+            if connection is None:
+                assert isinstance(docker, PackageDocker), 'docker error: %s' % docker
+                connection = docker.connection
+            # if connection is not activated, means it's a server connection,
+            # remove the docker too.
+            if connection is None or not isinstance(connection, ActiveConnection):
+                self.info(msg='remove and close docker: %s' % docker)
+                self._remove_docker(docker=docker)
+                docker.close()
 
     # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
@@ -158,7 +169,7 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         if worker is None:
             worker = self._create_docker(remote=remote, local=local, advance_party=[])
             # assert worker is not None, 'failed to create docker: %s, %s' % (destination, source)
-            self._put_docker(docker=worker)
+            self._set_docker(docker=worker)
         return worker
 
     def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple],
@@ -195,25 +206,6 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
 
 
 class TCPServerGate(CommonGate, Generic[H]):
-
-    # Override
-    def _cleanup_dockers(self, dockers: Set[Docker]):
-        retired_dockers = set()
-        # 1. check docker which connection lost
-        for worker in dockers:
-            assert isinstance(worker, StarDocker), 'unknown docker: %s' % worker
-            conn = worker.connection
-            if conn is None or not conn.alive:
-                retired_dockers.add(worker)
-        # 2. remove docker which connection lost
-        for worker in retired_dockers:
-            remote = worker.remote_address
-            local = worker.local_address
-            self.warning(msg='connection closed, remove docker: %s' % worker)
-            self._remove_docker(remote=remote, local=local, docker=worker)
-            dockers.discard(worker)
-        # 3. purge other dockers
-        super()._cleanup_dockers(dockers=dockers)
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
