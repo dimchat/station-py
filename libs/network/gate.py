@@ -32,10 +32,9 @@ import time
 from abc import ABC
 from typing import Generic, TypeVar, Optional, List
 
-from startrek import Connection, ConnectionState, ActiveConnection
+from startrek import Connection, ConnectionState
 from startrek import GateDelegate, StarGate
 from startrek import Docker, Arrival
-from udp import PackageDocker
 
 from ..utils import Logging, Runnable
 
@@ -111,37 +110,11 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
     #     if isinstance(connection, ActiveConnection):
     #         super()._heartbeat(connection=connection)
 
-    def __kill(self, remote: tuple = None, local: Optional[tuple] = None, connection: Connection = None):
-        if connection is not None:
-            if remote is None:
-                remote = connection.remote_address
-            if local is None:
-                local = connection.local_address
-        # get docker ty (remote, local)
-        docker = self._get_docker(remote=remote, local=local)
-        if docker is None:
-            self.error(msg='failed to get docker: %s, %s' % (remote, local))
-            if connection is not None and connection.opened:
-                self.info(msg='close connection: %s' % connection)
-                connection.close()
-        else:
-            if connection is None:
-                assert isinstance(docker, PackageDocker), 'docker error: %s' % docker
-                connection = docker.connection
-            # if connection is not activated, means it's a server connection,
-            # remove the docker too.
-            if connection is None or not isinstance(connection, ActiveConnection):
-                self.info(msg='remove and close docker: %s' % docker)
-                self._remove_docker(docker=docker)
-                docker.close()
-
     # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
         # debug info
         if current is None or current == ConnectionState.ERROR:
             self.error(msg='connection lost: %s -> %s, %s' % (previous, current, connection))
-            if previous is not None:
-                self.__kill(connection=connection)
         elif current != ConnectionState.EXPIRED and current != ConnectionState.MAINTAINING:
             self.info(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
         super().connection_state_changed(previous=previous, current=current, connection=connection)
@@ -151,13 +124,6 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
                          source: Optional[tuple], destination: Optional[tuple], connection: Optional[Connection]):
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s' % error)
-            time.sleep(0.1)
-        elif connection is None:
-            # failed to receive data
-            self.__kill(remote=source, local=destination)
-        else:
-            # failed to send data
-            self.__kill(remote=destination, local=source, connection=connection)
 
     # # Override
     # def connection_sent(self, data: bytes, source: Optional[tuple], destination: tuple, connection: Connection):

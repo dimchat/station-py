@@ -77,7 +77,7 @@ def reset_send_buffer_size(conn: Connection) -> bool:
         print('[SOCKET] send buffer size: %d, %s' % (size, conn))
 
 
-SEND_BUFFER_SIZE = 512 * 1024  # 512 KB
+SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
 
 class GateKeeper(Runner, Transmitter):
