@@ -56,12 +56,14 @@ class PrivateKeyStorage(Storage):
         return self.write_json(container=plain, path=path)
 
     def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        array: list = self.__message_keys(identifier=identifier)
-        key = self.__identity_key(identifier=identifier)
-        if isinstance(key, DecryptKey) and key not in array:
-            array = array.copy()
-            array.append(key)
-        return array
+        keys: list = self.__message_keys(identifier=identifier)
+        # the 'ID key' could be used for encrypting message too (RSA),
+        # so we append it to the decrypt keys here
+        id_key = self.__identity_key(identifier=identifier)
+        if isinstance(id_key, DecryptKey) and id_key not in keys:
+            # array = array.copy()
+            keys.append(id_key)
+        return keys
 
     def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
         # TODO: support multi private keys

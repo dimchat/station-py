@@ -4,7 +4,7 @@ Flask      # 1.1.2
 xmltodict  # 0.12.0
 jpush      # 3.3.8
 
-pycryptodome  # 3.7.3
+pycryptodome  # 3.14.1
 base58        # 1.0.3
 ecdsa         # 0.16.1
 
@@ -24,4 +24,4 @@ dmtp==0.3.4
 mkm==0.11.1
 dkd==0.11.1
 dimp==0.11.2
-dimsdk==0.6.3
+dimsdk==0.6.4

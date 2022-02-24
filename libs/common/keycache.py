@@ -77,4 +77,4 @@ class KeyCache(CipherKeyDelegate):
         if receiver.is_broadcast:
             # no need to store cipher key for broadcast message
             return False
-        return self.__db.cache_cipher_key(key, sender, receiver)
+        return self.__db.cache_cipher_key(key=key, sender=sender, receiver=receiver)

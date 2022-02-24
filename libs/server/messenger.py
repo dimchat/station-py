@@ -69,6 +69,7 @@ class ServerMessenger(CommonMessenger):
     def filter(self, checker):
         self.__filter = checker
 
+    # Override
     def _create_processor(self) -> Processor:
         from .processor import ServerProcessor
         return ServerProcessor(facebook=self.facebook, messenger=self)
@@ -99,7 +100,9 @@ class ServerMessenger(CommonMessenger):
         env = Envelope.create(sender=user.identifier, receiver=msg.sender)
         i_msg = InstantMessage.create(head=env, body=res)
         s_msg = self.encrypt_message(msg=i_msg)
-        assert s_msg is not None, 'failed to respond to: %s' % msg.sender
+        if s_msg is None:
+            self.error(msg='failed to respond to: %s' % msg.sender)
+            return []
         r_msg = self.sign_message(msg=s_msg)
         return [r_msg]
 
