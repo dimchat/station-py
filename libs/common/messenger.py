@@ -42,9 +42,10 @@ from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import ContentType, Content, FileContent
 from dimp import Command, GroupCommand
 from dimp import Packer, Processor, EntityDelegate
-from dimsdk import Messenger, Transmitter, CipherKeyDelegate
+from dimsdk import Messenger, CipherKeyDelegate
 
 from ..utils import Logging
+from ..network.transmitter import Transmitter
 from ..database import FrequencyChecker
 
 from .keycache import KeyCache
@@ -77,7 +78,7 @@ class MessengerDelegate:
         raise NotImplemented
 
 
-class CommonMessenger(Messenger, Logging):
+class CommonMessenger(Messenger, Transmitter, Logging):
 
     # each query will be expired after 10 minutes
     QUERY_EXPIRES = 600  # seconds
@@ -240,6 +241,25 @@ class CommonMessenger(Messenger, Logging):
         traces = msg.get('traces')
         self.warning('TODO: suspending msg: %s -> %s\n time=[%s] traces=%s' % (sender, receiver, when, traces))
         return True
+
+    #
+    #   Interfaces for Transmitting Message
+    #
+
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_instant_message(msg=msg, priority=priority)
+
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_reliable_message(msg=msg, priority=priority)
 
     #
     #   Interfaces for Sending Commands

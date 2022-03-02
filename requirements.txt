@@ -15,13 +15,13 @@ sysv-ipc   # 1.1.0
 
 ipx==0.1.7
 
-startrek==0.3.2
-tcp==0.3.1
-udp==0.5.0
+startrek==0.3.3
+tcp==0.3.3
+udp==0.5.3
 stun==0.2.3
 dmtp==0.3.4
 
-mkm==0.11.1
-dkd==0.11.1
-dimp==0.11.2
-dimsdk==0.6.4
+mkm==0.11.2
+dkd==0.11.2
+dimp==0.11.3
+dimsdk==0.6.5

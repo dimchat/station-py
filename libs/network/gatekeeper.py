@@ -48,9 +48,9 @@ from tcp import ServerHub, ClientHub
 
 from dimp import ID, Envelope, Content
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Transmitter
 
 from ..utils import Runner
+from ..network.transmitter import Transmitter
 
 from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue

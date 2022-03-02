@@ -40,9 +40,10 @@ from dimp import ID, User, EVERYONE
 from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import Content, Command
 from dimsdk import HandshakeCommand
-from dimsdk import Station, Transmitter
+from dimsdk import Station
 
 from ...utils import Logging
+from ...network.transmitter import Transmitter
 from ...network import GateStatus, DeparturePriority
 from ...network import TCPClientGate
 

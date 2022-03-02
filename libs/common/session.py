@@ -45,11 +45,12 @@ from startrek import Departure, DepartureShip
 
 from dimp import ID, Content
 from dimp import InstantMessage, ReliableMessage
-from dimsdk import Messenger, Transmitter
+from dimsdk import Messenger
 
 from ..utils import Logging, Runner
 from ..utils import get_msg_sig
 
+from ..network.transmitter import Transmitter
 from ..network import CommonGate, GateKeeper
 
 
