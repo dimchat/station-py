@@ -32,10 +32,10 @@
 
 from typing import Optional
 
-from dimp import Command
+from dimp import BaseCommand
 
 
-class ReportCommand(Command):
+class ReportCommand(BaseCommand):
     """
         Report Command
         ~~~~~~~~~~~~~~

@@ -32,10 +32,10 @@
 
 from typing import Optional, Union, List
 
-from dimp import ID, Command
+from dimp import ID, Command, BaseCommand
 
 
-class SearchCommand(Command):
+class SearchCommand(BaseCommand):
     """
         Search Command
         ~~~~~~~~~~~~~~
