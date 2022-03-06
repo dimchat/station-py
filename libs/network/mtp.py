@@ -29,17 +29,14 @@
 # ==============================================================================
 
 import threading
-import weakref
 from typing import Optional, Union, List
 
 from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
-from startrek import Hub, StarGate
+from startrek import StarGate, ActiveConnection
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
 from udp import PackageArrival, PackageDeparture, PackageDocker
-from udp import ClientHub as UDPClientHub
-from tcp import ClientHub as TCPClientHub
 
 from .seeker import MTPPackageSeeker
 
@@ -108,16 +105,11 @@ class MTPStreamDeparture(PackageDeparture):
 class MTPStreamDocker(PackageDocker):
     """ Docker for MTP packages """
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate, hub: Hub):
+    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
         super().__init__(remote=remote, local=local, gate=gate)
-        self.__hub = weakref.ref(hub)
         self.__chunks = Data.ZERO
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
-
-    @property
-    def hub(self) -> Hub:
-        return self.__hub()
 
     # Override
     def _parse_package(self, data: bytes) -> Optional[Package]:
@@ -192,9 +184,8 @@ class MTPStreamDocker(PackageDocker):
 
     # Override
     def heartbeat(self):
-        hub = self.hub
-        # assert hub is not None, 'hub not set'
-        if isinstance(hub, TCPClientHub) or isinstance(hub, UDPClientHub):
+        conn = self.connection
+        if isinstance(conn, ActiveConnection):
             # heartbeat by client
             pkg = MTPHelper.create_command(body=PING)
             outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)

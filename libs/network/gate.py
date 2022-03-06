@@ -195,11 +195,11 @@ class TCPServerGate(CommonGate, Generic[H]):
             return None
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
+            return MTPStreamDocker(remote=remote, local=None, gate=self)
         if MarsStreamDocker.check(data=data):
-            return MarsStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
+            return MarsStreamDocker(remote=remote, local=None, gate=self)
         if WSDocker.check(data=data):
-            return WSDocker(remote=remote, local=None, gate=self, hub=self.hub)
+            return WSDocker(remote=remote, local=None, gate=self)
 
 
 class UDPServerGate(CommonGate, Generic[H]):
@@ -217,7 +217,7 @@ class UDPServerGate(CommonGate, Generic[H]):
         data = advance_party[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
+            return MTPStreamDocker(remote=remote, local=None, gate=self)
 
 
 #
@@ -242,7 +242,7 @@ class TCPClientGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
+        return MTPStreamDocker(remote=remote, local=None, gate=self)
 
 
 class UDPClientGate(CommonGate, Generic[H]):
@@ -262,4 +262,4 @@ class UDPClientGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
+        return MTPStreamDocker(remote=remote, local=None, gate=self)
