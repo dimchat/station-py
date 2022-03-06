@@ -128,7 +128,7 @@ class Server(dmtp.Server, GateDelegate):
     def send_package(self, pack: Package, destination: tuple,
                      priority: Optional[int] = 0, delegate: Optional[ShipDelegate] = None):
         source = self.__local_address
-        worker = self.gate.get_docker(remote=destination, local=source)
+        worker = self.gate.get_docker(remote=destination, local=source, advance_party=[])
         assert isinstance(worker, PackageDocker), 'package docker error: %s' % worker
         worker.send_package(pack=pack, priority=priority, delegate=delegate)
         return True

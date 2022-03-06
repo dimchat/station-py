@@ -117,16 +117,6 @@ class PackageSeeker(Generic[H, P]):
         # assert offset > self.__magic_offset, 'magic code error: %s' % data
         return offset - self.__magic_offset
 
-    def __check_offset(self, data: ByteArray, start: int) -> bool:
-        """ check next header """
-        start = self.__magic_offset + start
-        end = start + len(self.__magic_code)
-        if end > data.size:
-            # TODO: next package not completed?
-            return True
-        sub = data.slice(start=start, end=end)
-        return sub == self.__magic_code
-
     def seek_package(self, data: ByteArray) -> (Optional[P], int):
         """
         Seek data package from received data buffer
@@ -144,6 +134,8 @@ class PackageSeeker(Generic[H, P]):
             return None, offset
         elif offset > 0:
             # drop the error part
+            dropped = data.slice(start=0, end=offset)
+            print('[WARNING] drop data part: %s' % dropped)
             data = data.slice(start=offset)
         # 2. check length
         data_len = data.size
@@ -158,14 +150,6 @@ class PackageSeeker(Generic[H, P]):
             # package not completed, waiting for more data
             return None, offset
         elif data_len > pack_len:
-            # check next header for sticky data
-            if not self.__check_offset(data=data, start=pack_len):
-                print('[ERROR] sticky data: head_len=%d, body_len=%d, %s' % (head_len, body_len, data))
-                _, next_offset = self.seek_header(data=data.slice(start=head_len))
-                print('[ERROR] sticky data: offset=%d, next_offset=%d' % (offset, next_offset))
-                if next_offset >= 0:
-                    # cut off next package
-                    pack_len = head_len + next_offset
             # cut the tail
             data = data.slice(start=0, end=pack_len)
         # OK

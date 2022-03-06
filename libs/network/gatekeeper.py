@@ -56,6 +56,12 @@ from .gate import CommonGate, TCPServerGate, TCPClientGate
 from .queue import MessageQueue
 
 
+class StreamServerHub(ServerHub):
+
+    def put_channel(self, channel: StreamChannel):
+        self._set_channel(channel=channel)
+
+
 def reset_send_buffer_size(conn: Connection) -> bool:
     if not isinstance(conn, BaseConnection):
         print('[SOCKET] connection error: %s' % conn)
@@ -112,7 +118,7 @@ class GateKeeper(Runner, Transmitter):
             if address is None:
                 address = get_remote_address(sock=sock)
             channel = StreamChannel(sock=sock, remote=address, local=get_local_address(sock=sock))
-            hub = ServerHub(delegate=delegate)
+            hub = StreamServerHub(delegate=delegate)
             hub.put_channel(channel=channel)
         return hub
 

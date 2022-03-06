@@ -74,6 +74,7 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
 
     # Override
     def run(self):
+        self.__running = True
         while self.running:
             if not self.process():
                 self._idle()
@@ -88,7 +89,11 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         hub = self.hub
         # from tcp import Hub
         # assert isinstance(hub, Hub), 'hub error: %s' % hub
-        return hub.connect(remote=remote, local=local)
+        return hub.connect(remote=remote, local=None)
+
+    # Override
+    def _get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
+        return super()._get_docker(remote=remote, local=None)
 
     # Override
     def _cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
@@ -130,23 +135,23 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
     #     super().connection_sent(data=data, source=source, destination=destination, connection=connection)
     #     self.info(msg='sent %d byte(s): %s -> %s' % (len(data), source, destination))
 
-    def get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
+    def get_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
         worker = self._get_docker(remote=remote, local=local)
         if worker is None:
-            worker = self._create_docker(remote=remote, local=local, advance_party=[])
+            worker = self._create_docker(remote=remote, local=local, advance_party=advance_party)
             # assert worker is not None, 'failed to create docker: %s, %s' % (destination, source)
             self._set_docker(docker=worker)
         return worker
 
     def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple],
                      priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
-        worker = self.get_docker(remote=remote, local=local)
+        worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if worker is not None:
             ship = worker.pack(payload=payload, priority=priority, delegate=delegate)
             return worker.append_departure(ship=ship)
 
     def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
-        worker = self.get_docker(remote=remote, local=local)
+        worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if isinstance(worker, MTPStreamDocker):
             sn = TransactionID.from_data(data=ship.sn)
             pack = MTPHelper.create_message(body=payload, sn=sn)
@@ -190,11 +195,11 @@ class TCPServerGate(CommonGate, Generic[H]):
             return None
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=local, gate=self, hub=self.hub)
+            return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
         if MarsStreamDocker.check(data=data):
-            return MarsStreamDocker(remote=remote, local=local, gate=self, hub=self.hub)
+            return MarsStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
         if WSDocker.check(data=data):
-            return WSDocker(remote=remote, local=local, gate=self, hub=self.hub)
+            return WSDocker(remote=remote, local=None, gate=self, hub=self.hub)
 
 
 class UDPServerGate(CommonGate, Generic[H]):
@@ -212,7 +217,7 @@ class UDPServerGate(CommonGate, Generic[H]):
         data = advance_party[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=local, gate=self, hub=self.hub)
+            return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
 
 
 #
@@ -237,7 +242,7 @@ class TCPClientGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=local, gate=self, hub=self.hub)
+        return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
 
 
 class UDPClientGate(CommonGate, Generic[H]):
@@ -257,4 +262,4 @@ class UDPClientGate(CommonGate, Generic[H]):
 
     # Override
     def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=local, gate=self, hub=self.hub)
+        return MTPStreamDocker(remote=remote, local=None, gate=self, hub=self.hub)
