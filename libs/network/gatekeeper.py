@@ -59,7 +59,19 @@ from .queue import MessageQueue
 class StreamServerHub(ServerHub):
 
     def put_channel(self, channel: StreamChannel):
-        self._set_channel(channel=channel)
+        self._set_channel(remote=channel.remote_address, local=channel.local_address, channel=channel)
+
+    # Override
+    def _get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
+        return super()._get_connection(remote=remote, local=None)
+
+    # Override
+    def _set_connection(self, remote: tuple, local: Optional[tuple], connection: Connection):
+        super()._set_connection(remote=remote, local=None, connection=connection)
+
+    # Override
+    def _remove_connection(self, remote: tuple, local: Optional[tuple], connection: Optional[Connection]):
+        super()._remove_connection(remote=remote, local=None, connection=connection)
 
 
 def reset_send_buffer_size(conn: Connection) -> bool:

@@ -15,9 +15,9 @@ sysv-ipc   # 1.1.0
 
 ipx==0.1.7
 
-startrek==0.3.4
-tcp==0.3.4
-udp==0.5.4
+startrek==0.3.5
+tcp==0.3.5
+udp==0.5.5
 stun==0.2.3
 dmtp==0.3.4
 

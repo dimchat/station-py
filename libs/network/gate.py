@@ -86,14 +86,19 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
 
     # Override
     def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
-        hub = self.hub
-        # from tcp import Hub
-        # assert isinstance(hub, Hub), 'hub error: %s' % hub
-        return hub.connect(remote=remote, local=None)
+        return self.hub.connect(remote=remote, local=local)
 
     # Override
     def _get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
         return super()._get_docker(remote=remote, local=None)
+
+    # Override
+    def _set_docker(self, remote: tuple, local: Optional[tuple], docker: Docker):
+        super()._set_docker(remote=remote, local=None, docker=docker)
+
+    # Override
+    def _remove_docker(self, remote: tuple, local: Optional[tuple], docker: Optional[Docker]):
+        super()._remove_docker(remote=remote, local=None, docker=docker)
 
     # Override
     def _cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
@@ -140,7 +145,7 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         if worker is None:
             worker = self._create_docker(remote=remote, local=local, advance_party=advance_party)
             # assert worker is not None, 'failed to create docker: %s, %s' % (destination, source)
-            self._set_docker(docker=worker)
+            self._set_docker(remote=worker.remote_address, local=worker.local_address, docker=worker)
         return worker
 
     def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple],
