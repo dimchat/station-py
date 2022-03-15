@@ -35,10 +35,9 @@ import traceback
 from threading import Thread
 from typing import Optional
 
-from startrek import Connection
 from startrek import Arrival
 
-from ...network import Hub, Gate, GateStatus
+from ...network import Hub, Docker, DockerStatus
 from ...network import MTPStreamArrival
 
 from ...common import BaseSession, CommonMessenger
@@ -99,17 +98,19 @@ class Session(BaseSession):
         super().finish()
 
     #
-    #   GateDelegate
+    #   Docker Delegate
     #
 
     # Override
-    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
-                            remote: tuple, local: Optional[tuple], gate: Gate):
-        if current is None or current == GateStatus.ERROR:
+    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+        # super().docker_status_changed(previous=previous, current=current, docker=docker)
+        if current is None or current == DockerStatus.ERROR:
             # clear session key
             server = self.server
             if server is not None:
                 server.handshake_again()
+            remote = docker.remote_address
+            local = docker.local_address
             self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
             # reconnect
             hub = self.gate.hub
@@ -117,8 +118,8 @@ class Session(BaseSession):
             hub.connect(remote=remote, local=local)
 
     # Override
-    def gate_received(self, ship: Arrival,
-                      source: tuple, destination: Optional[tuple], connection: Connection):
+    def docker_received(self, ship: Arrival, docker: Docker):
+        # super().docker_received(ship=ship, docker=docker)
         assert isinstance(ship, MTPStreamArrival), 'arrival ship error: %s' % ship
         payload = ship.payload
         # check payload
@@ -140,6 +141,7 @@ class Session(BaseSession):
                         continue
                     array.append(res)
             except Exception as error:
+                source = docker.remote_address
                 self.error('parse message failed (%s): %s, %s' % (source, error, pack))
                 self.error('payload: %s' % payload)
                 traceback.print_exc()
@@ -148,5 +150,7 @@ class Session(BaseSession):
         if len(array) == 0:
             return
         gate = self.gate
+        source = docker.remote_address
+        destination = docker.local_address
         for item in array:
             gate.send_response(payload=item, ship=ship, remote=source, local=destination)

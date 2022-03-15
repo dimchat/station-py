@@ -28,13 +28,14 @@
 # SOFTWARE.
 # ==============================================================================
 
+import socket
 import time
 from abc import ABC
-from typing import Generic, TypeVar, Optional, List
+from typing import Generic, TypeVar, Optional, List, Union
 
-from startrek import Connection, ConnectionState
-from startrek import GateDelegate, StarGate
-from startrek import Docker, Arrival
+from startrek import Connection, ConnectionState, ActiveConnection
+from startrek import Docker, DockerDelegate
+from startrek import Arrival, StarGate
 
 from ..utils import Logging, Runnable
 
@@ -46,12 +47,10 @@ from .ws import WSDocker
 H = TypeVar('H')
 
 
-class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
-    """ Gate with Hub for connections """
+class BaseGate(StarGate, Generic[H], ABC):
 
-    def __init__(self, delegate: GateDelegate):
+    def __init__(self, delegate: DockerDelegate):
         super().__init__(delegate=delegate)
-        self.__running = False
         self.__hub: H = None
 
     @property
@@ -61,6 +60,61 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
     @hub.setter
     def hub(self, h: H):
         self.__hub = h
+
+    #
+    #   Docker
+    #
+    def get_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Docker:
+        docker = self._get_docker(remote=remote, local=local)
+        if docker is None:
+            hub = self.hub
+            # from startrek import Hub
+            # assert isinstance(hub, Hub)
+            conn = hub.connect(remote=remote, local=local)
+            if conn is not None:
+                docker = self._create_docker(connection=conn, advance_party=advance_party)
+                assert docker is not None, 'failed to create docker: %s, %s' % (remote, local)
+                self._set_docker(remote=remote, local=local, docker=docker)
+        return docker
+
+    # Override
+    def _get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
+        return super()._get_docker(remote=remote, local=None)
+
+    # Override
+    def _set_docker(self, remote: tuple, local: Optional[tuple], docker: Docker):
+        super()._set_docker(remote=remote, local=None, docker=docker)
+
+    # Override
+    def _remove_docker(self, remote: tuple, local: Optional[tuple], docker: Optional[Docker]):
+        super()._remove_docker(remote=remote, local=None, docker=docker)
+
+    # Override
+    def _heartbeat(self, connection: Connection):
+        # let the client to do the job
+        if isinstance(connection, ActiveConnection):
+            super()._heartbeat(connection=connection)
+
+    # Override
+    def _cache_advance_party(self, data: bytes, connection: Connection) -> List[bytes]:
+        # TODO: cache the advance party before decide which docker to use
+        if data is None or len(data) == 0:
+            return []
+        else:
+            return [data]
+
+    # Override
+    def _clear_advance_party(self, connection: Connection):
+        # TODO: remove advance party for this connection
+        pass
+
+
+class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
+    """ Gate with Hub for connections """
+
+    def __init__(self, delegate: DockerDelegate):
+        super().__init__(delegate=delegate)
+        self.__running = False
 
     def start(self):
         self.__running = True
@@ -85,42 +139,6 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         time.sleep(0.25)
 
     # Override
-    def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
-        return self.hub.connect(remote=remote, local=local)
-
-    # Override
-    def _get_docker(self, remote: tuple, local: Optional[tuple]) -> Optional[Docker]:
-        return super()._get_docker(remote=remote, local=None)
-
-    # Override
-    def _set_docker(self, remote: tuple, local: Optional[tuple], docker: Docker):
-        super()._set_docker(remote=remote, local=None, docker=docker)
-
-    # Override
-    def _remove_docker(self, remote: tuple, local: Optional[tuple], docker: Optional[Docker]):
-        super()._remove_docker(remote=remote, local=None, docker=docker)
-
-    # Override
-    def _cache_advance_party(self, data: bytes, source: tuple, destination: Optional[tuple],
-                             connection: Connection) -> List[bytes]:
-        # TODO: cache the advance party before decide which docker to use
-        if data is None:
-            return []
-        else:
-            return [data]
-
-    # Override
-    def _clear_advance_party(self, source: tuple, destination: Optional[tuple], connection: Connection):
-        # TODO: remove advance party for this connection
-        pass
-
-    # # Override
-    # def _heartbeat(self, connection: Connection):
-    #     # let the client to do the job
-    #     if isinstance(connection, ActiveConnection):
-    #         super()._heartbeat(connection=connection)
-
-    # Override
     def connection_state_changed(self, previous: ConnectionState, current: ConnectionState, connection: Connection):
         # debug info
         if current is None or current == ConnectionState.ERROR:
@@ -130,29 +148,23 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
     # Override
-    def connection_error(self, error: ConnectionError, data: Optional[bytes],
-                         source: Optional[tuple], destination: Optional[tuple], connection: Optional[Connection]):
+    def connection_error(self, error: Union[IOError, socket.error], connection: Connection):
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
             self.warning(msg='ignore socket error: %s' % error)
 
-    # # Override
-    # def connection_sent(self, data: bytes, source: Optional[tuple], destination: tuple, connection: Connection):
-    #     super().connection_sent(data=data, source=source, destination=destination, connection=connection)
-    #     self.info(msg='sent %d byte(s): %s -> %s' % (len(data), source, destination))
+    # Override
+    def connection_sent(self, sent: int, data: bytes, connection: Connection):
+        super().connection_sent(sent=sent, data=data, connection=connection)
+        self.info(msg='sent %d byte(s): %s' % (len(data), connection))
 
-    def get_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        worker = self._get_docker(remote=remote, local=local)
-        if worker is None:
-            worker = self._create_docker(remote=remote, local=local, advance_party=advance_party)
-            # assert worker is not None, 'failed to create docker: %s, %s' % (destination, source)
-            self._set_docker(remote=worker.remote_address, local=worker.local_address, docker=worker)
-        return worker
+    def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
+        hub = self.hub
+        return hub.open(remote=remote, local=local)
 
-    def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple],
-                     priority: int = 0, delegate: Optional[GateDelegate] = None) -> bool:
+    def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple], priority: int = 0) -> bool:
         worker = self.get_docker(remote=remote, local=local, advance_party=[])
         if worker is not None:
-            ship = worker.pack(payload=payload, priority=priority, delegate=delegate)
+            ship = worker.pack(payload=payload, priority=priority)
             return worker.append_departure(ship=ship)
 
     def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
@@ -184,11 +196,7 @@ class CommonGate(StarGate, Logging, Runnable, Generic[H], ABC):
 class TCPServerGate(CommonGate, Generic[H]):
 
     # Override
-    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        conn = self.get_connection(remote=remote, local=local)
-        if conn is None or not conn.alive:
-            self.error(msg='connection lost, could not create docker: %s -> %s' % (remote, local))
-            return None
+    def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:
         count = len(advance_party)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
@@ -200,21 +208,17 @@ class TCPServerGate(CommonGate, Generic[H]):
             return None
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=None, gate=self)
+            return MTPStreamDocker(connection=connection)
         if MarsStreamDocker.check(data=data):
-            return MarsStreamDocker(remote=remote, local=None, gate=self)
+            return MarsStreamDocker(connection=connection)
         if WSDocker.check(data=data):
-            return WSDocker(remote=remote, local=None, gate=self)
+            return WSDocker(connection=connection)
 
 
 class UDPServerGate(CommonGate, Generic[H]):
 
     # Override
-    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        conn = self.get_connection(remote=remote, local=local)
-        if conn is None or not conn.alive:
-            self.error(msg='connection lost, could not create docker: %s -> %s' % (remote, local))
-            return None
+    def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:
         count = len(advance_party)
         if count == 0:
             # return MTPStreamDocker(remote=remote, local=local, gate=self)
@@ -222,7 +226,7 @@ class UDPServerGate(CommonGate, Generic[H]):
         data = advance_party[count - 1]
         # check data format before creating docker
         if MTPStreamDocker.check(data=data):
-            return MTPStreamDocker(remote=remote, local=None, gate=self)
+            return MTPStreamDocker(connection=connection)
 
 
 #
@@ -232,7 +236,7 @@ class UDPServerGate(CommonGate, Generic[H]):
 
 class TCPClientGate(CommonGate, Generic[H]):
 
-    def __init__(self, delegate: GateDelegate, remote: tuple, local: tuple = None):
+    def __init__(self, delegate: DockerDelegate, remote: tuple, local: Optional[tuple] = None):
         super().__init__(delegate=delegate)
         self.__remote = remote
         self.__local = local
@@ -246,13 +250,13 @@ class TCPClientGate(CommonGate, Generic[H]):
         return self.__local
 
     # Override
-    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=None, gate=self)
+    def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:
+        return MTPStreamDocker(connection=connection)
 
 
 class UDPClientGate(CommonGate, Generic[H]):
 
-    def __init__(self, delegate: GateDelegate, remote: tuple, local: tuple = None):
+    def __init__(self, delegate: DockerDelegate, remote: tuple, local: Optional[tuple] = None):
         super().__init__(delegate=delegate)
         self.__remote = remote
         self.__local = local
@@ -266,5 +270,5 @@ class UDPClientGate(CommonGate, Generic[H]):
         return self.__local
 
     # Override
-    def _create_docker(self, remote: tuple, local: Optional[tuple], advance_party: List[bytes]) -> Optional[Docker]:
-        return MTPStreamDocker(remote=remote, local=None, gate=self)
+    def _create_docker(self, connection: Connection, advance_party: List[bytes]) -> Optional[Docker]:
+        return MTPStreamDocker(connection=connection)

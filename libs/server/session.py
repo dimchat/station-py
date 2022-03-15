@@ -37,10 +37,9 @@
 
 import socket
 import traceback
-from typing import Optional, List
+from typing import List
 
-from startrek import GateStatus, Gate
-from startrek import Connection
+from startrek import Docker, DockerStatus
 from startrek import Arrival
 
 from dimp import hex_encode
@@ -77,31 +76,31 @@ class Session(BaseSession):
             gate = self.gate
             conn = gate.get_connection(remote=self.remote_address, local=None)
             if conn is not None:
-                return conn.opened
+                return not conn.closed
 
     #
-    #   GateDelegate
+    #   Docker Delegate
     #
 
     # Override
-    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
-                            remote: tuple, local: Optional[tuple], gate: Gate):
-        if current is None or current == GateStatus.ERROR:
+    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+        # super().docker_status_changed(previous=previous, current=current, docker=docker)
+        if current is None or current == DockerStatus.ERROR:
             # connection error or session finished
             self.active = False
             self.stop()
             NotificationCenter().post(name=NotificationNames.DISCONNECTED, sender=self, info={
                 'session': self,
             })
-        elif current == GateStatus.READY:
+        elif current == DockerStatus.READY:
             # connected/reconnected
             NotificationCenter().post(name=NotificationNames.CONNECTED, sender=self, info={
                 'session': self,
             })
 
     # Override
-    def gate_received(self, ship: Arrival,
-                      source: tuple, destination: Optional[tuple], connection: Connection):
+    def docker_received(self, ship: Arrival, docker: Docker):
+        # super().docker_received(ship=ship, docker=docker)
         if isinstance(ship, MTPStreamArrival):
             payload = ship.payload
         elif isinstance(ship, MarsStreamArrival):
@@ -128,12 +127,15 @@ class Session(BaseSession):
                         continue
                     array.append(res)
             except Exception as error:
+                source = docker.remote_address
                 self.error('parse message failed (%s): %s, %s' % (source, error, pack))
                 self.error('payload: %s' % payload)
                 traceback.print_exc()
                 # from dimsdk import TextContent
                 # return TextContent.new(text='parse message failed: %s' % error)
         gate = self.gate
+        source = docker.remote_address
+        destination = docker.local_address
         if len(array) == 0:
             if isinstance(ship, MarsStreamArrival):
                 # station MUST respond something to client request (Tencent Mars)

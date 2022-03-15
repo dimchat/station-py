@@ -33,9 +33,9 @@ from typing import Optional, List
 
 from dimp import utf8_encode, utf8_decode, base64_encode, base64_decode
 
-from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
-from startrek import ArrivalShip, DepartureShip
-from startrek import StarGate
+from startrek import Connection
+from startrek import Arrival, ArrivalShip
+from startrek import Departure, DepartureShip, DeparturePriority
 
 from udp.ba import Data
 from tcp import PlainDocker
@@ -113,8 +113,8 @@ class MarsHelper:
 class MarsStreamArrival(ArrivalShip):
     """ Mars Stream Arrival Ship """
 
-    def __init__(self, mars: NetMsg):
-        super().__init__()
+    def __init__(self, mars: NetMsg, now: float = 0):
+        super().__init__(now=now)
         self.__mars = mars
         self.__sn = get_sn(mars=self.__mars)
 
@@ -147,8 +147,8 @@ class MarsStreamArrival(ArrivalShip):
 class MarsStreamDeparture(DepartureShip):
     """ Mars Stream Departure Ship """
 
-    def __init__(self, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__(priority=priority, delegate=delegate)
+    def __init__(self, mars: NetMsg, priority: int = 0, now: float = 0):
+        super().__init__(priority=priority, now=now)
         self.__mars = mars
         self.__sn = get_sn(mars=mars)
         self.__fragments = [mars.data]
@@ -176,8 +176,8 @@ class MarsStreamDeparture(DepartureShip):
 class MarsStreamDocker(PlainDocker):
     """ Docker for Mars packages """
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
-        super().__init__(remote=remote, local=local, gate=gate)
+    def __init__(self, connection: Connection):
+        super().__init__(connection=connection)
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
@@ -287,18 +287,17 @@ class MarsStreamDocker(PlainDocker):
                 return True
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        mars = MarsHelper.create_push(payload=payload)
-        return self.create_departure(mars=mars, priority=priority, delegate=delegate)
-
-    # Override
     def heartbeat(self):
         # heartbeat by client
         pass
 
+    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+        mars = MarsHelper.create_push(payload=payload)
+        return self.create_departure(mars=mars, priority=priority)
+
     @classmethod
-    def create_departure(cls, mars: NetMsg, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        return MarsStreamDeparture(mars=mars, priority=priority, delegate=delegate)
+    def create_departure(cls, mars: NetMsg, priority: int = 0) -> Departure:
+        return MarsStreamDeparture(mars=mars, priority=priority)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

@@ -42,7 +42,8 @@ from typing import Optional
 from startrek.net.channel import get_remote_address, get_local_address
 from startrek import BaseChannel
 from startrek import Connection, ConnectionDelegate, BaseConnection
-from startrek import Hub, GateDelegate, ShipDelegate
+from startrek import Hub, DockerDelegate
+
 from tcp import StreamChannel
 from tcp import ServerHub, ClientHub
 
@@ -100,7 +101,7 @@ SEND_BUFFER_SIZE = 64 * 1024  # 64 KB
 
 class GateKeeper(Runner, Transmitter):
 
-    def __init__(self, address: tuple, sock: Optional[socket.socket], messenger, delegate: GateDelegate):
+    def __init__(self, address: tuple, sock: Optional[socket.socket], messenger, delegate: DockerDelegate):
         super().__init__()
         self.__messenger = weakref.ref(messenger)
         self.__remote = address
@@ -109,7 +110,7 @@ class GateKeeper(Runner, Transmitter):
         self.__queue = MessageQueue()
         self.__active = False
 
-    def _create_gate(self, address: tuple, sock: Optional[socket.socket], delegate: GateDelegate) -> CommonGate:
+    def _create_gate(self, address: tuple, sock: Optional[socket.socket], delegate: DockerDelegate) -> CommonGate:
         if sock is None:
             gate = TCPClientGate(delegate=delegate, remote=address)
         else:
@@ -206,24 +207,26 @@ class GateKeeper(Runner, Transmitter):
             return True
         # try to push
         data = self.messenger.serialize_message(msg=msg)
-        ok = self.__send_payload(payload=data, priority=wrapper.priority, delegate=wrapper)
+        ok = self.__send_payload(payload=data, priority=wrapper.priority)
         if ok:
-            wrapper.success()
+            wrapper.on_appended()
         else:
             error = IOError('gate error, failed to send data')
-            wrapper.failed(error=error)
+            wrapper.on_error(error=error)
         return True
 
-    def __send_payload(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> bool:
+    def __send_payload(self, payload: bytes, priority: int = 0) -> bool:
         """ Send data via the gate """
         gate = self.gate
-        return gate.send_payload(payload=payload, local=None, remote=self.__remote,
-                                 priority=priority, delegate=delegate)
+        return gate.send_payload(payload=payload, local=None, remote=self.__remote, priority=priority)
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
         """ Push message into a waiting queue """
-        return self.__queue.append(msg=msg, priority=priority)
+        data = self.messenger.serialize_message(msg=msg)
+        docker = self.gate.get_docker(remote=self.remote_address, local=None, advance_party=[])
+        ship = docker.pack(payload=data, priority=priority)
+        return self.__queue.append(msg=msg, ship=ship)
 
     # Override
     def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:

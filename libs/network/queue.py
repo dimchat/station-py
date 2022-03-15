@@ -37,39 +37,28 @@
 
 import threading
 import time
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict
 
-from startrek import Connection
-from startrek import ShipDelegate
-from startrek import Arrival, Departure, DeparturePriority
+from startrek import Arrival, Departure
 
 from dimp import ReliableMessage
 
 from ..utils import get_msg_sig
-
 from ..database import Database
 
 
 g_database = Database()
 
 
-class MessageWrapper(ShipDelegate):
+class MessageWrapper(Departure):
 
     EXPIRES = 600  # 10 minutes
 
-    def __init__(self, msg: ReliableMessage, priority: int):
+    def __init__(self, msg: ReliableMessage, ship: Departure):
         super().__init__()
         self.__time = 0
         self.__msg = msg
-        self.__priority = priority
-
-    @property
-    def priority(self) -> int:
-        return self.__priority
-
-    @property
-    def msg(self) -> Optional[ReliableMessage]:
-        return self.__msg
+        self.__ship = ship
 
     def mark(self):
         self.__time = 1
@@ -77,37 +66,70 @@ class MessageWrapper(ShipDelegate):
     def fail(self):
         self.__time = -1
 
-    @property
-    def virgin(self) -> bool:
+    def is_virgin(self) -> bool:
         return self.__time == 0
 
-    def is_failed(self, now: int) -> bool:
-        if self.__time == -1:
+    def is_expired(self, now: float) -> bool:
+        if self.__time < 0:  # == -1
             return True
-        if self.__time > 1:
+        elif self.__time > 0:  # TODO: == 1?
             expired = self.__time + self.EXPIRES
             return now > expired
 
-    def success(self):
+    @property
+    def msg(self) -> Optional[ReliableMessage]:
+        return self.__msg
+
+    @property
+    def ship(self) -> Departure:
+        return self.__ship
+
+    @property  # Override
+    def priority(self) -> int:
+        return self.ship.priority
+
+    @property  # Override
+    def retries(self) -> int:
+        return self.ship.retries
+
+    # Override
+    def is_timeout(self, now: float) -> bool:
+        return self.ship.is_timeout(now=now)
+
+    @property  # Override
+    def fragments(self) -> List[bytes]:
+        return self.ship.fragments
+
+    # Override
+    def check_response(self, ship: Arrival) -> bool:
+        return self.ship.check_response(ship=ship)
+
+    @property  # Override
+    def sn(self):
+        return self.ship.sn
+
+    # Override
+    def is_failed(self, now: float) -> bool:
+        return self.ship.is_failed(now=now)
+
+    # Override
+    def update(self, now: float) -> bool:
+        return self.ship.update(now=now)
+
+    #
+    #   Callback
+    #
+
+    def on_appended(self):
+        """ callback on message appended to outgoing queue """
         # this message was assigned to the worker of StarGate,
         # update sent time
-        self.__time = int(time.time())
+        self.__time = time.time()
 
     # noinspection PyUnusedLocal
-    def failed(self, error: Exception):
-        # gate error, failed to append
-        self.__time = -1
-
-    #
-    #   ShipDelegate
-    #
-
-    # Override
-    def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
-        pass
-
-    # Override
-    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def on_sent(self):
+        """ callback on success to send out """
+        # success, remove message
         msg = self.__msg
         self.__msg = None
         if isinstance(msg, ReliableMessage):
@@ -115,8 +137,14 @@ class MessageWrapper(ShipDelegate):
             print('[QUEUE] message sent, remove from db: %s, %s -> %s' % (sig, msg.sender, msg.receiver))
             g_database.remove_message(msg=msg)
 
-    # Override
-    def gate_error(self, error: IOError, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    # noinspection PyUnusedLocal
+    def on_failed(self, error):
+        """ callback on failed to send ship"""
+        self.__time = -1
+
+    # noinspection PyUnusedLocal
+    def on_error(self, error):
+        """ callback on error, failed to append """
         self.__time = -1
 
 
@@ -128,9 +156,8 @@ class MessageQueue:
         self.__fleets: Dict[int, List[MessageWrapper]] = {}  # priority => List[MessageWrapper]
         self.__lock = threading.Lock()
 
-    def append(self, msg: ReliableMessage, priority: Union[int, DeparturePriority]) -> bool:
-        if isinstance(priority, DeparturePriority):
-            priority = priority.value
+    def append(self, msg: ReliableMessage, ship: Departure) -> bool:
+        priority = ship.priority
         with self.__lock:
             # 1. choose an array with priority
             fleet = self.__fleets.get(priority)
@@ -149,7 +176,7 @@ class MessageQueue:
                         print('[QUEUE] duplicated message: %s' % signature)
                         return True
             # 2. append with wrapper
-            wrapper = MessageWrapper(msg=msg, priority=priority)
+            wrapper = MessageWrapper(msg=msg, ship=ship)
             fleet.append(wrapper)
             return True
 
@@ -180,7 +207,7 @@ class MessageQueue:
                     continue
                 # 2. seeking new task in this priority
                 for wrapper in fleet:
-                    if wrapper.virgin:
+                    if wrapper.is_virgin():
                         wrapper.mark()  # got it, mark sent
                         return wrapper
 

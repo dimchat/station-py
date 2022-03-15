@@ -25,11 +25,11 @@
 
 from startrek import Hub, Channel, Connection, ConnectionDelegate
 from startrek import ConnectionState, ConnectionStateMachine
-from startrek import BaseHub, BaseChannel, BaseConnection
+from startrek import BaseChannel, ChannelReader, ChannelWriter
+from startrek import BaseHub, BaseConnection, ActiveConnection
 
-from startrek import Ship, ShipDelegate, Arrival, Departure, DeparturePriority
-from startrek import Docker, Gate, GateStatus, GateDelegate
-
+from startrek import Ship, Arrival, Departure, DeparturePriority
+from startrek import Docker, DockerStatus, DockerDelegate, Gate
 from startrek import ArrivalShip, ArrivalHall, DepartureShip, DepartureHall
 from startrek import Dock, LockedDock, StarDocker, StarGate
 
@@ -38,7 +38,7 @@ from tcp import StreamChannel, StreamHub
 from tcp import ServerHub as TCPServerHub, ClientHub as TCPClientHub
 
 from udp import PackageArrival, PackageDeparture, PackageDocker
-from udp import PackageChannel, PackageHub
+from udp import PacketChannel, PacketHub
 from udp import ServerHub as UDPServerHub, ClientHub as UDPClientHub
 
 from .protocol import WebSocket, NetMsg, NetMsgHead, NetMsgSeq
@@ -59,11 +59,11 @@ __all__ = [
     #
     'Hub', 'Channel', 'Connection', 'ConnectionDelegate',
     'ConnectionState', 'ConnectionStateMachine',
-    'BaseHub', 'BaseChannel', 'BaseConnection',
+    'BaseChannel', 'ChannelReader', 'ChannelWriter',
+    'BaseHub', 'BaseConnection', 'ActiveConnection',
 
-    'Ship', 'ShipDelegate', 'Arrival', 'Departure', 'DeparturePriority',
-    'Docker', 'Gate', 'GateStatus', 'GateDelegate',
-
+    'Ship', 'Arrival', 'Departure', 'DeparturePriority',
+    'Docker', 'DockerStatus', 'DockerDelegate', 'Gate',
     'ArrivalShip', 'ArrivalHall', 'DepartureShip', 'DepartureHall',
     'Dock', 'LockedDock', 'StarDocker', 'StarGate',
 
@@ -77,7 +77,7 @@ __all__ = [
     #   UDP
     #
     'PackageArrival', 'PackageDeparture', 'PackageDocker',
-    'PackageChannel', 'PackageHub', 'UDPServerHub', 'UDPClientHub',
+    'PacketChannel', 'PacketHub', 'UDPServerHub', 'UDPClientHub',
 
     #
     #   Protocol

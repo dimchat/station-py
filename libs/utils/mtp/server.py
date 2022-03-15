@@ -7,8 +7,8 @@ from typing import Optional
 
 from udp.mtp import Package, DataType
 
-from ...network import Connection, Gate, GateStatus, GateDelegate
-from ...network import Arrival, Departure, ShipDelegate
+from ...network import Docker, DockerStatus, DockerDelegate
+from ...network import Arrival, Departure
 from ...network import PackageArrival, PackageDocker, UDPServerHub, UDPServerGate
 
 import dmtp
@@ -18,7 +18,7 @@ from ...utils import Log
 from .manager import ContactManager, FieldValueEncoder
 
 
-class Server(dmtp.Server, GateDelegate):
+class Server(dmtp.Server, DockerDelegate):
 
     def __init__(self, host: str, port: int):
         super().__init__()
@@ -77,23 +77,28 @@ class Server(dmtp.Server, GateDelegate):
             self.error('failed to connect to %s: %s' % (remote, error))
 
     # Override
-    def gate_status_changed(self, previous: GateStatus, current: GateStatus,
-                            remote: tuple, local: Optional[tuple], gate: Gate):
+    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+        remote = docker.remote_address
+        local = docker.local_address
         self.info('!!! connection (%s, %s) state changed: %s -> %s' % (remote, local, previous, current))
 
     # Override
-    def gate_received(self, ship: Arrival, source: tuple, destination: Optional[tuple], connection: Connection):
+    def docker_received(self, ship: Arrival, docker: Docker):
         assert isinstance(ship, PackageArrival), 'arrival ship error: %s' % ship
         pack = ship.package
         if pack is not None:
-            self._received(head=pack.head, body=pack.body, source=source)
+            self._received(head=pack.head, body=pack.body, source=docker.remote_address)
 
     # Override
-    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def docker_sent(self, ship: Departure, docker: Docker):
         pass
 
     # Override
-    def gate_error(self, error: IOError, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
+    def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
+        pass
+
+    # Override
+    def docker_error(self, error: IOError, ship: Departure, docker: Docker):
         pass
 
     # Override
@@ -125,12 +130,11 @@ class Server(dmtp.Server, GateDelegate):
         pack = Package.new(data_type=DataType.MESSAGE, body=msg)
         return self.send_package(pack=pack, destination=destination)
 
-    def send_package(self, pack: Package, destination: tuple,
-                     priority: Optional[int] = 0, delegate: Optional[ShipDelegate] = None):
+    def send_package(self, pack: Package, destination: tuple, priority: Optional[int] = 0):
         source = self.__local_address
         worker = self.gate.get_docker(remote=destination, local=source, advance_party=[])
         assert isinstance(worker, PackageDocker), 'package docker error: %s' % worker
-        worker.send_package(pack=pack, priority=priority, delegate=delegate)
+        worker.send_package(pack=pack, priority=priority)
         return True
 
     #

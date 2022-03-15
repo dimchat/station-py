@@ -39,9 +39,8 @@ import socket
 from abc import ABC
 from typing import Optional
 
-from startrek import Connection
-from startrek import GateDelegate
-from startrek import Departure, DepartureShip
+from startrek import Arrival, Departure
+from startrek import Docker, DockerStatus, DockerDelegate
 
 from dimp import ID, Content
 from dimp import InstantMessage, ReliableMessage
@@ -52,9 +51,10 @@ from ..utils import get_msg_sig
 
 from ..network.transmitter import Transmitter
 from ..network import CommonGate, GateKeeper
+from ..network import MessageWrapper
 
 
-class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
+class BaseSession(Runner, Transmitter, DockerDelegate, Logging, ABC):
 
     def __init__(self, messenger: Messenger, address: tuple, sock: Optional[socket.socket] = None):
         super().__init__()
@@ -163,24 +163,28 @@ class BaseSession(Runner, Transmitter, GateDelegate, Logging, ABC):
         return self.keeper.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
 
     #
-    #   GateDelegate
+    #   Docker Delegate
     #
 
     # Override
-    def gate_sent(self, ship: Departure, source: Optional[tuple], destination: tuple, connection: Connection):
-        delegate = None
-        if isinstance(ship, DepartureShip):
-            delegate = ship.delegate
-        # callback to MessageWrapper
-        if delegate is not None and delegate != self:
-            delegate.gate_sent(ship=ship, source=source, destination=destination, connection=connection)
+    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+        print('docker status changed: %s -> %s, %s' % (previous, current, docker))
 
     # Override
-    def gate_error(self, error: IOError, ship: Departure,
-                   source: Optional[tuple], destination: tuple, connection: Connection):
-        delegate = None
-        if isinstance(ship, DepartureShip):
-            delegate = ship.delegate
-        # callback to MessageWrapper
-        if delegate is not None and delegate != self:
-            delegate.gate_error(error=error, ship=ship, source=source, destination=destination, connection=connection)
+    def docker_received(self, ship: Arrival, docker: Docker):
+        print('docker received a ship: %s, %s' % (ship, docker))
+
+    # Override
+    def docker_sent(self, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_sent()
+
+    # Override
+    def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_failed(error=error)
+
+    # Override
+    def docker_error(self, error: IOError, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_error(error=error)

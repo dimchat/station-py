@@ -28,7 +28,7 @@ from abc import ABC
 from typing import Optional
 
 from startrek.fsm import Context, BaseTransition, BaseState, AutoMachine
-from startrek import GateStatus
+from startrek import DockerStatus
 
 from .server import Server
 
@@ -72,10 +72,10 @@ class StateMachine(AutoMachine, Context):
             return server.current_user
 
     @property
-    def status(self) -> GateStatus:
+    def status(self) -> DockerStatus:
         server = self.server
         if server is None:
-            return GateStatus.ERROR
+            return DockerStatus.ERROR
         return server.status
 
     @property
@@ -306,7 +306,7 @@ class DefaultConnectingTransition(StateTransition):
         if ctx.current_user is None:
             return False
         status = ctx.status
-        return status == GateStatus.PREPARING or status == GateStatus.READY
+        return status == DockerStatus.PREPARING or status == DockerStatus.READY
 
 
 class ConnectingConnectedTransition(StateTransition):
@@ -314,14 +314,14 @@ class ConnectingConnectedTransition(StateTransition):
 
     def evaluate(self, ctx: StateMachine) -> bool:
         assert ctx.current_user is not None, 'server/user error'
-        return ctx.status == GateStatus.READY
+        return ctx.status == DockerStatus.READY
 
 
 class ConnectingErrorTransition(StateTransition):
     """ Connecting -> Error """
 
     def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == GateStatus.ERROR
+        return ctx.status == DockerStatus.ERROR
 
 
 class ConnectedHandshakingTransition(StateTransition):
@@ -335,7 +335,7 @@ class ConnectedErrorTransition(StateTransition):
     """ Connected -> Error """
 
     def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == GateStatus.ERROR
+        return ctx.status == DockerStatus.ERROR
 
 
 class HandshakingRunningTransition(StateTransition):
@@ -363,14 +363,14 @@ class HandshakingConnectedTransition(StateTransition):
             # not expired yet
             return False
         # handshake expired, return to connect to do it again
-        return ctx.status == GateStatus.READY
+        return ctx.status == DockerStatus.READY
 
 
 class HandshakingErrorTransition(StateTransition):
     """ Handshaking -> Error """
 
     def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == GateStatus.ERROR
+        return ctx.status == DockerStatus.ERROR
 
 
 class RunningDefaultTransition(StateTransition):
@@ -385,11 +385,11 @@ class RunningErrorTransition(StateTransition):
     """ Running -> Error """
 
     def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status == GateStatus.ERROR
+        return ctx.status == DockerStatus.ERROR
 
 
 class ErrorDefaultTransition(StateTransition):
     """ Error -> Default """
 
     def evaluate(self, ctx: StateMachine) -> bool:
-        return ctx.status != GateStatus.ERROR
+        return ctx.status != DockerStatus.ERROR

@@ -31,9 +31,9 @@
 import threading
 from typing import Optional, List
 
-from startrek import ShipDelegate, Arrival, Departure
+from startrek import Arrival, Departure
 from startrek import ArrivalShip, DepartureShip, DeparturePriority
-from startrek import StarGate
+from startrek import Connection
 
 from tcp import PlainDocker
 
@@ -67,8 +67,8 @@ class WSArrival(ArrivalShip):
 
 class WSDeparture(DepartureShip):
 
-    def __init__(self, package: bytes, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None):
-        super().__init__(priority=priority, delegate=delegate)
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0, now: float = 0):
+        super().__init__(priority=priority, now=now)
         self.__fragments = [package]
         self.__package = package
         self.__payload = payload
@@ -102,8 +102,8 @@ class WSDocker(PlainDocker):
 
     MAX_PACK_LENGTH = 65536  # 64 KB
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
-        super().__init__(remote=remote, local=local, gate=gate)
+    def __init__(self, connection: Connection):
+        super().__init__(connection=connection)
         self.__handshaking = True
         self.__chunks = b''
         self.__chunks_lock = threading.RLock()
@@ -186,14 +186,14 @@ class WSDocker(PlainDocker):
         return ship
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        req_pack = WebSocket.pack(payload=payload)
-        return WSDeparture(package=req_pack, payload=payload, priority=priority, delegate=delegate)
-
-    # Override
     def heartbeat(self):
         # heartbeat by client
         pass
+
+    # noinspection PyMethodMayBeStatic
+    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+        req_pack = WebSocket.pack(payload=payload)
+        return WSDeparture(package=req_pack, payload=payload, priority=priority)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

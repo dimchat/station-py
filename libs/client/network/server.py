@@ -44,7 +44,7 @@ from dimsdk import Station
 
 from ...utils import Logging
 from ...network.transmitter import Transmitter
-from ...network import GateStatus, DeparturePriority
+from ...network import DockerStatus, DeparturePriority
 from ...network import TCPClientGate
 
 from ...common import CommonMessenger, CommonFacebook
@@ -88,7 +88,11 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
         session = self.connect()
         gate = session.gate
         assert isinstance(gate, TCPClientGate)
-        return gate.gate_status(remote=gate.remote_address, local=None)
+        docker = gate.get_docker(remote=gate.remote_address, local=None, advance_party=[])
+        if docker is None:
+            return DockerStatus.ERROR
+        else:
+            return docker.status
 
     @property
     def current_user(self) -> Optional[User]:
@@ -181,7 +185,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
             return
         # check connection status = 'Connected'
         status = self.status
-        if status != GateStatus.READY:
+        if status != DockerStatus.READY:
             # FIXME: sometimes the connection will be lost while handshaking
             self.error('server not connected')
             return

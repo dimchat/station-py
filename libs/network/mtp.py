@@ -31,8 +31,8 @@
 import threading
 from typing import Optional, Union, List
 
-from startrek import ShipDelegate, Arrival, Departure, DeparturePriority
-from startrek import StarGate, ActiveConnection
+from startrek import Arrival, Departure, DeparturePriority
+from startrek import Connection, ActiveConnection
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
@@ -105,8 +105,8 @@ class MTPStreamDeparture(PackageDeparture):
 class MTPStreamDocker(PackageDocker):
     """ Docker for MTP packages """
 
-    def __init__(self, remote: tuple, local: Optional[tuple], gate: StarGate):
-        super().__init__(remote=remote, local=local, gate=gate)
+    def __init__(self, connection: Connection):
+        super().__init__(connection=connection)
         self.__chunks = Data.ZERO
         self.__chunks_lock = threading.RLock()
         self.__package_received = False
@@ -164,8 +164,8 @@ class MTPStreamDocker(PackageDocker):
         return MTPStreamArrival(pack=pack)
 
     # Override
-    def _create_departure(self, pack: Package, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        return MTPStreamDeparture(pack=pack, priority=priority, delegate=delegate)
+    def _create_departure(self, pack: Package, priority: int = 0) -> Departure:
+        return MTPStreamDeparture(pack=pack, priority=priority)
 
     # Override
     def _respond_command(self, sn: TransactionID, body: bytes):
@@ -178,11 +178,6 @@ class MTPStreamDocker(PackageDocker):
         self.send_package(pack=pack)
 
     # Override
-    def pack(self, payload: bytes, priority: int = 0, delegate: Optional[ShipDelegate] = None) -> Departure:
-        pkg = MTPHelper.create_message(body=payload)
-        return self._create_departure(pack=pkg, priority=priority, delegate=delegate)
-
-    # Override
     def heartbeat(self):
         conn = self.connection
         if isinstance(conn, ActiveConnection):
@@ -190,6 +185,10 @@ class MTPStreamDocker(PackageDocker):
             pkg = MTPHelper.create_command(body=PING)
             outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
             self.send_ship(ship=outgo)
+
+    def pack(self, payload: bytes, priority: int = 0) -> Departure:
+        pkg = MTPHelper.create_message(body=payload)
+        return self._create_departure(pack=pkg, priority=priority)
 
     @classmethod
     def check(cls, data: bytes) -> bool:
