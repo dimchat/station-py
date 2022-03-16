@@ -147,15 +147,15 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
             self.info(msg='connection state changed: %s -> %s, %s' % (previous, current, connection))
         super().connection_state_changed(previous=previous, current=current, connection=connection)
 
-    # Override
-    def connection_received(self, data: bytes, connection: Connection):
-        super().connection_received(data=data, connection=connection)
-        self.info(msg='received %d byte(s): %s' % (len(data), connection))
-
-    # Override
-    def connection_sent(self, sent: int, data: bytes, connection: Connection):
-        super().connection_sent(sent=sent, data=data, connection=connection)
-        self.info(msg='sent %d byte(s): %s' % (len(data), connection))
+    # # Override
+    # def connection_received(self, data: bytes, connection: Connection):
+    #     super().connection_received(data=data, connection=connection)
+    #     self.info(msg='received %d byte(s): %s' % (len(data), connection))
+    #
+    # # Override
+    # def connection_sent(self, sent: int, data: bytes, connection: Connection):
+    #     super().connection_sent(sent=sent, data=data, connection=connection)
+    #     self.info(msg='sent %d byte(s): %s' % (len(data), connection))
 
     # Override
     def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):
