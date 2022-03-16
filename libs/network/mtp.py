@@ -31,8 +31,8 @@
 import threading
 from typing import Optional, Union, List
 
-from startrek import Arrival, Departure, DeparturePriority
-from startrek import Connection, ActiveConnection
+from startrek import Arrival, Departure
+from startrek import Connection
 
 from udp.ba import ByteArray, Data
 from udp.mtp import DataType, TransactionID, Header, Package
@@ -167,24 +167,25 @@ class MTPStreamDocker(PackageDocker):
     def _create_departure(self, pack: Package, priority: int = 0) -> Departure:
         return MTPStreamDeparture(pack=pack, priority=priority)
 
-    # Override
-    def _respond_command(self, sn: TransactionID, body: bytes):
-        pack = MTPHelper.respond_command(sn=sn, body=body)
-        self.send_package(pack=pack)
+    #
+    #   Packing
+    #
 
     # Override
-    def _respond_message(self, sn: TransactionID, pages: int, index: int):
-        pack = MTPHelper.respond_message(sn=sn, pages=pages, index=index, body=OK)
-        self.send_package(pack=pack)
+    def _create_command(self, body: Union[bytes, bytearray]) -> Package:
+        return MTPHelper.create_command(body=body)
 
     # Override
-    def heartbeat(self):
-        conn = self.connection
-        if isinstance(conn, ActiveConnection):
-            # heartbeat by client
-            pkg = MTPHelper.create_command(body=PING)
-            outgo = self._create_departure(pack=pkg, priority=DeparturePriority.SLOWER)
-            self.send_ship(ship=outgo)
+    def _create_message(self, body: Union[bytes, bytearray]) -> Package:
+        return MTPHelper.create_message(body=body)
+
+    # Override
+    def _create_command_response(self, sn: TransactionID, body: bytes) -> Package:
+        return MTPHelper.respond_command(sn=sn, body=body)
+
+    # Override
+    def _create_message_response(self, sn: TransactionID, pages: int, index: int) -> Package:
+        return MTPHelper.respond_message(sn=sn, pages=pages, index=index, body=OK)
 
     def pack(self, payload: bytes, priority: int = 0) -> Departure:
         pkg = MTPHelper.create_message(body=payload)

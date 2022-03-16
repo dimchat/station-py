@@ -246,14 +246,14 @@ class MarsStreamDocker(PlainDocker):
             # handle NOOP request
             if body_len == 0 or payload == NOOP:
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
-                self.append_departure(ship=ship)
+                self.send_ship(ship=ship)
                 return None
         # 2. check body
         if body_len == 4:
             if payload == PING:
                 mars = MarsHelper.create_respond(head=head, payload=PONG)
                 ship = self.create_departure(mars=mars, priority=DeparturePriority.SLOWER)
-                self.append_departure(ship=ship)
+                self.send_ship(ship=ship)
                 return None
             elif payload == PONG:
                 # FIXME: client should not sent 'PONG' to server
@@ -283,7 +283,7 @@ class MarsStreamDocker(PlainDocker):
             cmd = pack.head.cmd
             if cmd == NetMsgHead.PUSH_MESSAGE:
                 # put back for next retry
-                self.append_departure(ship=ship)
+                self.send_ship(ship=ship)
                 return True
 
     # Override

@@ -149,7 +149,7 @@ class WSDocker(PlainDocker):
             res = WebSocket.handshake(stream=data)
             if res is not None:
                 ship = WSDeparture(package=res, payload=b'')
-                self.append_departure(ship=ship)
+                self.send_ship(ship=ship)
                 self.__handshaking = False
             elif len(data) < self.MAX_PACK_LENGTH:
                 # waiting for more data
@@ -173,7 +173,7 @@ class WSDocker(PlainDocker):
             if body == PING:
                 # 'PING' -> 'PONG'
                 ship = self.pack(payload=PONG, priority=DeparturePriority.SLOWER)
-                self.append_departure(ship=ship)
+                self.send_ship(ship=ship)
                 return None
             elif body == PONG or body == NOOP:
                 # ignore
