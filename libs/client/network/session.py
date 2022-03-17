@@ -37,7 +37,7 @@ from typing import Optional
 
 from startrek import Arrival
 
-from ...network import Hub, Docker, DockerStatus
+from ...network import Docker, DockerStatus
 from ...network import MTPStreamArrival
 
 from ...common import BaseSession, CommonMessenger
@@ -109,13 +109,7 @@ class Session(BaseSession):
             server = self.server
             if server is not None:
                 server.handshake_again()
-            remote = docker.remote_address
-            local = docker.local_address
-            self.info('connection lost, reconnecting: remote = %s, local = %s' % (remote, local))
-            # reconnect
-            hub = self.gate.hub
-            assert isinstance(hub, Hub), 'hub error: %s' % hub
-            hub.connect(remote=remote, local=local)
+            self.warning(msg='connection lost, waiting for reconnecting: %s' % docker)
 
     # Override
     def docker_received(self, ship: Arrival, docker: Docker):
