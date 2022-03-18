@@ -13,7 +13,7 @@ greenlet   # 1.1.2
 gevent     # 21.8.0
 sysv-ipc   # 1.1.0
 
-ipx==0.1.7
+ipx==0.2.0
 
 startrek==0.3.7
 tcp==0.3.6
