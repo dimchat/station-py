@@ -160,23 +160,17 @@ class CommonGate(BaseGate, Logging, Runnable, Generic[H], ABC):
     # Override
     def connection_failed(self, error: Union[IOError, socket.error], data: bytes, connection: Connection):
         super().connection_failed(error=error, data=data, connection=connection)
-        self.error(msg='failed to send %d byte(s): %s' % (len(data), connection))
+        self.error(msg='failed to send %d byte(s): %s, remote=%s' % (len(data), error, connection.remote_address))
 
     # Override
     def connection_error(self, error: Union[IOError, socket.error], connection: Connection):
         super().connection_error(error=error, connection=connection)
         if isinstance(error, IOError) and str(error).startswith('failed to send: '):
-            self.warning(msg='ignore socket error: %s' % error)
+            self.warning(msg='ignore socket error: %s, remote=%s' % (error, connection.remote_address))
 
     def get_connection(self, remote: tuple, local: Optional[tuple]) -> Optional[Connection]:
         hub = self.hub
         return hub.open(remote=remote, local=local)
-
-    def send_payload(self, payload: bytes, remote: tuple, local: Optional[tuple], priority: int = 0) -> bool:
-        worker = self.get_docker(remote=remote, local=local, advance_party=[])
-        if worker is not None:
-            ship = worker.pack(payload=payload, priority=priority)
-            return worker.send_ship(ship=ship)
 
     def send_response(self, payload: bytes, ship: Arrival, remote: tuple, local: Optional[tuple]) -> bool:
         worker = self.get_docker(remote=remote, local=local, advance_party=[])

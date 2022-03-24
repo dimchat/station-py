@@ -31,7 +31,7 @@
 import threading
 from typing import Optional, Union, List
 
-from startrek import Arrival, Departure
+from startrek import Arrival, Departure, DepartureShip
 from startrek import Connection
 
 from udp.ba import ByteArray, Data
@@ -165,7 +165,13 @@ class MTPStreamDocker(PackageDocker):
 
     # Override
     def _create_departure(self, pack: Package, priority: int = 0) -> Departure:
-        return MTPStreamDeparture(pack=pack, priority=priority)
+        if pack.is_response:
+            # response package needs no response again,
+            # so this ship will be removed immediately after sent.
+            return MTPStreamDeparture(pack=pack, priority=priority, max_tries=DepartureShip.DISPOSABLE)
+        else:
+            # normal package
+            return MTPStreamDeparture(pack=pack, priority=priority)
 
     #
     #   Packing

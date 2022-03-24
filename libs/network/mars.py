@@ -147,8 +147,8 @@ class MarsStreamArrival(ArrivalShip):
 class MarsStreamDeparture(DepartureShip):
     """ Mars Stream Departure Ship """
 
-    def __init__(self, mars: NetMsg, priority: int = 0, now: float = 0):
-        super().__init__(priority=priority, now=now)
+    def __init__(self, mars: NetMsg, priority: int = 0, max_tries: int = 3):
+        super().__init__(priority=priority, max_tries=max_tries)
         self.__mars = mars
         self.__sn = get_sn(mars=mars)
         self.__fragments = [mars.data]
@@ -268,25 +268,6 @@ class MarsStreamDocker(PlainDocker):
         return ship
 
     # Override
-    def _next_departure(self, now: int) -> Optional[Departure]:
-        outgo = super()._next_departure(now=now)
-        if outgo is not None:
-            self._retry_departure(ship=outgo)
-        return outgo
-
-    def _retry_departure(self, ship: Departure):
-        if ship.retries >= DepartureShip.MAX_RETRIES:
-            # last try
-            return False
-        if isinstance(ship, MarsStreamDeparture):
-            pack = ship.package
-            cmd = pack.head.cmd
-            if cmd == NetMsgHead.PUSH_MESSAGE:
-                # put back for next retry
-                self.send_ship(ship=ship)
-                return True
-
-    # Override
     def heartbeat(self):
         # heartbeat by client
         pass
@@ -297,7 +278,13 @@ class MarsStreamDocker(PlainDocker):
 
     @classmethod
     def create_departure(cls, mars: NetMsg, priority: int = 0) -> Departure:
-        return MarsStreamDeparture(mars=mars, priority=priority)
+        cmd = mars.head.cmd
+        if cmd == NetMsgHead.PUSH_MESSAGE:
+            # 'PUSH_MESSAGE' needs response
+            return MarsStreamDeparture(mars=mars, priority=priority)
+        else:
+            # others will be removed immediately after sent
+            return MarsStreamDeparture(mars=mars, priority=priority, max_tries=DepartureShip.DISPOSABLE)
 
     @classmethod
     def check(cls, data: bytes) -> bool:

@@ -85,16 +85,12 @@ class MessageWrapper(Departure):
         return self.__ship
 
     @property  # Override
-    def priority(self) -> int:
-        return self.ship.priority
+    def sn(self):
+        return self.ship.sn
 
     @property  # Override
-    def retries(self) -> int:
-        return self.ship.retries
-
-    # Override
-    def is_timeout(self, now: float) -> bool:
-        return self.ship.is_timeout(now=now)
+    def priority(self) -> int:
+        return self.ship.priority
 
     @property  # Override
     def fragments(self) -> List[bytes]:
@@ -104,17 +100,25 @@ class MessageWrapper(Departure):
     def check_response(self, ship: Arrival) -> bool:
         return self.ship.check_response(ship=ship)
 
-    @property  # Override
-    def sn(self):
-        return self.ship.sn
+    # Override
+    def is_new(self) -> bool:
+        return self.ship.is_new()
+
+    # Override
+    def is_disposable(self) -> bool:
+        return self.ship.is_disposable()
+
+    # Override
+    def is_timeout(self, now: float) -> bool:
+        return self.ship.is_timeout(now=now)
 
     # Override
     def is_failed(self, now: float) -> bool:
         return self.ship.is_failed(now=now)
 
     # Override
-    def update(self, now: float) -> bool:
-        return self.ship.update(now=now)
+    def touch(self, now: float):
+        return self.ship.touch(now=now)
 
     #
     #   Callback
@@ -142,10 +146,14 @@ class MessageWrapper(Departure):
         """ callback on failed to send ship"""
         self.__time = -1
 
-    # noinspection PyUnusedLocal
     def on_error(self, error):
         """ callback on error, failed to append """
-        self.__time = -1
+        # msg = self.__msg
+        # if msg is None:
+        #     print('[QUEUE] departure error: %s' % error)
+        # else:
+        #     print('[QUEUE] departure error: %s, %s -> %s' % (error, msg.sender, msg.receiver))
+        pass
 
 
 class MessageQueue:

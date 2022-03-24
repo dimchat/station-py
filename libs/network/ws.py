@@ -67,8 +67,8 @@ class WSArrival(ArrivalShip):
 
 class WSDeparture(DepartureShip):
 
-    def __init__(self, package: bytes, payload: bytes, priority: int = 0, now: float = 0):
-        super().__init__(priority=priority, now=now)
+    def __init__(self, package: bytes, payload: bytes, priority: int = 0):
+        super().__init__(priority=priority, max_tries=DepartureShip.DISPOSABLE)
         self.__fragments = [package]
         self.__package = package
         self.__payload = payload

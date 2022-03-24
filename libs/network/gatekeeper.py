@@ -206,19 +206,13 @@ class GateKeeper(Runner, Transmitter):
             # msg sent?
             return True
         # try to push
-        data = self.messenger.serialize_message(msg=msg)
-        ok = self.__send_payload(payload=data, priority=wrapper.priority)
+        ok = gate.send_ship(ship=wrapper, remote=self.__remote, local=None)
         if ok:
             wrapper.on_appended()
         else:
             error = IOError('gate error, failed to send data')
             wrapper.on_error(error=error)
         return True
-
-    def __send_payload(self, payload: bytes, priority: int = 0) -> bool:
-        """ Send data via the gate """
-        gate = self.gate
-        return gate.send_payload(payload=payload, local=None, remote=self.__remote, priority=priority)
 
     # Override
     def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
