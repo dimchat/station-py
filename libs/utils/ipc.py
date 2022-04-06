@@ -32,8 +32,12 @@ import threading
 from abc import ABC
 from typing import Optional, Tuple, Any
 
-from ipx import SharedMemoryArrow
 from startrek.fsm import Runner
+
+from ipx import SharedMemoryArrow
+# from ipx.shm.mmap import MmapSharedMemoryController as DefaultController
+# from ipx.shm.mp import MpSharedMemoryController as DefaultController
+from .sysv import SysvSharedMemoryController as DefaultController
 
 
 class AutoArrow(Runner, ABC):
@@ -43,7 +47,8 @@ class AutoArrow(Runner, ABC):
 
     def __init__(self, name: str):
         super().__init__()
-        self._arrow = SharedMemoryArrow.new(size=self.SHM_SIZE, name=name)
+        controller = DefaultController.new(size=self.SHM_SIZE, name=name)
+        self._arrow = SharedMemoryArrow(controller=controller)
 
     def start(self):
         threading.Thread(target=self.run, daemon=True).start()

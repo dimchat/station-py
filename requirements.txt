@@ -13,7 +13,7 @@ greenlet   # 1.1.2
 gevent     # 21.8.0
 sysv-ipc   # 1.1.0
 
-ipx==0.2.0
+ipx==0.2.1
 
 startrek==0.3.8
 tcp==0.3.8
@@ -21,7 +21,7 @@ udp==0.5.8
 stun==0.2.3
 dmtp==0.3.4
 
-mkm==0.11.3
-dkd==0.11.3
-dimp==0.11.4
+mkm==0.11.5
+dkd==0.11.5
+dimp==0.11.5
 dimsdk==0.6.6
