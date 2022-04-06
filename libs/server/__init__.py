@@ -34,7 +34,7 @@ from .cpu import *
 from .session import Session
 from .session_server import SessionServer
 from .messenger import ServerMessenger
-from .processor import ServerProcessor, ServerProcessorFactory
+from .processor import ServerProcessor, ServerContentProcessorCreator
 from .callers import ReceptionistCaller, SearchEngineCaller, OctopusCaller, MonitorCaller
 from .dispatcher import Dispatcher
 from .filter import Filter
@@ -46,7 +46,7 @@ __all__ = [
 
     'ServerMessenger',
     'ServerProcessor',
-    'ServerProcessorFactory',
+    'ServerContentProcessorCreator',
 
     'ReceptionistCaller', 'SearchEngineCaller',
     'OctopusCaller', 'MonitorCaller',

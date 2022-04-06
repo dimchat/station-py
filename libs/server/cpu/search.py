@@ -32,8 +32,8 @@ from typing import List
 
 from dimp import ID, Meta
 from dimp import ReliableMessage
-from dimp import Content, Command
-from dimsdk import CommandProcessor
+from dimp import Content
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...database import Database
 from ...common import SearchCommand
@@ -63,26 +63,26 @@ def save_response(facebook, station: ID, users: List[ID], results: dict) -> List
     return []
 
 
-class SearchCommandProcessor(CommandProcessor):
+class SearchCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
-        if cmd.users is not None or cmd.results is not None:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, SearchCommand), 'search command error: %s' % content
+        if content.users is not None or content.results is not None:
             # this is a response
-            return save_response(self.facebook, station=msg.sender, users=cmd.users, results=cmd.results)
+            return save_response(self.facebook, station=msg.sender, users=content.users, results=content.results)
         # this is a request
         facebook = self.facebook
-        keywords = cmd.keywords
+        keywords = content.keywords
         if keywords is None:
             text = 'Search command error.'
             return self._respond_text(text=text)
         elif keywords == SearchCommand.ONLINE_USERS:
-            users, results = online_users(facebook, start=cmd.start, limit=cmd.limit)
+            users, results = online_users(facebook, start=content.start, limit=content.limit)
         else:
             # let search bot (archivist) to do the job
             return []
-        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
+        res = SearchCommand.respond(request=content, keywords=keywords, users=users, results=results)
         station = facebook.current_user
         res.station = station.identifier
         return [res]

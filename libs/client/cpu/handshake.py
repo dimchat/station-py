@@ -34,23 +34,25 @@ from typing import List
 
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import Command
 from dimsdk import HandshakeCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 
 
-class HandshakeCommandProcessor(CommandProcessor, Logging):
+class HandshakeCommandProcessor(BaseCommandProcessor, Logging):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
-        message = cmd.message
-        session = cmd.session
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
+        message = content.message
+        session = content.session
         sender = msg.sender
         self.info('received "handshake": %s, %s, %s' % (sender, message, session))
-        server = self.messenger.server
+        messenger = self.messenger
+        from ..messenger import ClientMessenger
+        assert isinstance(messenger, ClientMessenger), 'client messenger error: %s' % messenger
+        server = messenger.server
         # from ..network import Server
         # assert isinstance(server, Server), 'server error: %s' % server
         if server is None:
@@ -70,5 +72,5 @@ class HandshakeCommandProcessor(CommandProcessor, Logging):
             server.handshake_success()
         else:
             # C -> S: Hello world!
-            self.error(msg='[Error] handshake command from %s: %s' % (sender, cmd))
+            self.error(msg='[Error] handshake command from %s: %s' % (sender, content))
         return []

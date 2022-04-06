@@ -38,14 +38,14 @@ from startrek import DeparturePriority
 from dimp import NetworkType, ID
 from dimp import ReliableMessage
 from dimp import Content, TextContent
-from dimsdk import ContentProcessor
+from dimsdk.cpu import BaseContentProcessor
 
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
 from ...common import CommonFacebook, CommonMessenger
 
 
-class ChatTextContentProcessor(ContentProcessor, Logging):
+class ChatTextContentProcessor(BaseContentProcessor, Logging):
 
     def __init__(self, facebook, messenger, bots: Union[list, ChatBot]):
         super().__init__(facebook=facebook, messenger=messenger)

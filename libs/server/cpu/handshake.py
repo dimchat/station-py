@@ -35,9 +35,8 @@ from typing import List
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import Command
 from dimsdk import HandshakeCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ..session_server import SessionServer
 
@@ -45,13 +44,13 @@ from ..session_server import SessionServer
 g_session_server = SessionServer()
 
 
-class HandshakeCommandProcessor(CommandProcessor):
+class HandshakeCommandProcessor(BaseCommandProcessor):
 
     def __offer(self, sender: ID, session_key: str = None) -> Content:
         # set/update session in session server with new session key
         messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
+        from ..messenger import ServerMessenger
+        assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         session = messenger.session
         if session_key == session.key:
             # session verified success
@@ -64,15 +63,15 @@ class HandshakeCommandProcessor(CommandProcessor):
             return HandshakeCommand.again(session=session.key)
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, HandshakeCommand), 'command error: %s' % cmd
-        message = cmd.message
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, HandshakeCommand), 'handshake command error: %s' % content
+        message = content.message
         if message in ['DIM?', 'DIM!']:
             # S -> C
             text = 'Handshake command error: %s' % message
             return self._respond_text(text=text)
         else:
             # C -> S: Hello world!
-            assert 'Hello world!' == message, 'Handshake command error: %s' % cmd
-            res = self.__offer(session_key=cmd.session, sender=msg.sender)
+            assert 'Hello world!' == message, 'Handshake command error: %s' % content
+            res = self.__offer(session_key=content.session, sender=msg.sender)
             return [res]

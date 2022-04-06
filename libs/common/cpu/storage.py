@@ -33,9 +33,9 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, Command
+from dimp import Content
 from dimsdk import StorageCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...database import Database
 
@@ -43,14 +43,14 @@ from ...database import Database
 g_database = Database()
 
 
-class StorageCommandProcessor(CommandProcessor):
+class StorageCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, StorageCommand), 'command error: %s' % cmd
-        title = cmd.title
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, StorageCommand), 'command error: %s' % content
+        title = content.title
         if title == StorageCommand.CONTACTS:
-            if cmd.data is None and 'contacts' not in cmd:
+            if content.data is None and 'contacts' not in content:
                 # query contacts, load it
                 stored = g_database.contacts_command(identifier=msg.sender)
                 # response
@@ -62,11 +62,11 @@ class StorageCommandProcessor(CommandProcessor):
                     return [stored]
             else:
                 # upload contacts, save it
-                if g_database.save_contacts_command(cmd=cmd, sender=msg.sender):
+                if g_database.save_contacts_command(cmd=content, sender=msg.sender):
                     text = 'Contacts of %s received!' % msg.sender
                     return self._respond_receipt(text=text)
                 else:
-                    text = 'Sorry, contacts not stored %s!' % cmd
+                    text = 'Sorry, contacts not stored %s!' % content
                     return self._respond_text(text=text)
         else:
             text = 'Storage command (title: %s) not support yet!' % title

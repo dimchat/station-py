@@ -33,9 +33,9 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, Command
+from dimp import Content, Command, BaseCommand
 from dimsdk import MuteCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...database import Database
 
@@ -43,17 +43,18 @@ from ...database import Database
 g_database = Database()
 
 
-class MuteCommandProcessor(CommandProcessor):
+class MuteCommandProcessor(BaseCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, MuteCommand), 'command error: %s' % cmd
-        if 'list' in cmd:
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, MuteCommand), 'mute command error: %s' % content
+        if 'list' in content:
             # upload mute-list, save it
-            if g_database.save_mute_command(cmd=cmd, sender=msg.sender):
+            if g_database.save_mute_command(cmd=content, sender=msg.sender):
                 text = 'Mute command of %s received!' % msg.sender
                 return self._respond_receipt(text=text)
             else:
-                text = 'Sorry, mute-list not stored %s!' % cmd
+                text = 'Sorry, mute-list not stored %s!' % content
                 return self._respond_text(text=text)
         else:
             # query mute-list, load it
@@ -64,6 +65,6 @@ class MuteCommandProcessor(CommandProcessor):
             else:
                 # return TextContent.new(text='Sorry, mute-list of %s not found.' % sender)
                 # TODO: here should response an empty HistoryCommand: 'mute'
-                res = Command(command=MuteCommand.MUTE)
+                res = BaseCommand(command=MuteCommand.MUTE)
                 res['list'] = []
                 return [res]

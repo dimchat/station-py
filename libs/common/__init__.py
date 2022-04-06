@@ -47,7 +47,7 @@ from .keycache import KeyCache
 from .facebook import CommonFacebook, SharedFacebook
 from .messenger import CommonMessenger, MessengerDelegate
 from .packer import CommonPacker
-from .processor import CommonProcessor, CommonProcessorFactory
+from .processor import CommonProcessor, CommonContentProcessorCreator
 
 
 def msg_receipt(msg: ReliableMessage, text: str) -> Content:
@@ -129,7 +129,7 @@ __all__ = [
 
     'KeyCache', 'CommonFacebook', 'SharedFacebook',
     'CommonMessenger', 'CommonPacker', 'CommonProcessor',
-    'CommonProcessorFactory',
+    'CommonContentProcessorCreator',
     'MessengerDelegate',
 
     'msg_receipt', 'msg_traced', 'is_broadcast_message',

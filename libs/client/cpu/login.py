@@ -33,15 +33,15 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, Command
+from dimp import Content
 from dimsdk import LoginCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 
-class LoginCommandProcessor(CommandProcessor):
+class LoginCommandProcessor(BaseCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, LoginCommand), 'login command error: %s' % content
         # return ReceiptCommand.new(message='Login received')
         return []

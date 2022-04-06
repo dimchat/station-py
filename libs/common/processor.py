@@ -29,15 +29,17 @@
 """
 
 import traceback
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from dimp import ID
 from dimp import InstantMessage, ReliableMessage
 from dimp import Content, ContentType, ForwardContent
 from dimp import Command, InviteCommand, ResetCommand
-from dimsdk import ContentProcessor, CommandProcessor
-from dimsdk import MessageProcessor, ProcessorFactory
 from dimsdk import MuteCommand, BlockCommand, StorageCommand
+from dimsdk import MessageProcessor
+from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk.cpu import BaseContentProcessorCreator
+from dimsdk.cpu import BaseContentProcessor, BaseCommandProcessor
 
 from ..utils import Logging
 
@@ -167,32 +169,28 @@ class CommonProcessor(MessageProcessor, Logging):
         return responses
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return CommonProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return CommonContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class CommonProcessorFactory(ProcessorFactory):
+class CommonContentProcessorCreator(BaseContentProcessorCreator):
 
     # Override
-    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # file
         if msg_type == ContentType.FILE.value:
             return FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
         elif msg_type in [ContentType.IMAGE.value, ContentType.AUDIO.value, ContentType.VIDEO.value]:
-            cpu = self._get_content_processor(msg_type=ContentType.FILE.value)
-            if cpu is None:
-                cpu = FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_content_processor(msg_type=ContentType.FILE.value, cpu=cpu)
-            return cpu
+            return FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        cpu = super()._create_content_processor(msg_type=msg_type)
+        cpu = super().create_content_processor(msg_type=msg_type)
         if cpu is None:
             # unknown
-            cpu = ContentProcessor(facebook=self.facebook, messenger=self.messenger)
+            cpu = BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
         return cpu
 
     # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # receipt
         if cmd_name == Command.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
@@ -206,14 +204,10 @@ class CommonProcessorFactory(ProcessorFactory):
         if cmd_name == StorageCommand.STORAGE:
             return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name in [StorageCommand.CONTACTS, StorageCommand.PRIVATE_KEY]:
-            cpu = self._get_command_processor(cmd_name=StorageCommand.STORAGE)
-            if cpu is None:
-                cpu = StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_command_processor(cmd_name=StorageCommand.STORAGE, cpu=cpu)
-            return cpu
+            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        cpu = super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        cpu = super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
         if cpu is None:
             # unknown
-            cpu = CommandProcessor(facebook=self.facebook, messenger=self.messenger)
+            cpu = BaseCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         return cpu

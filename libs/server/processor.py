@@ -29,17 +29,17 @@
 """
 
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from dimp import NetworkType
 from dimp import ReliableMessage
-from dimp import Content, TextContent, Command
+from dimp import Content, ContentType, TextContent, Command
 from dimsdk import ReceiptCommand, HandshakeCommand
-from dimsdk import CommandProcessor, ProcessorFactory
+from dimsdk import ContentProcessor, ContentProcessorCreator
 
 from ..database import Database
 from ..common import ReportCommand, SearchCommand
-from ..common import CommonProcessor, CommonProcessorFactory
+from ..common import CommonProcessor, CommonContentProcessorCreator
 
 from .session_server import SessionServer
 from .messenger import ServerMessenger
@@ -94,26 +94,18 @@ class ServerProcessor(CommonProcessor):
         return contents
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return ServerProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class ServerProcessorFactory(CommonProcessorFactory):
+class ServerContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # document
         if cmd_name == Command.DOCUMENT:
             from .cpu import DocumentCommandProcessor
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name in ['profile', 'visa', 'bulletin']:
-            # share the same processor
-            cpu = self._get_command_processor(cmd_name=Command.DOCUMENT)
-            if cpu is None:
-                from .cpu import DocumentCommandProcessor
-                cpu = DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_command_processor(cmd_name=Command.DOCUMENT, cpu=cpu)
-            return cpu
         # handshake
         if cmd_name == Command.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
@@ -127,13 +119,8 @@ class ServerProcessorFactory(CommonProcessorFactory):
             from .cpu import ReportCommandProcessor
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == 'broadcast':
-            # share the same processor
-            cpu = self._get_command_processor(cmd_name=ReportCommand.REPORT)
-            if cpu is None:
-                from .cpu import ReportCommandProcessor
-                cpu = ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_command_processor(cmd_name=ReportCommand.REPORT, cpu=cpu)
-            return cpu
+            from .cpu import ReportCommandProcessor
+            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == 'apns':
             from .cpu import APNsCommandProcessor
             return APNsCommandProcessor(facebook=self.facebook, messenger=self.messenger)
@@ -148,12 +135,7 @@ class ServerProcessorFactory(CommonProcessorFactory):
             from .cpu import SearchCommandProcessor
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == SearchCommand.ONLINE_USERS:
-            # share the same processor
-            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
-            if cpu is None:
-                from .cpu import SearchCommandProcessor
-                cpu = SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
-            return cpu
+            from .cpu import SearchCommandProcessor
+            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

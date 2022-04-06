@@ -29,7 +29,7 @@
 """
 
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from startrek import DeparturePriority
 
@@ -37,9 +37,9 @@ from dimp import NetworkType
 from dimp import SecureMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, Command
 from dimsdk import HandshakeCommand, ReceiptCommand
-from dimsdk import ContentProcessor, CommandProcessor, ProcessorFactory
+from dimsdk import ContentProcessor, ContentProcessorCreator
 
-from ..common import CommonProcessor, CommonProcessorFactory
+from ..common import CommonProcessor, CommonContentProcessorCreator
 
 from .cpu import ChatTextContentProcessor
 
@@ -95,22 +95,22 @@ class ClientProcessor(CommonProcessor):
         return []
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return ClientProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return ClientContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class ClientProcessorFactory(CommonProcessorFactory):
+class ClientContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
-    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # text
         if msg_type == ContentType.TEXT:
             return ChatTextContentProcessor(facebook=self.facebook, messenger=self.messenger, bots=[])
         # others
-        return super()._create_content_processor(msg_type=msg_type)
+        return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # handshake
         if cmd_name == Command.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
@@ -120,4 +120,4 @@ class ClientProcessorFactory(CommonProcessorFactory):
             from .cpu import LoginCommandProcessor
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

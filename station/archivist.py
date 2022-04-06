@@ -38,11 +38,12 @@ from startrek import DeparturePriority
 
 from dimp import NetworkType, ID, Meta
 from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, Command
+from dimp import ContentType, Content, Command
 from dimp import MetaCommand, DocumentCommand
 from dimp import Processor
-from dimsdk import CommandProcessor, ProcessorFactory
 from dimsdk import Station
+from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk.cpu import BaseCommandProcessor
 
 import sys
 import os
@@ -56,7 +57,7 @@ from libs.utils.ipc import ArchivistPipe
 from libs.utils import Runner
 from libs.database import FrequencyChecker
 from libs.common import SearchCommand
-from libs.common import CommonMessenger, CommonProcessor, CommonProcessorFactory
+from libs.common import CommonMessenger, CommonProcessor, CommonContentProcessorCreator
 
 from etc.cfg_init import all_stations, neighbor_stations, g_database
 from station.config import g_facebook, g_station
@@ -297,60 +298,55 @@ class SearchEngineWorker(Runner, Logging):
 #
 
 
-class SearchCommandProcessor(CommandProcessor, Logging):
+class SearchCommandProcessor(BaseCommandProcessor, Logging):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, SearchCommand), 'command error: %s' % cmd
-        if cmd.users is not None or cmd.results is not None:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, SearchCommand), 'search command error: %s' % content
+        if content.users is not None or content.results is not None:
             # this is a response
-            self.info('saving search respond: %s' % cmd)
-            save_response(station=msg.sender, users=cmd.users, results=cmd.results)
+            self.info('saving search respond: %s' % content)
+            save_response(station=msg.sender, users=content.users, results=content.results)
             return []
         # this is a request
-        keywords = cmd.keywords
+        keywords = content.keywords
         if keywords is None:
             # return [TextContent(text='Search command error')]
-            self.error('Search command error: %s' % cmd)
+            self.error('Search command error: %s' % content)
             return []
         keywords = keywords.lower()
         if keywords == SearchCommand.ONLINE_USERS:
-            users, results = recent_users(start=cmd.start, limit=cmd.limit, station=g_station)
+            users, results = recent_users(start=content.start, limit=content.limit, station=g_station)
             self.info('Got %d recent online user(s) in %s' % (len(results), g_station.identifier))
         elif keywords == 'all users':
-            users, results = recent_users(start=cmd.start, limit=cmd.limit)
+            users, results = recent_users(start=content.start, limit=content.limit)
             self.info('Got %d recent online user(s) in %d station(s)' % (len(results), len(all_stations)))
         else:
-            users, results = search_users(keywords=keywords.split(' '), start=cmd.start, limit=cmd.limit)
-            self.info('Got %d account(s) matched %s' % (len(results), cmd.keywords))
+            users, results = search_users(keywords=keywords.split(' '), start=content.start, limit=content.limit)
+            self.info('Got %d account(s) matched %s' % (len(results), content.keywords))
         # respond
-        res = SearchCommand.respond(request=cmd, keywords=keywords, users=users, results=results)
+        res = SearchCommand.respond(request=content, keywords=keywords, users=users, results=results)
         return [res]
 
 
-class ArchivistProcessorFactory(CommonProcessorFactory):
+class ArchivistContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # search
         if cmd_name == SearchCommand.SEARCH:
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name == SearchCommand.ONLINE_USERS:
-            # share the same processor
-            cpu = self._get_command_processor(cmd_name=SearchCommand.SEARCH)
-            if cpu is None:
-                cpu = SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-                self._put_command_processor(cmd_name=SearchCommand.SEARCH, cpu=cpu)
-            return cpu
+            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
 
 
 class ArchivistMessageProcessor(CommonProcessor):
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return ArchivistProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return ArchivistContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:

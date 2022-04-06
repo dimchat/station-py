@@ -34,9 +34,9 @@ from typing import List
 
 from dimp import ID
 from dimp import ReliableMessage
-from dimp import Content, Command
+from dimp import Content
 from dimsdk import LoginCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...utils import NotificationCenter
@@ -47,17 +47,17 @@ from ...common import NotificationNames
 g_database = Database()
 
 
-class LoginCommandProcessor(CommandProcessor, Logging):
+class LoginCommandProcessor(BaseCommandProcessor, Logging):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, LoginCommand), 'command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, LoginCommand), 'command error: %s' % content
         # check roaming
-        if not g_database.save_login(cmd=cmd, msg=msg):
-            self.error('login command error/expired: %s' % cmd)
+        if not g_database.save_login(cmd=content, msg=msg):
+            self.error('login command error/expired: %s' % content)
             return []
-        sender = cmd.identifier
-        station = cmd.station
+        sender = content.identifier
+        station = content.station
         # assert isinstance(station, dict), 'login command error: %s' % cmd
         sid = ID.parse(identifier=station.get('ID'))
         self.info('user login: %s -> %s' % (sender, sid))
@@ -65,7 +65,7 @@ class LoginCommandProcessor(CommandProcessor, Logging):
         NotificationCenter().post(name=NotificationNames.USER_ONLINE, sender=self, info={
             'ID': str(sender),
             'station': str(sid),
-            'time': cmd.time,
+            'time': content.time,
         })
         # check current station
         facebook = self.facebook

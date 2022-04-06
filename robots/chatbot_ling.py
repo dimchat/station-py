@@ -33,12 +33,12 @@
 
 import sys
 import os
-from typing import Optional
+from typing import Optional, Union
 
 from dimp import ID
 from dimp import ContentType
 from dimp import Processor
-from dimsdk import ContentProcessor, ProcessorFactory
+from dimsdk import ContentProcessor, ContentProcessorCreator
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -46,7 +46,7 @@ sys.path.append(rootPath)
 
 from libs.common import SharedFacebook
 from libs.client import ChatTextContentProcessor
-from libs.client import ClientProcessor, ClientProcessorFactory
+from libs.client import ClientProcessor, ClientContentProcessorCreator
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -60,22 +60,22 @@ class BotTextContentProcessor(ChatTextContentProcessor):
         super().__init__(facebook=facebook, messenger=messenger, bots=bots)
 
 
-class BotProcessorFactory(ClientProcessorFactory):
+class BotContentProcessorCreator(ClientContentProcessorCreator):
 
     # Override
-    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # text
         if msg_type == ContentType.TEXT:
             return BotTextContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_content_processor(msg_type=msg_type)
+        return super().create_content_processor(msg_type=msg_type)
 
 
 class BotMessageProcessor(ClientProcessor):
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return BotProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
 class BotMessenger(ClientMessenger):

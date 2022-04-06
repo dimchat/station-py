@@ -35,7 +35,7 @@ import sys
 import os
 import time
 from enum import IntEnum
-from typing import Optional, List
+from typing import Optional, Union, List
 
 from startrek import DeparturePriority
 
@@ -44,8 +44,8 @@ from dimp import Envelope, InstantMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, ForwardContent, Command
 from dimp import Processor
 from dimsdk import ReceiptCommand
-from dimsdk import ContentProcessor, CommandProcessor
-from dimsdk import ProcessorFactory
+from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk.cpu import BaseContentProcessor, BaseCommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -57,7 +57,7 @@ from libs.database import Storage
 from libs.common import SearchCommand
 from libs.common import CommonFacebook, SharedFacebook
 from libs.client import ChatTextContentProcessor
-from libs.client import ClientProcessor, ClientProcessorFactory
+from libs.client import ClientProcessor, ClientContentProcessorCreator
 from libs.client import Terminal, ClientMessenger
 
 from robots.nlp import chat_bots
@@ -67,21 +67,20 @@ from robots.config import dims_connect, current_station
 #
 #   Receipt Command Processor
 #
-class ReceiptCommandProcessor(CommandProcessor):
+class ReceiptCommandProcessor(BaseCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
-        return [client.room.receipt(cmd=cmd, sender=msg.sender)]
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
+        return [client.room.receipt(cmd=content, sender=msg.sender)]
 
 
 #
 #   Forward Content Processor
 #
-class ForwardContentProcessor(ContentProcessor):
+class ForwardContentProcessor(BaseContentProcessor):
 
-    #
-    #   main
-    #
+    # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
         r_msg = content.message
@@ -121,10 +120,10 @@ class BotTextContentProcessor(ChatTextContentProcessor):
         return super().process(content=content, msg=msg)
 
 
-class BotProcessorFactory(ClientProcessorFactory):
+class BotContentProcessorCreator(ClientContentProcessorCreator):
 
     # Override
-    def _create_content_processor(self, msg_type: int) -> Optional[ContentProcessor]:
+    def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # text
         if msg_type == ContentType.TEXT:
             return BotTextContentProcessor(facebook=self.facebook, messenger=self.messenger)
@@ -132,22 +131,22 @@ class BotProcessorFactory(ClientProcessorFactory):
         if msg_type == ContentType.FORWARD:
             return ForwardContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_content_processor(msg_type=msg_type)
+        return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def _create_command_processor(self, msg_type: int, cmd_name: str) -> Optional[CommandProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # receipt
         if cmd_name == Command.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super()._create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
 
 
 class BotMessageProcessor(ClientProcessor):
 
     # Override
-    def _create_processor_factory(self) -> ProcessorFactory:
-        return BotProcessorFactory(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self) -> ContentProcessorCreator:
+        return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
 class BotMessenger(ClientMessenger):

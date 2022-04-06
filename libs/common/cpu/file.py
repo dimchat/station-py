@@ -39,13 +39,13 @@ from typing import List
 from dimp import SymmetricKey
 from dimp import InstantMessage, SecureMessage, ReliableMessage
 from dimp import Content, FileContent
-from dimsdk import ContentProcessor
+from dimsdk.cpu import BaseContentProcessor
 
 
 #
 #   File Content Processor
 #
-class FileContentProcessor(ContentProcessor):
+class FileContentProcessor(BaseContentProcessor):
 
     def upload(self, content: FileContent, password: SymmetricKey, msg: InstantMessage):
         data = content.data
@@ -56,8 +56,8 @@ class FileContentProcessor(ContentProcessor):
         if encrypted is None or len(encrypted) == 0:
             raise ValueError('failed to encrypt file data with key: %s' % password)
         messenger = self.messenger
-        # from ..messenger import CommonMessenger
-        # assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        from ..messenger import CommonMessenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
         url = messenger.upload_encrypted_data(data=encrypted, msg=msg)
         if url is not None:
             # replace 'data' with 'URL'
@@ -73,8 +73,8 @@ class FileContentProcessor(ContentProcessor):
         i_msg = InstantMessage.create(head=msg.envelope, body=content)
         # download from CDN
         messenger = self.messenger
-        # from ..messenger import CommonMessenger
-        # assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
+        from ..messenger import CommonMessenger
+        assert isinstance(messenger, CommonMessenger), 'messenger error: %s' % messenger
         encrypted = messenger.download_encrypted_data(url=url, msg=i_msg)
         if encrypted is None or len(encrypted) == 0:
             # save symmetric key for decrypting file data after download from CDN
@@ -89,9 +89,7 @@ class FileContentProcessor(ContentProcessor):
             content.url = None
             return True
 
-    #
-    #   main
-    #
+    # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, FileContent), 'file content error: %s' % content
         # TODO: process file content

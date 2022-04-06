@@ -32,14 +32,15 @@
 from typing import List
 
 from dimp import ReliableMessage
-from dimp import Content, Command
+from dimp import Content
 from dimsdk import ReceiptCommand
-from dimsdk import CommandProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 
-class ReceiptCommandProcessor(CommandProcessor):
+class ReceiptCommandProcessor(BaseCommandProcessor):
 
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, ReceiptCommand), 'receipt command error: %s' % cmd
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
         # nickname = self.facebook.name(identifier=sender)
         return []

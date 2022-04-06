@@ -35,8 +35,9 @@ from typing import List, Optional
 from dimp import ID
 from dimp import ReliableMessage
 from dimp import Content, Command
-from dimsdk import CommandProcessor
 from dimsdk import Station
+from dimsdk import ContentProcessor
+from dimsdk.cpu import BaseCommandProcessor
 
 from ...utils import Logging
 from ...utils import NotificationCenter
@@ -51,7 +52,7 @@ from ..session import Session
 g_database = Database()
 
 
-class ReportCommandProcessor(CommandProcessor, Logging):
+class ReportCommandProcessor(BaseCommandProcessor, Logging):
 
     @property
     def current_station(self) -> Station:
@@ -68,13 +69,11 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         if isinstance(messenger, ServerMessenger):
             return messenger.session
 
-    def processor_for_name(self, name: str) -> Optional[CommandProcessor]:
+    def processor_for_name(self, name: str) -> Optional[ContentProcessor]:
         messenger = self.messenger
-        # from ..messenger import ServerMessenger
-        # assert isinstance(messenger, ServerMessenger), 'messenger error: %s' % messenger
         processor = messenger.processor
-        # from ..processor import ServerProcessor
-        # assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
+        from ..processor import ServerProcessor
+        assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
         return processor.get_processor_by_name(cmd_name=name)
 
     def __process_old_report(self, cmd: ReportCommand, msg: ReliableMessage) -> List[Content]:
@@ -99,12 +98,12 @@ class ReportCommandProcessor(CommandProcessor, Logging):
         return self._respond_receipt(text=text)
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, ReportCommand), 'report command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # report title
-        title = cmd.title
+        title = content.title
         if title == ReportCommand.REPORT:
-            return self.__process_old_report(cmd=cmd, msg=msg)
+            return self.__process_old_report(cmd=content, msg=msg)
         # get CPU by report title
         cpu = self.processor_for_name(name=title)
         # check and run
@@ -112,18 +111,18 @@ class ReportCommandProcessor(CommandProcessor, Logging):
             text = 'Report command (title: %s) not support yet!' % title
             return self._respond_text(text=text)
         elif cpu is self:
-            raise AssertionError('Dead cycle! report cmd: %s' % cmd)
+            raise AssertionError('Dead cycle! report cmd: %s' % content)
         # assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
-        return cpu.execute(cmd=cmd, msg=msg)
+        return cpu.process(content=content, msg=msg)
 
 
 class APNsCommandProcessor(ReportCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, Command), 'command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, Command), 'command error: %s' % content
         # submit device token for APNs
-        token = cmd.get('device_token')
+        token = content.get('device_token')
         if token is None or len(token) == 0:
             return []
         g_database.save_device_token(token=token, identifier=msg.sender)
@@ -134,14 +133,14 @@ class APNsCommandProcessor(ReportCommandProcessor):
 class OnlineCommandProcessor(ReportCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, ReportCommand), 'online report command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReportCommand), 'online report command error: %s' % content
         # save 'online'
-        if not g_database.save_online(cmd=cmd, msg=msg):
-            self.error('online command error/expired: %s' % cmd)
+        if not g_database.save_online(cmd=content, msg=msg):
+            self.error('online command error/expired: %s' % content)
             return []
         # welcome back!
-        post_from_rcp(cpu=self, online=True, cmd=cmd, sender=msg.sender)
+        post_from_rcp(cpu=self, online=True, cmd=content, sender=msg.sender)
         # TODO: notification for pushing offline message(s) from 'last_time'
         text = 'Client online received.'
         return self._respond_receipt(text=text)
@@ -150,14 +149,14 @@ class OnlineCommandProcessor(ReportCommandProcessor):
 class OfflineCommandProcessor(ReportCommandProcessor):
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, ReportCommand), 'offline report command error: %s' % cmd
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, ReportCommand), 'offline report command error: %s' % content
         # save 'offline'
-        if not g_database.save_offline(cmd=cmd, msg=msg):
-            self.error('online command error/expired: %s' % cmd)
+        if not g_database.save_offline(cmd=content, msg=msg):
+            self.error('online command error/expired: %s' % content)
             return []
         # goodbye!
-        post_from_rcp(cpu=self, online=False, cmd=cmd, sender=msg.sender)
+        post_from_rcp(cpu=self, online=False, cmd=content, sender=msg.sender)
         text = 'Client offline received.'
         return self._respond_receipt(text=text)
 

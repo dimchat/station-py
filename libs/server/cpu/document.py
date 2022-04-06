@@ -34,9 +34,9 @@ from typing import Optional, List
 from dimp import ID, NetworkType
 from dimp import ReliableMessage
 from dimp import Content
-from dimp import ForwardContent, Command, DocumentCommand
+from dimp import ForwardContent, DocumentCommand
 
-from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
+from dimsdk.cpu import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...database import Database
 
@@ -70,10 +70,10 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             return msg
 
     # Override
-    def execute(self, cmd: Command, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(cmd, DocumentCommand), 'command error: %s' % cmd
-        responses = super().execute(cmd=cmd, msg=msg)
-        if cmd.document is not None:
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, DocumentCommand), 'command error: %s' % content
+        responses = super().process(content=content, msg=msg)
+        if content.document is not None:
             return responses
         for res in responses:
             if isinstance(res, DocumentCommand):
@@ -84,7 +84,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                     # just DocumentCommand is OK
                     return responses
                 # check login command message
-                login = self.__check_login(identifier=cmd.identifier, sender=sender)
+                login = self.__check_login(identifier=content.identifier, sender=sender)
                 if login is not None:
                     # respond login command
                     responses.append(ForwardContent(message=login))
