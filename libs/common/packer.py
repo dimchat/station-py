@@ -110,7 +110,10 @@ class CommonPacker(MessagePacker):
             return None
         if data.startswith(b'{'):
             # JsON
-            return super().deserialize_message(data=data)
+            msg = super().deserialize_message(data=data)
+            if msg is not None:
+                fix_visa(msg=msg)
+            return msg
         else:
             # D-MTP
             msg = MTPUtils.deserialize_message(data=data)
@@ -176,7 +179,12 @@ class CommonPacker(MessagePacker):
     # Override
     def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
         try:
-            return super().decrypt_message(msg=msg)
+            i_msg = super().decrypt_message(msg=msg)
+            if i_msg is not None:
+                content = i_msg.content
+                if isinstance(content, DocumentCommand):
+                    fix_profile(cmd=content)
+            return i_msg
         except AssertionError as error:
             err_msg = '%s' % error
             # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
@@ -190,3 +198,53 @@ class CommonPacker(MessagePacker):
                                             content=cmd, priority=DeparturePriority.NORMAL)
             else:
                 raise error
+
+
+def fix_profile(cmd: DocumentCommand):
+    info = cmd.get('document')
+    if info is not None:
+        # (v2.0)
+        #    "ID"      : "{ID}",
+        #    "document" : {
+        #        "ID"        : "{ID}",
+        #        "data"      : "{JsON}",
+        #        "signature" : "{BASE64}"
+        #    }
+        return cmd
+    info = cmd.get('profile')
+    if info is None:
+        # query document command
+        return cmd
+    # 1.* => 2.0
+    cmd.pop('profile')
+    if isinstance(info, str):
+        # compatible with v1.0
+        #    "ID"        : "{ID}",
+        #    "profile"   : "{JsON}",
+        #    "signature" : "{BASE64}"
+        cmd['document'] = {
+            'ID': str(cmd.identifier),
+            'data': info,
+            'signature': cmd.get("signature")
+        }
+    else:
+        # compatible with v1.1
+        #    "ID"      : "{ID}",
+        #    "profile" : {
+        #        "ID"        : "{ID}",
+        #        "data"      : "{JsON}",
+        #        "signature" : "{BASE64}"
+        #    }
+        cmd['document'] = info
+    return cmd
+
+
+def fix_visa(msg: ReliableMessage):
+    # move 'profile' -> 'visa'
+    profile = msg.get('profile')
+    if profile is not None:
+        msg.pop('profile')
+        # 1.* => 2.0
+        visa = msg.get('visa')
+        if visa is None:
+            msg['visa'] = profile

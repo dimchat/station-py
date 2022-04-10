@@ -72,7 +72,6 @@ class DocumentCommandProcessor(SuperCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, DocumentCommand), 'command error: %s' % content
-        fix_profile(cmd=content)
         responses = super().process(content=content, msg=msg)
         if content.document is not None:
             return responses
@@ -90,41 +89,3 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                     # respond login command
                     responses.append(ForwardContent(message=login))
         return responses
-
-
-def fix_profile(cmd: DocumentCommand):
-    info = cmd.get('document')
-    if info is not None:
-        # (v2.0)
-        #    "ID"      : "{ID}",
-        #    "document" : {
-        #        "ID"        : "{ID}",
-        #        "data"      : "{JsON}",
-        #        "signature" : "{BASE64}"
-        #    }
-        return cmd
-    info = cmd.get('profile')
-    if info is None:
-        # query document command
-        return cmd
-    # 1.* => 2.0
-    if isinstance(info, str):
-        # compatible with v1.0
-        #    "ID"        : "{ID}",
-        #    "profile"   : "{JsON}",
-        #    "signature" : "{BASE64}"
-        cmd['document'] = {
-            'ID': str(cmd.identifier),
-            'data': info,
-            'signature': cmd.get("signature")
-        }
-    else:
-        # compatible with v1.1
-        #    "ID"      : "{ID}",
-        #    "profile" : {
-        #        "ID"        : "{ID}",
-        #        "data"      : "{JsON}",
-        #        "signature" : "{BASE64}"
-        #    }
-        cmd['document'] = info
-    return cmd
