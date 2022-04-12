@@ -66,12 +66,16 @@ class MTPUtils:
         if meta is not None:
             # dict to JSON
             assert isinstance(meta, dict), 'meta error: %s' % meta
-            info['meta'] = json_encode(o=meta)
+            js = json_encode(obj=meta)
+            js = utf8_encode(string=js)
+            info['meta'] = js
         visa = info.get('visa')
         if visa is not None:
             # dict to JSON
             assert isinstance(visa, dict), 'visa error: %s' % visa
-            info['visa'] = json_encode(o=visa)
+            js = json_encode(obj=visa)
+            js = utf8_encode(string=js)
+            info['visa'] = js
 
         # create as message
         msg = Message.new(info=info)
@@ -123,11 +127,15 @@ class MTPUtils:
         meta = msg.meta
         if meta is not None and len(meta) > 0:
             # JSON to dict
-            info['meta'] = json_decode(data=meta)
+            js = utf8_decode(data=meta)
+            js = json_decode(string=js)
+            info['meta'] = js
         visa = msg.visa
         if visa is not None and len(visa) > 0:
             # JSON to dict
-            info['visa'] = json_decode(data=visa)
+            js = utf8_decode(data=visa)
+            js = json_decode(string=js)
+            info['visa'] = js
 
         # create reliable message
         return ReliableMessage.parse(msg=info)

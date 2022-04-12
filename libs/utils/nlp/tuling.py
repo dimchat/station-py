@@ -38,7 +38,7 @@
 import urllib.request
 from typing import Optional
 
-from dimp import json_encode, json_decode
+from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 
 from .chatbot import ChatBot
 
@@ -56,7 +56,7 @@ class Tuling(ChatBot):
         self.ignores = [4003]
 
     def __request(self, text: str) -> bytes:
-        return json_encode(o={
+        js = json_encode(obj={
             'perception': {
                 'inputText': {
                     'text': text,
@@ -73,6 +73,7 @@ class Tuling(ChatBot):
                 'userId': self.user_id,
             }
         })
+        return utf8_encode(string=js)
 
     def __post(self, text: str) -> dict:
         request = self.__request(text=text)
@@ -82,7 +83,8 @@ class Tuling(ChatBot):
         data: bytes = response.read()
         if data is not None and len(data) > 0:
             # assert data[0] == ord('{') and data[-1] == ord('}'), 'response error: %s' % data
-            return json_decode(data=data)
+            js = utf8_decode(data=data)
+            return json_decode(string=js)
 
     def __fetch(self, response: dict) -> Optional[str]:
         # get code

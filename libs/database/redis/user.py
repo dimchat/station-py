@@ -90,7 +90,8 @@ class UserCache(Cache):
 
     def __save_command(self, key: str, cmd: Command) -> bool:
         dictionary = cmd.dictionary
-        value = json_encode(o=dictionary)
+        value = json_encode(obj=dictionary)
+        value = utf8_encode(string=value)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
@@ -98,9 +99,11 @@ class UserCache(Cache):
         value = self.get(name=key)
         if value is None:
             return None
-        dictionary = json_decode(data=value)
+        value = utf8_decode(data=value)
+        dictionary = json_decode(string=value)
         assert dictionary is not None, 'cmd error: %s' % value
-        return Command(dictionary)
+        # return BaseCommand(cmd=dictionary)
+        return Command.parse(content=dictionary)
 
     """
         Block Command

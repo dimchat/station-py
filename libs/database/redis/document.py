@@ -63,7 +63,8 @@ class DocumentCache(Cache):
     def save_document(self, document: Document) -> bool:
         identifier = document.identifier
         dictionary = document.dictionary
-        value = json_encode(o=dictionary)
+        value = json_encode(obj=dictionary)
+        value = utf8_encode(string=value)
         name = self.__key(identifier=identifier)
         self.set(name=name, value=value, expires=self.EXPIRES)
         item = utf8_encode(string=str(identifier))
@@ -75,7 +76,8 @@ class DocumentCache(Cache):
         value = self.get(name=name)
         if value is None:
             return None
-        dictionary = json_decode(data=value)
+        value = utf8_decode(data=value)
+        dictionary = json_decode(string=value)
         assert dictionary is not None, 'document error: %s' % value
         return parse_document(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
 

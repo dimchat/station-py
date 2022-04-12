@@ -90,7 +90,8 @@ class GroupCache(Cache):
     def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
         name = self.__keys_name(group=group)
         key = str(sender)
-        value = json_encode(o=keys)
+        value = json_encode(obj=keys)
+        value = utf8_encode(string=value)
         self.hset(name=name, key=key, value=value)
         return True
 
@@ -99,4 +100,5 @@ class GroupCache(Cache):
         key = str(sender)
         value = self.hget(name=name, key=key)
         if value is not None and len(value) > 2:
-            return json_decode(data=value)
+            value = utf8_decode(data=value)
+            return json_decode(string=value)

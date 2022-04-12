@@ -31,7 +31,7 @@
 
 from typing import Optional
 
-from dimp import utf8_encode, json_decode
+from dimp import json_decode
 from dimp import ID
 from dimp import Content, TextContent
 from dimsdk import Facebook
@@ -77,8 +77,7 @@ class Worker:
         content = msg.get('content')
         if content is None:
             data = msg['data']
-            data = utf8_encode(string=data)
-            content = json_decode(data=data)
+            content = json_decode(string=data)
             content = Content.parse(content=content)
             assert isinstance(content, TextContent), 'content error: %s' % data
             msg['content'] = content.dictionary
@@ -92,8 +91,8 @@ class Worker:
     def messages(self, identifier: ID, start: int, count: int) -> list:
         array = []
         lines = self.user_table.messages(identifier=identifier, start=start, count=count)
-        for l in lines:
-            pair = l.split(',')
+        for line in lines:
+            pair = line.split(',')
             signature = pair[0].strip()
             if len(signature) == 0:
                 continue

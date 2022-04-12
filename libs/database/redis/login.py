@@ -26,7 +26,7 @@
 import time
 from typing import Optional
 
-from dimp import json_encode, json_decode
+from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import NetworkType, ID, ReliableMessage
 from dimp import Content, Command
 from dimsdk import LoginCommand
@@ -59,7 +59,8 @@ class LoginCache(Cache):
 
     def __save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
         dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
-        value = json_encode(o=dictionary)
+        value = json_encode(obj=dictionary)
+        value = utf8_encode(string=value)
         key = self.__login_key(identifier=msg.sender)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
@@ -70,7 +71,8 @@ class LoginCache(Cache):
         if value is None:
             # data not exists
             return None, None
-        dictionary = json_decode(data=value)
+        value = utf8_decode(data=value)
+        dictionary = json_decode(string=value)
         cmd = dictionary.get('cmd')
         msg = dictionary.get('msg')
         if cmd is not None:
@@ -130,7 +132,8 @@ class LoginCache(Cache):
             # expired command, drop it
             return False
         dictionary = cmd.dictionary
-        value = json_encode(o=dictionary)
+        value = json_encode(obj=dictionary)
+        value = utf8_encode(string=value)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
@@ -139,7 +142,8 @@ class LoginCache(Cache):
         if value is None:
             # data not exists
             return None
-        dictionary = json_decode(data=value)
+        value = utf8_decode(data=value)
+        dictionary = json_decode(string=value)
         if dictionary is None:
             # data error
             return None

@@ -25,7 +25,7 @@
 
 from typing import Optional
 
-from dimp import json_encode, json_decode
+from dimp import json_encode, json_decode, utf8_encode, utf8_decode
 from dimp import ID, SymmetricKey
 
 from .base import Cache
@@ -54,10 +54,12 @@ class MessageKeyCache(Cache):
         name = self.__name(sender=sender)
         data = self.hget(name=name, key=str(receiver))
         if data is not None:
-            key = json_decode(data=data)
-            return SymmetricKey.parse(key=key)
+            data = utf8_decode(data=data)
+            data = json_decode(string=data)
+            return SymmetricKey.parse(key=data)
 
     def save_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         name = self.__name(sender=sender)
-        data = json_encode(o=key.dictionary)
+        data = json_encode(obj=key.dictionary)
+        data = utf8_encode(string=data)
         return self.hset(name=name, key=str(receiver), value=data)

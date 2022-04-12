@@ -68,9 +68,10 @@ class MessageCache(Cache):
         if ignore_message(msg=msg):
             return False
         sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        data = json_encode(o=msg.dictionary)
+        value = json_encode(obj=msg.dictionary)
+        value = utf8_encode(string=value)
         msg_key = self.__msg_key(identifier=msg.receiver, sig=sig)
-        self.set(name=msg_key, value=data, expires=self.EXPIRES)
+        self.set(name=msg_key, value=value, expires=self.EXPIRES)
         # append msg.signature to an ordered set
         messages_key = self.__messages_key(identifier=msg.receiver)
         self.zadd(name=messages_key, mapping={sig: msg.time})
@@ -111,8 +112,9 @@ class MessageCache(Cache):
             if info is None:
                 continue
             try:
-                msg = json_decode(data=info)
-                msg = ReliableMessage.parse(msg=msg)
+                info = utf8_decode(data=info)
+                info = json_decode(string=info)
+                msg = ReliableMessage.parse(msg=info)
                 array.append(msg)
             except Exception as error:
                 print('[REDIS] message error: %s' % error)

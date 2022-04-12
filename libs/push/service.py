@@ -26,7 +26,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from dimp import json_encode, json_decode, utf8_encode, utf8_decode
+from dimp import json_encode, json_decode
 from dimp import ID
 
 from ..utils.log import Logging
@@ -71,16 +71,16 @@ class PushInfo:
         return self.to_json()
 
     def to_json(self) -> str:
-        return utf8_decode(data=json_encode(o={
+        return json_encode(obj={
             'sender': str(self.sender),
             'receiver': str(self.receiver),
             'message': self.message,
             'badge': self.badge,
-        }))
+        })
 
     @classmethod
     def from_json(cls, string: str):
-        info = json_decode(data=utf8_encode(string=string))
+        info = json_decode(string=string)
         return cls.from_dict(info=info)
 
     @classmethod

@@ -36,10 +36,10 @@ from typing import Optional
 
 from startrek import DeparturePriority
 
-from dimp import json_decode, utf8_encode
+from dimp import json_decode
 from dimp import ID, Document
 from dimp import TextContent
-from dimp import Command, DocumentCommand
+from dimp import Command, BaseCommand, DocumentCommand
 
 import sys
 import os
@@ -179,7 +179,7 @@ class Console(Cmd, Logging):
             self.info('login first')
             return
         if 'users' == name:
-            cmd: Command = Command(command='users')
+            cmd: Command = BaseCommand(command='users')
             self.client.send_command(cmd=cmd)
         else:
             self.info('I don\'t understand.')
@@ -188,7 +188,7 @@ class Console(Cmd, Logging):
         if self.client is None:
             self.info('login first')
             return
-        cmd: Command = Command(command='search')
+        cmd: Command = BaseCommand(command='search')
         cmd['keywords'] = keywords
         self.client.send_command(cmd=cmd)
 
@@ -203,7 +203,7 @@ class Console(Cmd, Logging):
             identifier = user.identifier
         elif name.startswith('{') and name.endswith('}'):
             identifier = user.identifier
-            profile = json_decode(data=utf8_encode(string=name))
+            profile = json_decode(string=name)
         else:
             identifier = ID.parse(identifier=name)
             if identifier is None:
