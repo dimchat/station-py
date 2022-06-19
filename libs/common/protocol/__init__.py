@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimp import Command
+from dimp import Command, DocumentCommand
 from dimp.protocol import CommandFactoryBuilder
 
 from .search import SearchCommand
@@ -31,6 +31,11 @@ from .report import ReportCommand
 
 
 def register_all_processors():
+    # extended document commands
+    factory = CommandFactoryBuilder(command_class=DocumentCommand)
+    Command.register(command='profile', factory=factory)
+    Command.register(command='visa', factory=factory)
+    Command.register(command='bulletin', factory=factory)
     # search
     Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
     Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))

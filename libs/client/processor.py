@@ -38,6 +38,7 @@ from dimp import SecureMessage, ReliableMessage
 from dimp import ContentType, Content, TextContent, Command
 from dimsdk import HandshakeCommand, ReceiptCommand
 from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk.cpu import DocumentCommandProcessor
 
 from ..common import CommonProcessor, CommonContentProcessorCreator
 
@@ -111,6 +112,9 @@ class ClientContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+        # document commands
+        if cmd_name == Command.DOCUMENT or cmd_name in ['profile', 'visa', 'bulletin']:
+            return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
         if cmd_name == Command.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor

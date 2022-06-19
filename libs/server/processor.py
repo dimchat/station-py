@@ -102,8 +102,8 @@ class ServerContentProcessorCreator(CommonContentProcessorCreator):
 
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
-        # document
-        if cmd_name == Command.DOCUMENT:
+        # document commands
+        if cmd_name == Command.DOCUMENT or cmd_name in ['profile', 'visa', 'bulletin']:
             from .cpu import DocumentCommandProcessor
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
