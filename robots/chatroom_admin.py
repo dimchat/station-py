@@ -39,13 +39,12 @@ from typing import Optional, Union, List
 
 from startrek import DeparturePriority
 
-from dimp import ID, EVERYONE
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import ContentType, Content, TextContent, ForwardContent, Command
-from dimp import Processor
-from dimsdk import ReceiptCommand
+from dimsdk import ID, EVERYONE
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import ContentType, Content, TextContent, ForwardContent
+from dimsdk import Processor
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk.cpu import BaseContentProcessor, BaseCommandProcessor
+from dimsdk import BaseContentProcessor, BaseCommandProcessor
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -54,7 +53,7 @@ sys.path.append(rootPath)
 from libs.utils import Logging
 from libs.utils import JSONFile
 from libs.database import Storage
-from libs.common import SearchCommand
+from libs.common import ReceiptCommand, SearchCommand
 from libs.common import CommonFacebook, SharedFacebook
 from libs.client import ChatTextContentProcessor
 from libs.client import ClientProcessor, ClientContentProcessorCreator
@@ -72,7 +71,7 @@ class ReceiptCommandProcessor(BaseCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
-        return [client.room.receipt(cmd=content, sender=msg.sender)]
+        return [client.room.receipt(content=content, sender=msg.sender)]
 
 
 #
@@ -83,7 +82,8 @@ class ForwardContentProcessor(BaseContentProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ForwardContent), 'forward content error: %s' % content
-        r_msg = content.message
+        # TODO: get from 'secrets'
+        r_msg = content.forward
 
         # [Forward Protocol]
         messenger = self.messenger
@@ -136,7 +136,7 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # receipt
-        if cmd_name == Command.RECEIPT:
+        if cmd_name == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
@@ -362,7 +362,7 @@ class ChatRoom(Logging):
         sender = self.facebook.current_user.identifier
         receiver = EVERYONE
         # create content
-        content = TextContent(text=text)
+        content = TextContent.create(text=text)
         content.group = EVERYONE
         # create instant message
         env = Envelope.create(sender=sender, receiver=receiver)
@@ -405,7 +405,7 @@ class ChatRoom(Logging):
         for u in message:
             m_cnt += message[u]
         text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
-        return TextContent(text=text)
+        return TextContent.create(text=text)
 
     def __push_history(self, receiver: ID) -> Content:
         messenger = self.messenger
@@ -419,7 +419,7 @@ class ChatRoom(Logging):
             text = 'Got one chat history record.'
         else:
             text = 'Got %d chat history records' % count
-        return TextContent(text=text)
+        return TextContent.create(text=text)
 
     def forward(self, content: ForwardContent, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
@@ -437,10 +437,10 @@ class ChatRoom(Logging):
             messenger.send_content(sender=None, receiver=item, content=content, priority=DeparturePriority.NORMAL)
         return ReceiptCommand(message='message forwarded')
 
-    def receipt(self, cmd: ReceiptCommand, sender: ID) -> Optional[Content]:
+    def receipt(self, content: ReceiptCommand, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
             return None
-        self.debug('got receipt from %s: %s' % (sender, cmd))
+        self.debug('got receipt from %s: %s' % (sender, content))
         return None
 
     def receive(self, content: Content, sender: ID) -> Optional[Content]:

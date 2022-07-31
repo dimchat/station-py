@@ -8,8 +8,10 @@ from udp.mtp import DataType, TransactionID, Header, Package
 from dmtp import Message
 from dmtp import StringValue, BinaryValue
 
-from dimp import base64_encode, base64_decode, utf8_decode, utf8_encode, json_encode, json_decode
-from dimp import ReliableMessage
+from dimsdk import base64_encode, base64_decode
+from dimsdk import utf8_decode, utf8_encode
+from dimsdk import json_encode, json_decode
+from dimsdk import ReliableMessage
 
 
 class MTPUtils:

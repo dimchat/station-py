@@ -32,12 +32,12 @@
 
 from typing import List, Optional
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content, Command
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content, Command
 from dimsdk import Station
 from dimsdk import ContentProcessor
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...utils import NotificationCenter
@@ -74,28 +74,28 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         processor = messenger.processor
         from ..processor import ServerProcessor
         assert isinstance(processor, ServerProcessor), 'message processor error: %s' % processor
-        return processor.get_processor_by_name(cmd_name=name)
+        return processor.get_command_processor(cmd_name=name)
 
-    def __process_old_report(self, cmd: ReportCommand, msg: ReliableMessage) -> List[Content]:
+    def __process_old_report(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # compatible with v1.0
-        state = cmd.get('state')
+        state = content.get('state')
         if state is None:
             # command error
             return []
         elif 'background' == state:
             # save as 'offline'
-            if not g_database.save_offline(cmd=cmd, msg=msg):
-                self.error('offline command error/expired: %s' % cmd)
+            if not g_database.save_offline(content=content, msg=msg):
+                self.error('offline command error/expired: %s' % content)
                 return []
-            post_from_rcp(cpu=self, online=False, cmd=cmd, sender=msg.sender)
+            post_from_rcp(cpu=self, online=False, content=content, sender=msg.sender)
         else:  # 'foreground'
             # save as 'online'
-            if not g_database.save_online(cmd=cmd, msg=msg):
-                self.error('online command error/expired: %s' % cmd)
+            if not g_database.save_online(content=content, msg=msg):
+                self.error('online command error/expired: %s' % content)
                 return []
-            post_from_rcp(cpu=self, online=True, cmd=cmd, sender=msg.sender)
+            post_from_rcp(cpu=self, online=True, content=content, sender=msg.sender)
         text = 'Client state received.'
-        return self._respond_receipt(text=text)
+        return self._respond_text(text=text)
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
@@ -103,7 +103,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         # report title
         title = content.title
         if title == ReportCommand.REPORT:
-            return self.__process_old_report(cmd=content, msg=msg)
+            return self.__process_old_report(content=content, msg=msg)
         # get CPU by report title
         cpu = self.processor_for_name(name=title)
         # check and run
@@ -111,7 +111,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
             text = 'Report command (title: %s) not support yet!' % title
             return self._respond_text(text=text)
         elif cpu is self:
-            raise AssertionError('Dead cycle! report cmd: %s' % content)
+            raise AssertionError('Dead cycle! report command: %s' % content)
         # assert isinstance(cpu, CommandProcessor), 'CPU error: %s' % cpu
         return cpu.process(content=content, msg=msg)
 
@@ -127,7 +127,7 @@ class APNsCommandProcessor(ReportCommandProcessor):
             return []
         g_database.save_device_token(token=token, identifier=msg.sender)
         text = 'Token received.'
-        return self._respond_receipt(text=text)
+        return self._respond_text(text=text)
 
 
 class OnlineCommandProcessor(ReportCommandProcessor):
@@ -136,14 +136,14 @@ class OnlineCommandProcessor(ReportCommandProcessor):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'online report command error: %s' % content
         # save 'online'
-        if not g_database.save_online(cmd=content, msg=msg):
+        if not g_database.save_online(content=content, msg=msg):
             self.error('online command error/expired: %s' % content)
             return []
         # welcome back!
-        post_from_rcp(cpu=self, online=True, cmd=content, sender=msg.sender)
+        post_from_rcp(cpu=self, online=True, content=content, sender=msg.sender)
         # TODO: notification for pushing offline message(s) from 'last_time'
         text = 'Client online received.'
-        return self._respond_receipt(text=text)
+        return self._respond_text(text=text)
 
 
 class OfflineCommandProcessor(ReportCommandProcessor):
@@ -152,16 +152,16 @@ class OfflineCommandProcessor(ReportCommandProcessor):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'offline report command error: %s' % content
         # save 'offline'
-        if not g_database.save_offline(cmd=content, msg=msg):
+        if not g_database.save_offline(content=content, msg=msg):
             self.error('online command error/expired: %s' % content)
             return []
         # goodbye!
-        post_from_rcp(cpu=self, online=False, cmd=content, sender=msg.sender)
+        post_from_rcp(cpu=self, online=False, content=content, sender=msg.sender)
         text = 'Client offline received.'
-        return self._respond_receipt(text=text)
+        return self._respond_text(text=text)
 
 
-def post_from_rcp(cpu: ReportCommandProcessor, online: bool, cmd: Command, sender: ID):
+def post_from_rcp(cpu: ReportCommandProcessor, online: bool, content: Command, sender: ID):
     if online:
         notification = NotificationNames.USER_ONLINE
     else:
@@ -175,11 +175,11 @@ def post_from_rcp(cpu: ReportCommandProcessor, online: bool, cmd: Command, sende
             'ID': str(sender),
             'client_address': session.client_address,
             'station': str(cpu.current_station.identifier),
-            'time': cmd.time,
+            'time': content.time,
         })
     else:
         # login other station
         NotificationCenter().post(name=notification, sender=cpu, info={
             'ID': str(sender),
-            'time': cmd.time,
+            'time': content.time,
         })

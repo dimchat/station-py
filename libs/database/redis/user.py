@@ -25,8 +25,8 @@
 
 from typing import List, Optional
 
-from dimp import utf8_encode, utf8_decode, json_encode, json_decode
-from dimp import ID, Command
+from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
+from dimsdk import ID, Command
 
 from .base import Cache
 
@@ -80,16 +80,16 @@ class UserCache(Cache):
     def __contacts_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.contacts' % (self.database, self.table, identifier)
 
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
+    def save_contacts_command(self, content: Command, sender: ID) -> bool:
         key = self.__contacts_command_key(identifier=sender)
-        return self.__save_command(key=key, cmd=cmd)
+        return self.__save_command(key=key, content=content)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         key = self.__contacts_command_key(identifier=identifier)
         return self.__load_command(key=key)
 
-    def __save_command(self, key: str, cmd: Command) -> bool:
-        dictionary = cmd.dictionary
+    def __save_command(self, key: str, content: Command) -> bool:
+        dictionary = content.dictionary
         value = json_encode(obj=dictionary)
         value = utf8_encode(string=value)
         self.set(name=key, value=value, expires=self.EXPIRES)
@@ -102,7 +102,7 @@ class UserCache(Cache):
         value = utf8_decode(data=value)
         dictionary = json_decode(string=value)
         assert dictionary is not None, 'cmd error: %s' % value
-        # return BaseCommand(cmd=dictionary)
+        # return BaseCommand(content=dictionary)
         return Command.parse(content=dictionary)
 
     """
@@ -114,9 +114,9 @@ class UserCache(Cache):
     def __block_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.block' % (self.database, self.table, identifier)
 
-    def save_block_command(self, cmd: Command, sender: ID) -> bool:
+    def save_block_command(self, content: Command, sender: ID) -> bool:
         key = self.__block_command_key(identifier=sender)
-        return self.__save_command(key=key, cmd=cmd)
+        return self.__save_command(key=key, content=content)
 
     def block_command(self, identifier: ID) -> Optional[Command]:
         key = self.__block_command_key(identifier=identifier)
@@ -131,9 +131,9 @@ class UserCache(Cache):
     def __mute_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.mute' % (self.database, self.table, identifier)
 
-    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
+    def save_mute_command(self, content: Command, sender: ID) -> bool:
         key = self.__mute_command_key(identifier=sender)
-        return self.__save_command(key=key, cmd=cmd)
+        return self.__save_command(key=key, content=content)
 
     def mute_command(self, identifier: ID) -> Optional[Command]:
         key = self.__mute_command_key(identifier=identifier)

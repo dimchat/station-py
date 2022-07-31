@@ -36,10 +36,10 @@ from typing import Optional
 
 from startrek import DeparturePriority
 
-from dimp import json_decode
-from dimp import ID, Document
-from dimp import TextContent
-from dimp import Command, BaseCommand, DocumentCommand
+from dimsdk import json_decode
+from dimsdk import ID, Document
+from dimsdk import TextContent
+from dimsdk import BaseCommand, DocumentCommand
 
 import sys
 import os
@@ -162,7 +162,7 @@ class Console(Cmd, Logging):
             self.info('login first')
             return
         if len(msg) > 0:
-            content = TextContent(text=msg)
+            content = TextContent.create(text=msg)
             g_messenger.send_content(sender=None, receiver=self.receiver,
                                      content=content, priority=DeparturePriority.NORMAL)
 
@@ -171,7 +171,7 @@ class Console(Cmd, Logging):
             self.info('login first')
             return
         if len(msg) > 0:
-            content = TextContent(text=msg)
+            content = TextContent.create(text=msg)
             self.client.broadcast_content(content=content, receiver=self.receiver)
 
     def do_show(self, name: str):
@@ -179,8 +179,8 @@ class Console(Cmd, Logging):
             self.info('login first')
             return
         if 'users' == name:
-            cmd: Command = BaseCommand(command='users')
-            self.client.send_command(cmd=cmd)
+            cmd = BaseCommand(cmd='users')
+            self.client.send_command(content=cmd)
         else:
             self.info('I don\'t understand.')
 
@@ -188,9 +188,9 @@ class Console(Cmd, Logging):
         if self.client is None:
             self.info('login first')
             return
-        cmd: Command = BaseCommand(command='search')
+        cmd = BaseCommand(cmd='search')
         cmd['keywords'] = keywords
-        self.client.send_command(cmd=cmd)
+        self.client.send_command(content=cmd)
 
     def do_profile(self, name: str):
         if self.client is None:
@@ -220,7 +220,7 @@ class Console(Cmd, Logging):
             cmd = DocumentCommand.response(identifier=identifier, document=tai)
         else:
             cmd = DocumentCommand.query(identifier=identifier)
-        self.client.send_command(cmd=cmd)
+        self.client.send_command(content=cmd)
 
 
 if __name__ == '__main__':

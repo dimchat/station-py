@@ -32,16 +32,16 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-from dimsdk import LoginCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...utils import Logging
 from ...utils import NotificationCenter
 from ...database import Database
 from ...common import NotificationNames
+from ...common import LoginCommand
 
 
 g_database = Database()
@@ -53,7 +53,7 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, LoginCommand), 'command error: %s' % content
         # check roaming
-        if not g_database.save_login(cmd=content, msg=msg):
+        if not g_database.save_login(content=content, msg=msg):
             self.error('login command error/expired: %s' % content)
             return []
         sender = content.identifier
@@ -75,5 +75,5 @@ class LoginCommandProcessor(BaseCommandProcessor, Logging):
         if sid == srv.identifier:
             # only respond the user login to this station
             text = 'Login received.'
-            return self._respond_receipt(text=text)
+            return self._respond_text(text=text)
         return []

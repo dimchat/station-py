@@ -25,8 +25,8 @@
 
 from typing import List, Optional
 
-from dimp import json_encode, json_decode, utf8_encode, utf8_decode
-from dimp import ID
+from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
+from dimsdk import ID
 
 from ..dos.device import append_device_token
 

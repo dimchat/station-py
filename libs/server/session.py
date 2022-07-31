@@ -42,8 +42,8 @@ from typing import List
 from startrek import Docker, DockerStatus
 from startrek import Arrival
 
-from dimp import hex_encode
-from dimp import NetworkType, ID
+from dimsdk import hex_encode
+from dimsdk import NetworkType, ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import NotificationCenter

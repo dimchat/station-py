@@ -26,7 +26,7 @@
 import os
 from typing import List, Optional
 
-from dimp import ID, Command
+from dimsdk import ID, Command, BaseCommand
 
 from .base import Storage
 
@@ -66,18 +66,18 @@ class UserStorage(Storage):
     def __contacts_command_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'contacts_stored.js')
 
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
-        assert cmd is not None, 'contacts command cannot be empty'
+    def save_contacts_command(self, content: Command, sender: ID) -> bool:
+        assert content is not None, 'contacts command cannot be empty'
         path = self.__contacts_command_path(identifier=sender)
         self.info('Saving contacts command into: %s' % path)
-        return self.write_json(container=cmd.dictionary, path=path)
+        return self.write_json(container=content.dictionary, path=path)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Loading stored contacts command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return Command(dictionary)
+            return BaseCommand(content=dictionary)
 
     """
         Block Command
@@ -88,18 +88,18 @@ class UserStorage(Storage):
     def __block_command_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'block_stored.js')
 
-    def save_block_command(self, cmd: Command, sender: ID) -> bool:
-        assert cmd is not None, 'block command cannot be empty'
+    def save_block_command(self, content: Command, sender: ID) -> bool:
+        assert content is not None, 'block command cannot be empty'
         path = self.__block_command_path(identifier=sender)
         self.info('Saving block command into: %s' % path)
-        return self.write_json(container=cmd.dictionary, path=path)
+        return self.write_json(container=content.dictionary, path=path)
 
     def block_command(self, identifier: ID) -> Optional[Command]:
         path = self.__block_command_path(identifier=identifier)
         self.info('Loading stored block command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return Command(dictionary)
+            return BaseCommand(content=dictionary)
 
     """
         Mute Command
@@ -110,15 +110,15 @@ class UserStorage(Storage):
     def __mute_command_path(self, identifier: ID) -> str:
         return os.path.join(self.root, 'protected', str(identifier.address), 'mute_stored.js')
 
-    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
-        assert cmd is not None, 'mute command cannot be empty'
+    def save_mute_command(self, content: Command, sender: ID) -> bool:
+        assert content is not None, 'mute command cannot be empty'
         path = self.__mute_command_path(identifier=sender)
         self.info('Saving mute command into: %s' % path)
-        return self.write_json(container=cmd.dictionary, path=path)
+        return self.write_json(container=content.dictionary, path=path)
 
     def mute_command(self, identifier: ID) -> Optional[Command]:
         path = self.__mute_command_path(identifier=identifier)
         self.info('Loading stored mute command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return Command(dictionary)
+            return BaseCommand(content=dictionary)

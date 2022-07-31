@@ -31,12 +31,12 @@
 
 from typing import Optional, List
 
-from dimp import ID, NetworkType
-from dimp import ReliableMessage
-from dimp import Content
-from dimp import ForwardContent, DocumentCommand
-
-from dimsdk.cpu import DocumentCommandProcessor as SuperCommandProcessor
+from dimsdk import ID, NetworkType
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import DocumentCommand
+from dimsdk import ForwardContent
+from dimsdk import DocumentCommandProcessor as SuperCommandProcessor
 
 from ...database import Database
 
@@ -87,5 +87,5 @@ class DocumentCommandProcessor(SuperCommandProcessor):
                 login = self.__check_login(identifier=content.identifier, sender=sender)
                 if login is not None:
                     # respond login command
-                    responses.append(ForwardContent(message=login))
+                    responses.append(ForwardContent.create(message=login))
         return responses

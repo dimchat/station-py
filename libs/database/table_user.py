@@ -25,7 +25,7 @@
 
 from typing import Optional, List, Dict
 
-from dimp import ID, Command
+from dimsdk import ID, Command
 
 from .redis import UserCache
 from .dos import UserStorage
@@ -76,13 +76,13 @@ class UserTable:
         # OK, return cached value
         return holder.value
 
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
+    def save_contacts_command(self, content: Command, sender: ID) -> bool:
         # 1. update memory cache
-        self.__cmd_contacts[sender] = CacheHolder(value=cmd)
+        self.__cmd_contacts[sender] = CacheHolder(value=content)
         # 2. save to redis server
-        self.__redis.save_contacts_command(cmd=cmd, sender=sender)
+        self.__redis.save_contacts_command(content=content, sender=sender)
         # 3. save to local storage
-        return self.__dos.save_contacts_command(cmd=cmd, sender=sender)
+        return self.__dos.save_contacts_command(content=content, sender=sender)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
@@ -100,20 +100,20 @@ class UserTable:
                 cmd = self.__dos.contacts_command(identifier=identifier)
                 if cmd is not None:
                     # update redis server
-                    self.__redis.save_contacts_command(cmd=cmd, sender=identifier)
+                    self.__redis.save_contacts_command(content=cmd, sender=identifier)
             # update memory cache
             holder = CacheHolder(value=cmd)
             self.__cmd_contacts[identifier] = holder
         # OK, return cached value
         return holder.value
 
-    def save_block_command(self, cmd: Command, sender: ID) -> bool:
+    def save_block_command(self, content: Command, sender: ID) -> bool:
         # 1. update memory cache
-        self.__cmd_block[sender] = CacheHolder(value=cmd)
+        self.__cmd_block[sender] = CacheHolder(value=content)
         # 2. save to redis server
-        self.__redis.save_block_command(cmd=cmd, sender=sender)
+        self.__redis.save_block_command(content=content, sender=sender)
         # 3. save to local storage
-        return self.__dos.save_block_command(cmd=cmd, sender=sender)
+        return self.__dos.save_block_command(content=content, sender=sender)
 
     def block_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
@@ -131,20 +131,20 @@ class UserTable:
                 cmd = self.__dos.block_command(identifier=identifier)
                 if cmd is not None:
                     # update redis server
-                    self.__redis.save_block_command(cmd=cmd, sender=identifier)
+                    self.__redis.save_block_command(content=cmd, sender=identifier)
             # update memory cache
             holder = CacheHolder(value=cmd)
             self.__cmd_block[identifier] = holder
         # OK, return cached value
         return holder.value
 
-    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
+    def save_mute_command(self, content: Command, sender: ID) -> bool:
         # 1. update memory cache
-        self.__cmd_mute[sender] = CacheHolder(value=cmd)
+        self.__cmd_mute[sender] = CacheHolder(value=content)
         # 2. save to redis server
-        self.__redis.save_mute_command(cmd=cmd, sender=sender)
+        self.__redis.save_mute_command(content=content, sender=sender)
         # 3. save to local storage
-        return self.__dos.save_mute_command(cmd=cmd, sender=sender)
+        return self.__dos.save_mute_command(content=content, sender=sender)
 
     def mute_command(self, identifier: ID) -> Optional[Command]:
         # 1. check memory cache
@@ -162,7 +162,7 @@ class UserTable:
                 cmd = self.__dos.mute_command(identifier=identifier)
                 if cmd is not None:
                     # update redis server
-                    self.__redis.save_mute_command(cmd=cmd, sender=identifier)
+                    self.__redis.save_mute_command(content=cmd, sender=identifier)
             # update memory cache
             holder = CacheHolder(value=cmd)
             self.__cmd_mute[identifier] = holder

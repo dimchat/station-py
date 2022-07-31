@@ -31,9 +31,9 @@ from typing import List
 
 from startrek import DeparturePriority
 
-from dimp import ID
-from dimp import Content, TextContent
-from dimp import ReliableMessage
+from dimsdk import ID
+from dimsdk import Content, TextContent
+from dimsdk import ReliableMessage
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -134,7 +134,7 @@ def parse_command(argv: list):
 
 
 def send_text(text: str, receiver: ID):
-    content = TextContent(text=text)
+    content = TextContent.create(text=text)
     g_client.messenger.send_content(sender=None, receiver=receiver, content=content, priority=DeparturePriority.NORMAL)
 
 

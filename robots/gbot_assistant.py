@@ -37,17 +37,18 @@ from typing import Optional, List
 
 from startrek import DeparturePriority
 
-from dimp import ID
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import ContentType
-from dimp import Content, ForwardContent, GroupCommand
-from dimsdk import ReceiptCommand
+from dimsdk import ID
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import ContentType
+from dimsdk import Content, GroupCommand
+from dimsdk import ForwardContent
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
 from libs.utils import Logging
+from libs.common import ReceiptCommand
 from libs.common import SharedFacebook
 from libs.client import Terminal, ClientMessenger
 
@@ -240,7 +241,7 @@ class AssistantMessenger(ClientMessenger, Logging):
             msg['key'] = key
         # wrap
         msg.pop('traces', None)
-        forward = ForwardContent(message=msg)
+        forward = ForwardContent.create(message=msg)
         # pack and send
         sender = self.facebook.current_user.identifier
         env = Envelope.create(sender=sender, receiver=receiver)

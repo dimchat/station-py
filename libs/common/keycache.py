@@ -37,10 +37,9 @@
 
 from typing import Optional
 
-from dimp import SymmetricKey, ID
+from dimsdk import SymmetricKey, ID
 from dimsdk import CipherKeyDelegate
-
-from dimsdk.plugins import PlainKey
+from dimsdk import PlainKey
 
 from ..utils import Singleton
 from ..database import Database

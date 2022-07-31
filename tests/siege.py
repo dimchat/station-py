@@ -35,10 +35,10 @@ import threading
 import time
 from typing import List
 
-from dimp import PrivateKey
-from dimp import MetaType, Meta, Document
-from dimp import NetworkType, ID
-from dimp import User
+from dimsdk import PrivateKey
+from dimsdk import MetaType, Meta, Document
+from dimsdk import NetworkType, ID
+from dimsdk import User
 
 import sys
 import os
@@ -61,6 +61,14 @@ class Soldier(Runner, Logging):
 
     def __init__(self, client_id: ID):
         super().__init__()
+        self.__terminal = None
+        self.__messenger = None
+        self.__user = None
+        self.__server = None
+        self.__time_to_retreat = 0
+        self.__initialize(client_id=client_id)
+
+    def __initialize(self, client_id: ID):
         # check private keys
         facebook = CommonFacebook()
         keys = facebook.private_key_for_signature(identifier=client_id)

@@ -36,14 +36,14 @@ from typing import Optional, Union, Dict, List
 
 from startrek import DeparturePriority
 
-from dimp import NetworkType, ID, Meta
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import ContentType, Content, Command
-from dimp import MetaCommand, DocumentCommand
-from dimp import Processor
+from dimsdk import NetworkType, ID, Meta
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import ContentType, Content, Command
+from dimsdk import MetaCommand, DocumentCommand
+from dimsdk import Processor
 from dimsdk import Station
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import BaseCommandProcessor
 
 import sys
 import os
@@ -188,11 +188,11 @@ def save_response(station: ID, users: List[ID], results: dict):
     #         when login command or online/offline reports received
 
 
-def send_command(cmd: Command, stations: List[Station]):
+def send_command(content: Command, stations: List[Station]):
     user = g_facebook.current_user
     for station in stations:
         env = Envelope.create(sender=user.identifier, receiver=station.identifier)
-        msg = InstantMessage.create(head=env, body=cmd)
+        msg = InstantMessage.create(head=env, body=content)
         g_messenger.send_instant_message(msg=msg, priority=DeparturePriority.NORMAL)
 
 
@@ -263,7 +263,7 @@ class SearchEngineWorker(Runner, Logging):
             self.info('querying online users from %d station(s)' % len(all_stations))
             cmd = SearchCommand(keywords=SearchCommand.ONLINE_USERS)
             cmd.limit = -1
-            send_command(cmd=cmd, stations=all_stations)
+            send_command(content=cmd, stations=all_stations)
 
     def __query_metas(self):
         while self.running:
@@ -274,7 +274,7 @@ class SearchEngineWorker(Runner, Logging):
             elif self.__meta_queries.expired(key=identifier):
                 self.info('querying meta: %s from %d station(s)' % (identifier, len(neighbor_stations)))
                 cmd = MetaCommand.query(identifier=identifier)
-                send_command(cmd=cmd, stations=neighbor_stations)
+                send_command(content=cmd, stations=neighbor_stations)
 
     def __query_documents(self):
         while self.running:
@@ -290,7 +290,7 @@ class SearchEngineWorker(Runner, Logging):
                 else:
                     signature = doc.get('signature')  # Base64
                 cmd = DocumentCommand.query(identifier=identifier, signature=signature)
-                send_command(cmd=cmd, stations=neighbor_stations)
+                send_command(content=cmd, stations=neighbor_stations)
 
 
 #
@@ -404,8 +404,8 @@ class ArchivistMessenger(CommonMessenger):
         return self.send_instant_message(msg=msg, priority=priority)
 
     # Override
-    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
-        raise AssertionError('should not send command here: %s, %s' % (receiver, cmd))
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+        raise AssertionError('should not send command here: %s, %s' % (receiver, content))
 
 
 g_worker = SearchEngineWorker()

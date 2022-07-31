@@ -25,7 +25,7 @@
 
 from typing import Optional, Dict, Tuple
 
-from dimp import ID, SymmetricKey
+from dimsdk import ID, SymmetricKey
 
 from .redis import MessageKeyCache
 

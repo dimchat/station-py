@@ -34,7 +34,7 @@ import time
 from typing import Optional, Union
 from weakref import WeakValueDictionary
 
-from dimp import base64_encode
+from dimsdk import base64_encode
 
 from udp.ba import IntegerData
 from udp import Hub

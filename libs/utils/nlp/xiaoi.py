@@ -38,7 +38,7 @@
 import urllib.request
 from typing import Optional
 
-from dimp import hex_encode, utf8_encode, utf8_decode, sha1
+from dimsdk import hex_encode, utf8_encode, utf8_decode, sha1
 from dimsdk.plugins.aes import random_bytes
 
 from .chatbot import ChatBot

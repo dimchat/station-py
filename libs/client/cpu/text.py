@@ -35,10 +35,10 @@ from urllib.error import URLError
 
 from startrek import DeparturePriority
 
-from dimp import NetworkType, ID
-from dimp import ReliableMessage
-from dimp import Content, TextContent
-from dimsdk.cpu import BaseContentProcessor
+from dimsdk import NetworkType, ID
+from dimsdk import ReliableMessage
+from dimsdk import Content, TextContent
+from dimsdk import BaseContentProcessor
 
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
@@ -70,7 +70,7 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
             user = facebook.current_user
             me = '@%s' % facebook.name(identifier=user.identifier)
             text = 'Pong%s from %s' % (text[4:], me)
-            res = TextContent(text=text)
+            res = TextContent.create(text=text)
             group = content.group
             if group is not None:
                 res.group = group
@@ -147,4 +147,4 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
                 text = 'Group message responded'
             else:
                 text = 'Group message respond failed'
-            return self._respond_receipt(text=text)
+            return self._respond_text(text=text)

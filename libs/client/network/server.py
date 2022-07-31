@@ -36,10 +36,9 @@ from typing import Optional
 
 from startrek.fsm import StateDelegate
 
-from dimp import ID, User, EVERYONE
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Content, Command
-from dimsdk import HandshakeCommand
+from dimsdk import ID, User, EVERYONE
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import Content, Command
 from dimsdk import Station
 
 from ...utils import Logging
@@ -47,6 +46,7 @@ from ...network.transmitter import Transmitter
 from ...network import DockerStatus, DeparturePriority
 from ...network import TCPClientGate
 
+from ...common import HandshakeCommand
 from ...common import CommonMessenger, CommonFacebook
 from ...common import MessengerDelegate
 
@@ -148,7 +148,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    def __pack(self, cmd: Command) -> ReliableMessage:
+    def __pack(self, content: Command) -> ReliableMessage:
         user = self.current_user
         assert user is not None, 'current user not set'
         uid = user.identifier
@@ -157,9 +157,9 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
         # allow connect server without meta.js
         facebook = self.facebook
         if facebook.public_key_for_encryption(identifier=sid) is None:
-            cmd.group = EVERYONE
+            content.group = EVERYONE
         # pack message
-        i_msg = InstantMessage.create(head=env, body=cmd)
+        i_msg = InstantMessage.create(head=env, body=content)
         messenger = self.messenger
         s_msg = messenger.encrypt_message(msg=i_msg)
         assert s_msg is not None, 'failed to encrypt message: %s' % i_msg
@@ -199,7 +199,7 @@ class Server(Station, Transmitter, MessengerDelegate, StateDelegate, Logging):
         # create handshake command
         cmd = HandshakeCommand.start(session=session_key)
         # TODO: set last received message time
-        r_msg = self.__pack(cmd=cmd)
+        r_msg = self.__pack(content=cmd)
         # carry meta, visa for first handshaking
         r_msg.meta = user.meta
         r_msg.visa = user.visa

@@ -30,9 +30,9 @@
     Search users with keywords
 """
 
-from typing import Optional, Union, List
+from typing import Optional, Union, Any, Dict, List
 
-from dimp import ID, Command, BaseCommand
+from dimsdk import ID, Command, BaseCommand
 
 
 class SearchCommand(BaseCommand):
@@ -44,7 +44,7 @@ class SearchCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            command  : "search",        // or "users"
+            cmd      : "search",        // or "users"
             keywords : "keywords",      // keyword string
 
             start    : 0,
@@ -60,11 +60,12 @@ class SearchCommand(BaseCommand):
 
     ONLINE_USERS = 'users'
 
-    def __init__(self, cmd: Optional[dict] = None, keywords: str = None, users: List[ID] = None, results: dict = None):
-        if cmd is None:
-            super().__init__(command=SearchCommand.SEARCH)
+    def __init__(self, content: Optional[Dict[str, Any]] = None,
+                 keywords: str = None, users: List[ID] = None, results: dict = None):
+        if content is None:
+            super().__init__(cmd=SearchCommand.SEARCH)
         else:
-            super().__init__(cmd=cmd)
+            super().__init__(content=content)
         # keywords
         if keywords is not None:
             self['keywords'] = keywords
@@ -85,7 +86,7 @@ class SearchCommand(BaseCommand):
         kw = self.get('keywords')
         if kw is not None:
             return kw
-        elif self.command == SearchCommand.ONLINE_USERS:
+        elif self.cmd == SearchCommand.ONLINE_USERS:
             return SearchCommand.ONLINE_USERS
 
     @keywords.setter
@@ -174,6 +175,7 @@ class SearchCommand(BaseCommand):
         info.pop('type', None)
         info.pop('sn', None)
         info.pop('time', None)
+        # TODO: update after all server/clients support 'cmd'
         info.pop('command', None)
         info.pop('keywords', None)
         info.pop('users', None)

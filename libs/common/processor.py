@@ -31,18 +31,19 @@
 import traceback
 from typing import List, Optional, Union
 
-from dimp import ID
-from dimp import InstantMessage, ReliableMessage
-from dimp import Content, ContentType, ForwardContent
-from dimp import Command, InviteCommand, ResetCommand
-from dimsdk import MuteCommand, BlockCommand, StorageCommand
+from dimsdk import ID
+from dimsdk import InstantMessage, ReliableMessage
+from dimsdk import Content, ContentType
+from dimsdk import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk.cpu import BaseContentProcessorCreator
-from dimsdk.cpu import BaseContentProcessor, BaseCommandProcessor
+from dimsdk import BaseContentProcessorCreator
+from dimsdk import BaseContentProcessor, BaseCommandProcessor
 
 from ..utils import Logging
 
+from .protocol import ReceiptCommand
+from .protocol import MuteCommand, BlockCommand, StorageCommand
 from .cpu import FileContentProcessor
 from .cpu import ReceiptCommandProcessor
 from .cpu import BlockCommandProcessor, MuteCommandProcessor
@@ -145,21 +146,6 @@ class CommonProcessor(MessageProcessor, Logging):
     # Override
     def process_instant_message(self, msg: InstantMessage, r_msg: ReliableMessage) -> List[InstantMessage]:
         messenger = self.messenger
-        # unwrap secret message circularly
-        content = msg.content
-        while True:
-            if not isinstance(content, ForwardContent):
-                break
-            r_msg = content.message
-            s_msg = messenger.verify_message(msg=r_msg)
-            if s_msg is None:
-                # signature not matched
-                return []
-            msg = messenger.decrypt_message(msg=s_msg)
-            if msg is None:
-                # not for you?
-                return []
-            content = msg.content
         # call super to process
         responses = super().process_instant_message(msg=msg, r_msg=r_msg)
         # save instant/secret message
@@ -192,7 +178,7 @@ class CommonContentProcessorCreator(BaseContentProcessorCreator):
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
         # receipt
-        if cmd_name == Command.RECEIPT:
+        if cmd_name == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # mute
         if cmd_name == MuteCommand.MUTE:

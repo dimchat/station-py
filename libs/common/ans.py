@@ -32,8 +32,8 @@
 
 from typing import Optional, Union
 
-from mkm.id_impl import IdentifierFactory
-from dimp import ID, Address
+from dimsdk import IdentifierFactory
+from dimsdk import ID, Address
 from dimsdk import AddressNameService
 
 from ..utils import Singleton

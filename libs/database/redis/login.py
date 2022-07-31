@@ -26,10 +26,11 @@
 import time
 from typing import Optional
 
-from dimp import json_encode, json_decode, utf8_encode, utf8_decode
-from dimp import NetworkType, ID, ReliableMessage
-from dimp import Content, Command
-from dimsdk import LoginCommand
+from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
+from dimsdk import NetworkType, ID, ReliableMessage
+from dimsdk import Content, Command
+
+# from ...common import LoginCommand
 
 from .base import Cache
 
@@ -57,15 +58,15 @@ class LoginCache(Cache):
     def __login_key(self, identifier: ID) -> str:
         return '%s.%s.%s.login' % (self.database, self.table, identifier)
 
-    def __save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        dictionary = {'cmd': cmd.dictionary, 'msg': msg.dictionary}
+    def __save_login(self, content: Command, msg: ReliableMessage) -> bool:
+        dictionary = {'cmd': content.dictionary, 'msg': msg.dictionary}
         value = json_encode(obj=dictionary)
         value = utf8_encode(string=value)
         key = self.__login_key(identifier=msg.sender)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def __load_login(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def __load_login(self, identifier: ID) -> (Optional[Command], Optional[ReliableMessage]):
         key = self.__login_key(identifier=identifier)
         value = self.get(name=key)
         if value is None:
@@ -76,12 +77,13 @@ class LoginCache(Cache):
         cmd = dictionary.get('cmd')
         msg = dictionary.get('msg')
         if cmd is not None:
+            from ...common import LoginCommand
             cmd = LoginCommand(cmd)
         if msg is not None:
             msg = ReliableMessage.parse(msg=msg)
         return cmd, msg
 
-    def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
         if sender.type == NetworkType.STATION:
@@ -89,13 +91,13 @@ class LoginCache(Cache):
             return False
         # check login time
         now = int(time.time())
-        if now > cmd.time + self.EXPIRES:
+        if now > content.time + self.EXPIRES:
             # expired command, drop it
             return False
         # save into redis server
-        return self.__save_login(cmd=cmd, msg=msg)
+        return self.__save_login(content=content, msg=msg)
 
-    def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_info(self, identifier: ID) -> (Optional[Command], Optional[ReliableMessage]):
         cmd, msg = self.__load_login(identifier=identifier)
         if cmd is not None:
             now = int(time.time())
@@ -104,7 +106,7 @@ class LoginCache(Cache):
                 return None, None
         return cmd, msg
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
+    def login_command(self, identifier: ID) -> Optional[Command]:
         cmd, _ = self.login_info(identifier=identifier)
         return cmd
 
@@ -125,13 +127,13 @@ class LoginCache(Cache):
     def __offline_key(self, identifier: ID) -> str:
         return '%s.%s.%s.offline' % (self.database, self.table, identifier)
 
-    def __save_command(self, key: str, cmd: Command) -> bool:
+    def __save_command(self, key: str, content: Command) -> bool:
         # check login time
         now = int(time.time())
-        if now > cmd.time + self.EXPIRES:
+        if now > content.time + self.EXPIRES:
             # expired command, drop it
             return False
-        dictionary = cmd.dictionary
+        dictionary = content.dictionary
         value = json_encode(obj=dictionary)
         value = utf8_encode(string=value)
         self.set(name=key, value=value, expires=self.EXPIRES)
@@ -155,7 +157,7 @@ class LoginCache(Cache):
                 return None
         return cmd
 
-    def save_online(self, cmd: Command, msg: ReliableMessage) -> bool:
+    def save_online(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
         if sender.type == NetworkType.STATION:
@@ -163,9 +165,9 @@ class LoginCache(Cache):
             return False
         # save into redis
         key = self.__online_key(identifier=sender)
-        return self.__save_command(key=key, cmd=cmd)
+        return self.__save_command(key=key, content=content)
 
-    def save_offline(self, cmd: Command, msg: ReliableMessage) -> bool:
+    def save_offline(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
         if sender.type == NetworkType.STATION:
@@ -173,7 +175,7 @@ class LoginCache(Cache):
             return False
         # save into redis
         key = self.__offline_key(identifier=sender)
-        return self.__save_command(key=key, cmd=cmd)
+        return self.__save_command(key=key, content=content)
 
     def load_online(self, identifier: ID) -> Optional[Command]:
         key = self.__online_key(identifier=identifier)

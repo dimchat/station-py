@@ -2,9 +2,9 @@
 
 from typing import Optional
 
-from dimp import ID
+from dimsdk import ID
 from dimsdk import Station
-from dimsdk.ans import keywords as ans_keywords
+from dimsdk.core.ans import keywords as ans_keywords
 
 from libs.utils import Log
 from libs.database import Storage, Database

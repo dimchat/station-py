@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2020 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,53 +29,52 @@
 # ==============================================================================
 
 """
-    Report Protocol
-    ~~~~~~~~~~~~~~~
+    Block Protocol
+    ~~~~~~~~~~~~~~
 
-    Report for online/offline, ...
+    Ignore all messages in this conversation, which ID(user/group) contains in 'list'.
+    If value of 'list' is None, means querying block-list from station
 """
 
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 
-from dimsdk import BaseCommand
+from dimsdk import ID, BaseCommand
 
 
-class ReportCommand(BaseCommand):
+class BlockCommand(BaseCommand):
     """
-        Report Command
-        ~~~~~~~~~~~~~~
+        Block Command
+        ~~~~~~~~~~~~~
 
         data format: {
             type : 0x88,
             sn   : 123,
 
-            cmd      : "report",
-            title    : "online",   // or "offline"
-            time     : 1234567890
+            cmd     : "block", // command name
+            list    : []       // block-list
         }
     """
 
-    REPORT = 'report'
+    BLOCK = 'block'
 
-    ONLINE = 'online'
-    OFFLINE = 'offline'
-
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 title: Optional[str] = None):
+    def __init__(self, content: Optional[Dict[str, Any]] = None):
         if content is None:
-            super().__init__(cmd=ReportCommand.REPORT)
+            super().__init__(cmd=BlockCommand.BLOCK)
         else:
             super().__init__(content=content)
-        if title is not None:
-            self['title'] = title
 
     #
-    #   report title
+    #   block-list
     #
     @property
-    def title(self) -> str:
-        return self.get('title')
+    def block_list(self) -> Optional[List[ID]]:
+        array = self.get('list')
+        if array is not None:
+            return ID.convert(members=array)
 
-    @title.setter
-    def title(self, value: str):
-        self['title'] = value
+    @block_list.setter
+    def block_list(self, value: List[ID]):
+        if value is None:
+            self.pop('list', None)
+        else:
+            self['list'] = ID.revert(members=value)

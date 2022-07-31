@@ -25,7 +25,7 @@
 
 from typing import Optional, Union, Dict, List
 
-from dimp import ID, PrivateKey, SignKey, DecryptKey
+from dimsdk import ID, PrivateKey, SignKey, DecryptKey
 
 from .dos.private_key import insert_private_key
 from .dos import PrivateKeyStorage

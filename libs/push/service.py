@@ -26,8 +26,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from dimp import json_encode, json_decode
-from dimp import ID
+from dimsdk import json_encode, json_decode
+from dimsdk import ID
 
 from ..utils.log import Logging
 from ..utils.ipc import PusherPipe

@@ -26,8 +26,8 @@
 import time
 from typing import Optional, List
 
-from dimp import utf8_encode, utf8_decode
-from dimp import ID
+from dimsdk import utf8_encode, utf8_decode
+from dimsdk import ID
 
 from .base import Cache
 

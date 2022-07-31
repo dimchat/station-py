@@ -33,11 +33,11 @@
 import weakref
 from typing import Optional
 
-from dimp import Envelope, ReliableMessage
-from dimp import Content, TextContent
-from dimsdk import HandshakeCommand
+from dimsdk import Envelope, ReliableMessage
+from dimsdk import Content, TextContent
 
 from ..database import Database
+from ..common import HandshakeCommand
 from ..common import CommonFacebook
 
 from .messenger import ServerMessenger
@@ -78,7 +78,7 @@ class Filter:
                 grp_name = self.facebook.name(identifier=group)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
-            res = TextContent(text=text)
+            res = TextContent.create(text=text)
             res.group = group
             return res
 

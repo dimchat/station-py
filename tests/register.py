@@ -36,8 +36,8 @@ import random
 import sys
 import os
 
-from dimp import PrivateKey, EncryptKey
-from dimp import NetworkType, ID, MetaType, Meta, Document, Visa
+from dimsdk import PrivateKey, EncryptKey
+from dimsdk import NetworkType, ID, MetaType, Meta, Document, Visa
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]

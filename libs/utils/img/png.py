@@ -31,7 +31,7 @@
 import zlib
 from typing import Optional
 
-from dimp import utf8_encode, utf8_decode
+from dimsdk import utf8_encode, utf8_decode
 from udp.ba import ByteArray, Data, Convert
 
 from .api import Type, BaseImage, BaseScanner
@@ -113,13 +113,13 @@ class Chunk(Data):
         self.__body = body
         self.__crc = crc
 
-    def __str__(self):
+    def __str__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
         return '<%s:%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.code, self.offset, self.size, start, end)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size

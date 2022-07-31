@@ -33,13 +33,13 @@ from typing import List, Optional, Union
 
 from startrek import DeparturePriority
 
-from dimp import NetworkType
-from dimp import SecureMessage, ReliableMessage
-from dimp import ContentType, Content, TextContent, Command
-from dimsdk import HandshakeCommand, ReceiptCommand
+from dimsdk import NetworkType
+from dimsdk import SecureMessage, ReliableMessage
+from dimsdk import ContentType, Content, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk.cpu import DocumentCommandProcessor
+from dimsdk import DocumentCommandProcessor
 
+from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
 from ..common import CommonProcessor, CommonContentProcessorCreator
 
 from .cpu import ChatTextContentProcessor
@@ -116,11 +116,11 @@ class ClientContentProcessorCreator(CommonContentProcessorCreator):
         if cmd_name == Command.DOCUMENT or cmd_name in ['profile', 'visa', 'bulletin']:
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
-        if cmd_name == Command.HANDSHAKE:
+        if cmd_name == HandshakeCommand.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
             return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
-        if cmd_name == Command.LOGIN:
+        if cmd_name == LoginCommand.LOGIN:
             from .cpu import LoginCommandProcessor
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others

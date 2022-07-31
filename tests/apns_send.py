@@ -40,7 +40,6 @@ from typing import List
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
-from dimp import ID
 from dimsdk import *
 
 curPath = os.path.abspath(os.path.dirname(__file__))

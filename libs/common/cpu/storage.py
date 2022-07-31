@@ -32,12 +32,12 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content
-from dimsdk import StorageCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
 from ...database import Database
+from ..protocol import StorageCommand
 
 
 g_database = Database()
@@ -62,9 +62,9 @@ class StorageCommandProcessor(BaseCommandProcessor):
                     return [stored]
             else:
                 # upload contacts, save it
-                if g_database.save_contacts_command(cmd=content, sender=msg.sender):
+                if g_database.save_contacts_command(content=content, sender=msg.sender):
                     text = 'Contacts of %s received!' % msg.sender
-                    return self._respond_receipt(text=text)
+                    return self._respond_text(text=text)
                 else:
                     text = 'Sorry, contacts not stored %s!' % content
                     return self._respond_text(text=text)

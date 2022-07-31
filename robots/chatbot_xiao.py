@@ -35,9 +35,9 @@ import sys
 import os
 from typing import Optional, Union, List
 
-from dimp import ID
-from dimp import ContentType, Content, TextContent
-from dimp import Processor
+from dimsdk import ID
+from dimsdk import ContentType, Content, TextContent
+from dimsdk import Processor
 from dimsdk import ContentProcessor, ContentProcessorCreator
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -99,7 +99,7 @@ class BotTextContentProcessor(ChatTextContentProcessor, Logging):
                 text += stat_record(columns=item.split('\t'))
         else:
             text = 'No record'
-        res = TextContent(text=text)
+        res = TextContent.create(text=text)
         if group is not None:
             res.group = group
         return res

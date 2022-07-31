@@ -31,13 +31,13 @@
 import time
 from typing import List, Optional, Union
 
-from dimp import NetworkType
-from dimp import ReliableMessage
-from dimp import Content, ContentType, TextContent, Command
-from dimsdk import ReceiptCommand, HandshakeCommand
+from dimsdk import NetworkType
+from dimsdk import ReliableMessage
+from dimsdk import Content, ContentType, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
 
 from ..database import Database
+from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
 from ..common import ReportCommand, SearchCommand
 from ..common import CommonProcessor, CommonContentProcessorCreator
 
@@ -107,11 +107,11 @@ class ServerContentProcessorCreator(CommonContentProcessorCreator):
             from .cpu import DocumentCommandProcessor
             return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # handshake
-        if cmd_name == Command.HANDSHAKE:
+        if cmd_name == HandshakeCommand.HANDSHAKE:
             from .cpu import HandshakeCommandProcessor
             return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # login
-        if cmd_name == Command.LOGIN:
+        if cmd_name == LoginCommand.LOGIN:
             from .cpu import LoginCommandProcessor
             return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report

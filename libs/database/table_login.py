@@ -25,9 +25,10 @@
 
 from typing import Optional, Dict
 
-from dimp import ID, ReliableMessage
-from dimp import Command
-from dimsdk import LoginCommand
+from dimsdk import ID, ReliableMessage
+from dimsdk import Command
+
+# from ..common import LoginCommand
 
 from .redis import LoginCache
 
@@ -44,11 +45,11 @@ class LoginTable:
         self.__online: Dict[ID, CacheHolder[Command]] = CachePool.get_caches(name='online')
         self.__offline: Dict[ID, CacheHolder[Command]] = CachePool.get_caches(name='offline')
 
-    def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login(self, content: Command, msg: ReliableMessage) -> bool:
         sender = msg.sender
-        assert sender == cmd.identifier, 'sender error: %s, %s' % (sender, cmd.identifier)
-        login_time = cmd.time
-        assert login_time is not None, 'login command error: %s' % cmd
+        # assert sender == content.identifier, 'sender error: %s, %s' % (sender, content.identifier)
+        login_time = content.time
+        assert login_time is not None, 'login command error: %s' % content
         # check exists command
         old = self.login_command(identifier=sender)
         if old is not None:
@@ -61,11 +62,11 @@ class LoginTable:
                 # same command, return True to post notification
                 return True
         # save into redis
-        if self.__redis.save_login(cmd=cmd, msg=msg):
-            self.__logins[msg.sender] = CacheHolder(value=(cmd, msg), life_span=300)
+        if self.__redis.save_login(content=content, msg=msg):
+            self.__logins[msg.sender] = CacheHolder(value=(content, msg), life_span=300)
             return True
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
+    def login_command(self, identifier: ID) -> Optional[Command]:
         cmd, _ = self.login_info(identifier=identifier)
         return cmd
 
@@ -73,7 +74,7 @@ class LoginTable:
         _, msg = self.login_info(identifier=identifier)
         return msg
 
-    def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_info(self, identifier: ID) -> (Optional[Command], Optional[ReliableMessage]):
         # 1. check memory cache
         holder = self.__logins.get(identifier)
         if holder is None or not holder.alive:
@@ -93,10 +94,10 @@ class LoginTable:
     #
     #   Online/Offline
     #
-    def save_online(self, cmd: Command, msg: ReliableMessage) -> bool:
+    def save_online(self, content: Command, msg: ReliableMessage) -> bool:
         sender = msg.sender
-        online_time = cmd.time
-        assert online_time is not None, 'online command error: %s' % cmd
+        online_time = content.time
+        assert online_time is not None, 'online command error: %s' % content
         # check exists command
         old = self.online_command(identifier=sender)
         if old is None:
@@ -121,14 +122,14 @@ class LoginTable:
             # expired command, drop it
             return False
         # save into redis
-        if self.__redis.save_online(cmd=cmd, msg=msg):
-            self.__online[msg.sender] = CacheHolder(value=cmd, life_span=300)
+        if self.__redis.save_online(content=content, msg=msg):
+            self.__online[msg.sender] = CacheHolder(value=content, life_span=300)
             return True
 
-    def save_offline(self, cmd: Command, msg: ReliableMessage) -> bool:
+    def save_offline(self, content: Command, msg: ReliableMessage) -> bool:
         sender = msg.sender
-        offline_time = cmd.time
-        assert offline_time is not None, 'offline command error: %s' % cmd
+        offline_time = content.time
+        assert offline_time is not None, 'offline command error: %s' % content
         # check exists command
         old = self.offline_command(identifier=sender)
         if old is None:
@@ -153,8 +154,8 @@ class LoginTable:
             # expired command, drop it
             return False
         # save into redis
-        if self.__redis.save_offline(cmd=cmd, msg=msg):
-            self.__offline[msg.sender] = CacheHolder(value=cmd, life_span=300)
+        if self.__redis.save_offline(content=content, msg=msg):
+            self.__offline[msg.sender] = CacheHolder(value=content, life_span=300)
             return True
 
     def online_command(self, identifier: ID) -> Optional[Command]:

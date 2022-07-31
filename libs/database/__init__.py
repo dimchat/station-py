@@ -31,13 +31,13 @@
 
 from typing import Optional, List, Set, Dict
 
-from dimp import SymmetricKey, PrivateKey, SignKey, DecryptKey
-from dimp import ID, Meta, Document
-from dimp import Command
-from dimp import ReliableMessage
-from dimsdk import LoginCommand
+from dimsdk import SymmetricKey, PrivateKey, SignKey, DecryptKey
+from dimsdk import ID, Meta, Document
+from dimsdk import Command
+from dimsdk import ReliableMessage
 
 from ..utils import Singleton
+# from ..common import LoginCommand
 
 from .dos import Storage
 
@@ -176,8 +176,8 @@ class Database:
         file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
-    def save_contacts_command(self, cmd: Command, sender: ID) -> bool:
-        return self.__user_table.save_contacts_command(cmd=cmd, sender=sender)
+    def save_contacts_command(self, content: Command, sender: ID) -> bool:
+        return self.__user_table.save_contacts_command(content=content, sender=sender)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         return self.__user_table.contacts_command(identifier=identifier)
@@ -189,8 +189,8 @@ class Database:
         file path: '.dim/protected/{ADDRESS}/block_stored.js'
         redis key: 'mkm.user.{ID}.cmd.block'
     """
-    def save_block_command(self, cmd: Command, sender: ID) -> bool:
-        return self.__user_table.save_block_command(cmd=cmd, sender=sender)
+    def save_block_command(self, content: Command, sender: ID) -> bool:
+        return self.__user_table.save_block_command(content=content, sender=sender)
 
     def block_command(self, identifier: ID) -> Command:
         return self.__user_table.block_command(identifier=identifier)
@@ -216,8 +216,8 @@ class Database:
         file path: '.dim/protected/{ADDRESS}/mute_stored.js'
         redis key: 'mkm.user.{ID}.cmd.mute'
     """
-    def save_mute_command(self, cmd: Command, sender: ID) -> bool:
-        return self.__user_table.save_mute_command(cmd=cmd, sender=sender)
+    def save_mute_command(self, content: Command, sender: ID) -> bool:
+        return self.__user_table.save_mute_command(content=content, sender=sender)
 
     def mute_command(self, identifier: ID) -> Command:
         return self.__user_table.mute_command(identifier=identifier)
@@ -330,16 +330,16 @@ class Database:
         
         redis key: 'mkm.user.{ID}.login'
     """
-    def save_login(self, cmd: LoginCommand, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login(cmd=cmd, msg=msg)
+    def save_login(self, content: Command, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login(content=content, msg=msg)
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
+    def login_command(self, identifier: ID) -> Optional[Command]:
         return self.__login_table.login_command(identifier=identifier)
 
     def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
         return self.__login_table.login_message(identifier=identifier)
 
-    def login_info(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_info(self, identifier: ID) -> (Optional[Command], Optional[ReliableMessage]):
         return self.__login_table.login_info(identifier=identifier)
 
     """
@@ -349,11 +349,11 @@ class Database:
         redis key: 'mkm.user.{ID}.online'
         redis key: 'mkm.user.{ID}.offline'
     """
-    def save_online(self, cmd: Command, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_online(cmd=cmd, msg=msg)
+    def save_online(self, content: Command, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_online(content=content, msg=msg)
 
-    def save_offline(self, cmd: Command, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_offline(cmd=cmd, msg=msg)
+    def save_offline(self, content: Command, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_offline(content=content, msg=msg)
 
     def online_command(self, identifier: ID) -> Optional[Command]:
         return self.__login_table.online_command(identifier=identifier)

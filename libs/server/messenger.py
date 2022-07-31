@@ -33,10 +33,10 @@
 import time
 from typing import Optional, List
 
-from dimp import NetworkType, ID
-from dimp import Envelope, InstantMessage, ReliableMessage
-from dimp import Command
-from dimp import Processor
+from dimsdk import NetworkType, ID
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import Command
+from dimsdk import Processor
 
 from ..utils import get_msg_sig
 from ..utils import NotificationCenter
@@ -202,11 +202,11 @@ class ServerMessenger(CommonMessenger):
     #
     #   Sending command
     #
-    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
             receiver = ID.parse(identifier='stations@everywhere')
         srv = self.facebook.current_user
-        return self.send_content(sender=srv.identifier, receiver=receiver, content=cmd, priority=priority)
+        return self.send_content(sender=srv.identifier, receiver=receiver, content=content, priority=priority)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):

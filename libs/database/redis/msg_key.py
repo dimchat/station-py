@@ -25,8 +25,8 @@
 
 from typing import Optional
 
-from dimp import json_encode, json_decode, utf8_encode, utf8_decode
-from dimp import ID, SymmetricKey
+from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
+from dimsdk import ID, SymmetricKey
 
 from .base import Cache
 

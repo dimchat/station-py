@@ -23,33 +23,65 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimp import Command, DocumentCommand
-from dimp.protocol import CommandFactoryBuilder
+from dimsdk import Command, CommandFactoryBuilder
+from dimsdk import register_core_factories
+
+from .handshake import HandshakeCommand, HandshakeState
+from .receipt import ReceiptCommand
+from .login import LoginCommand
+
+from .block import BlockCommand
+from .mute import MuteCommand
+from .storage import StorageCommand
 
 from .search import SearchCommand
 from .report import ReportCommand
 
 
-def register_all_processors():
-    # extended document commands
-    factory = CommandFactoryBuilder(command_class=DocumentCommand)
-    Command.register(command='profile', factory=factory)
-    Command.register(command='visa', factory=factory)
-    Command.register(command='bulletin', factory=factory)
-    # search
-    Command.register(command=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
-    Command.register(command=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
-    # report
-    Command.register(command=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
-    Command.register(command='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
-    Command.register(command=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
-    Command.register(command=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
+def register_all_factories():
+    # Register core factories
+    register_core_factories()
+
+    # Handshake
+    Command.register(cmd=HandshakeCommand.HANDSHAKE, factory=CommandFactoryBuilder(command_class=HandshakeCommand))
+    # Receipt
+    Command.register(cmd=ReceiptCommand.RECEIPT, factory=CommandFactoryBuilder(command_class=ReceiptCommand))
+    # Login
+    Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
+    # Mute
+    Command.register(cmd=MuteCommand.MUTE, factory=CommandFactoryBuilder(command_class=MuteCommand))
+    # Block
+    Command.register(cmd=BlockCommand.BLOCK, factory=CommandFactoryBuilder(command_class=BlockCommand))
+
+    # Storage (contacts, private_key)
+    factory = CommandFactoryBuilder(command_class=StorageCommand)
+    Command.register(cmd=StorageCommand.STORAGE, factory=factory)
+    Command.register(cmd=StorageCommand.CONTACTS, factory=factory)
+    Command.register(cmd=StorageCommand.PRIVATE_KEY, factory=factory)
+
+    # Search
+    Command.register(cmd=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    # Report
+    Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(cmd='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(cmd=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    Command.register(cmd=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
 
 
-register_all_processors()
+register_all_factories()
 
 
 __all__ = [
+
+    'HandshakeCommand', 'HandshakeState',
+    'ReceiptCommand',
+    'LoginCommand',
+
+    'BlockCommand',
+    'MuteCommand',
+    'StorageCommand',
+
     'SearchCommand',
     'ReportCommand',
 ]

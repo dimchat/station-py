@@ -32,10 +32,11 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content
-from dimsdk import LoginCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
+
+from ...common import LoginCommand
 
 
 class LoginCommandProcessor(BaseCommandProcessor):

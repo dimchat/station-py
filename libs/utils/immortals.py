@@ -33,9 +33,10 @@
 import os
 from typing import Optional
 
-from dimp import PrivateKey, EncryptKey, DecryptKey, SignKey, VerifyKey
-from dimp import Meta, Document, Visa
-from dimp import ID, User, UserDataSource
+from dimsdk import PrivateKey, EncryptKey, DecryptKey, SignKey, VerifyKey
+from dimsdk import Meta, Document, Visa
+from dimsdk import ID, User, UserDataSource
+from dimsdk import BaseUser
 
 from .singleton import Singleton
 from .dos import JSONFile
@@ -145,7 +146,7 @@ class Immortals(UserDataSource):
         if user is None:
             # only create exists account
             if identifier in self.__ids:
-                user = User(identifier=identifier)
+                user = BaseUser(identifier=identifier)
                 self.cache_user(user=user)
         return user
 

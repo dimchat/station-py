@@ -31,10 +31,11 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content
-from dimsdk import ReceiptCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
+
+from ..protocol import ReceiptCommand
 
 
 class ReceiptCommandProcessor(BaseCommandProcessor):

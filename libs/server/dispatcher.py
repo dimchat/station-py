@@ -39,9 +39,9 @@ from typing import Optional, List, Set, Tuple
 
 from startrek import DeparturePriority
 
-from dimp import NetworkType, ID, ANYONE, EVERYONE
-from dimp import ReliableMessage
-from dimp import ContentType, Content, TextContent
+from dimsdk import NetworkType, ID, ANYONE, EVERYONE
+from dimsdk import ReliableMessage
+from dimsdk import ContentType, Content, TextContent
 
 from ..utils.log import Log, Logging
 from ..utils import get_msg_sig
@@ -49,6 +49,7 @@ from ..utils import Singleton
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..push import PushService, build_message as build_push_message
 from ..database import Database
+from ..common import LoginCommand
 from ..common import NotificationNames
 from ..common import SharedFacebook
 from ..common import msg_receipt, msg_traced
@@ -173,7 +174,7 @@ class Dispatcher(NotificationObserver):
 def _roaming_stations(user: ID) -> List[ID]:
     # check from login command
     cmd = g_database.login_command(identifier=user)
-    if cmd is not None:
+    if isinstance(cmd, LoginCommand):
         station = cmd.station
         if station is not None:
             sid = station.get('ID')
@@ -404,7 +405,7 @@ class BroadcastDispatcher(Worker):
                 self.warning('failed to push message to assistant: %s' % ass)
         # response
         text = 'Message broadcast to %d/%d assistants' % (success, len(assistants))
-        res = TextContent(text=text)
+        res = TextContent.create(text=text)
         res.group = msg.group
         return res
 
@@ -439,6 +440,6 @@ class BroadcastDispatcher(Worker):
         OctopusCaller().send(msg=msg)
         # response
         text = 'Message broadcast to %d/%d stations' % (success, len(neighbors))
-        res = TextContent(text=text)
+        res = TextContent.create(text=text)
         res.group = msg.group
         return res

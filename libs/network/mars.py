@@ -31,7 +31,7 @@
 import threading
 from typing import Optional, List
 
-from dimp import utf8_encode, utf8_decode, base64_encode, base64_decode
+from dimsdk import utf8_encode, utf8_decode, base64_encode, base64_decode
 
 from startrek import Connection
 from startrek import Arrival, ArrivalShip

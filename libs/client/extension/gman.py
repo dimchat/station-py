@@ -34,9 +34,9 @@ from typing import Optional, List
 
 from startrek import DeparturePriority
 
-from dimp import ID
-from dimp import Content, Command, GroupCommand
-from dimp import MetaCommand, DocumentCommand
+from dimsdk import ID
+from dimsdk import Content, Command, GroupCommand
+from dimsdk import MetaCommand, DocumentCommand
 
 from ...common import CommonFacebook
 
@@ -90,12 +90,12 @@ class GroupManager:
         return messenger.send_content(sender=None, receiver=self.group,
                                       content=content, priority=DeparturePriority.NORMAL)
 
-    def __send_group_command(self, cmd: Command, members: List[ID]) -> bool:
+    def __send_group_command(self, content: Command, members: List[ID]) -> bool:
         messenger = self.messenger
         ok = True
         for identifier in members:
             if not messenger.send_content(sender=None, receiver=identifier,
-                                          content=cmd, priority=DeparturePriority.NORMAL):
+                                          content=content, priority=DeparturePriority.NORMAL):
                 ok = False
         return ok
 
@@ -120,17 +120,17 @@ class GroupManager:
             cmd = MetaCommand.response(identifier=self.group, meta=meta)
         else:
             cmd = DocumentCommand.response(document=doc, meta=meta, identifier=self.group)
-        self.__send_group_command(cmd=cmd, members=invite_list)
+        self.__send_group_command(content=cmd, members=invite_list)
 
         # 1. send 'invite' command with new members to existed members
         cmd = GroupCommand.invite(group=self.group, members=invite_list)
         # 1.1. send to existed members
-        self.__send_group_command(cmd=cmd, members=members)
+        self.__send_group_command(content=cmd, members=members)
         # 1.2. send to assistants
-        self.__send_group_command(cmd=cmd, members=assistants)
+        self.__send_group_command(content=cmd, members=assistants)
         # 1.3. send to owner
         if owner is not None and owner not in members:
-            self.__send_group_command(cmd=cmd, members=[owner])
+            self.__send_group_command(content=cmd, members=[owner])
 
         # 2. update local storage
         self.add_members(invite_list)
@@ -138,7 +138,7 @@ class GroupManager:
         # 3. send 'invite' command with all members to new members
         members = facebook.members(self.group)
         cmd = GroupCommand.invite(group=self.group, members=members)
-        self.__send_group_command(cmd=cmd, members=invite_list)
+        self.__send_group_command(content=cmd, members=invite_list)
         return True
 
     def expel(self, expel_list: List[ID]) -> bool:
@@ -167,12 +167,12 @@ class GroupManager:
         # 1. send 'expel' command to all members
         cmd = GroupCommand.expel(group=self.group, members=expel_list)
         # 1.1. send to existed members
-        self.__send_group_command(cmd=cmd, members=members)
+        self.__send_group_command(content=cmd, members=members)
         # 1.2. send to assistants
-        self.__send_group_command(cmd=cmd, members=assistants)
+        self.__send_group_command(content=cmd, members=assistants)
         # 1.3. send to owner
         if owner not in members:
-            self.__send_group_command(cmd=cmd, members=[owner])
+            self.__send_group_command(content=cmd, members=[owner])
 
         # 2. update local storage
         return self.remove_members(expel_list)
@@ -203,12 +203,12 @@ class GroupManager:
         # 1. send 'quit' command to all members
         cmd = GroupCommand.quit(group=self.group)
         # 1.1. send to existed members
-        self.__send_group_command(cmd=cmd, members=members)
+        self.__send_group_command(content=cmd, members=members)
         # 1.2. send to assistants
-        self.__send_group_command(cmd=cmd, members=assistants)
+        self.__send_group_command(content=cmd, members=assistants)
         # 1.3. send to owner
         if owner not in members:
-            self.__send_group_command(cmd=cmd, members=[owner])
+            self.__send_group_command(content=cmd, members=[owner])
 
         # 2. update local storage
         return self.remove_member(identifier=me)

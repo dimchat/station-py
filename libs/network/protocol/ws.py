@@ -38,7 +38,7 @@ import hashlib
 import struct
 from typing import Optional
 
-from dimp import base64_encode, utf8_encode
+from dimsdk import base64_encode, utf8_encode
 
 
 class WebSocket:

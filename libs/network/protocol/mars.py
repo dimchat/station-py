@@ -33,7 +33,6 @@
     ~~~~~~~~~~~~~~~~~~~~~
 """
 
-import binascii
 import random
 import threading
 from typing import Optional
@@ -266,17 +265,15 @@ class NetMsg:
 #
 
 
-def random_bytes(length: int) -> bytes:
-    r = range(length << 1)
-    # noinspection PyUnusedLocal
-    a = ''.join([random.choice('0123456789ABCDEF') for i in r])
-    return binascii.a2b_hex(a)
+def random_int(size: int) -> int:
+    # return bytes(numpy.random.bytes(size))
+    return random.getrandbits(size * 8)
 
 
 class NetMsgSeq:
 
     __number_lock = threading.Lock()
-    __number = int.from_bytes(bytes=random_bytes(4), byteorder='big')
+    __number = random_int(size=4)
 
     @classmethod
     def generate(cls) -> int:

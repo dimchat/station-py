@@ -36,12 +36,12 @@ from typing import Optional, List
 
 from startrek import DeparturePriority
 
-from dimp import NetworkType
-from dimp import ID, EVERYONE
-from dimp import Command
-from dimp import Processor
-from dimsdk import LoginCommand
+from dimsdk import NetworkType
+from dimsdk import ID, EVERYONE
+from dimsdk import Command
+from dimsdk import Processor
 
+from ..common import LoginCommand
 from ..common import BaseSession
 from ..common import CommonMessenger, CommonFacebook
 
@@ -84,7 +84,7 @@ class ClientMessenger(CommonMessenger):
     #
     #   Sending command
     #
-    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         if receiver is None:
             station = self.server
             if station is None:
@@ -92,7 +92,7 @@ class ClientMessenger(CommonMessenger):
                 return False
             else:
                 receiver = station.identifier
-        return self.send_content(sender=None, receiver=receiver, content=cmd, priority=priority)
+        return self.send_content(sender=None, receiver=receiver, content=content, priority=priority)
 
     # Override
     def handshake_accepted(self, identifier: ID, client_address: tuple = None):

@@ -26,9 +26,9 @@
 import time
 from typing import List, Optional
 
-from dimp import utf8_encode, utf8_decode, json_encode, json_decode
-from dimp import ID, NetworkType
-from dimp import ReliableMessage
+from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
+from dimsdk import ID, NetworkType
+from dimsdk import ReliableMessage
 
 from ...utils import get_msg_sig
 from .base import Cache

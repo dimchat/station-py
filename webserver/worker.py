@@ -31,9 +31,9 @@
 
 from typing import Optional
 
-from dimp import json_decode
-from dimp import ID
-from dimp import Content, TextContent
+from dimsdk import json_decode
+from dimsdk import ID
+from dimsdk import Content, TextContent
 from dimsdk import Facebook
 
 from libs.utils import Log

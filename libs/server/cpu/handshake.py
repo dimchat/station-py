@@ -32,12 +32,12 @@
 
 from typing import List
 
-from dimp import ID
-from dimp import ReliableMessage
-from dimp import Content
-from dimsdk import HandshakeCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ID
+from dimsdk import ReliableMessage
+from dimsdk import Content
+from dimsdk import BaseCommandProcessor
 
+from ...common import HandshakeCommand
 from ..session_server import SessionServer
 
 

@@ -37,11 +37,11 @@ from typing import Optional, Union, List
 
 from startrek import DeparturePriority
 
-from dimp import ID, SymmetricKey
-from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import ContentType, Content, FileContent
-from dimp import Command, GroupCommand
-from dimp import Packer, Processor, EntityDelegate
+from dimsdk import ID, SymmetricKey
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import ContentType, Content, FileContent
+from dimsdk import Command, GroupCommand
+from dimsdk import Packer, Processor, EntityDelegate
 from dimsdk import Messenger, CipherKeyDelegate
 
 from ..utils import Logging
@@ -147,7 +147,7 @@ class CommonMessenger(Messenger, Transmitter, Logging):
         processor = self.processor
         from .processor import CommonProcessor
         assert isinstance(processor, CommonProcessor), 'message processor error: %s' % processor
-        fpu = processor.get_processor_by_type(msg_type=ContentType.FILE)
+        fpu = processor.get_content_processor(msg_type=ContentType.FILE)
         from .cpu import FileContentProcessor
         assert isinstance(fpu, FileContentProcessor), 'failed to get file content processor'
         return fpu
@@ -219,10 +219,11 @@ class CommonMessenger(Messenger, Transmitter, Logging):
         receiver = msg.receiver
         when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
         content = msg.content
+        # TODO: update after all server/clients support 'cmd'
         command = content.get('command')
         text = content.get('text')
         traces = msg.get('traces')
-        self.info('TODO: saving msg: %s -> %s\n time=[%s] type=%d, command=%s, text=%s traces=%s' %
+        self.info('TODO: saving msg: %s -> %s\n time=[%s] type=%d, cmd=%s, text=%s traces=%s' %
                   (sender, receiver, when, content.type, command, text, traces))
         return True
 
@@ -265,7 +266,7 @@ class CommonMessenger(Messenger, Transmitter, Logging):
     #   Interfaces for Sending Commands
     #
     @abstractmethod
-    def send_command(self, cmd: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
         raise NotImplemented
 
     # FIXME: separate checking for querying each user
@@ -280,7 +281,7 @@ class CommonMessenger(Messenger, Transmitter, Logging):
         for item in users:
             if item == current:
                 continue
-            if self.send_command(cmd=cmd, priority=DeparturePriority.SLOWER, receiver=item):
+            if self.send_command(content=cmd, priority=DeparturePriority.SLOWER, receiver=item):
                 checking = True
         return checking
 

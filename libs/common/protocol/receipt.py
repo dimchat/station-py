@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMP : Decentralized Instant Messaging Protocol
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2020 Albert Moky
+# Copyright (c) 2019 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,53 +29,64 @@
 # ==============================================================================
 
 """
-    Report Protocol
-    ~~~~~~~~~~~~~~~
+    Receipt Protocol
+    ~~~~~~~~~~~~~~~~
 
-    Report for online/offline, ...
+    As receipt returned to sender to proofing the message's received
 """
 
 from typing import Optional, Any, Dict
 
+from dimsdk import Envelope
 from dimsdk import BaseCommand
 
 
-class ReportCommand(BaseCommand):
+class ReceiptCommand(BaseCommand):
     """
-        Report Command
-        ~~~~~~~~~~~~~~
+        Receipt Command
+        ~~~~~~~~~~~~~~~
 
         data format: {
             type : 0x88,
             sn   : 123,
 
-            cmd      : "report",
-            title    : "online",   // or "offline"
-            time     : 1234567890
+            cmd      : "receipt", // command name
+            message  : "...",
+            //-- extra info
+            sender   : "...",
+            receiver : "...",
+            time     : 0
         }
     """
-
-    REPORT = 'report'
-
-    ONLINE = 'online'
-    OFFLINE = 'offline'
+    RECEIPT = 'receipt'
 
     def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 title: Optional[str] = None):
+                 envelope: Optional[Envelope] = None, message: Optional[str] = None, sn: Optional[int] = 0):
         if content is None:
-            super().__init__(cmd=ReportCommand.REPORT)
+            super().__init__(cmd=self.RECEIPT)
         else:
             super().__init__(content=content)
-        if title is not None:
-            self['title'] = title
+        self.__envelope = envelope
+        if envelope is not None:
+            self['envelope'] = envelope.dictionary
+        if message is not None:
+            self['message'] = message
+        if sn > 0:
+            self['sn'] = sn
 
-    #
-    #   report title
-    #
+    # -------- setters/getters
+
     @property
-    def title(self) -> str:
-        return self.get('title')
+    def message(self) -> Optional[str]:
+        return self.get('message')
 
-    @title.setter
-    def title(self, value: str):
-        self['title'] = value
+    @property
+    def envelope(self) -> Optional[Envelope]:
+        if self.__envelope is None:
+            # envelope: { sender: "...", receiver: "...", time: 0 }
+            env = self.get('envelope')
+            if env is None and 'sender' in self and 'receiver' in self:
+                env = self.dictionary
+            if env is not None:
+                self.__envelope = Envelope.parse(envelope=env)
+        return self.__envelope

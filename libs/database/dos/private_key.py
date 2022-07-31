@@ -26,8 +26,8 @@
 import os
 from typing import Optional, List
 
-from dimp import PrivateKey, DecryptKey, SignKey
-from dimp import ID
+from dimsdk import PrivateKey, DecryptKey, SignKey
+from dimsdk import ID
 
 from .base import Storage
 

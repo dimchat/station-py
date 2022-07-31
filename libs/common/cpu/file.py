@@ -36,10 +36,10 @@
 
 from typing import List
 
-from dimp import SymmetricKey
-from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import Content, FileContent
-from dimsdk.cpu import BaseContentProcessor
+from dimsdk import SymmetricKey
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import Content, FileContent
+from dimsdk import BaseContentProcessor
 
 
 #

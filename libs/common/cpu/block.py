@@ -32,12 +32,12 @@
 
 from typing import List
 
-from dimp import ReliableMessage
-from dimp import Content, Command, BaseCommand
-from dimsdk import BlockCommand
-from dimsdk.cpu import BaseCommandProcessor
+from dimsdk import ReliableMessage
+from dimsdk import Content, Command, BaseCommand
+from dimsdk import BaseCommandProcessor
 
 from ...database import Database
+from ..protocol import BlockCommand
 
 
 g_database = Database()
@@ -50,9 +50,9 @@ class BlockCommandProcessor(BaseCommandProcessor):
         assert isinstance(content, BlockCommand), 'block command error: %s' % content
         if 'list' in content:
             # upload block-list, save it
-            if g_database.save_block_command(cmd=content, sender=msg.sender):
+            if g_database.save_block_command(content=content, sender=msg.sender):
                 text = 'Block command of %s received!' % msg.sender
-                return self._respond_receipt(text=text)
+                return self._respond_text(text=text)
             else:
                 text = 'Sorry, block-list not stored: %s!' % content
                 return self._respond_text(text=text)
@@ -65,6 +65,6 @@ class BlockCommandProcessor(BaseCommandProcessor):
             else:
                 # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
                 # TODO: here should response an empty HistoryCommand: 'block'
-                res = BaseCommand(command=BlockCommand.BLOCK)
+                res = BaseCommand(cmd=BlockCommand.BLOCK)
                 res['list'] = []
                 return [res]

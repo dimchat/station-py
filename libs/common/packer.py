@@ -31,10 +31,10 @@ from typing import Optional
 
 from startrek import DeparturePriority
 
-from dimp import base64_encode, sha256
-from dimp import ID, Meta
-from dimp import InstantMessage, SecureMessage, ReliableMessage
-from dimp import DocumentCommand
+from dimsdk import base64_encode, sha256
+from dimsdk import ID, Meta
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import DocumentCommand
 from dimsdk import MessagePacker
 
 from ..utils.mtp import MTPUtils
@@ -183,7 +183,7 @@ class CommonPacker(MessagePacker):
             if i_msg is not None:
                 content = i_msg.content
                 if isinstance(content, DocumentCommand):
-                    fix_profile(cmd=content)
+                    fix_profile(content=content)
             return i_msg
         except AssertionError as error:
             err_msg = '%s' % error
@@ -200,8 +200,8 @@ class CommonPacker(MessagePacker):
                 raise error
 
 
-def fix_profile(cmd: DocumentCommand):
-    info = cmd.get('document')
+def fix_profile(content: DocumentCommand):
+    info = content.get('document')
     if info is not None:
         # (v2.0)
         #    "ID"      : "{ID}",
@@ -210,22 +210,22 @@ def fix_profile(cmd: DocumentCommand):
         #        "data"      : "{JsON}",
         #        "signature" : "{BASE64}"
         #    }
-        return cmd
-    info = cmd.get('profile')
+        return content
+    info = content.get('profile')
     if info is None:
         # query document command
-        return cmd
+        return content
     # 1.* => 2.0
-    cmd.pop('profile')
+    content.pop('profile')
     if isinstance(info, str):
         # compatible with v1.0
         #    "ID"        : "{ID}",
         #    "profile"   : "{JsON}",
         #    "signature" : "{BASE64}"
-        cmd['document'] = {
-            'ID': str(cmd.identifier),
+        content['document'] = {
+            'ID': str(content.identifier),
             'data': info,
-            'signature': cmd.get("signature")
+            'signature': content.get("signature")
         }
     else:
         # compatible with v1.1
@@ -235,8 +235,8 @@ def fix_profile(cmd: DocumentCommand):
         #        "data"      : "{JsON}",
         #        "signature" : "{BASE64}"
         #    }
-        cmd['document'] = info
-    return cmd
+        content['document'] = info
+    return content
 
 
 def fix_visa(msg: ReliableMessage):

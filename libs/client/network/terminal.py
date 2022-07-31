@@ -34,8 +34,8 @@ from typing import Optional
 
 from startrek import DeparturePriority
 
-from dimp import ID, EVERYONE
-from dimp import Content, Command
+from dimsdk import ID, EVERYONE
+from dimsdk import Content, Command
 
 from ...common import CommonMessenger, CommonFacebook
 
@@ -92,11 +92,11 @@ class Terminal:
     def facebook(self) -> CommonFacebook:
         return self.messenger.facebook
 
-    def send_command(self, cmd: Command) -> bool:
+    def send_command(self, content: Command) -> bool:
         """ Send command to current station """
         current_user = self.facebook.current_user
         return self.messenger.send_content(sender=current_user.identifier, receiver=self.server_id,
-                                           content=cmd, priority=DeparturePriority.NORMAL)
+                                           content=content, priority=DeparturePriority.NORMAL)
 
     def broadcast_content(self, content: Content, receiver: ID) -> bool:
         current_user = self.facebook.current_user
