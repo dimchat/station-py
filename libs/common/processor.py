@@ -38,7 +38,7 @@ from dimsdk import InviteCommand, ResetCommand
 from dimsdk import MessageProcessor
 from dimsdk import ContentProcessor, ContentProcessorCreator
 from dimsdk import BaseContentProcessorCreator
-from dimsdk import BaseContentProcessor, BaseCommandProcessor
+from dimsdk import BaseContentProcessor
 
 from ..utils import Logging
 
@@ -168,12 +168,11 @@ class CommonContentProcessorCreator(BaseContentProcessorCreator):
             return FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
         elif msg_type in [ContentType.IMAGE.value, ContentType.AUDIO.value, ContentType.VIDEO.value]:
             return FileContentProcessor(facebook=self.facebook, messenger=self.messenger)
+        # default
+        if msg_type == 0:
+            return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        cpu = super().create_content_processor(msg_type=msg_type)
-        if cpu is None:
-            # unknown
-            cpu = BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
-        return cpu
+        return super().create_content_processor(msg_type=msg_type)
 
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
@@ -192,8 +191,4 @@ class CommonContentProcessorCreator(BaseContentProcessorCreator):
         elif cmd_name in [StorageCommand.CONTACTS, StorageCommand.PRIVATE_KEY]:
             return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        cpu = super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
-        if cpu is None:
-            # unknown
-            cpu = BaseCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        return cpu
+        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
