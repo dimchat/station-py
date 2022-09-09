@@ -53,54 +53,11 @@ from libs.client import Terminal, ClientMessenger
 from robots.config import dims_connect, current_station
 
 
-class ApplicationContent:
+class AppContentHandler(TwinsHelper, CustomizedContentHandler):
+    """ Handler for App Customized Content """
 
     # Application ID for customized content
     APP_ID = 'chat.dim.sechat'
-
-    @classmethod
-    def create(cls, mod: str, act: str) -> CustomizedContent:
-        """ Create application customized content """
-        msg_type = ContentType.APPLICATION
-        return AppCustomizedContent(msg_type=msg_type, app=cls.APP_ID, mod=mod, act=act)
-
-
-class ApplicationContentProcessor(CustomizedContentProcessor):
-    """
-        Application Customized Content Processor
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        Process customized contents for this application only
-    """
-
-    def __init__(self, facebook, messenger):
-        super().__init__(facebook=facebook, messenger=messenger)
-        # Module(s) for customized contents
-        self.__drift_bottle = DriftBottleHandler(facebook=facebook, messenger=messenger)
-
-    @property
-    def drift_bottle(self) -> CustomizedContentHandler:
-        return self.__drift_bottle
-
-    # Override
-    def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:
-        if app == ApplicationContent.APP_ID:
-            # App ID match
-            # return None to fetch module handler
-            return None
-        return super()._filter(app=app, content=content, msg=msg)
-
-    # Override
-    def _fetch(self, mod: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
-        assert mod is not None, 'module name empty: %s' % content
-        if mod == DriftBottleHandler.MOD_NAME:
-            # customized module: "drift_bottle"
-            return self.drift_bottle
-        # TODO: define your modules here
-        # ...
-        return super()._fetch(mod=mod, content=content, msg=msg)
-
-
-class BaseHandler(TwinsHelper, CustomizedContentHandler):
 
     FMT_ACT_NOT_SUPPORT = CustomizedContentProcessor.FMT_ACT_NOT_SUPPORT
     # FMT_ACT_NOT_SUPPORT = 'Customized Content (app: %s, mod: %s, act: %s) not support yet!'
@@ -120,8 +77,14 @@ class BaseHandler(TwinsHelper, CustomizedContentHandler):
             res.group = group
         return [res]
 
+    @classmethod
+    def create(cls, mod: str, act: str) -> CustomizedContent:
+        """ Create application customized content """
+        msg_type = ContentType.APPLICATION
+        return AppCustomizedContent(msg_type=msg_type, app=cls.APP_ID, mod=mod, act=act)
 
-class DriftBottleHandler(BaseHandler):
+
+class DriftBottleHandler(AppContentHandler):
     """
         Drift Bottle Game
         ~~~~~~~~~~~~~~~~~
@@ -161,15 +124,50 @@ class DriftBottleHandler(BaseHandler):
         pass
 
 
+class AppContentProcessor(CustomizedContentProcessor):
+    """
+        Application Customized Content Processor
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Process customized contents for this application only
+    """
+
+    def __init__(self, facebook, messenger):
+        super().__init__(facebook=facebook, messenger=messenger)
+        # Module(s) for customized contents
+        self.__drift_bottle = DriftBottleHandler(facebook=facebook, messenger=messenger)
+
+    @property
+    def drift_bottle(self) -> CustomizedContentHandler:
+        return self.__drift_bottle
+
+    # Override
+    def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:
+        if app == AppContentHandler.APP_ID:
+            # App ID match
+            # return None to fetch module handler
+            return None
+        return super()._filter(app=app, content=content, msg=msg)
+
+    # Override
+    def _fetch(self, mod: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[CustomizedContentHandler]:
+        assert mod is not None, 'module name empty: %s' % content
+        if mod == DriftBottleHandler.MOD_NAME:
+            # customized module: "drift_bottle"
+            return self.drift_bottle
+        # TODO: define your modules here
+        # ...
+        return super()._fetch(mod=mod, content=content, msg=msg)
+
+
 class BotContentProcessorCreator(ClientContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
         # application customized
         if msg_type == ContentType.APPLICATION.value:
-            return ApplicationContentProcessor(facebook=self.facebook, messenger=self.messenger)
+            return AppContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # elif msg_type == ContentType.CUSTOMIZED.value:
-        #     return ApplicationContentProcessor(facebook=self.facebook, messenger=self.messenger)
+        #     return AppContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_content_processor(msg_type=msg_type)
 
