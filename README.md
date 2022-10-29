@@ -41,14 +41,14 @@ tests/register.py modify {NewID} --name="Station1" --host="{WAN_IP}" --port=9394
 1.2. Create group assistant
 
 ```
-tests/register.py generate ROBOT --seed="assistant"
+tests/register.py generate BOT --seed="assistant"
 tests/register.py modify {NewID} --name="GroupBot1"
 ```
 
 1.3. Create search bot
 
 ```
-tests/register.py generate ROBOT --seed="archivist"
+tests/register.py generate BOT --seed="archivist"
 tests/register.py modify {NewID} --name="SearchEngine1"
 ```
 

@@ -251,8 +251,8 @@ class AssistantMessenger(ClientMessenger, Logging):
 
 
 """
-    Messenger for Group Assistant robot
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Messenger for Group Assistant bot
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_facebook = SharedFacebook()
 g_messenger = AssistantMessenger(facebook=g_facebook)

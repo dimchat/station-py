@@ -84,13 +84,13 @@ class Segment(Data):
         self.__mark = mark
         self.__body = body
 
-    def __str__(self):
+    def __str__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
         return '<%s:FF%X| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.mark, self.offset, self.size, start, end)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
@@ -140,13 +140,13 @@ class ImageSegment(Segment):
     def __init__(self, data: ByteArray):
         super().__init__(data=data, mark=0, body=data)
 
-    def __str__(self):
+    def __str__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size
         return '<%s| offset=0x%08x +%d, [%d, %d) />' % (clazz, self.offset, self.size, start, end)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clazz = self.__class__.__name__
         start = self.offset
         end = self.offset + self.size

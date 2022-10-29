@@ -276,9 +276,9 @@ class CommonFacebook(Facebook):
         if len(self.__group_assistants) > 0:
             return self.__group_assistants
         # get from ANS
-        robot = ID.parse(identifier='assistant')
-        if robot is not None:
-            return [robot]
+        bot = ID.parse(identifier='assistant')
+        if bot is not None:
+            return [bot]
 
     def add_assistant(self, assistant: ID):
         if assistant not in self.__group_assistants:

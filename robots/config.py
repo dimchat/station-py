@@ -24,10 +24,10 @@
 # ==============================================================================
 
 """
-    Robot Config
-    ~~~~~~~~~~~~
+    Bot Config
+    ~~~~~~~~~~
 
-    Configuration for Robot
+    Configuration for Bot
 """
 
 from dimp import User

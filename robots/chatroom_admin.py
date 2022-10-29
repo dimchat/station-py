@@ -25,8 +25,8 @@
 # ==============================================================================
 
 """
-    Chat Room Admin robot
-    ~~~~~~~~~~~~~~~~~~~~~
+    Chat Room Admin bot
+    ~~~~~~~~~~~~~~~~~~~
 
     Chat room for web demo
 """
@@ -462,8 +462,8 @@ class ChatRoom(Logging):
 
 
 """
-    Messenger for Chat Room Admin robot
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Messenger for Chat Room Admin bot
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 g_facebook = SharedFacebook()
 g_messenger = BotMessenger(facebook=g_facebook)
