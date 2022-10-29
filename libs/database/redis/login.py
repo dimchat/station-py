@@ -27,7 +27,7 @@ import time
 from typing import Optional
 
 from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
-from dimsdk import NetworkType, ID, ReliableMessage
+from dimsdk import EntityType, ID, ReliableMessage
 from dimsdk import Content, Command
 
 # from ...common import LoginCommand
@@ -86,7 +86,7 @@ class LoginCache(Cache):
     def save_login(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
-        if sender.type == NetworkType.STATION:
+        if sender.type == EntityType.STATION:
             # ignore station
             return False
         # check login time
@@ -160,7 +160,7 @@ class LoginCache(Cache):
     def save_online(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
-        if sender.type == NetworkType.STATION:
+        if sender.type == EntityType.STATION:
             # ignore station
             return False
         # save into redis
@@ -170,7 +170,7 @@ class LoginCache(Cache):
     def save_offline(self, content: Command, msg: ReliableMessage) -> bool:
         # check sender
         sender = msg.sender
-        if sender.type == NetworkType.STATION:
+        if sender.type == EntityType.STATION:
             # ignore station
             return False
         # save into redis

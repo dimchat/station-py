@@ -27,7 +27,7 @@ import time
 from typing import List, Optional
 
 from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import ID, NetworkType
+from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 
 from ...utils import get_msg_sig
@@ -132,9 +132,9 @@ def ignore_message(msg: ReliableMessage) -> bool:
     if is_broadcast_message(msg=msg):
         # ignore broadcast message
         return True
-    if msg.sender.type == NetworkType.STATION:
+    if msg.sender.type == EntityType.STATION:
         # ignore message from station
         return True
-    if msg.receiver.type == NetworkType.STATION:
+    if msg.receiver.type == EntityType.STATION:
         # ignore message to station
         return True

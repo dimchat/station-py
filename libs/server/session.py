@@ -43,7 +43,7 @@ from startrek import Docker, DockerStatus
 from startrek import Arrival
 
 from dimsdk import hex_encode
-from dimsdk import NetworkType, ID
+from dimsdk import EntityType, ID
 from dimsdk.plugins.aes import random_bytes
 
 from ..utils import NotificationCenter
@@ -164,7 +164,7 @@ class Session(BaseSession):
             # no need to verify signature of this message
             # which sender is equal to current id in session
             return True
-        if current.type == NetworkType.STATION:
+        if current.type == EntityType.STATION:
             # if it's a roaming message delivered from another neighbor station,
             # shall we trust that neighbor totally and skip verifying too ???
             return True

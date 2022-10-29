@@ -33,7 +33,7 @@ from typing import List, Optional, Union
 
 from startrek import DeparturePriority
 
-from dimsdk import NetworkType
+from dimsdk import EntityType
 from dimsdk import SecureMessage, ReliableMessage
 from dimsdk import ContentType, Content, TextContent, Command
 from dimsdk import ContentProcessor, ContentProcessorCreator
@@ -78,13 +78,13 @@ class ClientProcessor(CommonProcessor):
                 # should not happen
                 continue
             elif isinstance(res, ReceiptCommand):
-                if sender.type == NetworkType.STATION:
+                if sender.type == EntityType.STATION:
                     # no need to respond receipt to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
                     continue
             elif isinstance(res, TextContent):
-                if sender.type == NetworkType.STATION:
+                if sender.type == EntityType.STATION:
                     # no need to respond text message to station
                     when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
                     self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))

@@ -33,7 +33,7 @@
 import time
 from typing import Optional, List
 
-from dimsdk import NetworkType, ID
+from dimsdk import EntityType, ID
 from dimsdk import Envelope, InstantMessage, ReliableMessage
 from dimsdk import Command
 from dimsdk import Processor
@@ -132,7 +132,7 @@ class ServerMessenger(CommonMessenger):
         if msg_traced(msg=msg, node=sid, append=True):
             sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
             self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
-            if sender.type == NetworkType.STATION or receiver.type == NetworkType.STATION:
+            if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
                 self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
                 return []
             if is_broadcast_message(msg=msg):
@@ -158,7 +158,7 @@ class ServerMessenger(CommonMessenger):
             # just deliver it to the group assistant
             # and return the response to the sender.
             return self.__deliver_message(msg=msg)
-        elif receiver.type != NetworkType.STATION:
+        elif receiver.type != EntityType.STATION:
             # receiver not station, deliver it
             return self.__deliver_message(msg=msg)
         # call super

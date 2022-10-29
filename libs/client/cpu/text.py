@@ -35,7 +35,7 @@ from urllib.error import URLError
 
 from startrek import DeparturePriority
 
-from dimsdk import NetworkType, ID
+from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 from dimsdk import Content, TextContent
 from dimsdk import BaseContentProcessor
@@ -88,9 +88,9 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
             self.error('%s' % error)
 
     def __ignored(self, content: Content, sender: ID, msg: ReliableMessage) -> bool:
-        # check robot
-        if sender.type in [NetworkType.ROBOT, NetworkType.STATION]:
-            self.info('ignore message from another robot: %s, "%s"' % (sender, content.get('text')))
+        # check bot
+        if sender.type in [EntityType.BOT, EntityType.STATION]:
+            self.info('ignore message from another bot: %s, "%s"' % (sender, content.get('text')))
             return True
         # check time
         now = int(time.time())

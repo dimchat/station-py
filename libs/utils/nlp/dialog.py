@@ -29,8 +29,8 @@
 # ==============================================================================
 
 """
-    Dialog Robot
-    ~~~~~~~~~~~~
+    Dialog Bot
+    ~~~~~~~~~~
 
     Dialog for chatting with station
 """
@@ -70,21 +70,21 @@ class Dialog:
             raise ValueError('bots error: %s' % array)
 
     def ask(self, question: str, sender: ID) -> str:
-        # try each chat robots
+        # try each chat bots
         user = str(sender.address)
         if len(user) > 32:
             user = user[-32:]
         index = 0
-        for robot in self.__bots:
-            answer = robot.ask(question=question, user=user)
+        for bot in self.__bots:
+            answer = bot.ask(question=question, user=user)
             if answer is None:
                 index += 1
                 continue
             # got the answer
             if index > 0:
                 # move this bot to front
-                self.__bots.remove(robot)
-                self.__bots.insert(0, robot)
+                self.__bots.remove(bot)
+                self.__bots.insert(0, bot)
             return answer
 
     def query(self, content: Content, sender: ID) -> TextContent:
@@ -93,7 +93,7 @@ class Dialog:
             question = content.text
             answer = self.ask(question=question, sender=sender)
             if answer is not None:
-                response = TextContent(text=answer)
+                response = TextContent.create(text=answer)
                 group = content.group
                 if group is not None:
                     response.group = group

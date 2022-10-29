@@ -39,7 +39,7 @@ from typing import Optional, List, Set, Tuple
 
 from startrek import DeparturePriority
 
-from dimsdk import NetworkType, ID, ANYONE, EVERYONE
+from dimsdk import EntityType, ID, ANYONE, EVERYONE
 from dimsdk import ReliableMessage
 from dimsdk import ContentType, Content, TextContent
 
@@ -118,11 +118,11 @@ class Dispatcher(NotificationObserver):
             session = info.get('session')
             if isinstance(session, Session):
                 identifier = session.identifier
-                if identifier is not None and identifier.type == NetworkType.STATION:
+                if identifier is not None and identifier.type == EntityType.STATION:
                     self.remove_neighbor(station=identifier)
         elif name == NotificationNames.USER_LOGIN:
             identifier = ID.parse(identifier=info.get('ID'))
-            if identifier is not None and identifier.type == NetworkType.STATION:
+            if identifier is not None and identifier.type == EntityType.STATION:
                 self.add_neighbor(station=identifier)
 
     @property
@@ -160,7 +160,7 @@ class Dispatcher(NotificationObserver):
             self.__single_worker.add_msg(msg=msg, client_address=client_address)
             res = 'Message delivering'
         sender = msg.sender
-        if sender.type == NetworkType.STATION:
+        if sender.type == EntityType.STATION:
             # no need to respond receipt to station
             return None
         # # check roaming stations

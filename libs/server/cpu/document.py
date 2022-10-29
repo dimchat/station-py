@@ -31,7 +31,7 @@
 
 from typing import Optional, List
 
-from dimsdk import ID, NetworkType
+from dimsdk import EntityType, ID
 from dimsdk import ReliableMessage
 from dimsdk import Content
 from dimsdk import DocumentCommand
@@ -49,7 +49,7 @@ class DocumentCommandProcessor(SuperCommandProcessor):
     def __check_login(self, identifier: ID, sender: ID) -> Optional[ReliableMessage]:
         cmd, msg = g_database.login_info(identifier=identifier)
         if cmd is not None:
-            if sender.type == NetworkType.STATION:
+            if sender.type == EntityType.STATION:
                 # this is a request from another station.
                 # if the user is not roaming to this station, just ignore it,
                 # let the target station to respond.
@@ -79,8 +79,8 @@ class DocumentCommandProcessor(SuperCommandProcessor):
             if isinstance(res, DocumentCommand):
                 # this is a request, and target document got.
                 sender = msg.sender
-                if sender.type == NetworkType.ROBOT:
-                    # no need to respond LoginCommand message to a robot,
+                if sender.type == EntityType.BOT:
+                    # no need to respond LoginCommand message to a bot,
                     # just DocumentCommand is OK
                     return responses
                 # check login command message

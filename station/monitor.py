@@ -34,7 +34,7 @@
 import time
 import traceback
 
-from dimp import ID, NetworkType
+from dimp import EntityType, ID
 
 import sys
 import os
@@ -152,10 +152,10 @@ class Recorder(Runner, Logging):
         elif name == NotificationNames.DELIVER_MESSAGE:
             sender = ID.parse(identifier=info.get('sender'))
             receiver = ID.parse(identifier=info.get('receiver'))
-            if sender.type in [NetworkType.MAIN, NetworkType.BTC_MAIN]:
-                if receiver.type in [NetworkType.MAIN, NetworkType.BTC_MAIN]:
+            if sender.type == EntityType.USER:
+                if receiver.type == EntityType.USER:
                     self.__message_count += 1
-                elif receiver.type == NetworkType.GROUP:
+                elif receiver.type == EntityType.GROUP:
                     self.__group_message_count += 1
             self.info('delivering message: %s -> %s' % (sender, receiver))
 

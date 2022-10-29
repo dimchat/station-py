@@ -37,7 +37,7 @@ from typing import List
 
 from dimsdk import PrivateKey
 from dimsdk import MetaType, Meta, Document
-from dimsdk import NetworkType, ID
+from dimsdk import EntityType, ID
 from dimsdk import User
 
 import sys
@@ -187,14 +187,14 @@ class Sergeant(Logging):
 
     @classmethod
     def training(cls, sn: int) -> ID:
-        """ create new robot """
+        """ create new bot """
         seed = 'soldier%03d' % sn
         # 1. generate private key
         pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
         # 2. generate meta
         meta = Meta.generate(version=MetaType.DEFAULT, key=pri_key, seed=seed)
         # 3. generate ID
-        identifier = ID.generate(meta=meta, network=NetworkType.ROBOT)
+        identifier = ID.generate(meta=meta, network=EntityType.BOT)
         print('\n    Net ID: %s\n' % identifier)
         # 4. save private key & meta
         g_facebook.save_private_key(key=pri_key, identifier=identifier)

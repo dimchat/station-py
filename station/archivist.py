@@ -36,7 +36,7 @@ from typing import Optional, Union, Dict, List
 
 from startrek import DeparturePriority
 
-from dimsdk import NetworkType, ID, Meta
+from dimsdk import EntityType, ID, Meta
 from dimsdk import Envelope, InstantMessage, ReliableMessage
 from dimsdk import ContentType, Content, Command
 from dimsdk import MetaCommand, DocumentCommand
@@ -73,7 +73,7 @@ g_info = {
     'loading': False,
 }
 
-user_id_types = [NetworkType.MAIN, NetworkType.BTC_MAIN, NetworkType.ROBOT]
+user_id_types = [EntityType.USER, EntityType.BOT]
 
 
 def reload_user_info():
@@ -311,7 +311,7 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         # this is a request
         keywords = content.keywords
         if keywords is None:
-            # return [TextContent(text='Search command error')]
+            # return [TextContent.create(text='Search command error')]
             self.error('Search command error: %s' % content)
             return []
         keywords = keywords.lower()

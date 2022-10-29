@@ -36,7 +36,7 @@ from typing import Optional, List
 
 from startrek import DeparturePriority
 
-from dimsdk import NetworkType
+from dimsdk import EntityType
 from dimsdk import ID, EVERYONE
 from dimsdk import Command
 from dimsdk import Processor
@@ -103,7 +103,7 @@ class ClientMessenger(CommonMessenger):
             user = self.facebook.current_user
             assert user is not None, 'current user not set'
             identifier = user.identifier
-        if identifier.type == NetworkType.STATION:
+        if identifier.type == EntityType.STATION:
             # the current user is a station,
             # it would not login to another station.
             return None

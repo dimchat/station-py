@@ -36,8 +36,10 @@ import random
 import sys
 import os
 
+from mkm.protocol import entity_is_group
 from dimsdk import PrivateKey, EncryptKey
-from dimsdk import NetworkType, ID, MetaType, Meta, Document, Visa
+from dimsdk import EntityType, ID, MetaType, Meta, Document, Visa
+from dimsdk.mkm.network import NetworkType, network_to_type
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -47,7 +49,8 @@ from robots.config import g_facebook
 
 
 def network_is_group(network: int) -> bool:
-    return (network & NetworkType.GROUP) == NetworkType.GROUP
+    network = network_to_type(network=network)
+    return entity_is_group(network=network)
 
 
 def get_opt(args: list, key: str):
@@ -81,7 +84,7 @@ def do_help(path: str, args):
                   '\n        %s generate <type> [options]'
                   '\n'
                   '\n    Description:'
-                  '\n        Generate account with type, e.g. "USER", "GROUP", "STATION", "ROBOT".'
+                  '\n        Generate account with type, e.g. "USER", "GROUP", "STATION", "BOT".'
                   '\n'
                   '\n    Generate Options:'
                   '\n        --seed <username>       Generate meta with seed string.'
@@ -125,25 +128,31 @@ def do_generate(path: str, args):
         # check account type
         a_type = args[0]
         if a_type in ['USER', 'User', 'user']:
-            network_type = NetworkType.MAIN
+            network_type = EntityType.USER
             meta_version = MetaType.ETH
             if seed is None:
                 seed = ''
         elif a_type in ['GROUP', 'Group', 'group']:
+            # FIXME: compatible with MKM 0.9.*
             network_type = NetworkType.GROUP
+            # network_type = EntityType.GROUP
             meta_version = MetaType.DEFAULT
             if seed is None:
                 seed = 'group-%d' % random.randint(10000, 100000000)
         elif a_type in ['STATION', 'Station', 'station']:
+            # FIXME: compatible with MKM 0.9.*
             network_type = NetworkType.STATION
+            # network_type = EntityType.STATION
             meta_version = MetaType.DEFAULT
             if seed is None:
                 seed = 'station'
-        elif a_type in ['ROBOT', 'Robot', 'robot']:
-            network_type = NetworkType.ROBOT
+        elif a_type in ['BOT', 'Bot', 'bot']:
+            # FIXME: compatible with MKM 0.9.*
+            network_type = NetworkType.BOT
+            # network_type = EntityType.BOT
             meta_version = MetaType.DEFAULT
             if seed is None:
-                seed = 'robot'
+                seed = 'bot'
         # check ID.type
         if network_type is not None:
             # 1. generate private key
@@ -154,8 +163,8 @@ def do_generate(path: str, args):
                     return do_help(path=path, args=['generate'])
                 pri_key = g_facebook.private_key_for_visa_signature(identifier=founder)
                 assert isinstance(pri_key, PrivateKey), 'failed to get private key for founder: %s' % founder
-            elif network_type in [NetworkType.STATION, NetworkType.ROBOT]:
-                # generate private key for station/robot
+            elif network_type in [EntityType.STATION, EntityType.BOT, NetworkType.STATION, NetworkType.BOT]:
+                # generate private key for station/bot
                 pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
                 assert isinstance(pri_key, PrivateKey), 'failed to generate RSA key'
             else:
@@ -187,7 +196,7 @@ def do_modify(path: str, args):
         if name is None:
             name = g_facebook.name(identifier=identifier)
         doc = g_facebook.document(identifier=identifier)
-        if identifier.type == NetworkType.STATION:
+        if identifier.type == EntityType.STATION:
             # modify station profile
             if doc is None:
                 doc = Document.create(doc_type=Document.PROFILE, identifier=identifier)
@@ -241,7 +250,7 @@ def do_modify(path: str, args):
             if 'expires' in doc:
                 del doc['expires']
             # sign document
-            if network_is_group(network=identifier.type):
+            if identifier.is_group:
                 # get private key from founder of group
                 owner = ID.parse(get_opt(args=args, key='--owner'))
                 if not isinstance(owner, ID):
