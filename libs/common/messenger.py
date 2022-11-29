@@ -1,0 +1,302 @@
+# -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
+
+"""
+    Common extensions for Messenger
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    Transform and send message
+"""
+
+import time
+import weakref
+from abc import abstractmethod
+from typing import Optional, Union, List
+
+from startrek import DeparturePriority
+
+from dimsdk import ID, SymmetricKey
+from dimsdk import InstantMessage, SecureMessage, ReliableMessage
+from dimsdk import ContentType, Content, FileContent
+from dimsdk import Command, GroupCommand
+from dimsdk import Packer, Processor, EntityDelegate
+from dimsdk import Messenger, CipherKeyDelegate
+
+from ..utils import Logging
+from ..network.transmitter import Transmitter
+from ..database import FrequencyChecker
+
+from .keycache import KeyCache
+from .facebook import CommonFacebook
+from .session import BaseSession
+
+
+class MessengerDelegate:
+
+    @abstractmethod
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> str:
+        """
+        Upload encrypted data to CDN
+
+        :param data: encrypted file data
+        :param msg:  instant message
+        :return: download URL
+        """
+        raise NotImplemented
+
+    @abstractmethod
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+        """
+        Download encrypted data from CDN
+
+        :param url: download URL
+        :param msg: instant message
+        :return: encrypted file data
+        """
+        raise NotImplemented
+
+
+class CommonMessenger(Messenger, Transmitter, Logging):
+
+    # each query will be expired after 10 minutes
+    QUERY_EXPIRES = 600  # seconds
+
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__()
+        self.__delegate: Optional[weakref.ReferenceType] = None
+        self.__facebook = facebook
+        self.__message_packer = self._create_packer()
+        self.__message_processor = self._create_processor()
+        # for checking duplicated queries
+        self.__group_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
+
+    def _create_packer(self) -> Packer:
+        from .packer import CommonPacker
+        return CommonPacker(facebook=self.facebook, messenger=self)
+
+    def _create_processor(self) -> Processor:
+        from .processor import CommonProcessor
+        return CommonProcessor(facebook=self.facebook, messenger=self)
+
+    @property
+    def session(self) -> BaseSession:
+        raise NotImplemented
+
+    @property  # Override
+    def transmitter(self) -> Transmitter:
+        return self.session
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        return self.__facebook
+
+    @property  # Override
+    def barrack(self) -> EntityDelegate:
+        return self.facebook
+
+    @property  # Override
+    def key_cache(self) -> CipherKeyDelegate:
+        return KeyCache()
+
+    @property  # Override
+    def packer(self) -> Packer:
+        return self.__message_packer
+
+    @property  # Override
+    def processor(self) -> Processor:
+        return self.__message_processor
+
+    #
+    #   Delegate for sending data
+    #
+    @property
+    def delegate(self) -> Optional[MessengerDelegate]:
+        if self.__delegate is not None:
+            return self.__delegate()
+
+    @delegate.setter
+    def delegate(self, value: Optional[MessengerDelegate]):
+        self.__delegate = weakref.ref(value)
+
+    #
+    #   FPU
+    #
+    def __file_content_processor(self):  # -> FileContentProcessor:
+        processor = self.processor
+        from .processor import CommonProcessor
+        assert isinstance(processor, CommonProcessor), 'message processor error: %s' % processor
+        fpu = processor.get_content_processor(msg_type=ContentType.FILE)
+        from .cpu import FileContentProcessor
+        assert isinstance(fpu, FileContentProcessor), 'failed to get file content processor'
+        return fpu
+
+    # Override
+    def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
+        # check attachment for File/Image/Audio/Video message content before
+        if isinstance(content, FileContent):
+            fpu = self.__file_content_processor()
+            fpu.upload(content=content, password=key, msg=msg)
+        return super().serialize_content(content=content, key=key, msg=msg)
+
+    # Override
+    def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
+        try:
+            content = super().deserialize_content(data=data, key=key, msg=msg)
+        except UnicodeDecodeError as error:
+            self.error('failed to deserialize content: %s, %s' % (error, data))
+            return None
+        if content is None:
+            raise AssertionError('failed to deserialize message content: %s' % msg)
+        # check attachment for File/Image/Audio/Video message content after
+        if isinstance(content, FileContent):
+            fpu = self.__file_content_processor()
+            fpu.download(content=content, password=key, msg=msg)
+        return content
+
+    #
+    #   Reuse message key
+    #
+
+    # Override
+    def serialize_key(self, key: Union[dict, SymmetricKey], msg: InstantMessage) -> Optional[bytes]:
+        reused = key.get('reused')
+        if reused is not None:
+            if msg.receiver.is_group:
+                # reuse key for grouped message
+                return None
+            # remove before serialize key
+            key.pop('reused', None)
+        data = super().serialize_key(key=key, msg=msg)
+        if reused is not None:
+            # put it back
+            key['reused'] = reused
+        return data
+
+    # Override
+    def encrypt_key(self, data: bytes, receiver: ID, msg: InstantMessage) -> Optional[bytes]:
+        pk = self.facebook.public_key_for_encryption(identifier=receiver)
+        if pk is None:
+            # save this message in a queue waiting receiver's meta response
+            self.suspend_message(msg=msg)
+            # raise LookupError('failed to get encrypt key for receiver: %s' % receiver)
+            return None
+        return super().encrypt_key(data=data, receiver=receiver, msg=msg)
+
+    #
+    #   Interfaces for Message Storage
+    #
+
+    def save_message(self, msg: InstantMessage) -> bool:
+        """
+        Save the message into local storage
+
+        :param msg: instant message
+        :return: False on error
+        """
+        sender = msg.sender
+        receiver = msg.receiver
+        when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
+        content = msg.content
+        # TODO: update after all server/clients support 'cmd'
+        command = content.get('command')
+        text = content.get('text')
+        traces = msg.get('traces')
+        self.info('TODO: saving msg: %s -> %s\n time=[%s] type=%d, cmd=%s, text=%s traces=%s' %
+                  (sender, receiver, when, content.type, command, text, traces))
+        return True
+
+    def suspend_message(self, msg: Union[ReliableMessage, InstantMessage]) -> bool:
+        """
+        1. Suspend the sending message for the receiver's meta & visa,
+           or group meta when received new message
+        2. Suspend the received message for the sender's meta
+
+        :param msg: instant/reliable message
+        :return: False on error
+        """
+        sender = msg.sender
+        receiver = msg.receiver
+        when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(msg.time))
+        traces = msg.get('traces')
+        self.warning('TODO: suspending msg: %s -> %s\n time=[%s] traces=%s' % (sender, receiver, when, traces))
+        return True
+
+    #
+    #   Interfaces for Transmitting Message
+    #
+
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_instant_message(msg=msg, priority=priority)
+
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        transmitter = self.transmitter
+        return transmitter.send_reliable_message(msg=msg, priority=priority)
+
+    #
+    #   Interfaces for Sending Commands
+    #
+    @abstractmethod
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+        raise NotImplemented
+
+    # FIXME: separate checking for querying each user
+    def query_group(self, group: ID, users: List[ID]) -> bool:
+        if len(users) == 0 or not self.__group_queries.expired(key=group):
+            return False
+        # current user ID
+        current = self.facebook.current_user.identifier
+        # query from users
+        cmd = GroupCommand.query(group=group)
+        checking = False
+        for item in users:
+            if item == current:
+                continue
+            if self.send_command(content=cmd, priority=DeparturePriority.SLOWER, receiver=item):
+                checking = True
+        return checking
+
+    #
+    #   Interfaces for Station
+    #
+    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> str:
+        return self.delegate.upload_encrypted_data(data=data, msg=msg)
+
+    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
+        return self.delegate.download_encrypted_data(url=url, msg=msg)
+
+    #
+    #   Events
+    #
+    def handshake_accepted(self, identifier: ID, client_address: tuple = None):
+        """ callback after handshake success """
+        raise NotImplemented

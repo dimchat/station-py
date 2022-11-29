@@ -95,7 +95,7 @@ pip3 install dimp
 
 Edit **station/config.py**
 
-* Database directory: ```g_database.base_dir = '/data/.dim/'```
+* Database directory: ```Storage.root = '/data/.dim/'```
 * Listening port: ```station_port = 9394```
 * APNS credentials: ```apns_credentials = '/data/.dim/private/apns_dev_key.pem'```
 

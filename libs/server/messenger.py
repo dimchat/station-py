@@ -1,0 +1,223 @@
+# -*- coding: utf-8 -*-
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
+
+"""
+    Messenger for request handler in station
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    Transform and send message
+"""
+
+import time
+from typing import Optional, List
+
+from dimsdk import EntityType, ID
+from dimsdk import Envelope, InstantMessage, ReliableMessage
+from dimsdk import Command
+from dimsdk import Processor
+
+from ..utils import get_msg_sig
+from ..utils import NotificationCenter
+from ..database import Database
+from ..common import msg_traced, is_broadcast_message
+from ..common import NotificationNames
+from ..common import CommonMessenger, CommonFacebook
+
+from .session import Session
+from .session_server import SessionServer
+from .dispatcher import Dispatcher
+
+
+g_database = Database()
+g_session_server = SessionServer()
+
+
+class ServerMessenger(CommonMessenger):
+
+    def __init__(self, facebook: CommonFacebook):
+        super().__init__(facebook=facebook)
+        self.__filter = None  # NOTICE: create Filter by RequestHandler
+        self.__session: Optional[Session] = None
+
+    @property
+    def filter(self):
+        return self.__filter
+
+    @filter.setter
+    def filter(self, checker):
+        self.__filter = checker
+
+    # Override
+    def _create_processor(self) -> Processor:
+        from .processor import ServerProcessor
+        return ServerProcessor(facebook=self.facebook, messenger=self)
+
+    def __deliver_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        """ Deliver message to the receiver, or broadcast to neighbours """
+        # FIXME: check deliver permission
+        checker = self.filter
+        if checker is None:
+            res = None
+        else:
+            res = checker.check_deliver(msg=msg)
+        if res is None:
+            session = self.session
+            if session is None:
+                client_address = None
+            else:
+                client_address = session.client_address
+            # delivering is allowed, call dispatcher to deliver this message
+            g_database.save_message(msg=msg)
+            res = Dispatcher().deliver(msg=msg, client_address=client_address)
+            if res is None:
+                return []
+        if self.facebook.public_key_for_encryption(identifier=msg.sender) is None:
+            self.info('waiting visa key for: %s' % msg.sender)
+            return []
+        user = self.facebook.current_user
+        env = Envelope.create(sender=user.identifier, receiver=msg.sender)
+        i_msg = InstantMessage.create(head=env, body=res)
+        s_msg = self.encrypt_message(msg=i_msg)
+        if s_msg is None:
+            self.error(msg='failed to respond to: %s' % msg.sender)
+            return []
+        r_msg = self.sign_message(msg=s_msg)
+        return [r_msg]
+
+    def __process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        # 1. skip verifying message
+        s_msg = msg
+        # 2. process message
+        responses = self.process_secure_message(msg=s_msg, r_msg=msg)
+        if responses is None or len(responses) == 0:
+            return []
+        # 3. sign message
+        messages = []
+        for res in responses:
+            signed = self.sign_message(msg=res)
+            if signed is not None:
+                messages.append(signed)
+        return messages
+        # TODO: override to deliver to the receiver when catch exception "receiver error ..."
+
+    # Override
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        sender = msg.sender
+        receiver = msg.receiver
+        # 1.1. check traces
+        current = self.facebook.current_user
+        sid = current.identifier
+        if msg_traced(msg=msg, node=sid, append=True):
+            sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+            self.info('cycled msg [%s]: %s in %s' % (sig, sid, msg.get('traces')))
+            if sender.type == EntityType.STATION or receiver.type == EntityType.STATION:
+                self.warning('ignore station msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return []
+            if is_broadcast_message(msg=msg):
+                self.warning('ignore traced broadcast msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return []
+            sessions = g_session_server.active_sessions(identifier=receiver)
+            if len(sessions) > 0:
+                self.info('deliver cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+                return self.__deliver_message(msg=msg)
+            else:
+                self.info('store cycled msg [%s]: %s -> %s' % (sig, sender, receiver))
+                g_database.save_message(msg=msg)
+                return []
+        # 1.2. check broadcast/group message
+        deliver_responses = []
+        if receiver.is_broadcast:
+            deliver_responses = self.__deliver_message(msg=msg)
+            # if this is a broadcast, deliver it, send back the response
+            # and continue to process it with the station.
+            # because this station is also a recipient too.
+        elif receiver.is_group:
+            # or, if this is is an ordinary group message,
+            # just deliver it to the group assistant
+            # and return the response to the sender.
+            return self.__deliver_message(msg=msg)
+        elif receiver.type != EntityType.STATION:
+            # receiver not station, deliver it
+            return self.__deliver_message(msg=msg)
+        # call super
+        try:
+            responses = self.__process_reliable_message(msg=msg)
+        except LookupError as error:
+            if str(error).startswith('receiver error'):
+                # not mine? deliver it
+                return self.__deliver_message(msg=msg)
+            else:
+                raise error
+        if len(responses) == 0:
+            return deliver_responses
+        # check for first login
+        group = msg.group
+        if receiver == 'station@anywhere' or (group is not None and group.is_broadcast):
+            # if this message sent to 'station@anywhere', or with group ID 'stations@everywhere',
+            # it means the client doesn't have the station's meta or visa (e.g.: first handshaking),
+            # so respond them as message attachments.
+            user = self.facebook.current_user
+            for res in responses:
+                res.meta = user.meta
+                res.visa = user.visa
+        # check response for delivering broadcast message
+        if len(deliver_responses) > 0:
+            for res in deliver_responses:
+                responses.append(res)
+        return responses
+
+    #
+    #   Session
+    #
+    @property
+    def session(self) -> Session:
+        return self.__session
+
+    @session.setter
+    def session(self, session: Session):
+        self.__session = session
+
+    #
+    #   Sending command
+    #
+    def send_command(self, content: Command, priority: int, receiver: Optional[ID] = None) -> bool:
+        if receiver is None:
+            receiver = ID.parse(identifier='stations@everywhere')
+        srv = self.facebook.current_user
+        return self.send_content(sender=srv.identifier, receiver=receiver, content=content, priority=priority)
+
+    # Override
+    def handshake_accepted(self, identifier: ID, client_address: tuple = None):
+        station = self.facebook.current_user
+        sid = station.identifier
+        now = int(time.time())
+        self.info('handshake accepted %s: %s' % (client_address, identifier))
+        # post notification: USER_LOGIN
+        NotificationCenter().post(name=NotificationNames.USER_LOGIN, sender=self, info={
+            'ID': str(identifier),
+            'client_address': client_address,
+            'station': str(sid),
+            'time': now,
+        })

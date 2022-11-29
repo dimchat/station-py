@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -27,66 +28,156 @@
     DIM Network Monitor
     ~~~~~~~~~~~~~~~~~~~
 
-    A dispatcher for sending reports to administrator(s)
+    Recording DIM network events
 """
 
 import time
+import traceback
 
-from dimp import ID
-from dimp import TextContent
-from dimp import InstantMessage
+from dimp import EntityType, ID
 
-from common import g_facebook, g_database, g_messenger, Log
+import sys
+import os
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+
+from libs.utils.log import current_time
+from libs.utils.log import Log, Logging
+from libs.utils.ipc import MonitorPipe
+from libs.utils import Runner
+from libs.database import Storage, Database
+from libs.common import NotificationNames
+
+from etc.config import base_dir
 
 
-class Monitor:
+#
+#   Process
+#
+
+
+def save_statistics(login_cnt: int, msg_cnt: int, g_msg_cnt: int) -> bool:
+    """ Save statistics in a text file for administrators
+
+        file path: '.dim/counter.txt
+    """
+    path = os.path.join(base_dir, 'counter.txt')
+    now = current_time()
+    new_line = '%s\t%d\t%d\t%d\n' % (now, login_cnt, msg_cnt, g_msg_cnt)
+    return Storage.append_text(text=new_line, path=path)
+
+
+class Recorder(Runner, Logging):
+
+    FLUSH_INTERVAL = 3600
 
     def __init__(self):
         super().__init__()
-        self.session_server: SessionServer = None
-        self.apns: ApplePushNotificationService = None
-        # message from the station to administrator(s)
-        self.sender: ID = None
-        self.admins: set = set()
+        # statistics
+        self.__login_count = 0
+        self.__message_count = 0
+        self.__group_message_count = 0
+        self.__flush_time = time.time() + self.FLUSH_INTERVAL  # next time to save statistics
+        self.__pipe = MonitorPipe.secondary()
 
-    def report(self, message: str) -> int:
-        success = 0
-        for receiver in self.admins:
-            if self.send_report(text=message, receiver=receiver):
-                success = success + 1
-        return success
+    def start(self):
+        self.__pipe.start()
+        self.run()
 
-    def send_report(self, text: str, receiver: ID) -> bool:
-        if self.sender is None:
-            Log.info('Monitor: sender not set yet')
-            return False
-        sender = g_facebook.identifier(self.sender)
-        receiver = g_facebook.identifier(receiver)
-        timestamp = int(time.time())
-        content = TextContent.new(text=text)
-        i_msg = InstantMessage.new(content=content, sender=sender, receiver=receiver, time=timestamp)
-        r_msg = g_messenger.encrypt_sign(i_msg)
-        # try for online user
-        sessions = self.session_server.search(identifier=receiver)
-        if sessions and len(sessions) > 0:
-            Log.info('Monitor: %s is online(%d), try to push report: %s' % (receiver, len(sessions), text))
-            success = 0
-            for sess in sessions:
-                if sess.valid is False or sess.active is False:
-                    Log.info('Monitor: session invalid %s' % sess)
-                    continue
-                if sess.request_handler.push_message(r_msg):
-                    success = success + 1
-                else:
-                    Log.info('Monitor: failed to push report via connection (%s, %s)' % sess.client_address)
-            if success > 0:
-                Log.info('Monitor: report pushed to activated session(%d) of user: %s' % (success, receiver))
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
+
+    def __save(self) -> bool:
+        now = time.time()
+        if now > self.__flush_time:
+            # get
+            login_cnt = self.__login_count
+            msg_cnt = self.__message_count
+            g_msg_cnt = self.__group_message_count
+            # clear
+            self.__login_count = 0
+            self.__message_count = 0
+            self.__group_message_count = 0
+            self.__flush_time = now + self.FLUSH_INTERVAL  # next flush time
+            # save
+            return save_statistics(login_cnt=login_cnt, msg_cnt=msg_cnt, g_msg_cnt=g_msg_cnt)
+
+    def __process(self, event: dict):
+        name = event.get('name')
+        info = event.get('info')
+        if name == NotificationNames.USER_LOGIN:
+            identifier = ID.parse(identifier=info.get('ID'))
+            client_address = info.get('client_address')
+            station = ID.parse(identifier=info.get('station'))
+            login_time = info.get('time')
+            self.info('user login: %s, %s' % (client_address, identifier))
+            # counter
+            self.__login_count += 1
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.add_online_user(station=station, user=identifier, last_time=login_time)
+        elif name == NotificationNames.USER_ONLINE:
+            identifier = ID.parse(identifier=info.get('ID'))
+            client_address = info.get('client_address')
+            station = ID.parse(identifier=info.get('station'))
+            login_time = info.get('time')
+            if client_address is None:
+                self.info('user roaming: %s -> %s' % (identifier, station))
+            else:
+                self.info('user online: %s, %s -> %s' % (identifier, client_address, station))
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.add_online_user(station=station, user=identifier, last_time=login_time)
+        elif name == NotificationNames.USER_OFFLINE:
+            identifier = ID.parse(identifier=info.get('ID'))
+            client_address = info.get('client_address')
+            station = ID.parse(identifier=info.get('station'))
+            self.info('user offline: %s, %s' % (client_address, identifier))
+            # update online users
+            if identifier is None or station is None:
+                self.error('user/station empty: %s' % info)
+            else:
+                db = Database()
+                db.remove_offline_users(station=station, users=[identifier])
+        elif name == NotificationNames.DELIVER_MESSAGE:
+            sender = ID.parse(identifier=info.get('sender'))
+            receiver = ID.parse(identifier=info.get('receiver'))
+            if sender.type == EntityType.USER:
+                if receiver.type == EntityType.USER:
+                    self.__message_count += 1
+                elif receiver.type == EntityType.GROUP:
+                    self.__group_message_count += 1
+            self.info('delivering message: %s -> %s' % (sender, receiver))
+
+    # Override
+    def process(self) -> bool:
+        event = None
+        try:
+            event = self.__pipe.receive()
+            if event is None:
+                # save statistics
+                self.__save()
+                return False
+            else:
+                self.__process(event=event)
                 return True
-        # store in local cache file
-        Log.info('Monitor: %s is offline, store report: %s' % (receiver, text))
-        g_database.store_message(r_msg)
-        # push notification
-        return self.apns.push(identifier=receiver, message=text)
+        except Exception as error:
+            self.error('failed to process: %s, %s' % (event, error))
+            traceback.print_exc()
+
+
+if __name__ == '__main__':
+    Log.info(msg='>>> starting monitor ...')
+    g_monitor = Recorder()
+    g_monitor.start()
+    Log.info(msg='>>> monitor exits.')

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -31,13 +31,15 @@
     Simple client for testing
 """
 
-import json
 from cmd import Cmd
+from typing import Optional
 
-from dimp import ID, Profile
-from dimp import Content, ContentType, TextContent
-from dimp import Command, ProfileCommand
-from dimp import InstantMessage
+from startrek import DeparturePriority
+
+from dimsdk import json_decode
+from dimsdk import ID, Document
+from dimsdk import TextContent
+from dimsdk import BaseCommand, DocumentCommand
 
 import sys
 import os
@@ -46,87 +48,52 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from common import base64_encode
-from common import g_facebook, g_database, g_messenger, load_accounts
-from common import s001, s001_port
-from common import moki, hulk
+from libs.utils import Logging
+from libs.client import Terminal, ClientMessenger
 
-from robot import Robot
+from robots.config import dims_connect, current_station
+from robots.config import g_facebook
 
 
 """
-    Current Station
-    ~~~~~~~~~~~~~~~
+    Messenger for Chat Bot client
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-g_station = s001
-
-# g_station.host = '127.0.0.1'
-# g_station.host = '124.156.108.150'  # dimchat.hk
-g_station.host = '134.175.87.98'  # dimchat.gz
-g_station.port = s001_port
-
-g_database.base_dir = '/tmp/.dim/'
-
-identifier_map = {
-    'moki': moki.identifier,
-    'hulk': hulk.identifier,
-}
+g_messenger = ClientMessenger(facebook=g_facebook)
+g_facebook.messenger = g_messenger
 
 
-class Client(Robot):
-
-    def execute(self, cmd: Command, sender: ID) -> bool:
-        if super().execute(cmd=cmd, sender=sender):
-            return True
-        command = cmd.command
-        if 'search' == command:
-            self.info('##### received search response')
-            if 'users' in cmd:
-                users = cmd['users']
-                print('      users:', json.dumps(users))
-            if 'results' in cmd:
-                results = cmd['results']
-                print('      results:', results)
-        elif 'users' == command:
-            self.info('##### online users: %s' % cmd.get('message'))
-            if 'users' in cmd:
-                users = cmd['users']
-                print('      users:', json.dumps(users))
-        else:
-            self.info('***** command from "%s": %s (%s)' % (sender.name, cmd['command'], cmd))
-
-    def receive_message(self, msg: InstantMessage) -> bool:
-        if super().receive_message(msg=msg):
-            return True
-        sender = g_facebook.identifier(msg.envelope.sender)
-        content: Content = msg.content
-        if content.type == ContentType.Text:
-            self.info('***** Message from "%s": %s' % (sender.name, content['text']))
-        else:
-            self.info('!!!!! Message from "%s": %s' % (sender.name, content))
-
-
-class Console(Cmd):
+class Console(Cmd, Logging):
 
     prompt = '[DIM] > '
     intro = '\n\tWelcome to DIM world!\n'
 
     def __init__(self):
         super().__init__()
-        self.client: Client = None
+        self.client: Optional[Terminal] = None
         self.receiver = None
         self.do_call('station')
 
-    def info(self, msg: str):
-        print('\r%s' % msg)
-
     def login(self, identifier: ID):
-        self.info('connected to %s ...' % g_station)
-        client = Client(identifier=identifier)
-        client.delegate = g_facebook
-        client.messenger = g_messenger
-        client.connect(station=g_station)
+        # logout first
+        self.logout()
+        # login with user ID
+        facebook = g_messenger.facebook
+        user = facebook.user(identifier=identifier)
+        facebook.current_user = user
+        client = Terminal()
+        server = current_station()
+        dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
         self.client = client
+        if self.receiver is None:
+            self.receiver = server.identifier
+
+    def logout(self):
+        client = self.client
+        if client is not None:
+            client.stop()
+            self.client = None
+        self.receiver = None
 
     def emptyline(self):
         print('')
@@ -138,79 +105,82 @@ class Console(Cmd):
         print('        profile <ID>      - query profile with ID')
         print('        call <ID>         - change receiver to another user (or "station")')
         print('        send <text>       - send message')
+        print('        broadcast <text>  - send broadcast message')
         print('        exit              - terminate')
         print('')
         if self.client:
+            facebook = g_messenger.facebook
+            user = facebook.current_user
             if self.receiver:
-                print('You(%s) are talking with "%s" now.' % (self.client.identifier, self.receiver))
+                print('You(%s) are talking with "%s" now.' % (user.identifier, self.receiver))
             else:
-                print('%s is login in' % self.client.identifier)
+                print('%s is login in' % user.identifier)
 
     def do_exit(self, arg):
-        if self.client:
-            self.client.disconnect()
+        client = self.client
+        if client is not None:
+            client.stop()
             self.client = None
-        print('Bye!')
+        self.info(msg='Bye!')
         return True
 
     def do_login(self, name: str):
-        if name in identifier_map:
-            sender = identifier_map[name]
-        elif len(name) > 30:
-            sender = g_facebook.identifier(name)
+        sender = ID.parse(identifier=name)
+        if sender is None:
+            self.info('unknown user: %s' % name)
         else:
-            sender = None
-        if sender:
             self.info('login as %s' % sender)
             self.login(identifier=sender)
-            self.prompt = Console.prompt + sender.name + '$ '
-        else:
-            self.info('unknown user: %s' % name)
+            facebook = g_messenger.facebook
+            self.prompt = Console.prompt + facebook.name(identifier=sender) + '$ '
 
     def do_logout(self, arg):
         if self.client is None:
             self.info('not login yet')
         else:
-            self.info('%s logout' % self.client.identifier)
-            self.client = None
-        self.receiver = None
+            facebook = g_messenger.facebook
+            self.info('%s logout' % facebook.current_user.identifier)
+            self.logout()
         self.prompt = Console.prompt
 
     def do_call(self, name: str):
         if self.client is None:
             self.info('login first')
             return
-        if name == 'station':
-            self.receiver = g_station.identifier
-            self.info('talking with station(%s) now!' % self.receiver)
-        elif name in identifier_map:
-            self.receiver = identifier_map[name]
-            self.info('talking with %s now!' % self.receiver)
+        receiver = ID.parse(identifier=name)
+        if receiver is None:
+            self.info('unknown user: %s' % name)
         else:
-            receiver = g_facebook.identifier(name)
-            if receiver:
-                self.client.check_meta(identifier=receiver)
-                # switch receiver
-                self.receiver = receiver
-                self.info('talking with %s now!' % self.receiver)
-            else:
-                self.info('unknown user: %s' % name)
+            facebook = g_messenger.facebook
+            meta = facebook.meta(identifier=receiver)
+            self.info('talking with %s now, meta=%s' % (receiver, meta))
+            # switch receiver
+            self.receiver = receiver
 
     def do_send(self, msg: str):
         if self.client is None:
             self.info('login first')
             return
         if len(msg) > 0:
-            content = TextContent.new(text=msg)
-            self.client.send_content(content=content, receiver=self.receiver)
+            content = TextContent.create(text=msg)
+            g_messenger.send_content(sender=None, receiver=self.receiver,
+                                     content=content, priority=DeparturePriority.NORMAL)
+
+    def do_broadcast(self, msg: str):
+        if self.client is None:
+            self.info('login first')
+            return
+        if len(msg) > 0:
+            content = TextContent.create(text=msg)
+            self.client.broadcast_content(content=content, receiver=self.receiver)
 
     def do_show(self, name: str):
         if self.client is None:
             self.info('login first')
             return
         if 'users' == name:
-            cmd: Command = Command.new(command='users')
-            self.client.send_command(cmd=cmd)
+            cmd = BaseCommand(cmd='users')
+            self.client.send_command(content=cmd)
         else:
             self.info('I don\'t understand.')
 
@@ -218,46 +188,42 @@ class Console(Cmd):
         if self.client is None:
             self.info('login first')
             return
-        cmd: Command = Command.new(command='search')
+        cmd = BaseCommand(cmd='search')
         cmd['keywords'] = keywords
-        self.client.send_command(cmd=cmd)
+        self.client.send_command(content=cmd)
 
     def do_profile(self, name: str):
         if self.client is None:
             self.info('login first')
             return
+        facebook = g_messenger.facebook
+        user = facebook.current_user
         profile = None
-        if not name:
-            identifier = self.client.identifier
-        elif name == 'station':
-            identifier = g_station.identifier
-        elif name in identifier_map:
-            identifier = identifier_map[name]
-        elif name.find('@') > 0:
-            identifier = g_facebook.identifier(name)
+        if name is None:
+            identifier = user.identifier
         elif name.startswith('{') and name.endswith('}'):
-            identifier = self.client.identifier
-            profile = json.loads(name)
+            identifier = user.identifier
+            profile = json_decode(string=name)
         else:
-            self.info('I don\'t understand.')
-            return
+            identifier = ID.parse(identifier=name)
+            if identifier is None:
+                self.info('I don\'t understand.')
+                return
         if profile:
-            sig = self.client.sign(profile.encode('utf-8'))
-            profile = {
-                'ID': identifier,
-                'data': profile,
-                'signature': base64_encode(sig),
-            }
-            cmd = ProfileCommand.response(identifier=identifier, profile=Profile(profile))
+            private_key = facebook.private_key_for_signature(identifier=identifier)
+            assert private_key is not None, 'failed to get private key for client: %s' % self.client
+            # create new profile and set all properties
+            tai = Document.create(doc_type=Document.VISA, identifier=identifier)
+            for key in profile:
+                tai.set_property(key, profile.get(key))
+            tai.sign(private_key=private_key)
+            cmd = DocumentCommand.response(identifier=identifier, document=tai)
         else:
-            cmd = ProfileCommand.query(identifier=identifier)
-        self.client.send_command(cmd=cmd)
+            cmd = DocumentCommand.query(identifier=identifier)
+        self.client.send_command(content=cmd)
 
 
 if __name__ == '__main__':
-    load_accounts(facebook=g_facebook)
 
     console = Console()
-    console.receiver = g_station.identifier
-
     console.cmdloop()

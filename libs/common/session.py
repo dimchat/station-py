@@ -1,0 +1,190 @@
+# -*- coding: utf-8 -*-
+#
+#   DIM-SDK : Decentralized Instant Messaging Software Development Kit
+#
+#                                Written in 2019 by Moky <albert.moky@gmail.com>
+#
+# ==============================================================================
+# MIT License
+#
+# Copyright (c) 2019 Albert Moky
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ==============================================================================
+
+"""
+    Session Server
+    ~~~~~~~~~~~~~~
+
+    for login user
+"""
+
+import socket
+from abc import ABC
+from typing import Optional
+
+from startrek import Arrival, Departure
+from startrek import Docker, DockerStatus, DockerDelegate
+
+from dimp import ID, Content
+from dimp import InstantMessage, ReliableMessage
+from dimsdk import Messenger
+
+from ..utils import Logging, Runner
+from ..utils import get_msg_sig
+
+from ..network.transmitter import Transmitter
+from ..network import CommonGate, GateKeeper
+from ..network import MessageWrapper
+
+
+class BaseSession(Runner, Transmitter, DockerDelegate, Logging, ABC):
+
+    def __init__(self, messenger: Messenger, address: tuple, sock: Optional[socket.socket] = None):
+        super().__init__()
+        self.__keeper = self._create_gate_keeper(messenger=messenger, address=address, sock=sock)
+        self.__identifier: Optional[ID] = None
+
+    def _create_gate_keeper(self, address: tuple, sock: Optional[socket.socket], messenger: Messenger):
+        return GateKeeper(address=address, sock=sock, messenger=messenger, delegate=self)
+
+    @property
+    def identifier(self) -> Optional[ID]:
+        return self.__identifier
+
+    @identifier.setter
+    def identifier(self, value: ID):
+        self.__identifier = value
+
+    @property
+    def keeper(self) -> GateKeeper:
+        return self.__keeper
+
+    @property
+    def messenger(self):  # -> Optional[CommonMessenger]:
+        return self.keeper.messenger
+
+    @property
+    def remote_address(self) -> tuple:
+        return self.keeper.remote_address
+
+    @property
+    def gate(self) -> CommonGate:
+        return self.keeper.gate
+
+    @property
+    def active(self) -> bool:
+        return self.keeper.active
+
+    @active.setter
+    def active(self, flag: bool):
+        self.keeper.active = flag
+
+    # Override
+    def stop(self):
+        super().stop()
+        self.keeper.stop()
+
+    @property
+    def key(self) -> Optional[str]:
+        """ session key """
+        raise NotImplemented
+
+    def __str__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s:%s %s|%s active=%s />' % (clazz, self.key, self.remote_address, self.identifier, self.active)
+
+    @property  # Override
+    def running(self) -> bool:
+        if super().running:
+            return self.keeper.running
+
+    # Override
+    def setup(self):
+        super().setup()
+        self.keeper.setup()
+
+    # Override
+    def finish(self):
+        self.keeper.finish()
+        super().finish()
+
+    # Override
+    def process(self) -> bool:
+        return self.keeper.process()
+
+    #
+    #   Transmitter
+    #
+
+    # Override
+    def send_reliable_message(self, msg: ReliableMessage, priority: int) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
+        self.debug(msg='sending reliable message (%s) to: %s, priority: %d' % (sig, msg.receiver, priority))
+        return self.keeper.send_reliable_message(msg=msg, priority=priority)
+
+    # Override
+    def send_instant_message(self, msg: InstantMessage, priority: int) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending instant message to: %s, priority: %d' % (msg.receiver, priority))
+        return self.keeper.send_instant_message(msg=msg, priority=priority)
+
+    # Override
+    def send_content(self, sender: Optional[ID], receiver: ID, content: Content, priority: int) -> bool:
+        if not self.active:
+            # FIXME: connection lost?
+            self.warning(msg='session inactive')
+        self.debug(msg='sending content to: %s, priority: %d' % (receiver, priority))
+        return self.keeper.send_content(sender=sender, receiver=receiver, content=content, priority=priority)
+
+    #
+    #   Docker Delegate
+    #
+
+    # Override
+    def docker_status_changed(self, previous: DockerStatus, current: DockerStatus, docker: Docker):
+        print('docker status changed: %s -> %s, %s' % (previous, current, docker))
+
+    # Override
+    def docker_received(self, ship: Arrival, docker: Docker):
+        print('docker received a ship: %s, %s' % (ship, docker))
+
+    # Override
+    def docker_sent(self, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_sent()
+
+    # Override
+    def docker_failed(self, error: IOError, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_failed(error=error)
+
+    # Override
+    def docker_error(self, error: IOError, ship: Departure, docker: Docker):
+        if isinstance(ship, MessageWrapper):
+            ship.on_error(error=error)

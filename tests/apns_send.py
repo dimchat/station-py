@@ -33,41 +33,46 @@
         ./send.py moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ "Hello!"
 """
 
-import json
 import os
 import sys
+from typing import List
 
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
-from dimp import ID
+from dimsdk import *
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+
+from libs.utils import JSONFile
 
 
 """
     Configuration
 """
 base_dir = '/data/.dim/'
-credentials = '/data/.dim/private/apns-key.pem'
+
+credentials = '/srv/dims/etc/apns/credentials.pem'
+use_sandbox = True
 
 
 class Device:
     """ Get device tokens """
 
     def __init__(self, identifier: str):
-        self.__identifier = ID(identifier)
+        self.__identifier = ID.parse(identifier=identifier)
 
     @property
     def path(self) -> str:
         address = self.__identifier.address
-        return base_dir + '/protected/' + address + '/device.js'
+        return base_dir + '/protected/' + str(address) + '/device.js'
 
     @property
-    def tokens(self) -> list:
-        path = self.path
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                data = file.read()
-            device = json.loads(data)
+    def tokens(self) -> List[str]:
+        device = JSONFile(self.path).read()
+        if device is not None:
             # TODO: only get the last two devices
             return device.get('tokens')
 
@@ -76,11 +81,11 @@ class SMS:
     """ Push SMS via APNs """
 
     def __init__(self, text: str):
-        self.__client = APNsClient(credentials=credentials, use_sandbox=True)
+        self.__client = APNsClient(credentials=credentials, use_sandbox=use_sandbox)
         self.__payload = Payload(alert=text)
 
     def send(self, identifier: str) -> int:
-        identifier = ID(identifier)
+        identifier = ID.parse(identifier=identifier)
         device = Device(identifier)
         tokens = device.tokens
         if tokens is None:

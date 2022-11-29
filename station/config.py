@@ -30,111 +30,45 @@
     Configuration for DIM network server node
 """
 
-from common import g_keystore, g_database, g_facebook, load_accounts, Log
-from common import s001, s001_host, s001_port
+from libs.utils.log import Log
+from libs.server import ServerMessenger
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
-from .dispatcher import Dispatcher
+#
+#  Configurations
+#
+from etc.config import bind_host, bind_port
 
-from .receptionist import Receptionist
-from .monitor import Monitor
-from .gsp_admins import administrators
-
-
-"""
-    Current Station
-    ~~~~~~~~~~~~~~~
-"""
-current_station = s001
-station_host = s001_host
-station_port = s001_port
+from etc.cfg_init import g_facebook
+from etc.cfg_init import station_id, create_station
 
 
 """
-    Key Store
+    Messenger
     ~~~~~~~~~
 
-    Memory cache for reused passwords (symmetric key)
+    Transceiver for processing messages
 """
-g_keystore.user = current_station
-
-
-"""
-    Database
-    ~~~~~~~~
-
-    for cached messages, profile manage(Barrack), reused symmetric keys(KeyStore)
-"""
-g_database.base_dir = '/data/.dim/'
-Log.info("database directory: %s" % g_database.base_dir)
+g_messenger = ServerMessenger(facebook=g_facebook)
+g_facebook.messenger = g_messenger
 
 
 """
-    Facebook
-    ~~~~~~~~
-
-    Barrack for cache entities
+    Local Station
+    ~~~~~~~~~~~~~
 """
-load_accounts(facebook=g_facebook)
+Log.info('-------- Creating local server: %s (%s:%d)' % (station_id, bind_host, bind_port))
+g_station = create_station(info={
+    'ID': station_id,
+    'host': bind_host,
+    'port': bind_port
+})
+assert g_station is not None, 'current station not created: %s' % station_id
+decrypt_keys = g_facebook.private_keys_for_decryption(identifier=station_id)
+assert len(decrypt_keys) > 0, 'failed to get decrypt keys for current station: %s' % station_id
+Log.info('Current station with %d private key(s): %s' % (len(decrypt_keys), g_station))
 
+# set local users for facebook
+g_facebook.local_users = [g_station]
+g_facebook.current_user = g_station
 
-"""
-    Session Server
-    ~~~~~~~~~~~~~~
-
-    for login user
-"""
-g_session_server = SessionServer()
-
-
-"""
-    Apple Push Notification service (APNs)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    A service for pushing notification to offline device
-"""
-apns_credentials = '/data/.dim/private/apns-key.pem'
-g_apns = ApplePushNotificationService(apns_credentials, use_sandbox=True)
-g_apns.delegate = g_database
-
-
-"""
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
-
-    A dispatcher to decide which way to deliver message.
-"""
-g_dispatcher = Dispatcher()
-g_dispatcher.database = g_database
-g_dispatcher.facebook = g_facebook
-g_dispatcher.session_server = g_session_server
-g_dispatcher.apns = g_apns
-
-
-"""
-    DIM Network Monitor
-    ~~~~~~~~~~~~~~~~~~~
-
-    A dispatcher for sending reports to administrator(s)
-"""
-g_monitor = Monitor()
-g_monitor.session_server = g_session_server
-g_monitor.apns = g_apns
-
-# set station as the report sender, and add admins who will receive reports
-g_monitor.sender = current_station.identifier
-for admin in administrators:
-    g_monitor.admins.add(g_facebook.identifier(admin))
-
-
-"""
-    Station Receptionist
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A message scanner for new guests who have just come in.
-"""
-g_receptionist = Receptionist()
-g_receptionist.session_server = g_session_server
-g_receptionist.apns = g_apns
-g_receptionist.station = current_station
+Log.info('======== configuration OK! ========')

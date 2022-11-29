@@ -30,9 +30,6 @@
     Upload/download image files
 """
 
-import hashlib
-from binascii import b2a_hex
-
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
 
@@ -58,14 +55,6 @@ ALLOWED_FILE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'mp3', 'mp4'}
 IMAGE_FILE_TYPES = {'png', 'jpg', 'jpeg'}
 
 
-def md5(data: bytes) -> bytes:
-    return hashlib.md5(data).digest()
-
-
-def hex_encode(data: bytes) -> str:
-    return b2a_hex(data).decode('utf-8')
-
-
 def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
     """ save encrypted data file """
     (useless, ext) = os.path.splitext(filename)
@@ -79,11 +68,11 @@ def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (hex_encode(md5(data)), ext)
-    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
+    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
+    path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    path = os.path.join(save_dir, filename)
     with open(path, 'wb') as file:
         count = file.write(data)
     # OK
@@ -107,11 +96,11 @@ def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (hex_encode(md5(data)), ext)
-    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
+    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
+    save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
+    path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    path = os.path.join(save_dir, filename)
     with open(path, 'wb') as file:
         count = file.write(data)
     # save it as 'avatar.ext' too
@@ -145,7 +134,7 @@ def test() -> str:
 def upload(identifier: str) -> str:
     """ upload encrypted data file or avatar """
     # TODO: check identifier
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
 
     # check file
     file = request.files.get('file')
@@ -178,18 +167,18 @@ def upload(identifier: str) -> str:
 @app.route('/download/<string:identifier>/<path:filename>', methods=['GET'])
 def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
     filename = secure_filename(filename)
-    save_dir = os.path.join(UPLOAD_DIRECTORY, identifier.address)
+    save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=True)
 
 
 @app.route('/avatar/<string:identifier>/<path:filename>', methods=['GET'])
 @app.route('/avatar/<string:identifier>.<string:ext>', methods=['GET'])
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
-def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
+def avatar(identifier: str, filename: str = None, ext: str = None) -> str:
     """ response avatar file as attachment """
-    identifier = dimp.ID(identifier)
+    identifier = dimp.ID.parse(identifier=identifier)
     if filename is not None:
         filename = secure_filename(filename)
     elif ext is not None:
@@ -197,7 +186,7 @@ def avatar(identifier: str, filename: str=None, ext: str=None) -> str:
         filename = 'avatar.%s' % ext
     else:
         filename = 'avatar.png'
-    save_dir = os.path.join(AVATAR_DIRECTORY, identifier.address)
+    save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=False)
 
 

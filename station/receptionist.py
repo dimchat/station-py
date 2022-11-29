@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -30,94 +31,118 @@
     A message scanner for new guests who have just come in.
 """
 
-from json import JSONDecodeError
-from threading import Thread
-from time import sleep
+import threading
+import time
+import traceback
+from typing import Union, Set, Dict
 
-from dimp import ID
+from dimp import ID, ReliableMessage
 
-from common import g_database, Log
-from common import Server
+import sys
+import os
 
-from .session import SessionServer
-from .apns import ApplePushNotificationService
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+
+from libs.utils.log import Log, Logging
+from libs.utils.ipc import ReceptionistPipe
+from libs.utils import Runner
+from libs.common import NotificationNames
+
+from etc.cfg_init import g_database
 
 
-class Receptionist(Thread):
+class Receptionist(Runner, Logging):
+
+    DELAY = 5  # seconds
 
     def __init__(self):
         super().__init__()
-        self.session_server: SessionServer = None
-        self.apns: ApplePushNotificationService = None
-        # current station and guests
-        self.station: Server = None
-        self.guests = []
+        # waiting queue for offline messages
+        self.__guests: Set[ID] = set()
+        self.__times: Dict[ID, float] = {}
+        self.__lock = threading.Lock()
+        self.__pipe = ReceptionistPipe.secondary()
+
+    def get_guests(self) -> Set[ID]:
+        with self.__lock:
+            guests = set()
+            now = time.time()
+            for g in self.__guests:
+                t = self.__times.get(g)
+                if t is None or t < now:
+                    guests.add(g)
+            for g in guests:
+                self.__times.pop(g, None)
+                self.__guests.discard(g)
+            return guests
 
     def add_guest(self, identifier: ID):
-        self.guests.append(identifier)
+        with self.__lock:
+            self.__guests.add(identifier)
+            self.__times[identifier] = time.time() + self.DELAY
 
-    def run(self):
-        Log.info('Receptionist: starting...')
-        while self.station.running:
-            try:
-                guests = self.guests.copy()
-                for identifier in guests:
-                    # 1. get all sessions of the receiver
-                    Log.info('Receptionist: checking session for new guest %s' % identifier)
-                    sessions = self.session_server.search(identifier=identifier)
-                    if sessions is None or len(sessions) == 0:
-                        Log.info('Receptionist: guest not connect, remove it: %s' % identifier)
-                        self.guests.remove(identifier)
-                        continue
-                    # 2. this guest is connected, scan new messages for it
-                    Log.info('Receptionist: %s is connected, scanning messages for it' % identifier)
-                    batch = g_database.load_message_batch(identifier)
-                    if batch is None:
-                        Log.info('Receptionist: no message for this guest, remove it: %s' % identifier)
-                        self.guests.remove(identifier)
-                        self.apns.clear_badge(identifier=identifier)
-                        continue
-                    messages = batch.get('messages')
-                    if messages is None or len(messages) == 0:
-                        Log.info('Receptionist: message batch error: %s' % batch)
-                        # raise AssertionError('message batch error: %s' % batch)
-                        continue
-                    # 3. send new messages to each session
-                    Log.info('Receptionist: got %d message(s) for %s' % (len(messages), identifier))
-                    count = 0
-                    for msg in messages:
-                        # try to push message
-                        success = 0
-                        for sess in sessions:
-                            if sess.valid is False or sess.active is False:
-                                Log.info('Receptionist: session invalid %s' % sess)
-                                continue
-                            if sess.request_handler.push_message(msg):
-                                success = success + 1
-                            else:
-                                Log.info('Receptionist: failed to push message (%s, %s)' % sess.client_address)
-                        if success > 0:
-                            # push message success (at least one)
-                            count = count + 1
-                        else:
-                            # push message failed, remove session here?
-                            break
-                    # 4. remove messages after success, or remove the guest on failed
-                    total_count = len(messages)
-                    Log.info('Receptionist: a batch message(%d/%d) pushed to %s' % (count, total_count, identifier))
-                    g_database.remove_message_batch(batch, removed_count=count)
-                    if count < total_count:
-                        Log.info('Receptionist: pushing message failed, remove the guest: %s' % identifier)
-                        self.guests.remove(identifier)
-            except IOError as error:
-                Log.info('Receptionist: IO error %s' % error)
-            except JSONDecodeError as error:
-                Log.info('Receptionist: decode error %s' % error)
-            except TypeError as error:
-                Log.info('Receptionist: type error %s' % error)
-            except ValueError as error:
-                Log.info('Receptionist: value error %s' % error)
-            finally:
-                # sleep for next loop
-                sleep(0.1)
-        Log.info('Receptionist: exit!')
+    def send(self, msg: Union[dict, ReliableMessage]) -> int:
+        if isinstance(msg, ReliableMessage):
+            msg = msg.dictionary
+        return self.__pipe.send(obj=msg)
+
+    def start(self):
+        self.__pipe.start()
+        self.run()
+
+    # Override
+    def stop(self):
+        self.__pipe.stop()
+        super().stop()
+
+    # Override
+    def process(self) -> bool:
+        event = None
+        try:
+            event = self.__pipe.receive()
+            if isinstance(event, dict):
+                name = event.get('name')
+                info = event.get('info')
+                assert name is not None and info is not None, 'event error: %s' % event
+                self.__process_notification(name=name, info=info)
+                return True
+            else:
+                self.__process_users(users=self.get_guests())
+        except Exception as error:
+            self.error('event error: %s, %s' % (event, error))
+            traceback.print_exc()
+
+    def __process_notification(self, name: str, info: dict):
+        self.debug(msg='received event: %s' % name)
+        identifier = ID.parse(identifier=info.get('ID'))
+        assert identifier is not None, 'ID error: %s, %s' % (name, info)
+        client_address = info.get('client_address')
+        if name == NotificationNames.USER_LOGIN:
+            assert client_address is not None, 'client address error: %s, %s' % (name, info)
+            self.add_guest(identifier=identifier)
+            return True
+        if name == NotificationNames.USER_ONLINE:
+            if client_address is None:
+                self.add_guest(identifier=identifier)
+                return True
+        self.warning(msg='unknown event: %s' % name)
+
+    def __process_users(self, users: Set[ID]):
+        for identifier in users:
+            # 1. get cached messages
+            messages = g_database.messages(receiver=identifier)
+            self.info('%d message(s) loaded for: %s' % (len(messages), identifier))
+            # 2. sent messages one by one
+            for msg in messages:
+                self.send(msg=msg)
+
+
+g_worker = Receptionist()
+
+
+if __name__ == '__main__':
+    Log.info(msg='>>> starting receptionist ...')
+    g_worker.start()
+    Log.info(msg='>>> receptionist exists.')
