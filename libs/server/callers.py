@@ -36,20 +36,20 @@ from typing import Union, Optional
 
 from startrek import DeparturePriority
 
-from dimp import ReliableMessage
+from dimsdk import ReliableMessage
 from dimsdk import Station
 
-from ..utils.log import Logging
+from dimples.server import SessionCenter
+
+from ..utils import Logging
 from ..utils.ipc import ReceptionistPipe, ArchivistPipe, OctopusPipe, MonitorPipe
 from ..utils import Notification, NotificationObserver, NotificationCenter
 from ..utils import Singleton, Runner
 from ..database import Database
 from ..common import SharedFacebook, CommonMessenger, NotificationNames
 
-from .session_server import SessionServer
 
-
-g_session_server = SessionServer()
+g_session_server = SessionCenter()
 g_facebook = SharedFacebook()
 g_database = Database()
 
@@ -124,7 +124,7 @@ class SearchEngineCaller(Runner, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__ss = SessionServer()
+        self.__ss = SessionCenter()
         self.__pipe = ArchivistPipe.primary()
         self.__next_time = 0
         self.start()
@@ -186,7 +186,7 @@ class SearchEngineCaller(Runner, Logging):
         else:
             # push to active session with same remote address
             for sess in sessions:
-                if sess.client_address == client_address:
+                if sess.remote_address == client_address:
                     sess.send_reliable_message(msg=msg, priority=DeparturePriority.URGENT)
 
 

@@ -30,7 +30,7 @@
     Common libs for Server or Client
 """
 
-from dimsdk import ID, Content, ReliableMessage
+from dimples.common import CommonMessenger
 
 from ..database.redis.message import is_broadcast_message
 
@@ -43,60 +43,6 @@ from .ans import AddressNameServer
 
 from .facebook import CommonFacebook, SharedFacebook
 from .packer import CommonPacker
-
-
-def msg_receipt(msg: ReliableMessage, text: str) -> Content:
-    """
-    Create receipt for received message
-
-    :param msg:  message received
-    :param text: response
-    :return: ReceiptCommand
-    """
-    # for key in ['sender', 'receiver', 'time', 'group', 'signature']:
-    #     value = msg.get(key)
-    #     if value is not None:
-    #         cmd[key] = value
-    # return cmd
-    return ReceiptCommand.create(text=text, msg=msg)
-
-
-def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
-    """
-    Check whether station node already traced
-
-    :param msg: network message
-    :param node: station ID
-    :param append: whether append this station node
-    :return: message already traced
-    """
-    is_traced = False
-    traces = msg.get('traces')
-    if traces is not None:
-        for station in traces:
-            if isinstance(station, str):
-                if node == station:
-                    is_traced = True
-                    break
-            elif isinstance(station, dict):
-                if node == station.get('ID'):
-                    is_traced = True
-                    break
-            else:
-                raise TypeError('traces node error: %s' % station)
-    if append:
-        if traces is None:
-            # start from here
-            traces = [str(node)]
-        elif is_broadcast_message(msg=msg):
-            # only append once for broadcast message
-            if not is_traced:
-                traces.append(str(node))
-        else:
-            # just append
-            traces.append(str(node))
-        msg['traces'] = traces
-    return is_traced
 
 
 __all__ = [
@@ -124,7 +70,7 @@ __all__ = [
     'AddressNameServer',
 
     'CommonFacebook', 'SharedFacebook',
-    'CommonPacker',
+    'CommonMessenger', 'CommonPacker',
 
-    'msg_receipt', 'msg_traced', 'is_broadcast_message',
+    'is_broadcast_message',
 ]

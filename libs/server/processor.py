@@ -28,108 +28,27 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-import time
-from typing import List, Optional, Union
+from typing import Optional, Union
 
-from dimsdk import EntityType
-from dimsdk import ReliableMessage
-from dimsdk import Content, ContentType, TextContent, Command
-from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimsdk import ContentType
+from dimsdk import ContentProcessor
 
-from ..database import Database
-from ..common import HandshakeCommand, ReceiptCommand, LoginCommand
+from dimples.server.processor import ServerContentProcessorCreator as SuperCreator
+
 from ..common import ReportCommand, SearchCommand
-from ..common import CommonProcessor, CommonContentProcessorCreator
-
-from .session_server import SessionServer
-from .messenger import ServerMessenger
 
 
-g_database = Database()
-g_session_server = SessionServer()
-
-
-class ServerProcessor(CommonProcessor):
-
-    @property
-    def messenger(self) -> ServerMessenger:
-        transceiver = super().messenger
-        assert isinstance(transceiver, ServerMessenger), 'messenger error: %s' % transceiver
-        return transceiver
-
-    # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
-        # 0. process first
-        responses = super().process_content(content=content, r_msg=r_msg)
-        messenger = self.messenger
-        sender = r_msg.sender
-        # 1. check login
-        session = messenger.session
-        if session is not None:
-            if session.identifier is None or not session.active:
-                # not login yet, force to handshake again
-                if not isinstance(content, HandshakeCommand):
-                    handshake = HandshakeCommand.ask(session=session.key)
-                    responses.insert(0, handshake)
-        # 2. check response
-        contents = []
-        for res in responses:
-            if res is None:
-                # should not happen
-                continue
-            elif isinstance(res, ReceiptCommand):
-                if sender.type == EntityType.STATION:
-                    # no need to respond receipt to station
-                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info('drop receipt responding to %s, origin msg time=[%s]' % (sender, when))
-                    continue
-            elif isinstance(res, TextContent):
-                if sender.type == EntityType.STATION:
-                    # no need to respond text message to station
-                    when = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r_msg.time))
-                    self.info('drop text msg responding to %s, origin time=[%s], text=%s' % (sender, when, res.text))
-                    continue
-            contents.append(res)
-        # OK
-        return contents
-
-    # Override
-    def _create_creator(self) -> ContentProcessorCreator:
-        return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
-
-
-class ServerContentProcessorCreator(CommonContentProcessorCreator):
+class ServerContentProcessorCreator(SuperCreator):
 
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
-        # document commands
-        if cmd_name == Command.DOCUMENT or cmd_name in ['profile', 'visa', 'bulletin']:
-            from .cpu import DocumentCommandProcessor
-            return DocumentCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # handshake
-        if cmd_name == HandshakeCommand.HANDSHAKE:
-            from .cpu import HandshakeCommandProcessor
-            return HandshakeCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # login
-        if cmd_name == LoginCommand.LOGIN:
-            from .cpu import LoginCommandProcessor
-            return LoginCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
         if cmd_name == ReportCommand.REPORT:
             from .cpu import ReportCommandProcessor
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == 'broadcast':
+        elif cmd_name in ['broadcast', 'apns', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
             from .cpu import ReportCommandProcessor
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == 'apns':
-            from .cpu import APNsCommandProcessor
-            return APNsCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == ReportCommand.ONLINE:
-            from .cpu import OnlineCommandProcessor
-            return OnlineCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == ReportCommand.OFFLINE:
-            from .cpu import OfflineCommandProcessor
-            return OfflineCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # search
         if cmd_name == SearchCommand.SEARCH:
             from .cpu import SearchCommandProcessor

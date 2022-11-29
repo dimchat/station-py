@@ -29,20 +29,20 @@
 
 """
 
+from dimples.server import ServerSession, SessionCenter
+from dimples.server import ServerMessenger
+from dimples.server import ServerProcessor
+from dimples.server import Dispatcher
+
 from .cpu import *
 
-from .session import Session
-from .session_server import SessionServer
-from .messenger import ServerMessenger
-from .processor import ServerProcessor, ServerContentProcessorCreator
+from .processor import ServerContentProcessorCreator
 from .callers import ReceptionistCaller, SearchEngineCaller, OctopusCaller, MonitorCaller
-from .dispatcher import Dispatcher
-from .filter import Filter
 
 
 __all__ = [
 
-    'Session', 'SessionServer',
+    'ServerSession', 'SessionCenter',
 
     'ServerMessenger',
     'ServerProcessor',
@@ -51,5 +51,4 @@ __all__ = [
     'ReceptionistCaller', 'SearchEngineCaller',
     'OctopusCaller', 'MonitorCaller',
     'Dispatcher',
-    'Filter',
 ]

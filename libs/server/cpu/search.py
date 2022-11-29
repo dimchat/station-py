@@ -33,27 +33,43 @@ from typing import List
 from dimp import ID, Meta
 from dimp import ReliableMessage
 from dimp import Content
-from dimsdk.cpu import BaseCommandProcessor
+
+from dimples.server import SessionCenter
+
+from dimples import BaseCommandProcessor
+from dimples.common import CommonFacebook
 
 from ...database import Database
 from ...common import SearchCommand
 
-from ..session_server import SessionServer
 
-
-g_session_server = SessionServer()
+g_session_server = SessionCenter()
 g_database = Database()
 
 
 def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
-    users = g_session_server.active_users(start=start, limit=limit)
+    if start < 0:
+        start = 0
+    if limit < 0:
+        limit = 1024
+    pos = 0
+    end = start + limit
+    # check all users in session center
+    all_users = g_session_server.all_users()
+    users = []
     results = {}
-    if limit > 0:
-        # get meta when limit is set
-        for item in users:
-            meta = facebook.meta(identifier=item)
-            if isinstance(meta, Meta):
-                results[str(item)] = meta.dictionary
+    for item in all_users:
+        if not g_session_server.is_active(identifier=item):
+            continue
+        pos += 1
+        if pos < start:
+            continue
+        elif pos >= end:
+            break
+        users.append(item)
+        meta = facebook.meta(identifier=item)
+        if isinstance(meta, Meta):
+            results[str(item)] = meta.dictionary
     return list(users), results
 
 
@@ -64,6 +80,12 @@ def save_response(facebook, station: ID, users: List[ID], results: dict) -> List
 
 
 class SearchCommandProcessor(BaseCommandProcessor):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:

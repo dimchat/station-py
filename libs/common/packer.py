@@ -39,7 +39,7 @@ from dimples.common import CommonFacebook, CommonMessenger
 
 from ..utils.mtp import MTPUtils
 
-from .protocol import ReceiptCommand
+from .protocol import ReceiptCommand, ReportCommand
 
 
 class CommonPacker(SuperPacker):
@@ -100,7 +100,7 @@ class CommonPacker(SuperPacker):
         content = msg.content
         if isinstance(content, ReceiptCommand):
             # compatible with v1.0
-            fix_receipt_command(cmd=content)
+            fix_receipt_command(content=content)
         # call super to encrypt message
         s_msg = super().encrypt_message(msg=msg)
         receiver = msg.receiver
@@ -118,37 +118,67 @@ class CommonPacker(SuperPacker):
             content = i_msg.content
             if isinstance(content, ReceiptCommand):
                 # compatible with v1.0
-                fix_receipt_command(cmd=content)
-            if isinstance(content, DocumentCommand):
+                fix_receipt_command(content=content)
+            elif isinstance(content, ReportCommand):
+                # compatible with v1.0
+                fix_report_command(content=content)
+            elif isinstance(content, DocumentCommand):
+                # compatible with v1.0
                 fix_document_command(content=content)
         return i_msg
 
 
+def fix_report_command(content: ReportCommand):
+    # check state for oldest version
+    state = content.get('state')
+    if state == 'background':
+        # oldest version
+        content['title'] = ReportCommand.OFFLINE
+        return content
+    elif state == 'foreground':
+        # oldest version
+        content['title'] = ReportCommand.ONLINE
+        return content
+    # check title for v1.0
+    title = content.title
+    if title is None:
+        name = content.cmd
+        if name != ReportCommand.REPORT:
+            # (v1.0)
+            # content: {
+            #     'command': 'online', // or 'offline', 'apns', ...
+            # }
+            content['title'] = name
+
+
 # TODO: remove after all server/client upgraded
-def fix_receipt_command(cmd: ReceiptCommand):
-    origin = cmd.get('origin')
+def fix_receipt_command(content: ReceiptCommand):
+    origin = content.get('origin')
     if origin is not None:
         # (v2.0)
         # compatible with v1.0
-        cmd['envelope'] = origin
-        return True
+        content['envelope'] = origin
+        return content
     # check for old version
-    env = cmd.get('envelope')
+    env = content.get('envelope')
     if env is not None:
         # (v1.0)
         # compatible with v2.0
-        cmd['origin'] = env
-    elif 'sender' in cmd:  # and 'receiver' in cmd:
+        content['origin'] = env
+        return content
+    # check for older version
+    if 'sender' in content:  # and 'receiver' in content:
         # older version
         env = {
-            'sender': cmd.get('sender'),
-            'receiver': cmd.get('receiver'),
-            'time': cmd.get('time'),
-            'sn': cmd.get('sn'),
-            'signature': cmd.get('signature'),
+            'sender': content.get('sender'),
+            'receiver': content.get('receiver'),
+            'time': content.get('time'),
+            'sn': content.get('sn'),
+            'signature': content.get('signature'),
         }
-        cmd['origin'] = env
-        cmd['envelope'] = env
+        content['origin'] = env
+        content['envelope'] = env
+        return content
 
 
 # TODO: remove after all server/client upgraded
