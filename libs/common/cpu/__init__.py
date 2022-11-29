@@ -30,8 +30,6 @@
     Processors for commands
 """
 
-from .file import FileContentProcessor
-
 from .receipt import ReceiptCommandProcessor
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
@@ -39,8 +37,6 @@ from .storage import StorageCommandProcessor
 
 
 __all__ = [
-
-    'FileContentProcessor',
 
     'ReceiptCommandProcessor',
     'MuteCommandProcessor',

@@ -29,21 +29,20 @@
 """
 from typing import Optional
 
-from startrek import DeparturePriority
-
-from dimsdk import base64_encode, sha256
-from dimsdk import ID, Meta
+from dimsdk import ID
 from dimsdk import InstantMessage, SecureMessage, ReliableMessage
 from dimsdk import DocumentCommand
-from dimsdk import MessagePacker
+
+from dimples.common.packer import attach_key_digest
+from dimples.common import CommonPacker as SuperPacker
+from dimples.common import CommonFacebook, CommonMessenger
 
 from ..utils.mtp import MTPUtils
 
-from .facebook import CommonFacebook
-from .messenger import CommonMessenger
+from .protocol import ReceiptCommand
 
 
-class CommonPacker(MessagePacker):
+class CommonPacker(SuperPacker):
 
     MTP_JSON = 0x01
     MTP_DMTP = 0x02
@@ -59,44 +58,17 @@ class CommonPacker(MessagePacker):
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
-    def __attach_key_digest(self, msg: ReliableMessage):
-        messenger = self.messenger
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = messenger
-        if msg.encrypted_key is not None:
-            # 'key' exists
-            return
-        keys = msg.encrypted_keys
-        if keys is None:
-            keys = {}
-        elif 'digest' in keys:
-            # key digest already exists
-            return
-        # get key with direction
-        sender = msg.sender
-        group = msg.group
-        if group is None:
-            receiver = msg.receiver
-            key = messenger.cipher_key(sender=sender, receiver=receiver)
+    def __is_waiting(self, identifier: ID) -> bool:
+        if identifier.is_group:
+            # checking group meta
+            return self.facebook.meta(identifier=identifier) is None
         else:
-            key = messenger.cipher_key(sender=sender, receiver=group)
-        # get key data
-        data = key.data
-        if data is None or len(data) < 6:
-            return
-        # get digest
-        pos = len(data) - 6
-        digest = sha256(data[pos:])
-        base64 = base64_encode(digest)
-        # set digest
-        pos = len(base64) - 8
-        keys['digest'] = base64[pos:]
-        msg['keys'] = keys
+            # checking visa key
+            return self.facebook.public_key_for_encryption(identifier=identifier) is None
 
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
-        self.__attach_key_digest(msg=msg)
+        attach_key_digest(msg=msg, messenger=self.messenger)
         if self.mtp_format == self.MTP_JSON:
             # JsON
             return super().serialize_message(msg=msg)
@@ -123,50 +95,13 @@ class CommonPacker(MessagePacker):
                 return msg
 
     # Override
-    def sign_message(self, msg: SecureMessage) -> ReliableMessage:
-        if isinstance(msg, ReliableMessage):
-            # already signed
-            return msg
-        else:
-            return super().sign_message(msg=msg)
-
-    # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        sender = msg.sender
-        # [Meta Protocol]
-        meta = msg.meta
-        if meta is None:
-            meta = self.facebook.meta(identifier=sender)
-        elif not Meta.matches(meta=meta, identifier=sender):
-            meta = None
-        if meta is None:
-            # NOTICE: the application will query meta automatically,
-            #         save this message in a queue waiting sender's meta response
-            self.messenger.suspend_message(msg=msg)
-            return None
-        # make sure meta exists before verifying message
-        return super().verify_message(msg=msg)
-
-    def __is_waiting(self, identifier: ID) -> bool:
-        if identifier.is_group:
-            # checking group meta
-            return self.facebook.meta(identifier=identifier) is None
-        else:
-            # checking visa key
-            return self.facebook.public_key_for_encryption(identifier=identifier) is None
-
-    # Override
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-        receiver = msg.receiver
-        group = msg.group
-        if not (receiver.is_broadcast or (group is not None and group.is_broadcast)):
-            # this message is not a broadcast message
-            if self.__is_waiting(receiver) or (group is not None and self.__is_waiting(group)):
-                # NOTICE: the application will query visa automatically,
-                #         save this message in a queue waiting sender's visa response
-                self.messenger.suspend_message(msg=msg)
-                return None
         # make sure visa.key exists before encrypting message
+        content = msg.content
+        if isinstance(content, ReceiptCommand):
+            # compatible with v1.0
+            fix_receipt_command(cmd=content)
+        # call super to encrypt message
         s_msg = super().encrypt_message(msg=msg)
         receiver = msg.receiver
         if receiver.is_group:
@@ -178,29 +113,46 @@ class CommonPacker(MessagePacker):
 
     # Override
     def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        try:
-            i_msg = super().decrypt_message(msg=msg)
-            if i_msg is not None:
-                content = i_msg.content
-                if isinstance(content, DocumentCommand):
-                    fix_profile(content=content)
-            return i_msg
-        except AssertionError as error:
-            err_msg = '%s' % error
-            # check exception thrown by DKD: chat.dim.dkd.EncryptedMessage.decrypt()
-            if err_msg.find('failed to decrypt key in msg') >= 0:
-                # visa.key not updated?
-                user = self.facebook.current_user
-                visa = user.visa
-                assert visa is not None and visa.valid, 'user visa error: %s' % user
-                cmd = DocumentCommand.response(document=visa, identifier=user.identifier)
-                self.messenger.send_content(sender=user.identifier, receiver=msg.sender,
-                                            content=cmd, priority=DeparturePriority.NORMAL)
-            else:
-                raise error
+        i_msg = super().decrypt_message(msg=msg)
+        if i_msg is not None:
+            content = i_msg.content
+            if isinstance(content, ReceiptCommand):
+                # compatible with v1.0
+                fix_receipt_command(cmd=content)
+            if isinstance(content, DocumentCommand):
+                fix_document_command(content=content)
+        return i_msg
 
 
-def fix_profile(content: DocumentCommand):
+# TODO: remove after all server/client upgraded
+def fix_receipt_command(cmd: ReceiptCommand):
+    origin = cmd.get('origin')
+    if origin is not None:
+        # (v2.0)
+        # compatible with v1.0
+        cmd['envelope'] = origin
+        return True
+    # check for old version
+    env = cmd.get('envelope')
+    if env is not None:
+        # (v1.0)
+        # compatible with v2.0
+        cmd['origin'] = env
+    elif 'sender' in cmd:  # and 'receiver' in cmd:
+        # older version
+        env = {
+            'sender': cmd.get('sender'),
+            'receiver': cmd.get('receiver'),
+            'time': cmd.get('time'),
+            'sn': cmd.get('sn'),
+            'signature': cmd.get('signature'),
+        }
+        cmd['origin'] = env
+        cmd['envelope'] = env
+
+
+# TODO: remove after all server/client upgraded
+def fix_document_command(content: DocumentCommand):
     info = content.get('document')
     if info is not None:
         # (v2.0)
@@ -239,6 +191,7 @@ def fix_profile(content: DocumentCommand):
     return content
 
 
+# TODO: remove after all server/client upgraded
 def fix_visa(msg: ReliableMessage):
     # move 'profile' -> 'visa'
     profile = msg.get('profile')

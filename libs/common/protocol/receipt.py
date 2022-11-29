@@ -35,58 +35,58 @@
     As receipt returned to sender to proofing the message's received
 """
 
-from typing import Optional, Any, Dict
-
-from dimsdk import Envelope
-from dimsdk import BaseCommand
-
-
-class ReceiptCommand(BaseCommand):
-    """
-        Receipt Command
-        ~~~~~~~~~~~~~~~
-
-        data format: {
-            type : 0x88,
-            sn   : 123,
-
-            cmd      : "receipt", // command name
-            message  : "...",
-            //-- extra info
-            sender   : "...",
-            receiver : "...",
-            time     : 0
-        }
-    """
-    RECEIPT = 'receipt'
-
-    def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 envelope: Optional[Envelope] = None, message: Optional[str] = None, sn: Optional[int] = 0):
-        if content is None:
-            super().__init__(cmd=self.RECEIPT)
-        else:
-            super().__init__(content=content)
-        self.__envelope = envelope
-        if envelope is not None:
-            self['envelope'] = envelope.dictionary
-        if message is not None:
-            self['message'] = message
-        if sn > 0:
-            self['sn'] = sn
-
-    # -------- setters/getters
-
-    @property
-    def message(self) -> Optional[str]:
-        return self.get('message')
-
-    @property
-    def envelope(self) -> Optional[Envelope]:
-        if self.__envelope is None:
-            # envelope: { sender: "...", receiver: "...", time: 0 }
-            env = self.get('envelope')
-            if env is None and 'sender' in self and 'receiver' in self:
-                env = self.dictionary
-            if env is not None:
-                self.__envelope = Envelope.parse(envelope=env)
-        return self.__envelope
+# from typing import Optional, Any, Dict
+#
+# from dimsdk import Envelope
+# from dimsdk import BaseCommand
+#
+#
+# class ReceiptCommand(BaseCommand):
+#     """
+#         Receipt Command
+#         ~~~~~~~~~~~~~~~
+#
+#         data format: {
+#             type : 0x88,
+#             sn   : 123,
+#
+#             cmd      : "receipt", // command name
+#             message  : "...",
+#             //-- extra info
+#             sender   : "...",
+#             receiver : "...",
+#             time     : 0
+#         }
+#     """
+#     RECEIPT = 'receipt'
+#
+#     def __init__(self, content: Optional[Dict[str, Any]] = None,
+#                  envelope: Optional[Envelope] = None, message: Optional[str] = None, sn: Optional[int] = 0):
+#         if content is None:
+#             super().__init__(cmd=self.RECEIPT)
+#         else:
+#             super().__init__(content=content)
+#         self.__envelope = envelope
+#         if envelope is not None:
+#             self['envelope'] = envelope.dictionary
+#         if message is not None:
+#             self['message'] = message
+#         if sn > 0:
+#             self['sn'] = sn
+#
+#     # -------- setters/getters
+#
+#     @property
+#     def message(self) -> Optional[str]:
+#         return self.get('message')
+#
+#     @property
+#     def envelope(self) -> Optional[Envelope]:
+#         if self.__envelope is None:
+#             # envelope: { sender: "...", receiver: "...", time: 0 }
+#             env = self.get('envelope')
+#             if env is None and 'sender' in self and 'receiver' in self:
+#                 env = self.dictionary
+#             if env is not None:
+#                 self.__envelope = Envelope.parse(envelope=env)
+#         return self.__envelope

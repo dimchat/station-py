@@ -38,15 +38,11 @@ from .protocol import *
 from .cpu import *
 
 from .notification import NotificationNames
-from .session import BaseSession
 
 from .ans import AddressNameServer
 
-from .keycache import KeyCache
 from .facebook import CommonFacebook, SharedFacebook
-from .messenger import CommonMessenger, MessengerDelegate
 from .packer import CommonPacker
-from .processor import CommonProcessor, CommonContentProcessorCreator
 
 
 def msg_receipt(msg: ReliableMessage, text: str) -> Content:
@@ -57,12 +53,12 @@ def msg_receipt(msg: ReliableMessage, text: str) -> Content:
     :param text: response
     :return: ReceiptCommand
     """
-    cmd = ReceiptCommand(message=text)
-    for key in ['sender', 'receiver', 'time', 'group', 'signature']:
-        value = msg.get(key)
-        if value is not None:
-            cmd[key] = value
-    return cmd
+    # for key in ['sender', 'receiver', 'time', 'group', 'signature']:
+    #     value = msg.get(key)
+    #     if value is not None:
+    #         cmd[key] = value
+    # return cmd
+    return ReceiptCommand.create(text=text, msg=msg)
 
 
 def msg_traced(msg: ReliableMessage, node: ID, append: bool = False) -> bool:
@@ -116,7 +112,6 @@ __all__ = [
     #
     #   CPU
     #
-    'FileContentProcessor',
     'ReceiptCommandProcessor',
     'MuteCommandProcessor',
     'BlockCommandProcessor',
@@ -126,13 +121,10 @@ __all__ = [
     #   Common libs
     #
     'NotificationNames',
-    'BaseSession',
     'AddressNameServer',
 
-    'KeyCache', 'CommonFacebook', 'SharedFacebook',
-    'CommonMessenger', 'CommonPacker', 'CommonProcessor',
-    'CommonContentProcessorCreator',
-    'MessengerDelegate',
+    'CommonFacebook', 'SharedFacebook',
+    'CommonPacker',
 
     'msg_receipt', 'msg_traced', 'is_broadcast_message',
 ]

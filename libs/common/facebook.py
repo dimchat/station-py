@@ -30,119 +30,42 @@
     Barrack for cache entities
 """
 
-import weakref
 from typing import Optional, List
 
-from dimsdk import PrivateKey, SignKey, DecryptKey
-from dimsdk import ID, Meta, Document, User, Group
-from dimsdk import Facebook
+from dimsdk import PrivateKey
+from dimsdk import ID
+
+from dimples.common import CommonFacebook as SuperFacebook
 
 from ..utils import Singleton
-from ..database import Database
-from ..database import FrequencyChecker
 
 
-class CommonFacebook(Facebook):
-
-    # each query will be expired after 10 minutes
-    QUERY_EXPIRES = 600  # seconds
+@Singleton
+class CommonFacebook(SuperFacebook):
 
     def __init__(self):
         super().__init__()
-        self.__messenger: Optional[weakref.ReferenceType] = None
-        self.__db = Database()
-        self.__local_users: Optional[List[User]] = None
         self.__group_assistants = []
-        # for checking duplicated queries
-        self.__meta_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
-        self.__document_queries: FrequencyChecker[ID] = FrequencyChecker(expires=self.QUERY_EXPIRES)
-
-    @property
-    def messenger(self):  # -> CommonMessenger:
-        if self.__messenger is not None:
-            return self.__messenger()
-
-    @messenger.setter
-    def messenger(self, transceiver):
-        if transceiver is None:
-            self.__messenger = None
-        else:
-            self.__messenger = weakref.ref(transceiver)
-
-    #
-    #   Local Users
-    #
-
-    @property  # Override
-    def local_users(self) -> Optional[List[User]]:
-        return self.__local_users
-
-    @local_users.setter
-    def local_users(self, value: List[User]):
-        self.__local_users = value
-
-    @property  # Override
-    def current_user(self) -> Optional[User]:
-        users = self.local_users
-        if users is not None and len(users) > 0:
-            return users[0]
-
-    @current_user.setter
-    def current_user(self, user: User):
-        if user is None:
-            raise ValueError('current user cannot be empty')
-        array = self.local_users
-        if array is None:
-            array = []
-        elif user in array:
-            array.remove(user)
-        array.insert(0, user)
-        self.__local_users = array
 
     #
     #   Contacts
     #
 
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
-        return self.__db.save_contacts(contacts=contacts, user=identifier)
+        db = self.database
+        return db.save_contacts(contacts=contacts, identifier=identifier)
 
     #
     #   Private Keys
     #
 
     def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.__db.save_private_key(key=key, identifier=identifier, key_type=key_type)
-
-    #
-    #   Meta
-    #
-
-    # Override
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        return self.__db.save_meta(meta=meta, identifier=identifier)
-
-    #
-    #   Document
-    #
-
-    # Override
-    def save_document(self, document: Document) -> bool:
-        meta = self.meta(identifier=document.identifier)
-        if meta is None:
-            # querying meta, waiting for response
-            return False
-        return self.__db.save_document(document=document)
+        db = self.database
+        return db.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     #
     #   Relationship
     #
-
-    # Override
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
-        return self.__db.save_group_members(members=members, group=identifier)
-
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
-        pass
 
     def exists_member(self, member: ID, group: ID) -> bool:
         if self.owner(identifier=group) == member:
@@ -182,90 +105,9 @@ class CommonFacebook(Facebook):
         members = self.members(identifier=group)
         return members is None or len(members) == 0
 
-    # Override
-    def create_user(self, identifier: ID) -> Optional[User]:
-        if not self.is_waiting_meta(identifier=identifier):
-            return super().create_user(identifier=identifier)
-
-    # Override
-    def create_group(self, identifier: ID) -> Optional[Group]:
-        if not self.is_waiting_meta(identifier=identifier):
-            return super().create_group(identifier=identifier)
-
-    #
-    #   EntityDataSource
-    #
-
-    # Override
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        if identifier.is_broadcast:
-            # broadcast ID has no meta
-            return None
-        # try from database
-        info = self.__db.meta(identifier=identifier)
-        if info is None and self.__meta_queries.expired(key=identifier):
-            # query from DIM network
-            self.__db.add_meta_query(identifier=identifier)
-        return info
-
-    # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        if identifier.is_broadcast:
-            # broadcast ID has no document
-            return None
-        # try from database
-        info = self.__db.document(identifier=identifier, doc_type=doc_type)
-        if self.__document_queries.expired(key=identifier):
-            # query from DIM network
-            self.__db.add_document_query(identifier=identifier)
-        return info
-
-    #
-    #   UserDataSource
-    #
-
-    # Override
-    def contacts(self, identifier: ID) -> Optional[List[ID]]:
-        return self.__db.contacts(user=identifier)
-
-    # Override
-    def private_keys_for_decryption(self, identifier: ID) -> Optional[List[DecryptKey]]:
-        return self.__db.private_keys_for_decryption(identifier=identifier)
-
-    # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__db.private_key_for_signature(identifier=identifier)
-
-    # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__db.private_key_for_visa_signature(identifier=identifier)
-
     #
     #    GroupDataSource
     #
-
-    # Override
-    def founder(self, identifier: ID) -> ID:
-        # get from database
-        user = self.__db.group_founder(group=identifier)
-        if user is not None:
-            return user
-        return super().founder(identifier=identifier)
-
-    # Override
-    def owner(self, identifier: ID) -> ID:
-        # get from database
-        user = self.__db.group_owner(group=identifier)
-        if user is not None:
-            return user
-        return super().owner(identifier=identifier)
-
-    # Override
-    def members(self, identifier: ID) -> Optional[List[ID]]:
-        array = self.__db.group_members(group=identifier)
-        if array is not None and len(array) > 0:
-            return array
-        return super().members(identifier=identifier)
 
     # Override
     def assistants(self, identifier: ID) -> Optional[List[ID]]:

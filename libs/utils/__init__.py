@@ -36,10 +36,12 @@
 from startrek.fsm import Runnable, Runner
 from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
-from .log import Log, Logging
-from .singleton import Singleton
+from dimples.utils import Path
+from dimples.utils import File, TextFile, JSONFile
+from dimples.utils import Singleton
+from dimples.utils import Log, Logging
 
-from .dos import File, TextFile, JSONFile
+from dimples.conn.session import get_sig as get_msg_sig
 
 from .img import Image, ImageScanner
 from .img import PNG, PNGScanner, PNGChunk, PNGTypeCode
@@ -51,13 +53,13 @@ class NotificationCenter(DefaultNotificationCenter):
     pass
 
 
-def get_msg_sig(msg, cnt: int = 8) -> str:
-    sig = msg.get('signature')
-    if sig is not None:
-        sig = sig.rstrip()
-        if len(sig) > cnt:
-            sig = sig[-cnt:]
-    return sig
+# def get_msg_sig(msg, cnt: int = 8) -> str:
+#     sig = msg.get('signature')
+#     if sig is not None:
+#         sig = sig.rstrip()
+#         if len(sig) > cnt:
+#             sig = sig[-cnt:]
+#     return sig
 
 
 __all__ = [
@@ -70,6 +72,7 @@ __all__ = [
     'Log', 'Logging',
     'Singleton',
 
+    'Path',
     'File', 'TextFile', 'JSONFile',
 
     'Image', 'ImageScanner',

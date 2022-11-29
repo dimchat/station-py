@@ -24,30 +24,21 @@
 # ==============================================================================
 
 from dimsdk import Command, CommandFactoryBuilder
-from dimsdk import register_core_factories
 
-from .handshake import HandshakeCommand, HandshakeState
-from .receipt import ReceiptCommand
-from .login import LoginCommand
+from dimples.common import HandshakeCommand, HandshakeState
+from dimples.common import ReceiptCommand
+from dimples.common import LoginCommand
+from dimples.common import ReportCommand
 
-from .block import BlockCommand
 from .mute import MuteCommand
+from .block import BlockCommand
 from .storage import StorageCommand
 
 from .search import SearchCommand
-from .report import ReportCommand
 
 
-def register_all_factories():
-    # Register core factories
-    register_core_factories()
+def register_ext_factories():
 
-    # Handshake
-    Command.register(cmd=HandshakeCommand.HANDSHAKE, factory=CommandFactoryBuilder(command_class=HandshakeCommand))
-    # Receipt
-    Command.register(cmd=ReceiptCommand.RECEIPT, factory=CommandFactoryBuilder(command_class=ReceiptCommand))
-    # Login
-    Command.register(cmd=LoginCommand.LOGIN, factory=CommandFactoryBuilder(command_class=LoginCommand))
     # Mute
     Command.register(cmd=MuteCommand.MUTE, factory=CommandFactoryBuilder(command_class=MuteCommand))
     # Block
@@ -69,7 +60,7 @@ def register_all_factories():
     Command.register(cmd=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
 
 
-register_all_factories()
+register_ext_factories()
 
 
 __all__ = [
