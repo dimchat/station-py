@@ -29,19 +29,14 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from .message import build_message
-
-from .service import PushService, PushInfo
-from .service import PushCenter
+from .pusher import NotificationPusher
 
 from .apple_pns import ApplePushNotificationService
 from .android_pns import AndroidPushNotificationService
 
 __all__ = [
-    'build_message',
 
-    'PushService', 'PushInfo',
-    'PushCenter',
+    'NotificationPusher',
 
     'ApplePushNotificationService',
     'AndroidPushNotificationService',

@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2021 Albert Moky
+# Copyright (c) 2022 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,20 @@ from typing import Optional
 
 from dimp import ID
 from dimp import ContentType, ReliableMessage
+from dimples.server import DefaultPusher
 
-from libs.common import SharedFacebook
+from ..common import SharedFacebook
+from ..database import Database
+
+
+g_database = Database()
+
+
+class NotificationPusher(DefaultPusher):
+
+    # Override
+    def _is_mute(self, sender: ID, receiver: ID, group: Optional[ID], msg_type: int) -> bool:
+        return g_database.is_muted(sender=sender, receiver=receiver, group=group)
 
 
 g_facebook = SharedFacebook()

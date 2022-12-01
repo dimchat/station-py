@@ -7,19 +7,18 @@
     A service for pushing notification to offline device
 """
 
-from typing import Optional
-
 import jpush
 
 from dimp import ID
 
-from ..utils import Logging
+from dimples.server import PushService, PushInfo
 
-from .service import PushService
+from ..utils import Logging
 
 
 class AndroidPushNotificationService(PushService, Logging):
 
+    # TODO: read values from 'config.ini'
     app_key = "db6d7573a1643e36cf2451c6"
     master_secret = "d6ddc704ce0cde1d7462b4f4"
     apns_production = False
@@ -48,13 +47,16 @@ class AndroidPushNotificationService(PushService, Logging):
             raise jpush.common.APIConnectionException("conn error")
         except jpush.common.JPushFailure:
             print("JPushFailure")
-        except:
-            print("Exception")
+        except Exception as e:
+            print("Exception: %s" % e)
 
     #
     #   PushService
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
-        return self.push(alias=str(receiver.address), message=message)
+    def push_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
+                          title: str = None, content: str = None, image: str = None,
+                          badge: int = 0, sound: str = None):
+        # TODO: check whether receiver has signed-in via Android client
+        return self.push(alias=str(receiver.address), message=content)

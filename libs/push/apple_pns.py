@@ -41,13 +41,13 @@ from typing import List, Optional
 
 from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
-from apns2.payload import Payload
+from apns2.payload import Payload, PayloadAlert
 
 from dimp import ID
 
-from ..utils import Logging
+from dimples.server import PushService, PushInfo
 
-from .service import PushService
+from ..utils import Logging
 
 
 class ApplePushNotificationService(PushService, Logging):
@@ -125,17 +125,20 @@ class ApplePushNotificationService(PushService, Logging):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, message: str, badge: Optional[int] = None) -> bool:
+    def push_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
+                          title: str = None, content: str = None, image: str = None,
+                          badge: int = 0, sound: str = None):
         # 1. check
         tokens = self.delegate.device_tokens(identifier=receiver)
         if tokens is None:
             self.error('cannot get device token for user %s' % receiver)
             return False
         # 2. send
-        payload = Payload(alert=message, badge=badge, sound='default')
+        alert = PayloadAlert(title=title, body=content, launch_image=image)
+        payload = Payload(alert=alert, badge=badge, sound=sound)
         success = 0
         for token in tokens:
-            self.debug('sending notification %s -> %s (%s) with token: %s' % (sender, receiver, message, token))
+            self.debug('sending notification %s -> %s (%s) with token: %s' % (sender, receiver, content, token))
             # first try
             result = self.send_notification(token_hex=token, notification=payload)
             if result == -503:  # Service Unavailable
