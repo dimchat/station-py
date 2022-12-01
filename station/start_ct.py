@@ -50,8 +50,6 @@ from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
 from libs.push import PushCenter
 from libs.server import Dispatcher
-from libs.server import ReceptionistCaller, SearchEngineCaller
-from libs.server import OctopusCaller, MonitorCaller
 
 from etc.cfg_init import neighbor_stations
 
@@ -108,41 +106,6 @@ for node in neighbor_stations:
     assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
     Log.info('add node: %s' % node)
     g_dispatcher.add_neighbor(station=node.identifier)
-
-
-"""
-    DIM Search Engine
-    ~~~~~~~~~~~~~~~~~
-
-    An engine support 'search' command
-"""
-g_search_engine = SearchEngineCaller()
-
-
-"""
-    DIM Network Monitor
-    ~~~~~~~~~~~~~~~~~~~
-
-    A dispatcher for sending reports to administrator(s)
-"""
-g_monitor = MonitorCaller()
-
-
-"""
-    Station Bridge
-    ~~~~~~~~~~~~~~
-"""
-g_octopus = OctopusCaller()
-g_octopus.station = g_station
-
-
-"""
-    Station Receptionist
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A message scanner for new guests who have just come in.
-"""
-g_receptionist = ReceptionistCaller()
 
 
 if __name__ == '__main__':

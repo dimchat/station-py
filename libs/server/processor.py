@@ -32,10 +32,19 @@ from typing import Optional, Union
 
 from dimsdk import ContentType
 from dimsdk import ContentProcessor
+from dimsdk import ContentProcessorCreator
 
-from dimples.server.processor import ServerContentProcessorCreator as SuperCreator
+from dimples.server import ServerProcessor as SuperProcessor
+from dimples.server import ServerContentProcessorCreator as SuperCreator
 
 from ..common import ReportCommand, SearchCommand
+
+
+class ServerProcessor(SuperProcessor):
+
+    # Override
+    def _create_creator(self) -> ContentProcessorCreator:
+        return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
 class ServerContentProcessorCreator(SuperCreator):

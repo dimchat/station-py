@@ -30,14 +30,13 @@
 """
 
 from dimples.server import ServerSession, SessionCenter
-from dimples.server import ServerMessenger
-from dimples.server import ServerProcessor
 from dimples.server import Dispatcher
 
 from .cpu import *
 
+from .messenger import ServerMessenger
+from .processor import ServerProcessor
 from .processor import ServerContentProcessorCreator
-from .callers import ReceptionistCaller, SearchEngineCaller, OctopusCaller, MonitorCaller
 
 
 __all__ = [
@@ -48,7 +47,5 @@ __all__ = [
     'ServerProcessor',
     'ServerContentProcessorCreator',
 
-    'ReceptionistCaller', 'SearchEngineCaller',
-    'OctopusCaller', 'MonitorCaller',
     'Dispatcher',
 ]
