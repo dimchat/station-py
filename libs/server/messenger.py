@@ -36,38 +36,45 @@ from dimsdk import Envelope, Content, TextContent
 from dimsdk import SecureMessage, ReliableMessage
 from dimples.server import ServerMessenger as SuperMessenger
 
-from ..common import SharedFacebook
+from ..common import CommonFacebook
 from ..database import Database
-
-
-g_database = Database()
-g_facebook = SharedFacebook()
 
 
 class ServerMessenger(SuperMessenger):
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        return super().facebook
+
+    @property
+    def database(self) -> Database:
+        db = super().database
+        assert isinstance(db, Database), 'database error: %s' % db
+        return db
+
     # Override
     def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        res = check_block(envelope=msg.envelope)
+        res = self.__check_block(envelope=msg.envelope)
         if res is None:
-            return super(ServerMessenger, self).verify_message(msg=msg)
+            return super().verify_message(msg=msg)
         else:
             self.send_content(sender=None, receiver=msg.sender, content=res)
 
-
-def check_block(envelope: Envelope) -> Optional[Content]:
-    sender = envelope.sender
-    receiver = envelope.receiver
-    group = envelope.group
-    # check block-list
-    if g_database.is_blocked(sender=sender, receiver=receiver, group=group):
-        nickname = g_facebook.name(identifier=receiver)
-        if group is None:
-            text = 'Message is blocked by %s' % nickname
-        else:
-            grp_name = g_facebook.name(identifier=group)
-            text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
-        # response
-        res = TextContent.create(text=text)
-        res.group = group
-        return res
+    def __check_block(self, envelope: Envelope) -> Optional[Content]:
+        sender = envelope.sender
+        receiver = envelope.receiver
+        group = envelope.group
+        # check block-list
+        db = self.database
+        if db.is_blocked(sender=sender, receiver=receiver, group=group):
+            facebook = self.facebook
+            nickname = facebook.name(identifier=receiver)
+            if group is None:
+                text = 'Message is blocked by %s' % nickname
+            else:
+                grp_name = facebook.name(identifier=group)
+                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
+            # response
+            res = TextContent.create(text=text)
+            res.group = group
+            return res

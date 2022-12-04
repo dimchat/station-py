@@ -32,8 +32,6 @@
 from dimples.server import ServerSession, SessionCenter
 from dimples.server import Dispatcher
 
-from .cpu import *
-
 from .messenger import ServerMessenger
 from .processor import ServerProcessor
 from .processor import ServerContentProcessorCreator

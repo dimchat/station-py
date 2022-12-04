@@ -39,12 +39,7 @@ from dimples.server import SessionCenter
 from dimples import BaseCommandProcessor
 from dimples.common import CommonFacebook
 
-from ...database import Database
 from ...common import SearchCommand
-
-
-g_session_server = SessionCenter()
-g_database = Database()
 
 
 def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
@@ -55,11 +50,12 @@ def online_users(facebook, start: int, limit: int) -> (List[ID], dict):
     pos = 0
     end = start + limit
     # check all users in session center
-    all_users = g_session_server.all_users()
+    center = SessionCenter()
+    all_users = center.all_users()
     users = []
     results = {}
     for item in all_users:
-        if not g_session_server.is_active(identifier=item):
+        if not center.is_active(identifier=item):
             continue
         pos += 1
         if pos < start:

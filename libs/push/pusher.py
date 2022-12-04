@@ -26,48 +26,27 @@
 from typing import Optional
 
 from dimp import ID
-from dimp import ContentType, ReliableMessage
 from dimples.server import DefaultPusher
 
-from ..common import SharedFacebook
+from ..common import CommonFacebook
 from ..database import Database
-
-
-g_database = Database()
 
 
 class NotificationPusher(DefaultPusher):
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def database(self) -> Database:
+        db = self.facebook.database
+        assert isinstance(db, Database), 'database error: %s' % db
+        return db
+
     # Override
     def _is_mute(self, sender: ID, receiver: ID, group: Optional[ID], msg_type: int) -> bool:
-        return g_database.is_muted(sender=sender, receiver=receiver, group=group)
-
-
-g_facebook = SharedFacebook()
-
-
-# noinspection PyUnusedLocal
-def build_message(sender: ID, receiver: ID, group: ID, msg_type: int, msg: ReliableMessage) -> Optional[str]:
-    """ build notification message """
-    if msg_type == 0:
-        something = 'a message'
-    elif msg_type == ContentType.TEXT:
-        something = 'a text message'
-    elif msg_type == ContentType.FILE:
-        something = 'a file'
-    elif msg_type == ContentType.IMAGE:
-        something = 'an image'
-    elif msg_type == ContentType.AUDIO:
-        something = 'a voice message'
-    elif msg_type == ContentType.VIDEO:
-        something = 'a video'
-    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
-        something = 'some money'
-    else:
-        return None
-    from_name = g_facebook.name(identifier=sender)
-    to_name = g_facebook.name(identifier=receiver)
-    text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
-    if group is not None:
-        text += ' in group [%s]' % g_facebook.name(identifier=group)
-    return text
+        db = self.database
+        return db.is_muted(sender=sender, receiver=receiver, group=group)

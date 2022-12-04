@@ -30,11 +30,21 @@
     Processors for commands
 """
 
+from ...common.cpu import ReceiptCommandProcessor
+from ...common.cpu import MuteCommandProcessor
+from ...common.cpu import BlockCommandProcessor
+from ...common.cpu import StorageCommandProcessor
+
 from .report import ReportCommandProcessor
 from .search import SearchCommandProcessor
 
 
 __all__ = [
+    'ReceiptCommandProcessor',
+    'MuteCommandProcessor',
+    'BlockCommandProcessor',
+    'StorageCommandProcessor',
+
     'ReportCommandProcessor',
     'SearchCommandProcessor',
 ]

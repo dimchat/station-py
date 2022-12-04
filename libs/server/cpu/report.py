@@ -40,12 +40,22 @@ from dimples.server.cpu import ReportCommandProcessor as SuperCommandProcessor
 from ...utils import Logging
 from ...database import Database
 from ...common import ReportCommand
-
-
-g_database = Database()
+from ...common import CommonFacebook
 
 
 class ReportCommandProcessor(SuperCommandProcessor, Logging):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def database(self) -> Database:
+        db = self.facebook.database
+        assert isinstance(db, Database), 'database error: %s' % db
+        return db
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
@@ -62,6 +72,7 @@ class ReportCommandProcessor(SuperCommandProcessor, Logging):
         token = content.get('device_token')
         if token is None or len(token) == 0:
             return []
-        g_database.save_device_token(token=token, identifier=msg.sender)
+        db = self.database
+        db.save_device_token(token=token, identifier=msg.sender)
         text = 'Token received.'
         return self._respond_text(text=text)

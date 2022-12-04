@@ -39,18 +39,30 @@ from dimsdk import BaseCommandProcessor
 from ...database import Database
 from ..protocol import MuteCommand
 
-
-g_database = Database()
+from ..facebook import CommonFacebook
 
 
 class MuteCommandProcessor(BaseCommandProcessor):
 
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def database(self) -> Database:
+        db = self.facebook.database
+        assert isinstance(db, Database), 'database error: %s' % db
+        return db
+
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, MuteCommand), 'mute command error: %s' % content
+        db = self.database
         if 'list' in content:
             # upload mute-list, save it
-            if g_database.save_mute_command(content=content, sender=msg.sender):
+            if db.save_mute_command(content=content, identifier=msg.sender):
                 text = 'Mute command of %s received!' % msg.sender
                 return self._respond_text(text=text)
             else:
@@ -58,7 +70,7 @@ class MuteCommandProcessor(BaseCommandProcessor):
                 return self._respond_text(text=text)
         else:
             # query mute-list, load it
-            stored: Command = g_database.mute_command(identifier=msg.sender)
+            stored: Command = db.mute_command(identifier=msg.sender)
             if stored is not None:
                 # response the stored mute command directly
                 return [stored]

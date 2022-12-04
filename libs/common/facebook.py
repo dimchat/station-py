@@ -40,7 +40,6 @@ from dimples.common import CommonFacebook as SuperFacebook
 from ..utils import Singleton
 
 
-@Singleton
 class CommonFacebook(SuperFacebook):
 
     def __init__(self):

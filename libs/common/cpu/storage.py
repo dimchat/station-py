@@ -39,20 +39,32 @@ from dimsdk import BaseCommandProcessor
 from ...database import Database
 from ..protocol import StorageCommand
 
-
-g_database = Database()
+from ..facebook import CommonFacebook
 
 
 class StorageCommandProcessor(BaseCommandProcessor):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    @property
+    def database(self) -> Database:
+        db = self.facebook.database
+        assert isinstance(db, Database), 'database error: %s' % db
+        return db
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, StorageCommand), 'command error: %s' % content
         title = content.title
         if title == StorageCommand.CONTACTS:
+            db = self.database
             if content.data is None and 'contacts' not in content:
                 # query contacts, load it
-                stored = g_database.contacts_command(identifier=msg.sender)
+                stored = db.contacts_command(identifier=msg.sender)
                 # response
                 if stored is None:
                     text = 'Sorry, contacts of %s not found.' % msg.sender
@@ -62,7 +74,7 @@ class StorageCommandProcessor(BaseCommandProcessor):
                     return [stored]
             else:
                 # upload contacts, save it
-                if g_database.save_contacts_command(content=content, sender=msg.sender):
+                if db.save_contacts_command(content=content, identifier=msg.sender):
                     text = 'Contacts of %s received!' % msg.sender
                     return self._respond_text(text=text)
                 else:
