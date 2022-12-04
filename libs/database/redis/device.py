@@ -40,11 +40,11 @@ class DeviceCache(Cache):
     EXPIRES = 36000  # seconds
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'mkm'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'user'
 
     """
@@ -54,7 +54,7 @@ class DeviceCache(Cache):
         redis key: 'dim.user.{ID}.device'
     """
     def __device_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.device' % (self.database, self.table, identifier)
+        return '%s.%s.%s.device' % (self.db_name, self.tbl_name, identifier)
 
     def save_device(self, device: dict, identifier: ID) -> bool:
         value = json_encode(obj=device)
@@ -67,8 +67,8 @@ class DeviceCache(Cache):
         name = self.__device_key(identifier=identifier)
         value = self.get(name=name)
         if value is not None:
-            value = utf8_decode(data=value)
-            return json_decode(string=value)
+            js = utf8_decode(data=value)
+            return json_decode(string=js)
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
         # get device info with ID

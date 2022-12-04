@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import Optional
 
 from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
 from dimsdk import ID, Document
@@ -40,11 +40,11 @@ class DocumentCache(Cache):
     EXPIRES = 36000  # seconds
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'mkm'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'document'
 
     """
@@ -52,23 +52,20 @@ class DocumentCache(Cache):
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         redis key: 'mkm.document.{ID}'
-        redis key: 'mkm.docs.keys'
     """
     def __key(self, identifier: ID) -> str:
-        return '%s.%s.%s' % (self.database, self.table, identifier)
+        return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
-    def __docs_keys(self) -> str:
-        return '%s.docs.keys' % self.database
+    def __prefix(self) -> str:
+        return '%s.%s.' % (self.db_name, self.tbl_name)
 
     def save_document(self, document: Document) -> bool:
         identifier = document.identifier
         dictionary = document.dictionary
-        value = json_encode(obj=dictionary)
-        value = utf8_encode(string=value)
+        js = json_encode(obj=dictionary)
+        value = utf8_encode(string=js)
         name = self.__key(identifier=identifier)
         self.set(name=name, value=value, expires=self.EXPIRES)
-        item = utf8_encode(string=str(identifier))
-        self.sadd(self.__docs_keys(), item)
         return True
 
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
@@ -76,21 +73,30 @@ class DocumentCache(Cache):
         value = self.get(name=name)
         if value is None:
             return None
-        value = utf8_decode(data=value)
-        dictionary = json_decode(string=value)
+        js = utf8_decode(data=value)
+        dictionary = json_decode(string=js)
         assert dictionary is not None, 'document error: %s' % value
         return parse_document(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
 
-    def scan_documents(self) -> List[Document]:
-        """ Get all documents from Redis Server """
-        documents = []
-        keys = self.smembers(name=self.__docs_keys())
-        for item in keys:
-            i = ID.parse(identifier=utf8_decode(data=item))
-            if i is None:
-                # should not happen
-                continue
-            doc = self.document(identifier=i)
-            if doc is not None:
-                documents.append(doc)
-        return documents
+    # def scan_documents(self) -> Set[ID]:
+    #     """ Scan documents in Redis Server for IDs """
+    #     all_ids = set()
+    #     prefix = self.__prefix()
+    #     pre_len = len(prefix)
+    #     match = '%s*' % prefix  # 'mkm.document.*'
+    #     cursor = 0
+    #     while True:
+    #         cursor, array = self.scan(cursor=cursor, match=match, count=1024)
+    #         # fetch ID from array result
+    #         for item in array:
+    #             value = utf8_decode(data=item)
+    #             value = value[pre_len:]
+    #             identifier = ID.parse(identifier=value)
+    #             if identifier is None:
+    #                 print('[REDIS] document key error: %s' % item)
+    #                 continue
+    #             all_ids.add(identifier)
+    #         if cursor == 0:
+    #             # mission accomplished
+    #             break
+    #     return all_ids

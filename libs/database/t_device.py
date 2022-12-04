@@ -23,59 +23,69 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List, Dict
+import time
+from typing import Optional, List
 
-from dimp import ID
+from dimsdk import ID
+
+from dimples.utils import CacheHolder, CacheManager
 
 from .redis import DeviceCache
 from .dos import DeviceStorage
 
-from .cache import CacheHolder, CachePool
-
 
 class DeviceTable:
 
-    def __init__(self):
+    def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = DeviceStorage(root=root, public=public, private=private)
         self.__redis = DeviceCache()
-        self.__dos = DeviceStorage()
-        # memory caches
-        self.__caches: Dict[ID, CacheHolder[dict]] = CachePool.get_caches(name='device')
+        man = CacheManager()
+        self.__cache = man.get_pool(name='device')  # ID => dict
+
+    def show_info(self):
+        self.__dos.show_info()
 
     def save_device(self, device: dict, identifier: ID) -> bool:
-        # 1. update memory cache
-        self.__caches[identifier] = CacheHolder(value=device)
-        # 2. update redis server
+        # 1. store into memory cache
+        self.__cache.update(key=identifier, value=device, life_span=36000)
+        # 2. store into redis server
         self.__redis.save_device(device=device, identifier=identifier)
-        # 3. update local storage
+        # 3. store into local storage
         return self.__dos.save_device(device=device, identifier=identifier)
 
     def device(self, identifier: ID) -> Optional[dict]:
+        now = time.time()
         # 1. check memory cache
-        holder = self.__caches.get(identifier)
-        if holder is None or not holder.alive:
-            # renewal or place an empty holder to avoid frequent reading
+        value, holder = self.__cache.fetch(key=identifier, now=now)
+        if value is None:
+            # cache empty
             if holder is None:
-                self.__caches[identifier] = CacheHolder(life_span=128)
+                # meta not load yet, wait to load
+                self.__cache.update(key=identifier, life_span=128, now=now)
             else:
-                holder.renewal()
+                assert isinstance(holder, CacheHolder), 'meta cache error'
+                if holder.is_alive(now=now):
+                    # meta not exists
+                    return None
+                # meta expired, wait to reload
+                holder.renewal(duration=128, now=now)
             # 2. check redis server
-            info = self.__redis.device(identifier=identifier)
-            if info is None:
+            value = self.__redis.device(identifier=identifier)
+            if value is None:
                 # 3. check local storage
-                info = self.__dos.device(identifier=identifier)
-                if info is not None:
+                value = self.__dos.device(identifier=identifier)
+                if value is not None:
                     # update redis server
-                    self.__redis.save_device(device=info, identifier=identifier)
+                    self.__redis.save_device(device=value, identifier=identifier)
             # update memory cache
-            holder = CacheHolder(value=info)
-            self.__caches[identifier] = holder
+            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
-        return holder.value
+        return value
 
     def save_device_token(self, token: str, identifier: ID) -> bool:
-        # 1. update memory cache
-        self.__caches.pop(identifier, None)
+        # 1. remove: ID => dict
+        self.__cache.erase(key=identifier)
         # 2. update redis server
         self.__redis.save_device_token(token=token, identifier=identifier)
         # 3. update local storage

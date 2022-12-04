@@ -38,11 +38,11 @@ class MetaCache(Cache):
     EXPIRES = 36000  # seconds
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'mkm'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'meta'
 
     """
@@ -52,12 +52,12 @@ class MetaCache(Cache):
         redis key: 'mkm.meta.{ID}'
     """
     def __key(self, identifier: ID) -> str:
-        return '%s.%s.%s' % (self.database, self.table, identifier)
+        return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         dictionary = meta.dictionary
-        value = json_encode(obj=dictionary)
-        value = utf8_encode(string=value)
+        js = json_encode(obj=dictionary)
+        value = utf8_encode(string=js)
         key = self.__key(identifier=identifier)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
@@ -67,7 +67,7 @@ class MetaCache(Cache):
         value = self.get(name=key)
         if value is None:
             return None
-        value = utf8_decode(data=value)
-        dictionary = json_decode(string=value)
+        js = utf8_decode(data=value)
+        dictionary = json_decode(string=js)
         assert dictionary is not None, 'meta error: %s' % value
         return Meta.parse(meta=dictionary)

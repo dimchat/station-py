@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Set
+from typing import Optional, Set, Dict, Any
 
 from dimsdk import utf8_encode, utf8_decode
 from dimsdk import ID
@@ -34,11 +34,11 @@ from .base import Cache
 class AddressNameCache(Cache):
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'dim'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'ans'
 
     """
@@ -48,7 +48,7 @@ class AddressNameCache(Cache):
         redis key: 'dim.ans'
     """
     def __key(self) -> str:
-        return '%s.%s' % (self.database, self.table)
+        return '%s.%s' % (self.db_name, self.tbl_name)
 
     def save_record(self, name: str, identifier: ID):
         value = utf8_encode(string=str(identifier))
@@ -58,13 +58,20 @@ class AddressNameCache(Cache):
     def record(self, name: str) -> Optional[ID]:
         value = self.hget(name=self.__key(), key=name)
         if value is not None:
-            return ID.parse(identifier=utf8_decode(data=value))
+            identifier = utf8_decode(data=value)
+            return ID.parse(identifier=identifier)
 
     def names(self, identifier: ID) -> Set[str]:
-        strings = set()
-        dictionary = self.hgetall(name=self.__key())
-        if dictionary is not None:
-            for key in dictionary:
-                if identifier == dictionary[key]:
-                    strings.add(key)
-        return strings
+        records = self.hgetall(name=self.__key())
+        if records is None:
+            return set()
+        else:
+            return get_names(records=records, identifier=identifier)
+
+
+def get_names(records: Dict[str, Any], identifier: ID) -> Set[str]:
+    strings = set()
+    for key in records:
+        if identifier == records[key]:
+            strings.add(key)
+    return strings

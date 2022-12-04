@@ -23,58 +23,75 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Dict
+import time
+from typing import Optional
 
-from dimp import ID, Meta
+from dimsdk import ID, Meta
+
+from dimples.utils import CacheHolder, CacheManager
+from dimples.common import MetaDBI
 
 from .redis import MetaCache
 from .dos import MetaStorage
 
-from .cache import CacheHolder, CachePool
 
+class MetaTable(MetaDBI):
+    """ Implementations of MetaDBI """
 
-class MetaTable:
-
-    def __init__(self):
+    def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
+        self.__dos = MetaStorage(root=root, public=public, private=private)
         self.__redis = MetaCache()
-        self.__dos = MetaStorage()
-        # memory caches
-        self.__caches: Dict[ID, CacheHolder[Meta]] = CachePool.get_caches(name='meta')
+        man = CacheManager()
+        self.__cache = man.get_pool(name='meta')  # ID => Meta
 
+    def show_info(self):
+        self.__dos.show_info()
+
+    #
+    #   Meta DBI
+    #
+
+    # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        assert Meta.matches(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
-        # check old record
+        # 0. check old record
         old = self.meta(identifier=identifier)
         if old is not None:
             # meta exists, no need to update it
             return True
         # 1. store into memory cache
-        self.__caches[identifier] = CacheHolder(value=meta, life_span=36000)
+        self.__cache.update(key=identifier, value=meta, life_span=36000)
         # 2. store into redis server
         self.__redis.save_meta(meta=meta, identifier=identifier)
         # 3. store into local storage
         return self.__dos.save_meta(meta=meta, identifier=identifier)
 
+    # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
+        now = time.time()
         # 1. check memory cache
-        holder = self.__caches.get(identifier)
-        if holder is None or not holder.alive:
-            # renewal or place an empty holder to avoid frequent reading
+        value, holder = self.__cache.fetch(key=identifier, now=now)
+        if value is None:
+            # cache empty
             if holder is None:
-                self.__caches[identifier] = CacheHolder(life_span=128)
+                # meta not load yet, wait to load
+                self.__cache.update(key=identifier, life_span=128, now=now)
             else:
-                holder.renewal()
+                assert isinstance(holder, CacheHolder), 'meta cache error'
+                if holder.is_alive(now=now):
+                    # meta not exists
+                    return None
+                # meta expired, wait to reload
+                holder.renewal(duration=128, now=now)
             # 2. check redis server
-            info = self.__redis.meta(identifier=identifier)
-            if info is None:
+            value = self.__redis.meta(identifier=identifier)
+            if value is None:
                 # 3. check local storage
-                info = self.__dos.meta(identifier=identifier)
-                if info is not None:
+                value = self.__dos.meta(identifier=identifier)
+                if value is not None:
                     # update redis server
-                    self.__redis.save_meta(meta=info, identifier=identifier)
+                    self.__redis.save_meta(meta=value, identifier=identifier)
             # update memory cache
-            holder = CacheHolder(value=info, life_span=36000)
-            self.__caches[identifier] = holder
+            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
-        return holder.value
+        return value

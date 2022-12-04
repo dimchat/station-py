@@ -38,12 +38,20 @@ class GroupCache(Cache):
     EXPIRES = 36000  # seconds
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'mkm'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'group'
+
+    def founder(self, identifier: ID) -> ID:
+        # TODO: get founder
+        pass
+
+    def owner(self, identifier: ID) -> ID:
+        # TODO: get owner
+        pass
 
     """
         Group members
@@ -52,30 +60,36 @@ class GroupCache(Cache):
         redis key: 'mkm.group.{ID}.members'
     """
     def __members_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.members' % (self.database, self.table, identifier)
+        return '%s.%s.%s.members' % (self.db_name, self.tbl_name, identifier)
 
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    def save_members(self, members: List[ID], identifier: ID) -> bool:
         members = ID.revert(members=members)
         text = '\n'.join(members)
         value = utf8_encode(string=text)
-        key = self.__members_key(identifier=group)
+        key = self.__members_key(identifier=identifier)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def members(self, group: ID) -> List[ID]:
-        key = self.__members_key(identifier=group)
+    def members(self, identifier: ID) -> List[ID]:
+        key = self.__members_key(identifier=identifier)
         value = self.get(name=key)
         if value is None:
             return []
         text = utf8_decode(data=value)
         return ID.convert(members=text.splitlines())
 
-    def founder(self, group: ID) -> ID:
-        # TODO: get founder
+    """
+        Group members
+        ~~~~~~~~~~~~~
+
+        redis key: 'mkm.group.{ID}.assistants'
+    """
+    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+        # TODO: store assistants with group ID
         pass
 
-    def owner(self, group: ID) -> ID:
-        # TODO: get owner
+    def assistants(self, identifier: ID) -> List[ID]:
+        # TODO: get assistants with group ID
         pass
 
     """
@@ -85,13 +99,13 @@ class GroupCache(Cache):
         redis key: 'mkm.group.{GID}.encrypted-keys'
     """
     def __keys_name(self, group: ID) -> str:
-        return '%s.%s.%s.encrypted-keys' % (self.database, self.table, group)
+        return '%s.%s.%s.encrypted-keys' % (self.db_name, self.tbl_name, group)
 
     def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
         name = self.__keys_name(group=group)
         key = str(sender)
-        value = json_encode(obj=keys)
-        value = utf8_encode(string=value)
+        js = json_encode(obj=keys)
+        value = utf8_encode(string=js)
         self.hset(name=name, key=key, value=value)
         return True
 
@@ -100,5 +114,5 @@ class GroupCache(Cache):
         key = str(sender)
         value = self.hget(name=name, key=key)
         if value is not None and len(value) > 2:
-            value = utf8_decode(data=value)
-            return json_decode(string=value)
+            js = utf8_decode(data=value)
+            return json_decode(string=js)

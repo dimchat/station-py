@@ -34,11 +34,11 @@ from .base import Cache
 class MessageKeyCache(Cache):
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'dkd'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'key'
 
     """
@@ -48,18 +48,18 @@ class MessageKeyCache(Cache):
         redis key: 'dkd.key.{sender}'
     """
     def __name(self, sender: ID) -> str:
-        return '%s.%s.%s' % (self.database, self.table, sender)
+        return '%s.%s.%s' % (self.db_name, self.tbl_name, sender)
 
     def cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
         name = self.__name(sender=sender)
         data = self.hget(name=name, key=str(receiver))
         if data is not None:
-            data = utf8_decode(data=data)
-            data = json_decode(string=data)
-            return SymmetricKey.parse(key=data)
+            js = utf8_decode(data=data)
+            key = json_decode(string=js)
+            return SymmetricKey.parse(key=key)
 
     def save_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         name = self.__name(sender=sender)
-        data = json_encode(obj=key.dictionary)
-        data = utf8_encode(string=data)
+        js = json_encode(obj=key.dictionary)
+        data = utf8_encode(string=js)
         return self.hset(name=name, key=str(receiver), value=data)

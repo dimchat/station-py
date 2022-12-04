@@ -38,11 +38,11 @@ class UserCache(Cache):
     EXPIRES = 36000  # seconds
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'mkm'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'user'
 
     """
@@ -52,19 +52,19 @@ class UserCache(Cache):
         redis key: 'mkm.user.{ID}.contacts'
     """
     def __contacts_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.contacts' % (self.database, self.table, identifier)
+        return '%s.%s.%s.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
         contacts = ID.revert(members=contacts)
         text = '\n'.join(contacts)
         text = utf8_encode(string=text)
-        key = self.__contacts_key(identifier=user)
+        key = self.__contacts_key(identifier=identifier)
         self.set(name=key, value=text, expires=self.EXPIRES)
         return True
 
-    def contacts(self, user: ID) -> List[ID]:
-        key = self.__contacts_key(identifier=user)
+    def contacts(self, identifier: ID) -> List[ID]:
+        key = self.__contacts_key(identifier=identifier)
         value = self.get(name=key)
         if value is None:
             return []
@@ -78,10 +78,10 @@ class UserCache(Cache):
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
     def __contacts_command_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.cmd.contacts' % (self.database, self.table, identifier)
+        return '%s.%s.%s.cmd.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts_command(self, content: Command, sender: ID) -> bool:
-        key = self.__contacts_command_key(identifier=sender)
+    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+        key = self.__contacts_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
@@ -90,8 +90,8 @@ class UserCache(Cache):
 
     def __save_command(self, key: str, content: Command) -> bool:
         dictionary = content.dictionary
-        value = json_encode(obj=dictionary)
-        value = utf8_encode(string=value)
+        js = json_encode(obj=dictionary)
+        value = utf8_encode(string=js)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
@@ -99,8 +99,8 @@ class UserCache(Cache):
         value = self.get(name=key)
         if value is None:
             return None
-        value = utf8_decode(data=value)
-        dictionary = json_decode(string=value)
+        js = utf8_decode(data=value)
+        dictionary = json_decode(string=js)
         assert dictionary is not None, 'cmd error: %s' % value
         # return BaseCommand(content=dictionary)
         return Command.parse(content=dictionary)
@@ -112,10 +112,10 @@ class UserCache(Cache):
         redis key: 'mkm.user.{ID}.cmd.block'
     """
     def __block_command_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.cmd.block' % (self.database, self.table, identifier)
+        return '%s.%s.%s.cmd.block' % (self.db_name, self.tbl_name, identifier)
 
-    def save_block_command(self, content: Command, sender: ID) -> bool:
-        key = self.__block_command_key(identifier=sender)
+    def save_block_command(self, content: Command, identifier: ID) -> bool:
+        key = self.__block_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
     def block_command(self, identifier: ID) -> Optional[Command]:
@@ -129,10 +129,10 @@ class UserCache(Cache):
         redis key: 'mkm.user.{ID}.cmd.mute'
     """
     def __mute_command_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.cmd.mute' % (self.database, self.table, identifier)
+        return '%s.%s.%s.cmd.mute' % (self.db_name, self.tbl_name, identifier)
 
-    def save_mute_command(self, content: Command, sender: ID) -> bool:
-        key = self.__mute_command_key(identifier=sender)
+    def save_mute_command(self, content: Command, identifier: ID) -> bool:
+        key = self.__mute_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
     def mute_command(self, identifier: ID) -> Optional[Command]:

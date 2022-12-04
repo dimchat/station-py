@@ -28,66 +28,59 @@ from typing import Optional, List
 
 from dimp import ID, Document
 
-from .base import Storage
+from dimples.utils import Log
+from dimples.database.dos.base import template_replace
+from dimples.database.dos.document import parse_document
+from dimples.database import DocumentStorage as SuperStorage
 
 
-class DocumentStorage(Storage):
-    """
-        Document for Entities (User/Group)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class DocumentStorage(SuperStorage):
 
-        file path: '.dim/mkm/{ADDRESS}/profile.js'
-        file path: '.dim/public/{ADDRESS}/profile.js'
-    """
-    def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'public', str(identifier.address), 'profile.js')
+    # compatible with v1.0
+    doc_path_old = '{PUBLIC}/{ADDRESS}/profile.js'
+    doc_path_new = '{PUBLIC}/{ADDRESS}/document.js'
 
-    def save_document(self, document: Document) -> bool:
-        identifier = document.identifier
-        dictionary = document.dictionary
-        path = self.__path(identifier=identifier)
-        self.info('Saving document into: %s' % path)
-        return self.write_json(container=dictionary, path=path)
+    def __path(self, address: Optional[ID, str], path: str) -> str:
+        if isinstance(address, ID):
+            address = str(address.address)
+        path = template_replace(path, 'PUBLIC', self._public)
+        return template_replace(path, 'ADDRESS', address)
 
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        path = self.__path(identifier=identifier)
-        self.info('Loading document from: %s' % path)
-        dictionary = self.read_json(path=path)
-        return parse_document(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
+    def __doc_path_old(self, address: Optional[ID, str]) -> str:
+        return self.__path(address=address, path=self.doc_path_old)
+
+    def __doc_path_new(self, address: Optional[ID, str]) -> str:
+        return self.__path(address=address, path=self.doc_path_new)
+
+    # Override
+    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+        """ load document from file """
+        return load_document(address=str(identifier.address), pub=self._public)
 
     def scan_documents(self) -> List[Document]:
-        """ Scan all documents from data directory """
+        """ Scan documents from local directory for IDs """
         documents = []
-        directory = os.path.join(self.root, 'public')
-        array = os.listdir(directory)
+        pub = self._public
+        array = os.listdir(pub)
         for item in array:
-            path = os.path.join(directory, item, 'profile.js')
-            self.info('Loading document from: %s' % path)
-            dictionary = self.read_json(path=path)
-            doc = parse_document(dictionary=dictionary)
+            doc = load_document(address=item, pub=pub)
             if doc is not None:
                 documents.append(doc)
-        self.debug('Scanned %d documents(s) from %s' % (len(documents), directory))
+        self.debug('Scanned %d documents(s) from %s' % (len(documents), pub))
         return documents
 
 
-def parse_document(dictionary: Optional[dict],
-                   identifier: Optional[ID] = None,
-                   doc_type: Optional[str] = '*') -> Optional[Document]:
-    if dictionary is None:
-        return None
-    if identifier is None:
-        identifier = ID.parse(identifier=dictionary.get('ID'))
-        if identifier is None:
-            raise ValueError('document error: %s' % dictionary)
-    dt = dictionary.get('type')
-    if dt is not None:
-        doc_type = dt
-    data = dictionary.get('data')
-    if data is None:
-        # compatible with v1.0
-        data = dictionary.get('profile')
-    signature = dictionary.get('signature')
-    if data is None or signature is None:
-        raise ValueError('document error: %s' % dictionary)
-    return Document.create(doc_type=doc_type, identifier=identifier, data=data, signature=signature)
+def load_document(address: str, pub: str) -> Optional[Document]:
+    path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_new)
+    if not os.path.exists(path):
+        # load from old version
+        path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_old)
+    Log.info(msg='Loading document from: %s' % path)
+    info = DocumentStorage.read_json(path=path)
+    if info is not None:
+        return parse_document(dictionary=info)
+
+
+def get_path(address: str, pub: str, path: str) -> str:
+    path = template_replace(path, 'PUBLIC', pub)
+    return template_replace(path, 'ADDRESS', address)

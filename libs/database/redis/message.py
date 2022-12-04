@@ -27,7 +27,7 @@ import time
 from typing import List, Optional
 
 from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import EntityType, ID
+from dimsdk import ID
 from dimsdk import ReliableMessage
 
 from ...utils import get_msg_sig
@@ -44,11 +44,11 @@ class MessageCache(Cache):
     LIMIT = 2048
 
     @property  # Override
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
         return 'dkd'
 
     @property  # Override
-    def table(self) -> str:
+    def tbl_name(self) -> str:
         return 'msg'
 
     """
@@ -59,39 +59,34 @@ class MessageCache(Cache):
         redis key: 'dkd.msg.{ID}.messages'
     """
     def __msg_key(self, identifier: ID, sig: str) -> str:
-        return '%s.%s.%s.%s' % (self.database, self.table, identifier, sig)
+        return '%s.%s.%s.%s' % (self.db_name, self.tbl_name, identifier, sig)
 
     def __messages_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.messages' % (self.database, self.table, identifier)
+        return '%s.%s.%s.messages' % (self.db_name, self.tbl_name, identifier)
 
-    def save_message(self, msg: ReliableMessage) -> bool:
-        if ignore_message(msg=msg):
-            return False
+    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        value = json_encode(obj=msg.dictionary)
-        value = utf8_encode(string=value)
-        msg_key = self.__msg_key(identifier=msg.receiver, sig=sig)
+        # 1. save message: 'dkd.msg.{RECEIVER}.{SIG}
+        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        js = json_encode(obj=msg.dictionary)
+        value = utf8_encode(string=js)
         self.set(name=msg_key, value=value, expires=self.EXPIRES)
-        # append msg.signature to an ordered set
-        messages_key = self.__messages_key(identifier=msg.receiver)
+        # 2. append sig to an ordered set
+        messages_key = self.__messages_key(identifier=receiver)
         self.zadd(name=messages_key, mapping={sig: msg.time})
         return True
 
-    def remove_message(self, msg: ReliableMessage) -> bool:
-        if ignore_message(msg=msg):
-            return False
-        receiver = msg.receiver
+    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
-        value = utf8_encode(string=sig)
-        # 1. delete msg.dictionary from redis server
+        # 1. delete message: 'dkd.msg.{RECEIVER}.{SIG}
         msg_key = self.__msg_key(identifier=receiver, sig=sig)
         self.delete(msg_key)
-        # 2. delete msg.signature from the ordered set
+        # 2. delete sig from the ordered set
         messages_key = self.__messages_key(identifier=receiver)
-        self.zrem(messages_key, value)
+        self.zrem(messages_key, utf8_encode(string=sig))
         return True
 
-    def messages(self, receiver: ID) -> List[ReliableMessage]:
+    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
         # 0. clear expired messages (7 days ago)
         key = self.__messages_key(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
@@ -108,33 +103,14 @@ class MessageCache(Cache):
         for sig in signatures:
             # get messages by receiver & signature
             msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
-            info = self.get(name=msg_key)
-            if info is None:
+            value = self.get(name=msg_key)
+            if value is None:
                 continue
             try:
-                info = utf8_decode(data=info)
-                info = json_decode(string=info)
-                msg = ReliableMessage.parse(msg=info)
+                js = utf8_decode(data=value)
+                dictionary = json_decode(string=js)
+                msg = ReliableMessage.parse(msg=dictionary)
                 array.append(msg)
             except Exception as error:
-                print('[REDIS] message error: %s' % error)
+                print('[REDIS] message error: %s => %s' % (error, value))
         return array
-
-
-def is_broadcast_message(msg: ReliableMessage):
-    if msg.receiver.is_broadcast:
-        return True
-    group = msg.group
-    return group is not None and group.is_broadcast
-
-
-def ignore_message(msg: ReliableMessage) -> bool:
-    if is_broadcast_message(msg=msg):
-        # ignore broadcast message
-        return True
-    if msg.sender.type == EntityType.STATION:
-        # ignore message from station
-        return True
-    if msg.receiver.type == EntityType.STATION:
-        # ignore message to station
-        return True

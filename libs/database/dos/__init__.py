@@ -29,10 +29,13 @@
     File System
 """
 
-from .base import Storage
+from dimples.database.dos import Storage
+from dimples.database.dos import PrivateKeyStorage
+from dimples.database.dos import MetaStorage
+from dimples.database.dos import LoginStorage
+
+from .provider import ProviderStorage
 from .ans import AddressNameStorage
-from .private_key import PrivateKeyStorage
-from .meta import MetaStorage
 from .document import DocumentStorage
 from .device import DeviceStorage
 from .user import UserStorage
@@ -41,11 +44,11 @@ from .group import GroupStorage
 __all__ = [
 
     'Storage',
+    'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
+    'UserStorage', 'GroupStorage',
+    'LoginStorage',
 
     'AddressNameStorage',
-    'PrivateKeyStorage',
-    'MetaStorage',
-    'DocumentStorage', 'DeviceStorage',
-    'UserStorage',
-    'GroupStorage',
+    'DeviceStorage',
+    'ProviderStorage',
 ]

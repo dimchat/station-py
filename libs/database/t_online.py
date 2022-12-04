@@ -23,33 +23,34 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
-from typing import Optional
+from dimsdk import ID
 
-from dimp import ID, Meta
+from dimples.database.t_online import OnlineTable as SuperTable
 
-from .base import Storage
+from .redis import LoginCache
 
 
-class MetaStorage(Storage):
-    """
-        Meta file for Entities (User/Group)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class OnlineTable(SuperTable):
+    """ Implementations of OnlineDBI """
 
-        file path: '.dim/mkm/{ADDRESS}/meta.js'
-        file path: '.dim/public/{ADDRESS}/meta.js'
-    """
-    def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'public', str(identifier.address), 'meta.js')
+    def __init__(self, root: str = None, public: str = None, private: str = None):
+        super().__init__(root=root, public=public, private=private)
+        self.__redis = LoginCache()
 
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        path = self.__path(identifier=identifier)
-        self.info('Saving meta into: %s' % path)
-        return self.write_json(container=meta.dictionary, path=path)
+    #
+    #   Online DBI
+    #
 
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        path = self.__path(identifier=identifier)
-        self.info('Loading meta from: %s' % path)
-        dictionary = self.read_json(path=path)
-        if dictionary is not None:
-            return Meta.parse(meta=dictionary)
+    # Override
+    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
+        # 1. store into memory cache
+        super().add_socket_address(identifier=identifier, address=address)
+        # 2. store into Redis Server
+        return self.__redis.add_socket_address(identifier=identifier, address=address)
+
+    # Override
+    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
+        # 1. remove from memory cache
+        super().remove_socket_address(identifier=identifier, address=address)
+        # 2. remove from Redis Server
+        return self.__redis.remove_socket_address(identifier=identifier, address=address)

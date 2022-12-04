@@ -51,27 +51,29 @@ g_dbs = {
 class Cache:
 
     @classmethod
-    def get_redis(cls, table: str, database: Optional[str] = None) -> Redis:
-        if database is None:
-            db = g_dbs.get(table)
+    def get_redis(cls, db_name: Optional[str], tbl_name: str) -> Redis:
+        if db_name is None:
+            db = g_dbs.get(tbl_name)
         else:
-            db = g_dbs.get('%s.%s' % (database, table))
+            db = g_dbs.get('%s.%s' % (db_name, tbl_name))
             if db is None:
-                db = g_dbs.get(table)
+                db = g_dbs.get(tbl_name)
         if db is None:
             db = g_db_0
         return db
 
     @property
     def redis(self) -> Redis:
-        return self.get_redis(table=self.table, database=self.database)
+        return self.get_redis(db_name=self.db_name, tbl_name=self.tbl_name)
 
     @property
-    def database(self) -> Optional[str]:
+    def db_name(self) -> Optional[str]:
+        """ database name for redis """
         raise NotImplemented
 
     @property
-    def table(self) -> str:
+    def tbl_name(self) -> str:
+        """ table name for redis """
         raise NotImplemented
 
     #
@@ -100,6 +102,10 @@ class Cache:
         """ Update expired time with name """
         self.redis.expire(name=name, time=ti)
         return True
+
+    def scan(self, cursor: int, match: str, count: int) -> (int, Optional[List[bytes]]):
+        """ Scan key names, return next cursor and partial results """
+        return self.redis.scan(cursor=cursor, match=match, count=count)
 
     #
     #   Hash Mapping

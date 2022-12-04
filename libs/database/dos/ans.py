@@ -23,12 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
 from typing import Dict
 
-from dimp import ID, ANYONE, EVERYONE
+from dimp import ID, ANYONE, EVERYONE, FOUNDER
 
-from .base import Storage
+from dimples.database.dos.base import template_replace
+from dimples.database.dos import Storage
 
 
 class AddressNameStorage(Storage):
@@ -36,42 +36,49 @@ class AddressNameStorage(Storage):
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/ans.txt'
+        file path: '.dim/private/ans.js'
     """
-    def __path(self) -> str:
-        return os.path.join(self.root, 'ans.txt')
+    ans_path = '{PRIVATE}/ans.js'
+
+    def show_info(self):
+        path = template_replace(self.ans_path, 'PRIVATE', self._private)
+        print('!!!       ans path: %s' % path)
+
+    def __ans_path(self) -> str:
+        path = self.ans_path
+        return template_replace(path, 'PRIVATE', self._private)
 
     def load_records(self) -> Dict[str, ID]:
-        path = self.__path()
+        path = self.__ans_path()
         self.info('Loading ANS records from: %s' % path)
-        dictionary = {}
-        text = self.read_text(path=path)
-        if text is not None:
-            lines = text.splitlines()
-            for record in lines:
-                pair = record.split('\t')
-                if len(pair) != 2:
-                    self.error('invalid record: %s' % record)
+        records = {}
+        dictionary = self.read_json(path=path)
+        if dictionary is not None:
+            for name in dictionary:
+                value = dictionary[name]
+                # convert ID
+                uid = ID.parse(identifier=value)
+                if uid is None:
+                    self.error(msg='invalid record: %s => %s' % (name, value))
                     continue
-                k = pair[0]
-                v = pair[1]
-                dictionary[k] = ID.parse(identifier=v)
+                records[name] = uid
         #
         #  Reserved names
         #
-        dictionary['all'] = EVERYONE
-        dictionary[EVERYONE.name] = EVERYONE
-        dictionary[ANYONE.name] = ANYONE
-        dictionary['owner'] = ANYONE
-        dictionary['founder'] = ID.parse(identifier='moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ')  # 'Albert Moky'
-        return dictionary
+        records['all'] = EVERYONE
+        records[EVERYONE.name] = EVERYONE
+        records[ANYONE.name] = ANYONE
+        records['owner'] = ANYONE
+        records['founder'] = FOUNDER  # 'Albert Moky'
+        return records
 
     def save_records(self, records: Dict[str, ID]) -> bool:
-        text = ''
-        for k in records:
-            v = records[k]
-            if v is not None:
-                text = text + k + '\t' + v + '\n'
-        path = self.__path()
-        self.info('Saving ANS records(%d) into: %s' % (len(records), path))
-        return self.write_text(text=text, path=path)
+        dictionary = {}
+        # revert ID
+        for name in records:
+            uid = records[name]
+            if uid is not None:
+                dictionary[name] = str(uid)
+        path = self.__ans_path()
+        self.info('Saving %d ANS records into: %s' % (len(records), path))
+        return self.write_json(container=dictionary, path=path)

@@ -23,102 +23,103 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
-from typing import List, Optional
+from typing import Optional
 
-from dimsdk import ID, Command, BaseCommand
+from dimsdk import ID
 
-from .base import Storage
+from dimples.database.dos.base import template_replace
+from dimples.database import UserStorage as SuperStorage
+
+from ...common import MuteCommand
+from ...common import BlockCommand
+from ...common import StorageCommand
 
 
-class UserStorage(Storage):
-    """
-        User contacts
-        ~~~~~~~~~~~~~
-
-        file path: '.dim/protected/{ADDRESS}/contacts.txt'
-    """
-    def __contacts_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'contacts.txt')
-
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
-        assert contacts is not None, 'contacts cannot be empty'
-        path = self.__contacts_path(identifier=user)
-        self.info('Saving contacts into: %s' % path)
-        contacts = ID.revert(members=contacts)
-        text = '\n'.join(contacts)
-        return self.write_text(text=text, path=path)
-
-    def contacts(self, user: ID) -> List[ID]:
-        path = self.__contacts_path(identifier=user)
-        self.info('Loading contacts from: %s' % path)
-        text = self.read_text(path=path)
-        if text is None:
-            return []
-        return ID.convert(members=text.splitlines())
+class UserStorage(SuperStorage):
 
     """
         Contacts Command
         ~~~~~~~~~~~~~~~~
 
-        file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
+        file path: '.dim/private/{ADDRESS}/contacts_stored.js'
     """
-    def __contacts_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'contacts_stored.js')
+    contacts_command_path = '{PRIVATE}/{ADDRESS}/contacts_stored.js'
 
-    def save_contacts_command(self, content: Command, sender: ID) -> bool:
+    def show_info(self):
+        super().show_info()
+        path3 = template_replace(self.contacts_command_path, 'PRIVATE', self._private)
+        path4 = template_replace(self.block_command_path, 'PRIVATE', self._private)
+        path5 = template_replace(self.mute_command_path, 'PRIVATE', self._private)
+        print('!!!  contacts path: %s' % path3)
+        print('!!! block cmd path: %s' % path4)
+        print('!!!  mute cmd path: %s' % path5)
+
+    def __contacts_command_path(self, identifier: ID) -> str:
+        path = self.contacts_command_path
+        path = template_replace(path, 'PRIVATE', self._private)
+        return template_replace(path, 'ADDRESS', str(identifier.address))
+
+    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
         assert content is not None, 'contacts command cannot be empty'
-        path = self.__contacts_command_path(identifier=sender)
+        path = self.__contacts_command_path(identifier=identifier)
         self.info('Saving contacts command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
+    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Loading stored contacts command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return BaseCommand(content=dictionary)
+            return StorageCommand(content=dictionary)
 
     """
         Block Command
         ~~~~~~~~~~~~~
 
-        file path: '.dim/protected/{ADDRESS}/block_stored.js'
+        file path: '.dim/private/{ADDRESS}/block_stored.js'
     """
-    def __block_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'block_stored.js')
+    block_command_path = '{PRIVATE}/{ADDRESS}/block_stored.js'
 
-    def save_block_command(self, content: Command, sender: ID) -> bool:
+    def __block_command_path(self, identifier: ID) -> str:
+        path = self.block_command_path
+        path = template_replace(path, 'PRIVATE', self._private)
+        return template_replace(path, 'ADDRESS', str(identifier.address))
+
+    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         assert content is not None, 'block command cannot be empty'
-        path = self.__block_command_path(identifier=sender)
+        path = self.__block_command_path(identifier=identifier)
         self.info('Saving block command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def block_command(self, identifier: ID) -> Optional[Command]:
+    def block_command(self, identifier: ID) -> Optional[BlockCommand]:
         path = self.__block_command_path(identifier=identifier)
         self.info('Loading stored block command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return BaseCommand(content=dictionary)
+            return BlockCommand(content=dictionary)
 
     """
         Mute Command
         ~~~~~~~~~~~~~
 
-        file path: '.dim/protected/{ADDRESS}/mute_stored.js'
+        file path: '.dim/private/{ADDRESS}/mute_stored.js'
     """
-    def __mute_command_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'mute_stored.js')
+    mute_command_path = '{PRIVATE}/{ADDRESS}/mute_stored.js'
 
-    def save_mute_command(self, content: Command, sender: ID) -> bool:
+    def __mute_command_path(self, identifier: ID) -> str:
+        path = self.mute_command_path
+        path = template_replace(path, 'PRIVATE', self._private)
+        return template_replace(path, 'ADDRESS', str(identifier.address))
+
+    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         assert content is not None, 'mute command cannot be empty'
-        path = self.__mute_command_path(identifier=sender)
+        path = self.__mute_command_path(identifier=identifier)
         self.info('Saving mute command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def mute_command(self, identifier: ID) -> Optional[Command]:
+    def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
         path = self.__mute_command_path(identifier=identifier)
         self.info('Loading stored mute command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return BaseCommand(content=dictionary)
+            return MuteCommand(content=dictionary)

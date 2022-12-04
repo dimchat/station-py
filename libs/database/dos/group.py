@@ -23,59 +23,34 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 
 from dimp import ID
 
-from .base import Storage
+from dimples.database.dos.base import template_replace
+from dimples.database import GroupStorage as SuperStorage
 
 
-class GroupStorage(Storage):
-    """
-        Group members
-        ~~~~~~~~~~~~~
-
-        file path: '.dim/protected/{ADDRESS}/members.txt'
-    """
-    def __members_path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'members.txt')
-
-    def save_members(self, members: List[ID], group: ID) -> bool:
-        assert len(members) > 0, 'group members should not be empty: %s' % group
-        path = self.__members_path(identifier=group)
-        self.info('Saving members into: %s' % path)
-        members = ID.revert(members=members)
-        text = '\n'.join(members)
-        return self.write_text(text=text, path=path)
-
-    def members(self, group: ID) -> List[ID]:
-        # 2. try from local storage
-        path = self.__members_path(identifier=group)
-        self.info('Loading members from: %s' % path)
-        text = self.read_text(path=path)
-        if text is None:
-            return []
-        else:
-            return ID.convert(members=text.splitlines())
-
-    def founder(self, group: ID) -> ID:
-        # TODO: get founder
-        pass
-
-    def owner(self, group: ID) -> ID:
-        # TODO: get owner
-        pass
+class GroupStorage(SuperStorage):
 
     """
         Encrypted keys
         ~~~~~~~~~~~~~~
         
-        file path: '.dim/protected/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS}.json
+        file path: '.dim/private/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS}.js
     """
+    keys_path = '{PRIVATE}/{GROUP_ADDRESS}/group-keys-{SENDER_ADDRESS}.js'
+
+    def show_info(self):
+        super().show_info()
+        path = template_replace(self.keys_path, 'PRIVATE', self._private)
+        print('!!!  grp keys path: %s' % path)
+
     def __keys_path(self, group: ID, sender: ID) -> str:
-        filename = 'group-keys-%s.js' % str(sender.address)
-        return os.path.join(self.root, 'protected', str(group.address), filename)
+        path = self.members_path
+        path = template_replace(path, 'PRIVATE', self._private)
+        path = template_replace(path, 'GROUP_ADDRESS', str(group.address))
+        return template_replace(path, 'SENDER_ADDRESS', str(sender.address))
 
     def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
         path = self.__keys_path(group=group, sender=sender)

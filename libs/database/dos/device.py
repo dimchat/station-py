@@ -23,12 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import os
 from typing import Optional, List
 
 from dimp import ID
 
-from .base import Storage
+from dimples.database.dos.base import template_replace
+from dimples.database.dos import Storage
 
 
 class DeviceStorage(Storage):
@@ -36,18 +36,26 @@ class DeviceStorage(Storage):
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/protected/{ADDRESS}/device.js'
+        file path: '.dim/private/{ADDRESS}/device.js'
     """
-    def __path(self, identifier: ID) -> str:
-        return os.path.join(self.root, 'protected', str(identifier.address), 'device.js')
+    device_path = '{PRIVATE}/{ADDRESS}/device.js'
+
+    def show_info(self):
+        path = template_replace(self.device_path, 'PRIVATE', self._private)
+        print('!!!    device path: %s' % path)
+
+    def __device_path(self, identifier: ID) -> str:
+        path = self.device_path
+        path = template_replace(path, 'PRIVATE', self._private)
+        return template_replace(path, 'ADDRESS', str(identifier.address))
 
     def save_device(self, device: dict, identifier: ID) -> bool:
-        path = self.__path(identifier=identifier)
+        path = self.__device_path(identifier=identifier)
         self.info('Saving device info into: %s' % path)
         return self.write_json(container=device, path=path)
 
     def device(self, identifier: ID) -> Optional[dict]:
-        path = self.__path(identifier=identifier)
+        path = self.__device_path(identifier=identifier)
         self.info('Loading device from: %s' % path)
         return self.read_json(path=path)
 
