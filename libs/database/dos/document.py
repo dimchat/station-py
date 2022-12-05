@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import os
-from typing import Optional, List
+from typing import Optional, Union, List
 
 from dimp import ID, Document
 
@@ -40,16 +40,16 @@ class DocumentStorage(SuperStorage):
     doc_path_old = '{PUBLIC}/{ADDRESS}/profile.js'
     doc_path_new = '{PUBLIC}/{ADDRESS}/document.js'
 
-    def __path(self, address: Optional[ID, str], path: str) -> str:
+    def __path(self, address: Union[ID, str], path: str) -> str:
         if isinstance(address, ID):
             address = str(address.address)
         path = template_replace(path, 'PUBLIC', self._public)
         return template_replace(path, 'ADDRESS', address)
 
-    def __doc_path_old(self, address: Optional[ID, str]) -> str:
+    def __doc_path_old(self, address: Union[ID, str]) -> str:
         return self.__path(address=address, path=self.doc_path_old)
 
-    def __doc_path_new(self, address: Optional[ID, str]) -> str:
+    def __doc_path_new(self, address: Union[ID, str]) -> str:
         return self.__path(address=address, path=self.doc_path_new)
 
     # Override

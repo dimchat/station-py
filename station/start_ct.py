@@ -31,29 +31,32 @@
     DIM network server node
 """
 
+import getopt
 import socket
+import sys
 import traceback
 from typing import Optional
 
 from gevent import spawn, monkey
 
-import sys
-import os
+from dimples.utils import Log, Logging
+from dimples.utils import Path
+from dimples.database import Storage
+from dimples import Config
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+path = Path.abs(path=__file__)
+path = Path.dir(path=path)
+path = Path.dir(path=path)
+Path.add(path=path)
 
 monkey.patch_all()
 
-from libs.utils import Log, Logging
 from libs.utils.mtp import Server as UDPServer
-from libs.push import PushCenter
-from libs.server import Dispatcher
 
-from etc.cfg_init import neighbor_stations
-
-from station.config import g_station
+from station.shared import GlobalVariable
+from station.shared import init_database, init_facebook, init_ans
+from station.shared import init_pusher, stop_pusher
+from station.shared import init_dispatcher, stop_dispatcher
 from station.handler import RequestHandler
 
 
@@ -89,43 +92,84 @@ class TCPServer(Logging):
             traceback.print_exc()
 
 
-"""
-    Message Dispatcher
-    ~~~~~~~~~~~~~~~~~~
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
 
-    A dispatcher to decide which way to deliver message.
-"""
-g_dispatcher = Dispatcher()
-g_dispatcher.push_service = PushCenter()
-# set current station for dispatcher
-g_dispatcher.station = g_station.identifier
 
-# load neighbour station for delivering message
-Log.info('-------- Loading neighbor stations: %d' % len(neighbor_stations))
-for node in neighbor_stations:
-    assert node != g_station, 'neighbor station error: %s, %s' % (node, g_station)
-    Log.info('add node: %s' % node)
-    g_dispatcher.add_neighbor(station=node.identifier)
+def show_help():
+    cmd = sys.argv[0]
+    print('')
+    print('    DIM Network Station')
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help()
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help()
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = '/etc/dim/config.ini'
+    if not Storage.exists(path=ini_file):
+        show_help()
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config
+    config = Config.load(file=ini_file)
+    # initializing
+    print('[DB] init with config: %s => %s' % (ini_file, config))
+    shared = GlobalVariable()
+    shared.config = config
+    init_database(shared=shared)
+    init_facebook(shared=shared)
+    init_ans(shared=shared)
+    init_pusher(shared=shared)
+    init_dispatcher(shared=shared)
+
+    # start UDP Server
+    Log.info('>>> UDP server (%s:%d) starting ...' % (config.host, config.port))
+    g_udp_server = UDPServer(host=config.host, port=config.port)
+    g_udp_server.start()
+
+    # start TCP server
+    try:
+        # ThreadingTCPServer.allow_reuse_address = True
+        server = TCPServer(server_address=(config.host, config.port),
+                           request_handler_class=RequestHandler)
+        Log.info(msg='>>> TCP server (%s:%d) starting...' % (config.host, config.port))
+        spawn(server.start).join()
+    except KeyboardInterrupt as ex:
+        Log.info(msg='~~~~~~~~ %s' % ex)
+    finally:
+        g_udp_server.stop()
+        stop_dispatcher(shared=shared)
+        stop_pusher(shared=shared)
+        Log.info(msg='======== station shutdown!')
 
 
 if __name__ == '__main__':
-
-    g_dispatcher.start()
-
-    # start UDP Server
-    Log.info('>>> UDP server (%s:%d) starting ...' % (g_station.host, g_station.port))
-    g_udp_server = UDPServer(host=g_station.host, port=g_station.port)
-    g_udp_server.start()
-
-    # start TCP Server
-    try:
-        server = TCPServer(server_address=(g_station.host, g_station.port),
-                           request_handler_class=RequestHandler)
-        Log.info('>>> TCP server (%s:%d) starting...' % (g_station.host, g_station.port))
-        spawn(server.start).join()
-    except KeyboardInterrupt as ex:
-        Log.info('~~~~~~~~ %s' % ex)
-    finally:
-        g_udp_server.stop()
-        g_dispatcher.stop()
-        Log.info('======== station shutdown!')
+    main()

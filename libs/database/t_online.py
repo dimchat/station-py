@@ -23,9 +23,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import ID
+import time
+from typing import Set, Tuple
 
-from dimples.database.t_online import OnlineTable as SuperTable
+from dimples import ID
+
+from dimples.utils import CacheHolder, CacheManager
+from dimples.database import OnlineTable as SuperTable
 
 from .redis import LoginCache
 
@@ -36,21 +40,87 @@ class OnlineTable(SuperTable):
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__(root=root, public=public, private=private)
         self.__redis = LoginCache()
+        man = CacheManager()
+        self.__online_cache = man.get_pool(name='session.online')  # 'active_users' => Set(ID)
 
     #
     #   Online DBI
     #
 
     # Override
-    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
-        # 1. store into memory cache
-        super().add_socket_address(identifier=identifier, address=address)
-        # 2. store into Redis Server
-        return self.__redis.add_socket_address(identifier=identifier, address=address)
+    def active_users(self) -> Set[ID]:
+        """ read by archivist bot """
+        now = time.time()
+        # 1. check memory cache
+        value, holder = self.__online_cache.fetch(key='active_users', now=now)
+        if value is None:
+            # cache empty
+            if holder is None:
+                # active_users not load yet, wait to load
+                self.__online_cache.update(key='active_users', life_span=128, now=now)
+            else:
+                assert isinstance(holder, CacheHolder), 'active_users cache error'
+                if holder.is_alive(now=now):
+                    # active_users not exists
+                    return set()
+                # active_users expired, wait to reload
+                holder.renewal(duration=128, now=now)
+            # 2. check redis server
+            value = self.__redis.active_users()
+            if len(value) == 0:
+                # 3. check local cache
+                value = super().active_users()
+            # update memory cache
+            self.__online_cache.update(key='active_users', value=value, life_span=300, now=now)
+        # OK, return cached value
+        return value
+
+    # # Override
+    # def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
+    #     """ read by archivist bot """
+    #     now = time.time()
+    #     # 1. check memory cache
+    #     value, holder = self.__online_cache.fetch(key=identifier, now=now)
+    #     if value is None:
+    #         # cache empty
+    #         if holder is None:
+    #             # sockets not load yet, wait to load
+    #             self.__online_cache.update(key=identifier, life_span=128, now=now)
+    #         else:
+    #             assert isinstance(holder, CacheHolder), 'socket address cache error'
+    #             if holder.is_alive(now=now):
+    #                 # socket not exists
+    #                 return set()
+    #             # socket expired, wait to reload
+    #             holder.renewal(duration=128, now=now)
+    #         # 2. check redis server
+    #         value = self.__redis.socket_addresses(identifier=identifier)
+    #         if len(value) == 0:
+    #             # 3. check local cache
+    #             value = super().socket_addresses(identifier=identifier)
+    #         # update memory cache
+    #         self.__online_cache.update(key=identifier, value=value, life_span=300, now=now)
+    #     # OK, return cached value
+    #     return value
 
     # Override
-    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
-        # 1. remove from memory cache
-        super().remove_socket_address(identifier=identifier, address=address)
-        # 2. remove from Redis Server
-        return self.__redis.remove_socket_address(identifier=identifier, address=address)
+    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        """ wrote by station only """
+        # 1. store into local cache
+        sockets = super().add_socket_address(identifier=identifier, address=address)
+        # # 2. store into local cache
+        # self.__online_cache.update(key=identifier, value=sockets, life_span=300)
+        # 3. refresh Redis Server
+        self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+        return sockets
+
+    # Override
+    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        """ wrote by station only """
+        # 1. remove from local cache
+        sockets = super().remove_socket_address(identifier=identifier, address=address)
+        # # 2. store into local cache
+        # self.__online_cache.update(key=identifier, value=sockets, life_span=300)
+        # 3. refresh Redis Server
+        self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+        return sockets

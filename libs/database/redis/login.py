@@ -96,13 +96,38 @@ class LoginCache(Cache):
     def __active_sockets_key(self) -> str:
         return '%s.%s.active_sockets' % (self.db_name, self.tbl_name)
 
-    # Override
+    def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
+        name = self.__active_sockets_key()
+        value = serialize_socket_addresses(addresses=addresses)
+        if value is None:
+            return self.hdel(name=name, key=str(identifier))
+        return self.hset(name=name, key=str(identifier), value=value)
+
+    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
+        name = self.__active_sockets_key()
+        value = self.hget(name=name, key=str(identifier))
+        if is_empty(value=value):
+            return set()
+        return deserialize_socket_addresses(value=value)
+
+    def all_users(self) -> Set[ID]:
+        name = self.__active_sockets_key()
+        all_keys = self.hkeys(name=name)
+        users = set()
+        for key in all_keys:
+            identifier = ID.parse(identifier=key)
+            if identifier is None:
+                # should not happen
+                continue
+            users.add(identifier)
+        return users
+
     def active_users(self) -> Set[ID]:
         name = self.__active_sockets_key()
         records = self.hgetall(name=name)  # ID => Set[socket_address]
         if records is None:
             return set()
-        all_users = set()
+        users = set()
         for key in records:
             value = records[key]
             if is_empty(value=value):
@@ -112,32 +137,8 @@ class LoginCache(Cache):
             if identifier is None:
                 # should not happen
                 continue
-            all_users.add(identifier)
-        return all_users
-
-    # Override
-    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
-        name = self.__active_sockets_key()
-        value = self.hget(name=name, key=str(identifier))
-        if is_empty(value=value):
-            return set()
-        return deserialize_socket_addresses(value=value)
-
-    # Override
-    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> bool:
-        name = self.__active_sockets_key()
-        all_addresses = self.socket_addresses(identifier=identifier)
-        all_addresses.add(address)
-        value = serialize_socket_addresses(addresses=all_addresses)
-        return self.hset(name=name, key=str(identifier), value=value)
-
-    # Override
-    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> bool:
-        name = self.__active_sockets_key()
-        all_addresses = self.socket_addresses(identifier=identifier)
-        all_addresses.discard(address)
-        value = serialize_socket_addresses(addresses=all_addresses)
-        return self.hset(name=name, key=str(identifier), value=value)
+            users.add(identifier)
+        return users
 
 
 """

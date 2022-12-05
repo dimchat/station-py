@@ -25,8 +25,10 @@
 
 from typing import List, Optional
 
-from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import ID, Command
+from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import ID, Command
+
+from ...common import StorageCommand, BlockCommand, MuteCommand
 
 from .base import Cache
 
@@ -80,13 +82,15 @@ class UserCache(Cache):
     def __contacts_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
         key = self.__contacts_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
+    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
         key = self.__contacts_command_key(identifier=identifier)
-        return self.__load_command(key=key)
+        dictionary = self.__load_command(key=key)
+        if dictionary is not None:
+            return StorageCommand(content=dictionary)
 
     def __save_command(self, key: str, content: Command) -> bool:
         dictionary = content.dictionary
@@ -95,15 +99,14 @@ class UserCache(Cache):
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def __load_command(self, key: str) -> Optional[Command]:
+    def __load_command(self, key: str) -> Optional[dict]:
         value = self.get(name=key)
         if value is None:
             return None
         js = utf8_decode(data=value)
         dictionary = json_decode(string=js)
         assert dictionary is not None, 'cmd error: %s' % value
-        # return BaseCommand(content=dictionary)
-        return Command.parse(content=dictionary)
+        return dictionary
 
     """
         Block Command
@@ -114,13 +117,15 @@ class UserCache(Cache):
     def __block_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.block' % (self.db_name, self.tbl_name, identifier)
 
-    def save_block_command(self, content: Command, identifier: ID) -> bool:
+    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         key = self.__block_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def block_command(self, identifier: ID) -> Optional[Command]:
+    def block_command(self, identifier: ID) -> Optional[BlockCommand]:
         key = self.__block_command_key(identifier=identifier)
-        return self.__load_command(key=key)
+        dictionary = self.__load_command(key=key)
+        if dictionary is not None:
+            return BlockCommand(content=dictionary)
 
     """
         Mute Command
@@ -131,10 +136,12 @@ class UserCache(Cache):
     def __mute_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.mute' % (self.db_name, self.tbl_name, identifier)
 
-    def save_mute_command(self, content: Command, identifier: ID) -> bool:
+    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         key = self.__mute_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def mute_command(self, identifier: ID) -> Optional[Command]:
+    def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
         key = self.__mute_command_key(identifier=identifier)
-        return self.__load_command(key=key)
+        dictionary = self.__load_command(key=key)
+        if dictionary is not None:
+            return MuteCommand(content=dictionary)

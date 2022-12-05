@@ -30,54 +30,56 @@
     A map for short name to ID, just like DNS
 """
 
-from typing import Optional, Union
+from typing import Optional, Set, Tuple
 
-from dimsdk import IdentifierFactory
+from dimsdk.core.ans import keywords
+from dimsdk import IDFactory
 from dimsdk import ID, Address
 from dimsdk import AddressNameService
 
-from ..utils import Singleton
 
-
-"""
-    Address Name Service
-    ~~~~~~~~~~~~~~~~~~~~
-
-    A map for short name to ID, just like DNS
-"""
-
-
-@Singleton
 class AddressNameServer(AddressNameService):
+
+    def fix(self, fixed: Set[Tuple[str, ID]]):
+        """ remove the keywords temporary before save new redords """
+        keywords.remove('assistant')
+        # keywords.remove('station')
+        for item in fixed:
+            self.save(name=item[0], identifier=item[1])
+        # keywords.append('station')
+        keywords.append('assistant')
 
     def load(self):
         # TODO: load all ANS records from database
         pass
 
+    # Override
     def save(self, name: str, identifier: ID = None) -> bool:
         ok = super().save(name=name, identifier=identifier)
         # TODO: save new record into database
         return ok
 
 
-class ANSFactory(IdentifierFactory):
+class ANSFactory(IDFactory):
 
-    def __init__(self):
+    def __init__(self, factory: IDFactory, ans: AddressNameService):
         super().__init__()
-        self.__ids = {}
+        self.__origin = factory
+        self.__ans = ans
 
-    def create_identifier(self, address: Address, name: Optional[str] = None, terminal: Optional[str] = None) -> ID:
-        return s_id_factory.create_identifier(address=address, name=name, terminal=terminal)
+    # Override
+    def generate_identifier(self, meta, network: int, terminal: Optional[str]) -> ID:
+        return self.__origin.generate_identifier(meta=meta, network=network, terminal=terminal)
 
-    def parse_identifier(self, identifier: Union[ID, str, None]) -> Optional[ID]:
+    # Override
+    def create_identifier(self, name: Optional[str], address: Address, terminal: Optional[str]) -> ID:
+        return self.__origin.create_identifier(address=address, name=name, terminal=terminal)
+
+    # Override
+    def parse_identifier(self, identifier: str) -> Optional[ID]:
         # try ANS record
-        _id = g_ans.identifier(name=identifier)
-        if _id is None:
+        aid = self.__ans.identifier(name=identifier)
+        if aid is None:
             # parse by original factory
-            _id = s_id_factory.parse_identifier(identifier=identifier)
-        return _id
-
-
-g_ans = AddressNameServer()
-s_id_factory = ID.factory()
-ID.register(factory=ANSFactory())
+            aid = self.__origin.parse_identifier(identifier=identifier)
+        return aid

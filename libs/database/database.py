@@ -31,12 +31,12 @@
 
 from typing import Optional, List, Set, Tuple
 
-from dimsdk import SymmetricKey, PrivateKey, SignKey, DecryptKey
-from dimsdk import ID, Meta, Document
-from dimsdk import ReliableMessage
+from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
+from dimples import ID, Meta, Document
+from dimples import ReliableMessage
 
-from dimples.common import LoginCommand, ReportCommand
-from dimples.common import AccountDBI, MessageDBI, SessionDBI
+from dimples import LoginCommand, ReportCommand
+from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.database.t_private import PrivateKeyTable
 from dimples.database.t_cipherkey import CipherKeyTable
 from dimples.database.t_report import ReportTable
@@ -76,6 +76,25 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__login_table = LoginTable(root=root, public=public, private=private)
         self.__report_table = ReportTable(root=root, public=public, private=private)
         self.__online_table = OnlineTable(root=root, public=public, private=private)
+
+    def show_info(self):
+        self.__provider_table.show_info()
+        # Entity
+        self.__private_table.show_info()
+        self.__meta_table.show_info()
+        self.__document_table.show_info()
+        self.__device_table.show_info()
+        self.__user_table.show_info()
+        self.__group_table.show_info()
+        self.__msg_key_table.show_info()
+        # Message
+        self.__message_table.show_info()
+        # ANS
+        self.__ans_table.show_info()
+        # Login info
+        self.__login_table.show_info()
+        self.__report_table.show_info()
+        self.__online_table.show_info()
 
     """
         Private Key file for Users
@@ -314,7 +333,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # Override
     def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
-        return self.__msg_key_table.cipher_key(sender=sender, receiver=receiver)
+        return self.__msg_key_table.cipher_key(sender=sender, receiver=receiver, generate=generate)
 
     # Override
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
@@ -387,11 +406,11 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         return self.__online_table.socket_addresses(identifier=identifier)
 
     # Override
-    def add_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         return self.__online_table.add_socket_address(identifier=identifier, address=address)
 
     # Override
-    def remove_socket_address(self, identifier: ID, address: tuple) -> bool:
+    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         return self.__online_table.remove_socket_address(identifier=identifier, address=address)
 
     #

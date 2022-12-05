@@ -119,7 +119,7 @@ def remove_neighbor(host: str, port: int, stations: Set[Tuple[str, int, ID]]) ->
     return False, None
 
 
-def convert_neighbors(stations: List[List[str, int, str]]) -> Set[Tuple[str, int, ID]]:
+def convert_neighbors(stations: List[list]) -> Set[Tuple[str, int, ID]]:
     """ convert stations from list to set """
     neighbors = set()
     for item in stations:
@@ -131,7 +131,7 @@ def convert_neighbors(stations: List[List[str, int, str]]) -> Set[Tuple[str, int
     return neighbors
 
 
-def revert_neighbors(stations: Set[Tuple[str, int, ID]]) -> List[List[str, int, str]]:
+def revert_neighbors(stations: Set[Tuple[str, int, ID]]) -> List[list]:
     """ revert stations from set to list """
     array = []
     for item in stations:

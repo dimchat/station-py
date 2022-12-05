@@ -30,7 +30,11 @@
     Processors for commands
 """
 
-from ...common.cpu import ReceiptCommandProcessor
+from dimples.server.cpu import HandshakeCommandProcessor
+from dimples.server.cpu import LoginCommandProcessor
+from dimples.server.cpu import DocumentCommandProcessor
+from dimples.server.cpu import ReceiptCommandProcessor
+
 from ...common.cpu import MuteCommandProcessor
 from ...common.cpu import BlockCommandProcessor
 from ...common.cpu import StorageCommandProcessor
@@ -40,7 +44,11 @@ from .search import SearchCommandProcessor
 
 
 __all__ = [
+    'HandshakeCommandProcessor',
+    'LoginCommandProcessor',
+    'DocumentCommandProcessor',
     'ReceiptCommandProcessor',
+
     'MuteCommandProcessor',
     'BlockCommandProcessor',
     'StorageCommandProcessor',

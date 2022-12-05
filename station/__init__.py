@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+#
+#   DIMS : DIM Station
+#
+#                                Written in 2022 by Moky <albert.moky@gmail.com>
+#
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2022 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,25 +28,14 @@
 # SOFTWARE.
 # ==============================================================================
 
-"""
-    Receipt Command Processor
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 """
+    DIM Station
+    ~~~~~~~~~~~
 
-from typing import List
-
-from dimsdk import ReliableMessage
-from dimsdk import Content
-from dimsdk import BaseCommandProcessor
-
-from ..protocol import ReceiptCommand
+    DIM network server node
+"""
 
 
-class ReceiptCommandProcessor(BaseCommandProcessor):
-
-    # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
-        # nickname = self.facebook.name(identifier=sender)
-        return []
+__all__ = [
+]

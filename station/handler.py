@@ -30,29 +30,43 @@
     Handler for each connection
 """
 
+import socket
 import traceback
 from socketserver import StreamRequestHandler
-from typing import Optional
 
-from dimp import InstantMessage
+from libs.utils import Logging, Runner
+from libs.common import CommonPacker
 
-from libs.utils.log import Logging
-from libs.common import MessengerDelegate
-from libs.common import SharedFacebook
-from libs.server import Filter
-from libs.server import Session, SessionServer
+from libs.server import ServerSession, SessionCenter
 from libs.server import ServerMessenger
+from libs.server import ServerProcessor
+from libs.server import DefaultFilter
+
+from .shared import GlobalVariable
 
 
-class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
+def create_messenger(remote: tuple, sock: socket.socket) -> ServerMessenger:
+    shared = GlobalVariable()
+    facebook = shared.facebook
+    # 1. create session with SessionDB
+    session = ServerSession(remote=remote, sock=sock, database=shared.sdb)
+    # 2. create messenger with session and MessageDB
+    messenger = ServerMessenger(session=session, facebook=facebook, database=shared.mdb)
+    # 3. create packer, processor, filter for messenger
+    #    they have weak references to session, facebook & messenger
+    messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
+    messenger.filter = DefaultFilter(session=session, facebook=facebook)
+    # 4. set weak reference messenger in session
+    session.messenger = messenger
+    return messenger
+
+
+class RequestHandler(StreamRequestHandler, Logging):
 
     def __init__(self, request, client_address, server):
-        messenger = ServerMessenger(facebook=SharedFacebook())
-        messenger.session = Session(messenger=messenger, address=client_address, sock=request)
-        messenger.filter = Filter(messenger=messenger)
-        messenger.delegate = self
-        self.__messenger = messenger
-        # init
+        self.__messenger = create_messenger(remote=client_address, sock=request)
+        # call 'setup()', 'handle()', 'finish()'
         super().__init__(request=request, client_address=client_address, server=server)
 
     @property
@@ -64,24 +78,27 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
         super().setup()
         try:
             session = self.messenger.session
-            SessionServer().add_session(session=session)
-            self.info('client connected: %s' % session)
+            center = SessionCenter()
+            center.add_session(session=session)
+            self.info(msg='client connected: %s' % session)
+            assert isinstance(session, Runner), 'session error: %s' % session
             session.setup()
         except Exception as error:
-            self.error('setup request handler error: %s' % error)
+            self.error(msg='setup request handler error: %s' % error)
             traceback.print_exc()
 
     # Override
     def finish(self):
         try:
             session = self.messenger.session
-            self.info('client disconnected: %s' % session)
-            SessionServer().remove_session(session=session)
+            self.info(msg='client disconnected: %s' % session)
+            center = SessionCenter()
+            center.remove_session(session=session)
+            assert isinstance(session, Runner), 'session error: %s' % session
             session.finish()
-            self.messenger.session = None
             self.__messenger = None
         except Exception as error:
-            self.error('finish request handler error: %s' % error)
+            self.error(msg='finish request handler error: %s' % error)
             traceback.print_exc()
         super().finish()
 
@@ -93,26 +110,11 @@ class RequestHandler(StreamRequestHandler, MessengerDelegate, Logging):
     def handle(self):
         super().handle()
         try:
-            self.info('session started: %s' % str(self.client_address))
+            self.info(msg='session started: %s' % str(self.client_address))
             session = self.messenger.session
+            assert isinstance(session, Runner), 'session error: %s' % session
             session.handle()
-            self.info('session finished: %s' % str(self.client_address))
+            self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
-            self.error('request handler error: %s' % error)
+            self.error(msg='request handler error: %s' % error)
             traceback.print_exc()
-
-    #
-    #   MessengerDelegate
-    #
-
-    # Override
-    def upload_encrypted_data(self, data: bytes, msg: InstantMessage) -> Optional[str]:
-        # upload encrypted file data
-        self.info('upload %d bytes for: %s' % (len(data), msg.content))
-        return None
-
-    # Override
-    def download_encrypted_data(self, url: str, msg: InstantMessage) -> Optional[bytes]:
-        # download encrypted file data
-        self.info('download %s for: %s' % (url, msg.content))
-        return None

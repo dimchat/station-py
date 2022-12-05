@@ -36,6 +36,9 @@
 from startrek.fsm import Runnable, Runner
 from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
+from dimples.utils import utf8_encode, utf8_decode
+from dimples.utils import json_encode, json_decode
+
 from dimples.utils import Path
 from dimples.utils import File, TextFile, JSONFile
 from dimples.utils import Singleton
@@ -71,6 +74,9 @@ __all__ = [
 
     'Log', 'Logging',
     'Singleton',
+
+    'utf8_encode', 'utf8_decode',
+    'json_encode', 'json_decode',
 
     'Path',
     'File', 'TextFile', 'JSONFile',

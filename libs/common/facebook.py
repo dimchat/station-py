@@ -32,12 +32,9 @@
 
 from typing import Optional, List
 
-from dimsdk import PrivateKey
-from dimsdk import ID
-
+from dimples import PrivateKey
+from dimples import ID
 from dimples.common import CommonFacebook as SuperFacebook
-
-from ..utils import Singleton
 
 
 class CommonFacebook(SuperFacebook):
@@ -63,48 +60,6 @@ class CommonFacebook(SuperFacebook):
         return db.save_private_key(key=key, identifier=identifier, key_type=key_type)
 
     #
-    #   Relationship
-    #
-
-    def exists_member(self, member: ID, group: ID) -> bool:
-        if self.owner(identifier=group) == member:
-            return True
-        members = self.members(identifier=group)
-        return members is not None and member in members
-
-    def exists_assistant(self, member: ID, group: ID) -> bool:
-        assistants = self.assistants(identifier=group)
-        return assistants is not None and member in assistants
-
-    def name(self, identifier: ID) -> str:
-        doc = self.document(identifier=identifier)
-        if doc is not None:
-            name = doc.name
-            if name is not None and len(name) > 0:
-                return name
-        name = identifier.name
-        if name is not None and len(name) > 0:
-            return name
-        return str(identifier.address)
-
-    def is_waiting_meta(self, identifier: ID) -> bool:
-        """ Check whether meta not found """
-        if identifier.is_broadcast:
-            # broadcast entity has no meta
-            return False
-        return self.meta(identifier=identifier) is None
-
-    def is_empty_group(self, group: ID) -> bool:
-        """ Check whether group info empty (owner or members not found) """
-        if group.is_broadcast:
-            # broadcast group's owner/members are constant defined
-            return False
-        if self.owner(identifier=group) is None:
-            return True
-        members = self.members(identifier=group)
-        return members is None or len(members) == 0
-
-    #
     #    GroupDataSource
     #
 
@@ -127,8 +82,3 @@ class CommonFacebook(SuperFacebook):
                 self.__group_assistants.insert(0, assistant)
             else:
                 self.__group_assistants.append(assistant)
-
-
-@Singleton
-class SharedFacebook(CommonFacebook):
-    pass

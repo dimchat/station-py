@@ -124,6 +124,15 @@ class Cache:
         """ Get all items from the hash table with name """
         return self.redis.hgetall(name=name)
 
+    def hkeys(self, name: str) -> List[str]:
+        """ Return the list of keys within hash name """
+        return self.redis.hkeys(name=name)
+
+    def hdel(self, name: str, key: str):
+        """ Delete value from hash table with name & key """
+        self.redis.hdel(name, key)
+        return True
+
     #
     #   Hash Set
     #

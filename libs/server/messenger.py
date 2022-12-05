@@ -32,9 +32,11 @@
 
 from typing import Optional
 
-from dimsdk import Envelope, Content, TextContent
-from dimsdk import SecureMessage, ReliableMessage
+from dimples import Envelope, Content, TextContent
+from dimples import SecureMessage, ReliableMessage
+
 from dimples.server import ServerMessenger as SuperMessenger
+from dimples.server.pusher import get_name
 
 from ..common import CommonFacebook
 from ..database import Database
@@ -68,11 +70,11 @@ class ServerMessenger(SuperMessenger):
         db = self.database
         if db.is_blocked(sender=sender, receiver=receiver, group=group):
             facebook = self.facebook
-            nickname = facebook.name(identifier=receiver)
+            nickname = get_name(identifier=receiver, facebook=facebook)
             if group is None:
                 text = 'Message is blocked by %s' % nickname
             else:
-                grp_name = facebook.name(identifier=group)
+                grp_name = get_name(identifier=group, facebook=facebook)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
             res = TextContent.create(text=text)

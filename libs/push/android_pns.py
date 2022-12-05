@@ -9,7 +9,7 @@
 
 import jpush
 
-from dimp import ID
+from dimples import ID
 
 from dimples.server import PushService, PushInfo
 
@@ -18,10 +18,11 @@ from ..utils import Logging
 
 class AndroidPushNotificationService(PushService, Logging):
 
-    # TODO: read values from 'config.ini'
-    app_key = "db6d7573a1643e36cf2451c6"
-    master_secret = "d6ddc704ce0cde1d7462b4f4"
-    apns_production = False
+    def __init__(self, app_key: str, master_secret: str, apns_production: bool = False):
+        super().__init__()
+        self.app_key = app_key
+        self.master_secret = master_secret
+        self.apns_production = apns_production
 
     def push(self, alias: str, message: str) -> bool:
 

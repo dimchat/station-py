@@ -30,7 +30,6 @@
     Processors for commands
 """
 
-from .receipt import ReceiptCommandProcessor
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
 from .storage import StorageCommandProcessor
@@ -38,7 +37,6 @@ from .storage import StorageCommandProcessor
 
 __all__ = [
 
-    'ReceiptCommandProcessor',
     'MuteCommandProcessor',
     'BlockCommandProcessor',
     'StorageCommandProcessor',

@@ -5,11 +5,13 @@ import socket
 import traceback
 from typing import Optional
 
+from startrek import Docker, DockerStatus, DockerDelegate
+from startrek import Arrival, Departure
 from udp.mtp import Package, DataType
+from udp import PackageArrival, PackageDocker
+from udp import ServerHub as UDPServerHub
 
-from ...network import Docker, DockerStatus, DockerDelegate
-from ...network import Arrival, Departure
-from ...network import PackageArrival, PackageDocker, UDPServerHub, UDPServerGate
+from dimples.conn import UDPServerGate
 
 import dmtp
 

@@ -30,15 +30,12 @@
     Common libs for Server or Client
 """
 
-from dimples.common import CommonMessenger
+from dimples import CommonMessenger
+from dimples import Config
 
 from .protocol import *
 
-from .notification import NotificationNames
-
-from .ans import AddressNameServer
-
-from .facebook import CommonFacebook, SharedFacebook
+from .facebook import CommonFacebook
 from .packer import CommonPacker
 
 
@@ -55,9 +52,8 @@ __all__ = [
     #
     #   Common libs
     #
-    'NotificationNames',
-    'AddressNameServer',
-
-    'CommonFacebook', 'SharedFacebook',
+    'CommonFacebook',
     'CommonMessenger', 'CommonPacker',
+
+    'Config',
 ]
