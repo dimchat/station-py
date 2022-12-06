@@ -60,4 +60,7 @@ class AndroidPushNotificationService(PushService, Logging):
                           title: str = None, content: str = None, image: str = None,
                           badge: int = 0, sound: str = None):
         # TODO: check whether receiver has signed-in via Android client
-        return self.push(alias=str(receiver.address), message=content)
+        alias = str(receiver.address)
+        if len(alias) > 40:
+            alias = alias[-40:]
+        return self.push(alias=alias, message=content)

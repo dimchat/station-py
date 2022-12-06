@@ -98,6 +98,9 @@ class TCPServer(Logging):
 Log.LEVEL = Log.DEVELOP
 
 
+DEFAULT_CONFIG = '/etc/dim/station.ini'
+
+
 def show_help():
     cmd = sys.argv[0]
     print('')
@@ -108,7 +111,7 @@ def show_help():
     print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
-    print('    --config        config file path (default: "/etc/dim/config.ini")')
+    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
     print('    --help, -h      show this help message and exit')
     print('')
 
@@ -131,7 +134,7 @@ def main():
             sys.exit(0)
     # check config filepath
     if ini_file is None:
-        ini_file = '/etc/dim/config.ini'
+        ini_file = DEFAULT_CONFIG
     if not Storage.exists(path=ini_file):
         show_help()
         print('')
@@ -150,17 +153,19 @@ def main():
     init_pusher(shared=shared)
     init_dispatcher(shared=shared)
 
+    server_address = (config.station_host, config.station_port)
+
     # start UDP Server
-    Log.info('>>> UDP server (%s:%d) starting ...' % (config.host, config.port))
-    g_udp_server = UDPServer(host=config.host, port=config.port)
+    Log.info('>>> UDP server %s starting ...' % str(server_address))
+    g_udp_server = UDPServer(host=server_address[0], port=server_address[1])
     g_udp_server.start()
 
     # start TCP server
     try:
         # ThreadingTCPServer.allow_reuse_address = True
-        server = TCPServer(server_address=(config.host, config.port),
+        server = TCPServer(server_address=server_address,
                            request_handler_class=RequestHandler)
-        Log.info(msg='>>> TCP server (%s:%d) starting...' % (config.host, config.port))
+        Log.info(msg='>>> TCP server %s starting...' % str(server_address))
         spawn(server.start).join()
     except KeyboardInterrupt as ex:
         Log.info(msg='~~~~~~~~ %s' % ex)

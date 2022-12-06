@@ -37,11 +37,10 @@ from libs.server import Dispatcher
 from libs.server import UserDeliver, BotDeliver, StationDeliver
 from libs.server import GroupDeliver, BroadcastDeliver
 from libs.server import DeliverWorker, DefaultRoamer
+from libs.server import AddressNameService, AddressNameServer, ANSFactory
 from libs.push import NotificationPusher
 from libs.push import ApplePushNotificationService
 from libs.push import AndroidPushNotificationService
-
-from .ans import AddressNameService, AddressNameServer, ANSFactory
 
 
 @Singleton
@@ -60,8 +59,11 @@ class GlobalVariable:
 
 def init_database(shared: GlobalVariable):
     config = shared.config
+    root = config.database_root
+    public = config.database_public
+    private = config.database_private
     # create database
-    db = Database(root=config.root, public=config.public, private=config.private)
+    db = Database(root=root, public=public, private=private)
     db.show_info()
     shared.adb = db
     shared.mdb = db
@@ -80,13 +82,13 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     facebook.database = shared.adb
     shared.facebook = facebook
     # set current station
-    station = shared.config.station
-    if station is not None:
+    sid = shared.config.station_id
+    if sid is not None:
         # make sure private key exists
-        assert facebook.private_key_for_visa_signature(identifier=station) is not None,\
-            'failed to get sign key for current station: %s' % station
-        print('set current user: %s' % station)
-        facebook.current_user = facebook.user(identifier=station)
+        assert facebook.private_key_for_visa_signature(identifier=sid) is not None,\
+            'failed to get sign key for current station: %s' % sid
+        print('set current user: %s' % sid)
+        facebook.current_user = facebook.user(identifier=sid)
     return facebook
 
 
@@ -164,9 +166,9 @@ def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
 
 # noinspection PyUnusedLocal
 def stop_dispatcher(shared: GlobalVariable) -> bool:
-    # stop Dispatcher
-    dispatcher = Dispatcher()
-    dispatcher.stop()
+    # TODO: stop Dispatcher
+    # dispatcher = Dispatcher()
+    # dispatcher.stop()
     return True
 
 
