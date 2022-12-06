@@ -35,11 +35,10 @@ from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
 
-from dimples import LoginCommand, ReportCommand
+from dimples import LoginCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.database.t_private import PrivateKeyTable
 from dimples.database.t_cipherkey import CipherKeyTable
-from dimples.database.t_report import ReportTable
 
 from ..common import StorageCommand, BlockCommand, MuteCommand
 
@@ -50,7 +49,7 @@ from .t_document import DocumentTable
 from .t_device import DeviceTable
 from .t_user import UserTable
 from .t_login import LoginTable
-from .t_online import OnlineTable
+from .t_active import ActiveTable
 from .t_group import GroupTable
 from .t_message import MessageTable
 
@@ -74,8 +73,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__ans_table = AddressNameTable(root=root, public=public, private=private)
         # Login info
         self.__login_table = LoginTable(root=root, public=public, private=private)
-        self.__report_table = ReportTable(root=root, public=public, private=private)
-        self.__online_table = OnlineTable(root=root, public=public, private=private)
+        self.__active_table = ActiveTable(root=root, public=public, private=private)
 
     def show_info(self):
         self.__provider_table.show_info()
@@ -93,8 +91,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__ans_table.show_info()
         # Login info
         self.__login_table.show_info()
-        self.__report_table.show_info()
-        self.__online_table.show_info()
+        self.__active_table.show_info()
 
     """
         Private Key file for Users
@@ -377,41 +374,18 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
         return self.__login_table.login_message(identifier=identifier)
 
-    """
-        Online / Offline
-        ~~~~~~~~~~~~~~~~
-
-        redis key: 'mkm.user.{ID}.online'
-        redis key: 'mkm.user.{ID}.offline'
-    """
-
-    # Override
-    def online_command(self, identifier: ID) -> Optional[ReportCommand]:
-        return self.__report_table.online_command(identifier=identifier)
-
-    # Override
-    def save_online_command(self, identifier: ID, content: ReportCommand) -> bool:
-        return self.__report_table.save_online_command(identifier=identifier, content=content)
-
     #
-    #   Online DBI
+    #   Active DBI
     #
 
-    # Override
     def active_users(self) -> Set[ID]:
-        return self.__online_table.active_users()
+        return self.__active_table.active_users()
 
-    # Override
-    def socket_addresses(self, identifier: ID) -> Set[tuple]:
-        return self.__online_table.socket_addresses(identifier=identifier)
-
-    # Override
     def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__online_table.add_socket_address(identifier=identifier, address=address)
+        return self.__active_table.add_socket_address(identifier=identifier, address=address)
 
-    # Override
     def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__online_table.remove_socket_address(identifier=identifier, address=address)
+        return self.__active_table.remove_socket_address(identifier=identifier, address=address)
 
     #
     #   Provider DBI

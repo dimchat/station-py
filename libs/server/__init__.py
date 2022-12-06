@@ -29,7 +29,7 @@
 
 """
 
-from dimples.server import ServerSession, SessionCenter
+from dimples.server import SessionCenter
 from dimples.server import PushAlert, PushInfo, PushService, PushCenter
 from dimples.server import Pusher, DefaultPusher
 from dimples.server import Roamer, Deliver, Worker
@@ -41,6 +41,7 @@ from dimples.server import Filter, DefaultFilter
 
 from .cpu import *
 
+from .session import ServerSession
 from .messenger import ServerMessenger
 from .processor import ServerProcessor
 from .processor import ServerContentProcessorCreator
