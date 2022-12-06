@@ -55,8 +55,8 @@ __all__ = [
     'HandshakeCommandProcessor', 'LoginCommandProcessor',
     'DocumentCommandProcessor', 'ReceiptCommandProcessor',
 
-    'MuteCommandProcessor', 'BlockCommandProcessor', 'StorageCommandProcessor',
-    'ReportCommandProcessor', 'SearchCommandProcessor',
+    'MuteCommandProcessor', 'BlockCommandProcessor',
+    'ReportCommandProcessor',
 
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',

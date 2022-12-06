@@ -23,8 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimsdk import Command, CommandFactoryBuilder
-
+from dimples import Command, CommandFactoryBuilder
 from dimples.common import HandshakeCommand, HandshakeState
 from dimples.common import ReceiptCommand
 from dimples.common import LoginCommand
@@ -32,9 +31,6 @@ from dimples.common import ReportCommand
 
 from .mute import MuteCommand
 from .block import BlockCommand
-from .storage import StorageCommand
-
-from .search import SearchCommand
 
 
 def register_ext_factories():
@@ -44,17 +40,7 @@ def register_ext_factories():
     # Block
     Command.register(cmd=BlockCommand.BLOCK, factory=CommandFactoryBuilder(command_class=BlockCommand))
 
-    # Storage (contacts, private_key)
-    factory = CommandFactoryBuilder(command_class=StorageCommand)
-    Command.register(cmd=StorageCommand.STORAGE, factory=factory)
-    Command.register(cmd=StorageCommand.CONTACTS, factory=factory)
-    Command.register(cmd=StorageCommand.PRIVATE_KEY, factory=factory)
-
-    # Search
-    Command.register(cmd=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
-    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
-    # Report
-    Command.register(cmd=ReportCommand.REPORT, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    # Report extra
     Command.register(cmd='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
     Command.register(cmd=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
     Command.register(cmd=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
@@ -68,11 +54,8 @@ __all__ = [
     'HandshakeCommand', 'HandshakeState',
     'ReceiptCommand',
     'LoginCommand',
+    'ReportCommand',
 
     'BlockCommand',
     'MuteCommand',
-    'StorageCommand',
-
-    'SearchCommand',
-    'ReportCommand',
 ]

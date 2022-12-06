@@ -30,24 +30,21 @@
 
 from typing import Optional, Union
 
-from dimsdk import ContentType
-from dimsdk import ContentProcessor
-from dimsdk import ContentProcessorCreator
-from dimsdk import BaseContentProcessor
+from dimples import ContentType
+from dimples import ContentProcessor
+from dimples import ContentProcessorCreator
+from dimples import BaseContentProcessor
 
 from dimples.server import ServerProcessor as SuperProcessor
 from dimples.server import ServerContentProcessorCreator as SuperCreator
 
 from ..common import ReceiptCommand
 from ..common import MuteCommand, BlockCommand
-from ..common import StorageCommand
-from ..common import ReportCommand, SearchCommand
+from ..common import ReportCommand
 
 from .cpu import ReceiptCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
-from .cpu import StorageCommandProcessor
 from .cpu import ReportCommandProcessor
-from .cpu import SearchCommandProcessor
 
 
 class ServerProcessor(SuperProcessor):
@@ -78,20 +75,10 @@ class ServerContentProcessorCreator(SuperCreator):
         # block
         if cmd_name == BlockCommand.BLOCK:
             return BlockCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # storage
-        if cmd_name == StorageCommand.STORAGE:
-            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name in [StorageCommand.CONTACTS, StorageCommand.PRIVATE_KEY]:
-            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
         if cmd_name == ReportCommand.REPORT:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd_name in ['broadcast', 'apns', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        # search
-        if cmd_name == SearchCommand.SEARCH:
-            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == SearchCommand.ONLINE_USERS:
-            return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)

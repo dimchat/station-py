@@ -26,12 +26,12 @@
 import time
 from typing import Optional
 
-from dimsdk import ID
+from dimples import ID, Command
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.database.t_user import UserTable as SuperTable
 
-from ..common import StorageCommand, BlockCommand, MuteCommand
+from ..common import BlockCommand, MuteCommand
 
 from .redis import UserCache
 from .dos import UserStorage
@@ -52,7 +52,7 @@ class UserTable(SuperTable):
     def show_info(self):
         self.__dos.show_info()
 
-    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
+    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         # 0. check old record with time
         old = self.contacts_command(identifier=identifier)
         if old is not None and old.time >= content.time > 0:
@@ -65,7 +65,7 @@ class UserTable(SuperTable):
         # 3. save to local storage
         return self.__dos.save_contacts_command(content=content, identifier=identifier)
 
-    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
+    def contacts_command(self, identifier: ID) -> Optional[Command]:
         now = time.time()
         # 1. check memory cache
         value, holder = self.__cmd_contacts.fetch(key=identifier, now=now)

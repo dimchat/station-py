@@ -25,14 +25,13 @@
 
 from typing import Optional
 
-from dimsdk import ID
+from dimples import ID, Content, Command
 
 from dimples.database.dos.base import template_replace
 from dimples.database import UserStorage as SuperStorage
 
 from ...common import MuteCommand
 from ...common import BlockCommand
-from ...common import StorageCommand
 
 
 class UserStorage(SuperStorage):
@@ -59,18 +58,18 @@ class UserStorage(SuperStorage):
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
+    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         assert content is not None, 'contacts command cannot be empty'
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Saving contacts command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
+    def contacts_command(self, identifier: ID) -> Optional[Command]:
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Loading stored contacts command from: %s' % path)
         dictionary = self.read_json(path=path)
         if dictionary is not None:
-            return StorageCommand(content=dictionary)
+            return Content.parse(content=dictionary)  # -> StorageCommand
 
     """
         Block Command

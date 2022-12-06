@@ -32,12 +32,10 @@
 
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
-from .storage import StorageCommandProcessor
 
 
 __all__ = [
 
     'MuteCommandProcessor',
     'BlockCommandProcessor',
-    'StorageCommandProcessor',
 ]

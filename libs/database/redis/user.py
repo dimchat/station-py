@@ -26,9 +26,9 @@
 from typing import List, Optional
 
 from dimples import utf8_encode, utf8_decode, json_encode, json_decode
-from dimples import ID, Command
+from dimples import ID, Content, Command
 
-from ...common import StorageCommand, BlockCommand, MuteCommand
+from ...common import BlockCommand, MuteCommand
 
 from .base import Cache
 
@@ -82,15 +82,15 @@ class UserCache(Cache):
     def __contacts_command_key(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
+    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         key = self.__contacts_command_key(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
+    def contacts_command(self, identifier: ID) -> Optional[Command]:
         key = self.__contacts_command_key(identifier=identifier)
         dictionary = self.__load_command(key=key)
         if dictionary is not None:
-            return StorageCommand(content=dictionary)
+            return Content.parse(content=dictionary)  # -> StorageCommand
 
     def __save_command(self, key: str, content: Command) -> bool:
         dictionary = content.dictionary

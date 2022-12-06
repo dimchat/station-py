@@ -37,10 +37,8 @@ from dimples.server.cpu import ReceiptCommandProcessor
 
 from ...common.cpu import MuteCommandProcessor
 from ...common.cpu import BlockCommandProcessor
-from ...common.cpu import StorageCommandProcessor
 
 from .report import ReportCommandProcessor
-from .search import SearchCommandProcessor
 
 
 __all__ = [
@@ -51,8 +49,6 @@ __all__ = [
 
     'MuteCommandProcessor',
     'BlockCommandProcessor',
-    'StorageCommandProcessor',
 
     'ReportCommandProcessor',
-    'SearchCommandProcessor',
 ]

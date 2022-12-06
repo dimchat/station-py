@@ -45,9 +45,8 @@ __all__ = [
     #   Protocol
     #
     'HandshakeCommand', 'HandshakeState',
-    'ReceiptCommand', 'LoginCommand',
-    'BlockCommand', 'MuteCommand', 'StorageCommand',
-    'SearchCommand', 'ReportCommand',
+    'ReceiptCommand', 'LoginCommand', 'ReportCommand',
+    'BlockCommand', 'MuteCommand',
 
     #
     #   Common libs

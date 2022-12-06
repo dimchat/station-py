@@ -35,12 +35,12 @@ from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
 
-from dimples import LoginCommand
+from dimples import Command, LoginCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.database.t_private import PrivateKeyTable
 from dimples.database.t_cipherkey import CipherKeyTable
 
-from ..common import StorageCommand, BlockCommand, MuteCommand
+from ..common import BlockCommand, MuteCommand
 
 from .t_provider import ProviderTable
 from .t_ans import AddressNameTable
@@ -192,10 +192,10 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
 
-    def save_contacts_command(self, content: StorageCommand, identifier: ID) -> bool:
+    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         return self.__user_table.save_contacts_command(content=content, identifier=identifier)
 
-    def contacts_command(self, identifier: ID) -> Optional[StorageCommand]:
+    def contacts_command(self, identifier: ID) -> Optional[Command]:
         return self.__user_table.contacts_command(identifier=identifier)
 
     """
