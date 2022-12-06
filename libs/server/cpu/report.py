@@ -32,8 +32,8 @@
 
 from typing import List
 
-from dimsdk import ReliableMessage
-from dimsdk import Content
+from dimples import ReliableMessage
+from dimples import Content
 
 from dimples.server.cpu import ReportCommandProcessor as SuperCommandProcessor
 
@@ -60,6 +60,8 @@ class ReportCommandProcessor(SuperCommandProcessor, Logging):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
+        # compatible with v1.0
+        fix_report_command(content=content)
         # report title
         title = content.title
         if title == 'apns':
@@ -76,3 +78,26 @@ class ReportCommandProcessor(SuperCommandProcessor, Logging):
         db.save_device_token(token=token, identifier=msg.sender)
         text = 'Token received.'
         return self._respond_text(text=text)
+
+
+def fix_report_command(content: ReportCommand):
+    # check state for oldest version
+    state = content.get('state')
+    if state == 'background':
+        # oldest version
+        content['title'] = ReportCommand.OFFLINE
+        return content
+    elif state == 'foreground':
+        # oldest version
+        content['title'] = ReportCommand.ONLINE
+        return content
+    # check title for v1.0
+    title = content.title
+    if title is None:
+        name = content.cmd
+        if name != ReportCommand.REPORT:
+            # (v1.0)
+            # content: {
+            #     'command': 'online', // or 'offline', 'apns', ...
+            # }
+            content['title'] = name

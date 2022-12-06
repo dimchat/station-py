@@ -29,9 +29,9 @@
 """
 from typing import Optional
 
-from dimsdk import ID
-from dimsdk import InstantMessage, SecureMessage, ReliableMessage
-from dimsdk import DocumentCommand
+from dimples import ID
+from dimples import InstantMessage, SecureMessage, ReliableMessage
+from dimples import DocumentCommand
 
 from dimples.common.packer import attach_key_digest
 from dimples.common import CommonPacker as SuperPacker
@@ -39,7 +39,7 @@ from dimples.common import CommonFacebook, CommonMessenger
 
 from ..utils.mtp import MTPUtils
 
-from .protocol import ReceiptCommand, ReportCommand
+from .protocol import ReceiptCommand
 
 
 class CommonPacker(SuperPacker):
@@ -119,36 +119,10 @@ class CommonPacker(SuperPacker):
             if isinstance(content, ReceiptCommand):
                 # compatible with v1.0
                 fix_receipt_command(content=content)
-            elif isinstance(content, ReportCommand):
-                # compatible with v1.0
-                fix_report_command(content=content)
             elif isinstance(content, DocumentCommand):
                 # compatible with v1.0
                 fix_document_command(content=content)
         return i_msg
-
-
-def fix_report_command(content: ReportCommand):
-    # check state for oldest version
-    state = content.get('state')
-    if state == 'background':
-        # oldest version
-        content['title'] = ReportCommand.OFFLINE
-        return content
-    elif state == 'foreground':
-        # oldest version
-        content['title'] = ReportCommand.ONLINE
-        return content
-    # check title for v1.0
-    title = content.title
-    if title is None:
-        name = content.cmd
-        if name != ReportCommand.REPORT:
-            # (v1.0)
-            # content: {
-            #     'command': 'online', // or 'offline', 'apns', ...
-            # }
-            content['title'] = name
 
 
 # TODO: remove after all server/client upgraded
