@@ -30,12 +30,14 @@
     Processors for commands
 """
 
-from .handshake import HandshakeCommandProcessor
-from .login import LoginCommandProcessor
+from .storage import StorageCommandProcessor
+from .search import SearchCommandProcessor
 from .text import ChatTextContentProcessor
 
+
 __all__ = [
-    'HandshakeCommandProcessor',
-    'LoginCommandProcessor',
+
+    'StorageCommandProcessor',
+    'SearchCommandProcessor',
     'ChatTextContentProcessor',
 ]

@@ -34,13 +34,12 @@ from typing import Optional, List
 
 from startrek import DeparturePriority
 
-from dimsdk import ID
-from dimsdk import Content, Command, GroupCommand
-from dimsdk import MetaCommand, DocumentCommand
+from dimples import ID
+from dimples import Content, Command, GroupCommand
+from dimples import MetaCommand, DocumentCommand
+from dimples.client import ClientMessenger
 
-from ...common import CommonFacebook
-
-from ..messenger import ClientMessenger
+from ..common import CommonFacebook
 
 
 class GroupManager:
@@ -84,11 +83,12 @@ class GroupManager:
             if assistants is None or len(assistants) == 0:
                 raise LookupError('failed to get assistant for group: %s' % self.group)
             # querying assistants for group info
-            messenger.query_group(group=self.group, users=assistants)
+            for bot in assistants:
+                cmd = GroupCommand.query(group=self.group)
+                messenger.send_content(sender=None, receiver=bot, content=cmd)
             return False
         # let group assistant to split and deliver this message to all members
-        return messenger.send_content(sender=None, receiver=self.group,
-                                      content=content, priority=DeparturePriority.NORMAL)
+        return messenger.send_content(sender=None, receiver=self.group, content=content)
 
     def __send_group_command(self, content: Command, members: List[ID]) -> bool:
         messenger = self.messenger

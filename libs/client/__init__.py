@@ -31,23 +31,14 @@
 
 from .cpu import *
 
-from .extension import GroupManager
-
-from .network import Terminal, Server
-
-from .messenger import ClientMessenger
-from .processor import ClientProcessor, ClientContentProcessorCreator
+from .gman import GroupManager
 
 
 __all__ = [
 
-    'HandshakeCommandProcessor', 'LoginCommandProcessor', 'ChatTextContentProcessor',
+    'StorageCommandProcessor',
+    'SearchCommandProcessor',
+    'ChatTextContentProcessor',
 
     'GroupManager',
-
-    'Terminal', 'Server',
-
-    'ClientMessenger',
-    'ClientProcessor',
-    'ClientContentProcessorCreator',
 ]

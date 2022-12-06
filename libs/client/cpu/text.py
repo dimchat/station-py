@@ -35,10 +35,10 @@ from urllib.error import URLError
 
 from startrek import DeparturePriority
 
-from dimsdk import EntityType, ID
-from dimsdk import ReliableMessage
-from dimsdk import Content, TextContent
-from dimsdk import BaseContentProcessor
+from dimples import EntityType, ID
+from dimples import ReliableMessage
+from dimples import Content, TextContent
+from dimples import BaseContentProcessor
 
 from ...utils import Logging
 from ...utils.nlp import ChatBot, Dialog
@@ -68,7 +68,7 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
             facebook = self.facebook
             assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
             user = facebook.current_user
-            me = '@%s' % facebook.name(identifier=user.identifier)
+            me = '@%s' % get_name(identifier=user.identifier, facebook=facebook)
             text = 'Pong%s from %s' % (text[4:], me)
             res = TextContent.create(text=text)
             group = content.group
@@ -93,7 +93,7 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
             self.info('ignore message from another bot: %s, "%s"' % (sender, content.get('text')))
             return True
         # check time
-        now = int(time.time())
+        now = time.time()
         dt = now - msg.time
         if dt > 600:
             # Old message, ignore it
@@ -109,7 +109,7 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
         receiver = msg.receiver
         facebook = self.facebook
         assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
-        at = '@%s' % facebook.name(identifier=receiver)
+        at = '@%s' % get_name(identifier=receiver, facebook=facebook)
         if text.find(at) < 0:
             self.info('ignore group message that not querying me(%s): %s' % (at, text))
             return True
@@ -123,7 +123,7 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
         sender = msg.sender
         facebook = self.facebook
         assert isinstance(facebook, CommonFacebook), 'facebook error: %s' % facebook
-        nickname = facebook.name(identifier=sender)
+        nickname = get_name(identifier=sender, facebook=facebook)
         if self.__ignored(content=content, sender=sender, msg=msg):
             return []
         self.debug('received text message from %s: %s' % (nickname, content))
@@ -148,3 +148,15 @@ class ChatTextContentProcessor(BaseContentProcessor, Logging):
             else:
                 text = 'Group message respond failed'
             return self._respond_text(text=text)
+
+
+def get_name(identifier: ID, facebook: CommonFacebook) -> str:
+    doc = facebook.document(identifier=identifier)
+    if doc is not None:
+        name = doc.name
+        if name is not None and len(name) > 0:
+            return name
+    name = identifier.name
+    if name is not None and len(name) > 0:
+        return name
+    return str(identifier.address)

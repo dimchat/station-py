@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2019 Albert Moky
+# Copyright (c) 2020 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,9 +23,38 @@
 # SOFTWARE.
 # ==============================================================================
 
-from .gman import GroupManager
+from dimples import Command, CommandFactoryBuilder
+
+from ...common import HandshakeCommand, HandshakeState
+from ...common import ReceiptCommand, LoginCommand, ReportCommand
+from ...common import BlockCommand, MuteCommand
+
+from .storage import StorageCommand
+from .search import SearchCommand
+
+
+def register_ext_factories():
+
+    # Storage (contacts, private_key)
+    factory = CommandFactoryBuilder(command_class=StorageCommand)
+    Command.register(cmd=StorageCommand.STORAGE, factory=factory)
+    Command.register(cmd=StorageCommand.CONTACTS, factory=factory)
+    Command.register(cmd=StorageCommand.PRIVATE_KEY, factory=factory)
+
+    # Search
+    Command.register(cmd=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
+
+
+register_ext_factories()
 
 
 __all__ = [
-    'GroupManager',
+
+    'HandshakeCommand', 'HandshakeState',
+    'ReceiptCommand', 'LoginCommand', 'ReportCommand',
+    'BlockCommand', 'MuteCommand',
+
+    'StorageCommand',
+    'SearchCommand',
 ]
