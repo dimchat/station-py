@@ -23,10 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Set, Dict, Any
+from typing import Optional, Set, Dict
 
-from dimsdk import utf8_encode, utf8_decode
-from dimsdk import ID
+from dimples import utf8_encode, utf8_decode
+from dimples import ID
 
 from .base import Cache
 
@@ -69,9 +69,12 @@ class AddressNameCache(Cache):
             return get_names(records=records, identifier=identifier)
 
 
-def get_names(records: Dict[str, Any], identifier: ID) -> Set[str]:
+def get_names(records: Dict[bytes, bytes], identifier: ID) -> Set[str]:
     strings = set()
     for key in records:
-        if identifier == records[key]:
-            strings.add(key)
+        value = records[key]
+        if value is None:
+            continue
+        elif identifier == utf8_decode(data=value):
+            strings.add(utf8_decode(data=key))
     return strings

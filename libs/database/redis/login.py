@@ -25,8 +25,8 @@
 
 from typing import Optional, Set, Tuple
 
-from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
-from dimsdk import ID, ReliableMessage
+from dimples import json_encode, json_decode, utf8_encode, utf8_decode
+from dimples import ID, ReliableMessage
 
 from ...common import LoginCommand
 
@@ -133,7 +133,8 @@ class LoginCache(Cache):
             if is_empty(value=value):
                 # user logout
                 continue
-            identifier = ID.parse(identifier=key)
+            string = utf8_decode(data=key)
+            identifier = ID.parse(identifier=string)
             if identifier is None:
                 # should not happen
                 continue

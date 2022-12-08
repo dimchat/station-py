@@ -120,7 +120,7 @@ class Cache:
         """ Get value from the hash table with name & key """
         return self.redis.hget(name=name, key=key)
 
-    def hgetall(self, name: str) -> Optional[Dict[str, bytes]]:
+    def hgetall(self, name: str) -> Optional[Dict[bytes, bytes]]:
         """ Get all items from the hash table with name """
         return self.redis.hgetall(name=name)
 

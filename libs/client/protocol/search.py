@@ -175,7 +175,7 @@ class SearchCommand(BaseCommand):
         info.pop('type', None)
         info.pop('sn', None)
         info.pop('time', None)
-        # TODO: update after all server/clients support 'cmd'
+        info.pop('cmd', None)
         info.pop('command', None)
         info.pop('keywords', None)
         info.pop('users', None)

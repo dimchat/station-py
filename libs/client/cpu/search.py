@@ -37,8 +37,44 @@ from dimples import Content
 from dimples import BaseCommandProcessor
 from dimples.common import CommonFacebook
 
+from ...utils import Logging
 from ...database import Database
 from ..protocol import SearchCommand
+
+
+class SearchCommandProcessor(BaseCommandProcessor, Logging):
+
+    @property
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
+
+    # Override
+    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+        assert isinstance(content, SearchCommand), 'search command error: %s' % content
+        if content.users is not None or content.results is not None:
+            # this is a response
+            return save_response(self.facebook, station=msg.sender, users=content.users, results=content.results)
+        # this is a request
+        facebook = self.facebook
+        keywords = content.keywords
+        if keywords is None:
+            text = 'Search command error.'
+            return self._respond_text(text=text)
+        elif keywords == SearchCommand.ONLINE_USERS:
+            users, results = online_users(facebook, start=content.start, limit=content.limit)
+            self.info('Got %d recent online user(s)' % len(results))
+        else:
+            db = facebook.database
+            assert isinstance(db, Database), 'database error: %s' % db
+            users, results = search_users(keywords=keywords, start=content.start, limit=content.limit,
+                                          database=db, facebook=facebook)
+            self.info('Got %d account(s) matched %s' % (len(results), keywords))
+        res = SearchCommand.respond(request=content, keywords=keywords, users=users, results=results)
+        station = facebook.current_user
+        res.station = station.identifier
+        return [res]
 
 
 def online_users(facebook: CommonFacebook, start: int, limit: int) -> (List[ID], dict):
@@ -67,38 +103,72 @@ def online_users(facebook: CommonFacebook, start: int, limit: int) -> (List[ID],
     return list(users), results
 
 
-# noinspection PyUnusedLocal
-def save_response(facebook, station: ID, users: List[ID], results: dict) -> List[Content]:
-    # TODO: Save online users in a text file
-    return []
-
-
-class SearchCommandProcessor(BaseCommandProcessor):
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        barrack = super().facebook
-        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
-        return barrack
-
-    # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, SearchCommand), 'search command error: %s' % content
-        if content.users is not None or content.results is not None:
-            # this is a response
-            return save_response(self.facebook, station=msg.sender, users=content.users, results=content.results)
-        # this is a request
-        facebook = self.facebook
-        keywords = content.keywords
-        if keywords is None:
-            text = 'Search command error.'
-            return self._respond_text(text=text)
-        elif keywords == SearchCommand.ONLINE_USERS:
-            users, results = online_users(facebook, start=content.start, limit=content.limit)
+def search_users(keywords: str, start: int, limit: int,
+                 database: Database, facebook: CommonFacebook) -> (List[ID], dict):
+    if keywords is None:
+        keywords = []
+    else:
+        keywords = keywords.split(' ')
+    assert start >= 0, 'start position error: %d' % start
+    if limit > 0:
+        end = start + limit
+    else:
+        end = 10240
+    index = -1
+    users: List[ID] = []
+    results = {}
+    all_documents = database.scan_documents()
+    for doc in all_documents:
+        # get user info
+        identifier = doc.identifier
+        name = doc.name
+        if name is None:
+            info = str(identifier)
         else:
-            # let search bot (archivist) to do the job
-            return []
-        res = SearchCommand.respond(request=content, keywords=keywords, users=users, results=results)
-        station = facebook.current_user
-        res.station = station.identifier
-        return [res]
+            info = '%s, %s' % (name, identifier)
+        info = info.lower()
+        # 1. check each keyword with user info
+        match = True
+        for kw in keywords:
+            if len(kw) > 0 > info.find(kw.lower()):
+                match = False
+                break
+        if not match:
+            continue
+        # 2. check user meta
+        meta = facebook.meta(identifier=identifier)
+        if meta is None:
+            # user meta not found, skip
+            continue
+        # 3. check limit
+        index += 1
+        if index < start:
+            # skip
+            continue
+        elif index < end:
+            # got it
+            users.append(identifier)
+            if limit > 0:
+                # get meta when limit is set
+                results[str(identifier)] = meta.dictionary
+        elif index >= end:
+            # mission accomplished
+            break
+    return users, results
+
+
+# noinspection PyUnusedLocal
+def save_response(facebook: CommonFacebook, station: ID, users: List[ID], results: dict) -> List[Content]:
+    # TODO: Save online users in a text file
+    for key in results:
+        identifier = ID.parse(identifier=key)
+        meta = Meta.parse(meta=results[key])
+        if identifier is not None and meta is not None:
+            # assert Meta.matches(meta=meta, identifier=identifier), 'meta error'
+            facebook.save_meta(meta=meta, identifier=identifier)
+    # # store in redis server
+    # for item in users:
+    #     facebook.add_online_user(station=station, user=item)
+    # # clear expired users
+    # facebook.remove_offline_users(station=station, users=[])
+    return []

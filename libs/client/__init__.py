@@ -29,6 +29,8 @@
 
 """
 
+from dimples.client import *
+
 from .cpu import *
 
 from .gman import GroupManager
@@ -36,9 +38,24 @@ from .gman import GroupManager
 
 __all__ = [
 
+    #
+    #   CPU
+    #
+    'HandshakeCommandProcessor',
+    'LoginCommandProcessor',
+    'ReceiptCommandProcessor',
+
     'StorageCommandProcessor',
     'SearchCommandProcessor',
     'ChatTextContentProcessor',
+
+    #
+    #   Client
+    #
+    'ClientSession', 'SessionState',
+    'ClientProcessor', 'ClientContentProcessorCreator',
+    'ClientMessenger',
+    'Terminal',
 
     'GroupManager',
 ]

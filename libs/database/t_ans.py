@@ -26,11 +26,10 @@
 import time
 from typing import Optional, Set, Dict
 
-from dimsdk import ID
+from dimples import ID
 
 from dimples.utils import CacheHolder, CacheManager
 
-from .redis.ans import get_names
 from .redis import AddressNameCache
 from .dos import AddressNameStorage
 
@@ -142,3 +141,11 @@ class AddressNameTable:
             self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value
+
+
+def get_names(records: Dict[str, ID], identifier: ID) -> Set[str]:
+    strings = set()
+    for key in records:
+        if identifier == records[key]:
+            strings.add(key)
+    return strings
