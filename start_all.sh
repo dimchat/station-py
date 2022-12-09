@@ -51,20 +51,20 @@ restart octopus "robots/sbot_octopus.py"
 #
 
 title "DIM Search Engine"
-restart search "robots/sbot_archivist.py}"
+restart search "robots/sbot_archivist.py"
 
 title "DIM Group Assistant"
-restart group "robots/gbot_assistant.py}"
+restart group "robots/gbot_assistant.py"
 
 title "DIM Chat Bots"
-restart ling "robots/chatbot_ling.py}"
-restart xiao "robots/chatbot_xiao.py}"
+restart ling "robots/chatbot_ling.py"
+restart xiao "robots/chatbot_xiao.py"
 
-title "DIM Chat Room"
-restart chatroom "robots/chatroom_admin.py}"
-
-title "DIM Web Server"
-restart www "webserver/httpd.py"
+#title "DIM Chat Room"
+#restart chatroom "robots/chatroom_admin.py"
+#
+#title "DIM Web Server"
+#restart www "webserver/httpd.py"
 
 echo ""
 echo "    >>> Done <<<"
