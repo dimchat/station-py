@@ -47,6 +47,10 @@ class ActiveTable:
     def show_info(self):
         print('!!!    active users in memory only !!!')
 
+    def clear_socket_addresses(self):
+        """ clear before station start """
+        self.__redis.clear_socket_addresses()
+
     def active_users(self) -> Set[ID]:
         """ read by archivist bot """
         now = time.time()

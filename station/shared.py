@@ -69,6 +69,7 @@ def init_database(shared: GlobalVariable):
     shared.mdb = db
     shared.sdb = db
     shared.database = db
+    db.clear_socket_addresses()  # clear before station start
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:

@@ -378,6 +378,10 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     #   Active DBI
     #
 
+    def clear_socket_addresses(self):
+        """ clear before station start """
+        self.__active_table.clear_socket_addresses()
+
     def active_users(self) -> Set[ID]:
         return self.__active_table.active_users()
 
