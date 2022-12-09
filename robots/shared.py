@@ -70,9 +70,8 @@ def init_database(shared: GlobalVariable):
 
 
 def init_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
-    # set account database
-    facebook = CommonFacebook()
-    facebook.database = shared.adb
+    # create facebook with account database
+    facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
     # set current user
     # make sure private key exists
@@ -185,7 +184,7 @@ def create_terminal(config: Config, processor_class) -> Terminal:
     host = config.station_host
     port = config.station_port
     messenger = create_messenger(user=identifier, host=host, port=port, processor_class=processor_class)
-    # create and start terminal
+    # create terminal with messenger
     terminal = Terminal(messenger=messenger)
     return terminal
 

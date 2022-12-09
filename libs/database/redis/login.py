@@ -39,6 +39,10 @@ class LoginCache(Cache):
     # it will be reloaded from local storage if it's still need.
     EXPIRES = 36000  # seconds
 
+    def __init__(self):
+        super().__init__()
+        self.clear_socket_addresses()
+
     @property  # Override
     def db_name(self) -> Optional[str]:
         return 'mkm'
@@ -95,6 +99,10 @@ class LoginCache(Cache):
     """
     def __active_sockets_key(self) -> str:
         return '%s.%s.active_sockets' % (self.db_name, self.tbl_name)
+
+    def clear_socket_addresses(self):
+        name = self.__active_sockets_key()
+        return self.delete(name)
 
     def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
         name = self.__active_sockets_key()

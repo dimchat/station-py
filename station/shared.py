@@ -77,9 +77,8 @@ def init_database(shared: GlobalVariable):
 
 
 def init_facebook(shared: GlobalVariable) -> CommonFacebook:
-    # set account database
-    facebook = CommonFacebook()
-    facebook.database = shared.adb
+    # create facebook with account database
+    facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
     # set current station
     sid = shared.config.station_id

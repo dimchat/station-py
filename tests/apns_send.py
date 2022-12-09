@@ -33,18 +33,19 @@
         ./send.py moky@4DnqXWdTV8wuZgfqSCX9GjE2kNq7HJrUgQ "Hello!"
 """
 
-import os
 import sys
 from typing import List
 
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
-from dimsdk import *
+from dimples import *
+from dimples.utils import Path
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+path = Path.abs(path=__file__)
+path = Path.dir(path=path)
+path = Path.dir(path=path)
+Path.add(path=path)
 
 from libs.utils import JSONFile
 
@@ -67,7 +68,7 @@ class Device:
     @property
     def path(self) -> str:
         address = self.__identifier.address
-        return base_dir + '/protected/' + str(address) + '/device.js'
+        return base_dir + '/private/' + str(address) + '/device.js'
 
     @property
     def tokens(self) -> List[str]:

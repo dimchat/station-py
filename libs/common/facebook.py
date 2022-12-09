@@ -34,13 +34,14 @@ from typing import Optional, List
 
 from dimples import PrivateKey
 from dimples import ID
+from dimples.common import AccountDBI
 from dimples.common import CommonFacebook as SuperFacebook
 
 
 class CommonFacebook(SuperFacebook):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, database: AccountDBI):
+        super().__init__(database=database)
         self.__group_assistants = []
 
     #
