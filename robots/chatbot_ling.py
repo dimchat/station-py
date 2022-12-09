@@ -31,32 +31,32 @@
     Chat bot powered by Tuling
 """
 
-import sys
-import os
+import threading
 from typing import Optional, Union
 
-from dimp import ID
-from dimp import ContentType
-from dimp import Processor
-from dimsdk import ContentProcessor, ContentProcessorCreator
+from dimples import ContentType
+from dimples import ContentProcessor, ContentProcessorCreator
+from dimples.utils import Log
+from dimples.utils import Path
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+path = Path.abs(path=__file__)
+path = Path.dir(path=path)
+path = Path.dir(path=path)
+Path.add(path=path)
 
-from libs.common import SharedFacebook
 from libs.client import ChatTextContentProcessor
 from libs.client import ClientProcessor, ClientContentProcessorCreator
-from libs.client import Terminal, ClientMessenger
 
-from robots.nlp import chat_bots
-from robots.config import dims_connect, current_station
+from robots.shared import GlobalVariable
+from robots.shared import chat_bots
+from robots.shared import create_config, create_terminal
 
 
 class BotTextContentProcessor(ChatTextContentProcessor):
 
     def __init__(self, facebook, messenger):
-        bots = chat_bots(names=['tuling'])  # chat bot
+        shared = GlobalVariable()
+        bots = chat_bots(names=['tuling'], shared=shared)  # chat bot
         super().__init__(facebook=facebook, messenger=messenger, bots=bots)
 
 
@@ -78,30 +78,21 @@ class BotMessageProcessor(ClientProcessor):
         return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class BotMessenger(ClientMessenger):
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
 
-    # Override
-    def _create_processor(self) -> Processor:
-        return BotMessageProcessor(facebook=self.facebook, messenger=self)
+
+DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-"""
-    Messenger for Chat Bot client
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_facebook = SharedFacebook()
-g_messenger = BotMessenger(facebook=g_facebook)
-g_facebook.messenger = g_messenger
+def main():
+    config = create_config(app_name='ChatBot: Tuling', default_config=DEFAULT_CONFIG)
+    terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
+    thread = threading.Thread(target=terminal.run, daemon=False)
+    thread.start()
+
 
 if __name__ == '__main__':
-
-    # set current user
-    bot_id = 'lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa'  # chat bot: Tuling
-    user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
-    g_facebook.current_user = user
-
-    # create client and connect to the station
-    client = Terminal()
-    server = current_station()
-    dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
-    server.thread.join()
+    main()

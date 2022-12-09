@@ -31,36 +31,38 @@
     Chat room for web demo
 """
 
-import sys
-import os
+import threading
 import time
 from enum import IntEnum
 from typing import Optional, Union, List
 
 from startrek import DeparturePriority
 
-from dimsdk import ID, EVERYONE
-from dimsdk import Envelope, InstantMessage, ReliableMessage
-from dimsdk import ContentType, Content, TextContent, ForwardContent
-from dimsdk import Processor
-from dimsdk import ContentProcessor, ContentProcessorCreator
-from dimsdk import BaseContentProcessor, BaseCommandProcessor
+from dimples import ID, EVERYONE
+from dimples import Envelope, InstantMessage, ReliableMessage
+from dimples import ContentType, Content, TextContent, ForwardContent
+from dimples import ContentProcessor, ContentProcessorCreator
+from dimples import BaseContentProcessor, BaseCommandProcessor
+from dimples.utils import Log
+from dimples.utils import Path
 
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+path = Path.abs(path=__file__)
+path = Path.dir(path=path)
+path = Path.dir(path=path)
+Path.add(path=path)
 
 from libs.utils import Logging
-from libs.utils import JSONFile
-from libs.database import Storage
-from libs.common import ReceiptCommand, SearchCommand
-from libs.common import CommonFacebook, SharedFacebook
+from libs.common import ReceiptCommand
+from libs.common import CommonFacebook
+from libs.client import SearchCommand
 from libs.client import ChatTextContentProcessor
 from libs.client import ClientProcessor, ClientContentProcessorCreator
-from libs.client import Terminal, ClientMessenger
+from libs.client import ClientMessenger
+from libs.client.cpu.text import get_name
 
-from robots.nlp import chat_bots
-from robots.config import dims_connect, current_station
+from robots.shared import GlobalVariable
+from robots.shared import chat_bots
+from robots.shared import create_config, create_terminal
 
 
 #
@@ -71,7 +73,7 @@ class ReceiptCommandProcessor(BaseCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReceiptCommand), 'receipt command error: %s' % content
-        return [client.room.receipt(content=content, sender=msg.sender)]
+        return [g_room.receipt(content=content, sender=msg.sender)]
 
 
 #
@@ -95,7 +97,7 @@ class ForwardContentProcessor(BaseContentProcessor):
             return []
 
         # call client to process it
-        res = client.room.forward(content=content, sender=msg.sender)
+        res = g_room.forward(content=content, sender=msg.sender)
         if res is None:
             return []
         else:
@@ -108,13 +110,14 @@ class ForwardContentProcessor(BaseContentProcessor):
 class BotTextContentProcessor(ChatTextContentProcessor):
 
     def __init__(self, facebook, messenger):
-        bots = chat_bots(names=['tuling', 'xiaoi'])  # chat bots
+        shared = GlobalVariable()
+        bots = chat_bots(names=['tuling', 'xiaoi'], shared=shared)  # chat bots
         super().__init__(facebook=facebook, messenger=messenger, bots=bots)
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, TextContent), 'content error: %s' % content
-        res = client.room.receive(content=content, sender=msg.sender)
+        res = g_room.receive(content=content, sender=msg.sender)
         if res is not None:
             return [res]
         return super().process(content=content, msg=msg)
@@ -149,13 +152,6 @@ class BotMessageProcessor(ClientProcessor):
         return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class BotMessenger(ClientMessenger):
-
-    # Override
-    def _create_processor(self) -> Processor:
-        return BotMessageProcessor(facebook=self.facebook, messenger=self)
-
-
 def date_string(timestamp=None):
     if timestamp is None:
         timestamp = time.time()
@@ -169,91 +165,6 @@ class StatKey(IntEnum):
 
 
 #
-#  User activity stat
-#
-class Statistic:
-
-    EXPIRES = 300  # 5 minutes
-
-    def __init__(self):
-        super().__init__()
-        self.__login_stat: Optional[dict] = None    # ID -> [time]
-        self.__message_stat: Optional[dict] = None  # ID -> int
-        self.__stat_prefix: Optional[str] = None
-        self.__load_stat()
-
-    def __load_stat(self):
-        base = os.path.join(Storage.root, 'stat')
-        prefix = 'stat-' + date_string()
-        # load login stat
-        path = os.path.join(base, prefix + '-login.js')
-        stat = JSONFile(path=path).read()
-        if stat is None:
-            self.__login_stat = {}
-        else:
-            self.__login_stat = stat
-        # load message stat
-        path = os.path.join(base, prefix + '-message.js')
-        stat = JSONFile(path=path).read()
-        if stat is None:
-            self.__message_stat = {}
-        else:
-            self.__message_stat = stat
-        # OK
-        self.__stat_prefix = prefix
-        self.__update_time = time.time()
-
-    def __save_stat(self):
-        now = time.time()
-        if (now - self.__update_time) < self.EXPIRES:
-            # wait for 5 minutes
-            return
-        self.__update_time = now
-
-        base = os.path.join(Storage.root, 'stat')
-        prefix = self.__stat_prefix
-        # save login stat
-        path = os.path.join(base, prefix + '-login.js')
-        JSONFile(path=path).write(container=self.__login_stat)
-        # save message stat
-        path = os.path.join(base, prefix + '-message.js')
-        JSONFile(path=path).write(container=self.__message_stat)
-        # OK
-        prefix = 'stat-' + date_string()
-        if prefix != self.__stat_prefix:
-            # it's a new day!
-            self.__login_stat = {}
-            self.__message_stat = {}
-            self.__stat_prefix = prefix
-
-    def update(self, identifier: ID, stat: StatKey):
-        if stat.value == StatKey.LOGIN:
-            # login times
-            array = self.__login_stat.get(identifier)
-            if array is None:
-                array = []
-                self.__login_stat[identifier] = array
-            array.append(time.time())
-        elif stat.value == StatKey.MESSAGE:
-            # message count
-            count = self.__message_stat.get(identifier)
-            if count is None:
-                count = 0
-            self.__message_stat[identifier] = count + 1
-        else:
-            raise TypeError('unknown stat type: %d' % stat)
-        # OK
-        self.__save_stat()
-
-    def select(self) -> dict:
-        return {
-            'prefix': self.__stat_prefix,
-            'login': self.__login_stat,
-            'message': self.__message_stat,
-        }
-
-
-#
 #  Chat history
 #
 class History:
@@ -263,37 +174,11 @@ class History:
     def __init__(self):
         super().__init__()
         self.__pool: list = []
-        self.__load_history()
-
-    # noinspection PyMethodMayBeStatic
-    def __path(self) -> str:
-        base = os.path.join(Storage.root, 'public')
-        return os.path.join(base, 'chatroom-history.js')
-
-    def __load_history(self):
-        path = self.__path()
-        # load chatroom history
-        history = JSONFile(path=path).read()
-        if history is None:
-            return
-        # convert contents
-        array = []
-        for item in history:
-            content = Content.parse(content=item)
-            assert content is not None, 'content error: %s' % item
-            array.append(content)
-        self.__pool = array
-
-    def __save_history(self):
-        path = self.__path()
-        # save chatroom history
-        JSONFile(path=path).write(container=self.__pool)
 
     def push(self, content: ForwardContent):
         while len(self.__pool) >= self.MAX:
             self.__pool.pop(0)
         self.__pool.append(content)
-        self.__save_history()
 
     def all(self) -> list:
         return self.__pool.copy()
@@ -308,7 +193,6 @@ class ChatRoom(Logging):
         self.__messenger = messenger
         self.__users: list = []  # ID
         self.__times: dict = {}  # ID -> time
-        self.__statistic = Statistic()
         self.__history = History()
 
     @property
@@ -351,9 +235,8 @@ class ChatRoom(Logging):
         self.__users.append(identifier)
         self.__refresh()
         if not exists:
-            nickname = self.facebook.name(identifier=identifier)
+            nickname = get_name(identifier=identifier, facebook=self.facebook)
             self.__broadcast(text='Welcome %s (%s)!' % (nickname, identifier))
-            self.__statistic.update(identifier=identifier, stat=StatKey.LOGIN)
         return True
 
     def __broadcast(self, text: str):
@@ -389,24 +272,6 @@ class ChatRoom(Logging):
                 results[item] = meta
         return SearchCommand(keywords=SearchCommand.ONLINE_USERS, users=users, results=results)
 
-    def __stat(self) -> Content:
-        info = self.__statistic.select()
-        prefix = info['prefix']
-        login = info['login']
-        message = info['message']
-        # user count
-        u_cnt = len(login)
-        # login count
-        l_cnt = 0
-        for u in login:
-            l_cnt += len(info[u])
-        # message count
-        m_cnt = 0
-        for u in message:
-            m_cnt += message[u]
-        text = '[%s] %d user(s) login %d time(s), sent %d message(s)' % (prefix, u_cnt, l_cnt, m_cnt)
-        return TextContent.create(text=text)
-
     def __push_history(self, receiver: ID) -> Content:
         messenger = self.messenger
         histories = self.__history.all()
@@ -426,7 +291,6 @@ class ChatRoom(Logging):
             return None
         self.debug('forwarding message from: %s' % sender)
         self.__history.push(content=content)
-        self.__statistic.update(identifier=sender, stat=StatKey.MESSAGE)
         # forwarding
         messenger = self.messenger
         users = self.__users.copy()
@@ -435,7 +299,7 @@ class ChatRoom(Logging):
             if item == sender:
                 continue
             messenger.send_content(sender=None, receiver=item, content=content, priority=DeparturePriority.NORMAL)
-        return ReceiptCommand(message='message forwarded')
+        return ReceiptCommand.create(text='message forwarded')
 
     def receipt(self, content: ReceiptCommand, sender: ID) -> Optional[Content]:
         if not self.__update(identifier=sender):
@@ -452,33 +316,31 @@ class ChatRoom(Logging):
             if text == 'show users':
                 # search online users
                 return self.__online()
-            if text == 'show stat' or text == 'show statistics':
-                # show statistics
-                return self.__stat()
             if text == 'show history':
                 # show chat history
                 return self.__push_history(receiver=sender)
         return None
 
 
-"""
-    Messenger for Chat Room Admin bot
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_facebook = SharedFacebook()
-g_messenger = BotMessenger(facebook=g_facebook)
-g_facebook.messenger = g_messenger
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+DEFAULT_CONFIG = '/etc/dim/config.ini'
+
+g_room: Optional[ChatRoom] = None
+
+
+def main():
+    global g_room
+    config = create_config(app_name='ChatRoom: Administrator', default_config=DEFAULT_CONFIG)
+    terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
+    g_room = ChatRoom(messenger=terminal.messenger)
+    thread = threading.Thread(target=terminal.run, daemon=False)
+    thread.start()
+
 
 if __name__ == '__main__':
-
-    # set current user
-    bot_id = 'chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7'
-    user = g_facebook.user(identifier=ID.parse(identifier=bot_id))
-    g_facebook.current_user = user
-
-    # create client and connect to the station
-    client = Terminal()
-    client.room = ChatRoom(g_messenger)
-    server = current_station()
-    dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
-    server.thread.join()
+    main()

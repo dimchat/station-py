@@ -33,45 +33,93 @@
 
 import sys
 import os
-from typing import Optional, List
+import threading
+from typing import Optional, List, Dict
 
 from startrek import DeparturePriority
 
-from dimsdk import ID
-from dimsdk import Envelope, InstantMessage, ReliableMessage
-from dimsdk import ContentType
-from dimsdk import Content, GroupCommand
-from dimsdk import ForwardContent
+from dimples import ID
+from dimples import Envelope, InstantMessage, ReliableMessage
+from dimples import ContentType
+from dimples import Content, GroupCommand
+from dimples import ForwardContent
+from dimples.client import ClientProcessor
+from dimples.utils import Log
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.utils import Logging
 from libs.common import ReceiptCommand
-from libs.common import SharedFacebook
-from libs.client import Terminal, ClientMessenger
-
-from robots.config import dims_connect, current_station
-
-from etc.cfg_init import g_database
+from libs.common import CommonFacebook
+from robots.shared import create_config, create_terminal
 
 
-class AssistantMessenger(ClientMessenger, Logging):
+def exists_member(member: ID, group: ID, facebook: CommonFacebook) -> bool:
+    if facebook.owner(identifier=group) == member:
+        return True
+    members = facebook.members(identifier=group)
+    return members is not None and member in members
+
+
+def exists_assistant(member: ID, group: ID, facebook: CommonFacebook) -> bool:
+    assistants = facebook.assistants(identifier=group)
+    return assistants is not None and member in assistants
+
+
+def is_waiting_meta(identifier: ID, facebook: CommonFacebook) -> bool:
+    """ Check whether meta not found """
+    if identifier.is_broadcast:
+        # broadcast entity has no meta
+        return False
+    return facebook.meta(identifier=identifier) is None
+
+
+def is_empty_group(group: ID, facebook: CommonFacebook) -> bool:
+    """ Check whether group info empty (owner or members not found) """
+    if group.is_broadcast:
+        # broadcast group's owner/members are constant defined
+        return False
+    if facebook.owner(identifier=group) is None:
+        return True
+    members = facebook.members(identifier=group)
+    return members is None or len(members) == 0
+
+
+def query_group(group: ID, users: List[ID]) -> bool:
+    # TODO: query group info from users
+    pass
+
+
+def get_group_key(sender: ID, member: ID, group: ID) -> str:
+    # TODO: get group key from database
+    pass
+
+
+def update_group_keys(keys: Dict[str, str], sender: ID, group: ID) -> bool:
+    # TODO: save group keys into database
+    pass
+
+
+class AssistantProcessor(ClientProcessor):
+
+    @property  # Override
+    def facebook(self) -> CommonFacebook:
+        barrack = super().facebook
+        assert isinstance(barrack, CommonFacebook), 'facebook error: %s' % barrack
+        return barrack
 
     # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
-        # check message delegate
-        if msg.delegate is None:
-            msg.delegate = self
+        # if msg.delegate is None:
+        #     msg.delegate = self.messenger
         receiver = msg.receiver
         if not receiver.is_group:
             # try to decrypt and process message
             return super().process_reliable_message(msg=msg)
         elif self.__is_waiting_group(group=receiver, sender=msg.sender, msg_type=msg.type):
             # group not ready
-            # save this message in a queue to wait group info response
-            self.suspend_message(msg=msg)
+            # TODO: suspend this message in a queue to wait group info response
             return []
         else:
             r_msg = self.__process_group_message(msg=msg)
@@ -86,13 +134,13 @@ class AssistantMessenger(ClientMessenger, Logging):
             # so it's always ready
             return False
         facebook = self.facebook
-        if facebook.is_waiting_meta(identifier=group):
+        if is_waiting_meta(identifier=group, facebook=facebook):
             # NOTICE: if meta for group not found,
             #         facebook should query it from DIM network automatically
             self.info('waiting for meta of group: %s' % group)
             # raise LookupError('group meta not found: %s' % group)
             return True
-        if facebook.is_empty_group(group=group):
+        if is_empty_group(group=group, facebook=facebook):
             # NOTICE: if the group info not found, and this is not an 'invite/reset' command
             #         query group info from the sender
             if msg_type == ContentType.HISTORY:
@@ -103,11 +151,11 @@ class AssistantMessenger(ClientMessenger, Logging):
                 #       it should contain the group owner(owner)
                 return False
             else:
-                return self.query_group(group=group, users=[sender])
-        elif facebook.exists_member(member=sender, group=group):
+                return query_group(group=group, users=[sender])
+        elif exists_member(member=sender, group=group, facebook=facebook):
             # normal membership
             return False
-        elif facebook.exists_assistant(member=sender, group=group):
+        elif exists_assistant(member=sender, group=group, facebook=facebook):
             # normal membership
             return False
         elif facebook.is_owner(member=sender, group=group):
@@ -124,7 +172,7 @@ class AssistantMessenger(ClientMessenger, Logging):
                 elif owner not in admins:
                     admins = admins.copy()
                     admins.append(owner)
-            return self.query_group(group=group, users=admins)
+            return query_group(group=group, users=admins)
 
     def __process_group_message(self, msg: ReliableMessage) -> Optional[ReliableMessage]:
         """
@@ -140,13 +188,15 @@ class AssistantMessenger(ClientMessenger, Logging):
         :param msg:
         :return: ReliableMessage as result
         """
-        s_msg = self.verify_message(msg=msg)
+        messenger = self.messenger
+        # 1. verify message
+        s_msg = messenger.verify_message(msg=msg)
         if s_msg is None:
             # signature error?
             return None
         sender = msg.sender
         receiver = msg.receiver
-        if not self.facebook.exists_member(member=sender, group=receiver):
+        if not exists_member(member=sender, group=receiver, facebook=self.facebook):
             if not self.facebook.is_owner(member=sender, group=receiver):
                 # not allow, kick it out
                 cmd = GroupCommand.expel(group=receiver, member=sender)
@@ -154,12 +204,12 @@ class AssistantMessenger(ClientMessenger, Logging):
                 receiver = msg.sender
                 env = Envelope.create(sender=sender, receiver=receiver)
                 i_msg = InstantMessage.create(head=env, body=cmd)
-                s_msg = self.encrypt_message(msg=i_msg)
+                s_msg = messenger.encrypt_message(msg=i_msg)
                 if s_msg is None:
                     self.error('failed to encrypt message: %s' % i_msg)
-                    self.suspend_message(msg=i_msg)
+                    # self.suspend_message(msg=i_msg)
                     return None
-                return self.sign_message(msg=s_msg)
+                return messenger.sign_message(msg=s_msg)
         members = self.facebook.members(receiver)
         if members is None or len(members) == 0:
             # members not found for this group,
@@ -182,10 +232,10 @@ class AssistantMessenger(ClientMessenger, Logging):
                 if len(expel_list) > 0:
                     # send 'expel' command to the sender
                     cmd = GroupCommand.expel(group=receiver, members=expel_list)
-                    g_messenger.send_content(sender=None, receiver=sender,
-                                             content=cmd, priority=DeparturePriority.NORMAL)
-                # update key map
-                g_database.update_group_keys(keys=keys, sender=sender, group=receiver)
+                    messenger.send_content(sender=None, receiver=sender,
+                                           content=cmd, priority=DeparturePriority.NORMAL)
+                # TODO: update key map
+                update_group_keys(keys=keys, sender=sender, group=receiver)
             # split and forward group message,
             # respond receipt with success or failed list
             res = self.__split_group_message(msg=msg, members=members)
@@ -195,12 +245,12 @@ class AssistantMessenger(ClientMessenger, Logging):
             receiver = msg.sender
             env = Envelope.create(sender=sender, receiver=receiver)
             i_msg = InstantMessage.create(head=env, body=res)
-            s_msg = self.encrypt_message(msg=i_msg)
+            s_msg = messenger.encrypt_message(msg=i_msg)
             if s_msg is None:
                 self.error('failed to encrypt message: %s' % i_msg)
-                self.suspend_message(msg=i_msg)
+                # self.suspend_message(msg=i_msg)
                 return None
-            return self.sign_message(msg=s_msg)
+            return messenger.sign_message(msg=s_msg)
 
     def __split_group_message(self, msg: ReliableMessage, members: List[ID]) -> Optional[Content]:
         """ Split group message for each member """
@@ -214,7 +264,7 @@ class AssistantMessenger(ClientMessenger, Logging):
                 success_list.append(item.receiver)
             else:
                 failed_list.append(item.receiver)
-        response = ReceiptCommand(message='Group message delivering')
+        response = ReceiptCommand.create(text='Group message delivering', msg=msg)
         if len(success_list) > 0:
             response['success'] = ID.revert(success_list)
         if len(failed_list) > 0:
@@ -224,7 +274,8 @@ class AssistantMessenger(ClientMessenger, Logging):
             sender = msg.sender
             group = msg.receiver
             cmd = GroupCommand.invite(group=group, members=failed_list)
-            self.send_content(sender=None, receiver=sender, content=cmd, priority=DeparturePriority.NORMAL)
+            messenger = self.messenger
+            messenger.send_content(sender=None, receiver=sender, content=cmd, priority=DeparturePriority.NORMAL)
         return response
 
     def __forward_group_message(self, msg: ReliableMessage) -> bool:
@@ -234,7 +285,7 @@ class AssistantMessenger(ClientMessenger, Logging):
             # get key from cache
             sender = msg.sender
             group = msg.group
-            key = g_database.group_key(sender=sender, member=receiver, group=group)
+            key = get_group_key(sender=sender, member=receiver, group=group)
             if key is None:
                 # cannot forward group message without key
                 return False
@@ -247,26 +298,26 @@ class AssistantMessenger(ClientMessenger, Logging):
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=forward)
         i_msg['origin'] = {'sender': str(msg.sender), 'group': str(msg.group), 'type': msg.type}
-        return self.send_instant_message(msg=i_msg, priority=DeparturePriority.NORMAL)
+        messenger = self.messenger
+        messenger.send_instant_message(msg=i_msg, priority=DeparturePriority.NORMAL)
+        return True
 
 
-"""
-    Messenger for Group Assistant bot
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"""
-g_facebook = SharedFacebook()
-g_messenger = AssistantMessenger(facebook=g_facebook)
-g_facebook.messenger = g_messenger
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+DEFAULT_CONFIG = '/etc/dim/config.ini'
+
+
+def main():
+    config = create_config(app_name='DIM Group Assistant', default_config=DEFAULT_CONFIG)
+    terminal = create_terminal(config=config, processor_class=AssistantProcessor)
+    thread = threading.Thread(target=terminal.run, daemon=False)
+    thread.start()
+
 
 if __name__ == '__main__':
-
-    # set current user
-    assistant = ID.parse(identifier='assistant')
-    user = g_facebook.user(identifier=assistant)
-    g_facebook.current_user = user
-
-    # create client and connect to the station
-    client = Terminal()
-    server = current_station()
-    dims_connect(terminal=client, server=server, user=user, messenger=g_messenger)
-    server.thread.join()
+    main()

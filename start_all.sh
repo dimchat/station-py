@@ -29,18 +29,14 @@ function title() {
 }
 
 
+#
+#   Station & Bridges
+#
+
 title "DIM Station"
 stop "station/start.py"
 stop "station/start_ct.py"
-stop "station/receptionist.py"
-stop "station/archivist.py"
-stop "station/pusher.py"
-stop "station/monitor.py"
-sleep 2
-start "monitor" "station/monitor.py"
-start "pusher" "station/pusher.py"
-start "search" "station/archivist.py"
-start "sabrina" "station/receptionist.py"
+sleep 1
 start "dims" "station/start_ct.py"
 #start "dims" "station/start.py"
 
@@ -49,16 +45,35 @@ sleep 2
 title "DIM Station Bridge"
 restart octopus "robots/sbot_octopus.py"
 
-#title "DIM Group Assistant"
-#restart group "robots/gbot_assistant.py"
+
 #
-#title "DIM Chat Bots"
-#restart ling "robots/chatbot_ling.py"
-#restart xiao "robots/chatbot_xiao.py"
+#   Bots
 #
+
+archivist="archivist@2Ph6zsUBL8rbimRArb2f539j64JUJJQoDpZ"
+assistant="assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq"
+ling="lingling@2PemMVAvxpuVZw2SYwwo11iBBEBb7gCvDHa"
+xiao="xiaoxiao@2PhVByg7PhEtYPNzW5ALk9ygf6wop1gTccp"
+#admin="chatroom-admin@2Pc5gJrEQYoz9D9TJrL35sA3wvprNdenPi7"
+
+title "DIM Search Engine"
+stop "robots/sbot_archivist.py"
+start search "robots/sbot_archivist.py ${archivist}"
+
+title "DIM Group Assistant"
+stop "robots/gbot_assistant.py"
+start group "robots/gbot_assistant.py ${assistant}"
+
+title "DIM Chat Bots"
+stop "robots/chatbot_ling.py"
+start ling "robots/chatbot_ling.py ${ling}"
+stop "robots/chatbot_xiao.py"
+start xiao "robots/chatbot_xiao.py ${xiao}"
+
 #title "DIM Chat Room"
-#restart chatroom "robots/chatroom_admin.py"
-#
+#stop "robots/chatroom_admin.py"
+#start chatroom "robots/chatroom_admin.py ${admin}"
+
 #title "DIM Web Server"
 #restart www "webserver/httpd.py"
 

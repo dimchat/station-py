@@ -31,7 +31,7 @@
     Bot as Search Engine to managing metas & documents
 """
 
-import sys
+import threading
 from typing import Optional, Union
 
 from dimples import ContentType
@@ -47,7 +47,7 @@ Path.add(path=path)
 
 from libs.client.protocol import SearchCommand
 from libs.client.cpu import SearchCommandProcessor
-from robots.shared import main
+from robots.shared import create_config, create_terminal
 
 
 class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
@@ -79,6 +79,12 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
+def main():
+    config = create_config(app_name='DIM Search Engine', default_config=DEFAULT_CONFIG)
+    terminal = create_terminal(config=config, processor_class=ArchivistMessageProcessor)
+    thread = threading.Thread(target=terminal.run, daemon=False)
+    thread.start()
+
+
 if __name__ == '__main__':
-    main(argv=sys.argv, app_name='DIM Search Engine', default_config=DEFAULT_CONFIG,
-         processor_class=ArchivistMessageProcessor)
+    main()

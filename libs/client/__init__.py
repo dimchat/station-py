@@ -31,12 +31,23 @@
 
 from dimples.client import *
 
+from .protocol import *
 from .cpu import *
 
 from .gman import GroupManager
 
 
 __all__ = [
+
+    #
+    #   Protocol
+    #
+    'HandshakeCommand', 'HandshakeState',
+    'ReceiptCommand', 'LoginCommand', 'ReportCommand',
+    'BlockCommand', 'MuteCommand',
+
+    'StorageCommand',
+    'SearchCommand',
 
     #
     #   CPU

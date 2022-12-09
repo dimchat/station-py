@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ==============================================================================
+
 import getopt
 import sys
-import threading
 from typing import Optional, List
 
 from dimples import ID
@@ -117,13 +117,13 @@ def show_help(cmd: str, app_name: str, default_config: str):
     print('')
 
 
-def main(argv: List[str], app_name: str, default_config: str, processor_class):
+def create_config(app_name: str, default_config: str) -> Config:
     try:
-        opts, args = getopt.getopt(args=argv[1:],
+        opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
                                    longopts=['help', 'config='])
     except getopt.GetoptError:
-        show_help(cmd=argv[0], app_name=app_name, default_config=default_config)
+        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
         sys.exit(1)
     # check options
     ini_file = None
@@ -131,33 +131,52 @@ def main(argv: List[str], app_name: str, default_config: str, processor_class):
         if opt == '--config':
             ini_file = arg
         else:
-            show_help(cmd=argv[0], app_name=app_name, default_config=default_config)
+            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
             sys.exit(0)
     # check arguments
     if len(args) == 1:
         identifier = ID.parse(identifier=args[0])
         if identifier is None:
-            show_help(cmd=argv[0], app_name=app_name, default_config=default_config)
+            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
             print('')
             print('!!! Bot ID error: %s' % args[0])
             print('')
             sys.exit(0)
     else:
-        show_help(cmd=argv[0], app_name=app_name, default_config=default_config)
-        sys.exit(0)
+        # get bot ID from config['bot']['id']
+        identifier = None
     # check config filepath
     if ini_file is None:
         ini_file = default_config
     if not Storage.exists(path=ini_file):
-        show_help(cmd=argv[0], app_name=app_name, default_config=default_config)
+        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
     # load config
+    print('>>> loading config file: %s' % ini_file)
     config = Config.load(file=ini_file)
+    # replace bot ID
+    bot = config.get('bot')
+    if bot is None:
+        bot = {}
+        config['bot'] = bot
+    if identifier is not None:
+        bot['id'] = str(identifier)
+    elif 'id' not in bot:
+        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! Bot ID not found: %s' % config)
+        print('')
+        sys.exit(0)
+    return config
+
+
+def create_terminal(config: Config, processor_class) -> Terminal:
     # initializing
-    print('[DB] init with config: %s => %s' % (ini_file, config))
+    identifier = config.get_id(section='bot', option='id')
+    assert identifier is not None, 'Bot ID not found: %s' % config
     shared = GlobalVariable()
     shared.config = config
     init_database(shared=shared)
@@ -168,9 +187,7 @@ def main(argv: List[str], app_name: str, default_config: str, processor_class):
     messenger = create_messenger(user=identifier, host=host, port=port, processor_class=processor_class)
     # create and start terminal
     terminal = Terminal(messenger=messenger)
-    messenger.terminal = terminal
-    thread = threading.Thread(target=terminal.run, daemon=False)
-    thread.start()
+    return terminal
 
 
 #
