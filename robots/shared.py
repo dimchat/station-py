@@ -132,18 +132,6 @@ def create_config(app_name: str, default_config: str) -> Config:
         else:
             show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
             sys.exit(0)
-    # check arguments
-    if len(args) == 1:
-        identifier = ID.parse(identifier=args[0])
-        if identifier is None:
-            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
-            print('')
-            print('!!! Bot ID error: %s' % args[0])
-            print('')
-            sys.exit(0)
-    else:
-        # get bot ID from config['bot']['id']
-        identifier = None
     # check config filepath
     if ini_file is None:
         ini_file = default_config
@@ -153,23 +141,43 @@ def create_config(app_name: str, default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
-    # load config
-    print('>>> loading config file: %s' % ini_file)
+    # load config from file
     config = Config.load(file=ini_file)
-    # replace bot ID
-    bot = config.get('bot')
-    if bot is None:
-        bot = {}
-        config['bot'] = bot
-    if identifier is not None:
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    # check arguments for Bot ID
+    if len(args) == 1:
+        identifier = ID.parse(identifier=args[0])
+        if identifier is None:
+            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+            print('')
+            print('!!! Bot ID error: %s' % args[0])
+            print('')
+            sys.exit(0)
+        # set bot ID into config['bot']['id']
+        bot = config.get('bot')
+        if bot is None:
+            bot = {}
+            config['bot'] = bot
         bot['id'] = str(identifier)
-    elif 'id' not in bot:
-        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
-        print('')
-        print('!!! Bot ID not found: %s' % config)
-        print('')
-        sys.exit(0)
+    # OK
     return config
+
+
+def check_bot_id(config: Config, ans_name: str) -> bool:
+    identifier = config.get_id(section='bot', option='id')
+    if identifier is not None:
+        # got it
+        return True
+    identifier = config.get_id(section='ans', option=ans_name)
+    if identifier is None:
+        # failed to get Bot ID
+        return False
+    bot_sec = config.get('bot')
+    if bot_sec is None:
+        bot_sec = {}
+        config['bot'] = bot_sec
+    bot_sec['id'] = str(identifier)
+    return True
 
 
 def create_terminal(config: Config, processor_class) -> Terminal:

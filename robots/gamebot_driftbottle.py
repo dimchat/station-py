@@ -49,6 +49,7 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from robots.shared import create_config, create_terminal
+from robots.shared import check_bot_id
 
 
 class AppContentHandler(TwinsHelper, CustomizedContentHandler):
@@ -188,6 +189,8 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 def main():
     config = create_config(app_name='Game: Drift Bottle', default_config=DEFAULT_CONFIG)
+    if not check_bot_id(config=config, ans_name='bottle'):
+        raise LookupError('Failed to get Bot ID: %s' % config)
     terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
     thread = threading.Thread(target=terminal.run, daemon=False)
     thread.start()
