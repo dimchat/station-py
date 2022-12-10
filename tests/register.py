@@ -31,16 +31,97 @@
     Generate Account information for DIM User/Station
 """
 
+import getopt
+import sys
+
+from dimples import ID
+
 from dimples.utils import Path
-from dimples.register.run import main
+from dimples.utils import Log
+from dimples.database import Storage
+from dimples.register.generate import generate
+from dimples.register.modify import modify
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
+from tests.shared import Config, GlobalVariable
+from tests.shared import create_database
 
-# just call 'dimid --config=/etc/dim/config.ini generate'
-# just call 'dimid --config=/etc/dim/config.ini modify <ID>'
+
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+DEFAULT_CONFIG = '/etc/dim/config.ini'
+
+
+def show_help():
+    cmd = sys.argv[0]
+    print('')
+    print('    DIM account generate/modify')
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>] generate' % cmd)
+    print('    %s [--config=<FILE>] modify <ID>' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('actions:')
+    print('    generate        create new ID, meta & document')
+    print('    modify <ID>     edit document with ID')
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help()
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help()
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = DEFAULT_CONFIG
+    if not Storage.exists(path=ini_file):
+        show_help()
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config
+    config = Config.load(file=ini_file)
+    # initializing
+    print('[DB] init with config: %s => %s' % (ini_file, config))
+    shared = GlobalVariable()
+    shared.config = config
+    create_database(shared=shared)
+    # check actions
+    if len(args) == 1 and args[0] == 'generate':
+        generate(db=shared.adb)
+    elif len(args) == 2 and args[0] == 'modify':
+        identifier = ID.parse(identifier=args[1])
+        assert identifier is not None, 'ID error: %s' % args[1]
+        modify(identifier=identifier, db=shared.adb)
+    else:
+        show_help()
+
+
 if __name__ == '__main__':
     main()
