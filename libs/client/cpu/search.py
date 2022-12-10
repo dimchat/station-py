@@ -28,7 +28,8 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import List
+import time
+from typing import List, Tuple
 
 from dimples import ID, Meta
 from dimples import ReliableMessage
@@ -36,9 +37,11 @@ from dimples import Content
 
 from dimples import BaseCommandProcessor
 from dimples.common import CommonFacebook
+from dimples.utils import CacheManager
 
 from ...utils import Logging
 from ...database import Database
+from ...database.t_active import ActiveTable
 from ..protocol import SearchCommand
 
 
@@ -77,6 +80,15 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         return [res]
 
 
+#
+#   Caches
+#
+ActiveTable.CACHE_REFRESHING = 2
+ActiveTable.CACHE_EXPIRES = 8
+
+g_search_cache = CacheManager().get_pool(name='search')
+
+
 def online_users(facebook: CommonFacebook, start: int, limit: int) -> (List[ID], dict):
     if start < 0:
         start = 0
@@ -104,16 +116,29 @@ def online_users(facebook: CommonFacebook, start: int, limit: int) -> (List[ID],
 
 
 def search_users(keywords: str, start: int, limit: int,
-                 database: Database, facebook: CommonFacebook) -> (List[ID], dict):
+                 database: Database, facebook: CommonFacebook) -> Tuple[List[ID], dict]:
+    # 0. split keywords
     if keywords is None:
-        keywords = []
+        kw_array = []
     else:
-        keywords = keywords.split(' ')
+        kw_array = keywords.split(' ')
     assert start >= 0, 'start position error: %d' % start
     if limit > 0:
         end = start + limit
     else:
-        end = 10240
+        # this is a request from another search bot in neighbor station,
+        # only return ID list for it.
+        end = start + 10240
+    # 1. get from cache
+    now = time.time()
+    value, holder = g_search_cache.fetch(key=(keywords, start, end), now=now)
+    if value is not None:
+        # got it
+        return value
+    elif holder is not None:
+        # search result expired, wait to reload
+        holder.renewal(duration=8, now=now)
+    # 2. do searching
     index = -1
     users: List[ID] = []
     results = {}
@@ -127,33 +152,34 @@ def search_users(keywords: str, start: int, limit: int,
         else:
             info = '%s, %s' % (name, identifier)
         info = info.lower()
-        # 1. check each keyword with user info
+        # 2.1. check each keyword with user info
         match = True
-        for kw in keywords:
+        for kw in kw_array:
             if len(kw) > 0 > info.find(kw.lower()):
                 match = False
                 break
         if not match:
             continue
-        # 2. check user meta
+        # 2.2. check user meta
         meta = facebook.meta(identifier=identifier)
         if meta is None:
             # user meta not found, skip
             continue
-        # 3. check limit
+        # 2.3. check limit
         index += 1
         if index < start:
             # skip
             continue
-        elif index < end:
-            # got it
-            users.append(identifier)
-            if limit > 0:
-                # get meta when limit is set
-                results[str(identifier)] = meta.dictionary
         elif index >= end:
             # mission accomplished
             break
+        # got it
+        users.append(identifier)
+        if limit > 0:
+            # get meta when limit is set
+            results[str(identifier)] = meta.dictionary
+    # 3. cache the search result
+    g_search_cache.update(key=(keywords, start, end), value=(users, results), life_span=600, now=now)
     return users, results
 
 
