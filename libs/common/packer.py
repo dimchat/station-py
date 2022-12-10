@@ -125,6 +125,13 @@ class CommonPacker(SuperPacker):
         return i_msg
 
 
+def copy_receipt_values(content: ReceiptCommand, env: dict):
+    for key in ['sender', 'receiver', 'sn', 'signature']:
+        value = env.get(key)
+        if value is not None:
+            content[key] = value
+
+
 # TODO: remove after all server/client upgraded
 def fix_receipt_command(content: ReceiptCommand):
     origin = content.get('origin')
@@ -133,9 +140,7 @@ def fix_receipt_command(content: ReceiptCommand):
         # compatible with v1.0
         content['envelope'] = origin
         # compatible with older version
-        content['sender'] = origin.get('sender')
-        content['receiver'] = origin.get('receiver')
-        content['signature'] = origin.get('signature')
+        copy_receipt_values(content=content, env=origin)
         return content
     # check for old version
     env = content.get('envelope')
@@ -144,9 +149,7 @@ def fix_receipt_command(content: ReceiptCommand):
         # compatible with v2.0
         content['origin'] = env
         # compatible with older version
-        content['sender'] = env.get('sender')
-        content['receiver'] = env.get('receiver')
-        content['signature'] = env.get('signature')
+        copy_receipt_values(content=content, env=env)
         return content
     # check for older version
     if 'sender' in content:  # and 'receiver' in content:
