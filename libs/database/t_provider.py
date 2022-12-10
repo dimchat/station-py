@@ -26,7 +26,7 @@
 import time
 from typing import Optional, Set, Tuple
 
-from dimp import ID
+from dimples import ID
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.common import ProviderDBI
@@ -39,6 +39,9 @@ from .dos import ProviderStorage
 
 class ProviderTable(ProviderDBI):
     """ Implementations of ProviderDBI """
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
@@ -54,7 +57,7 @@ class ProviderTable(ProviderDBI):
 
     def save_neighbors(self, stations: Set[Tuple[str, int, ID]]) -> bool:
         # 1. store into memory cache
-        self.__cache.update(key='neighbors', value=stations, life_span=600)
+        self.__cache.update(key='neighbors', value=stations, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_neighbors(stations=stations)
         # 3. store into local storage
@@ -73,14 +76,14 @@ class ProviderTable(ProviderDBI):
             # cache empty
             if holder is None:
                 # neighbors not load yet, wait to load
-                self.__cache.update(key='neighbors', life_span=128, now=now)
+                self.__cache.update(key='neighbors', life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'neighbors cache error'
                 if holder.is_alive(now=now):
                     # neighbors not exists
                     return set()
                 # neighbors expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.all_neighbors()
             if value is None:
@@ -90,7 +93,7 @@ class ProviderTable(ProviderDBI):
                     # update redis server
                     self.__redis.save_neighbors(stations=value)
             # update memory cache
-            self.__cache.update(key='neighbors', value=value, life_span=600, now=now)
+            self.__cache.update(key='neighbors', value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

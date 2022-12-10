@@ -26,7 +26,7 @@
 import time
 from typing import Optional, List
 
-from dimsdk import ID
+from dimples import ID
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.common import GroupDBI
@@ -37,6 +37,9 @@ from .dos import GroupStorage
 
 class GroupTable(GroupDBI):
     """ Implementations of GroupDBI """
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -65,7 +68,7 @@ class GroupTable(GroupDBI):
     # Override
     def save_members(self, members: List[ID], identifier: ID) -> bool:
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=members, life_span=36000)
+        self.__cache.update(key=identifier, value=members, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_members(members=members, identifier=identifier)
         # 3. store into local storage
@@ -80,14 +83,14 @@ class GroupTable(GroupDBI):
             # cache empty
             if holder is None:
                 # meta not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'meta cache error'
                 if holder.is_alive(now=now):
                     # meta not exists
                     return []
                 # meta expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.members(identifier=identifier)
             if len(value) == 0:
@@ -97,7 +100,7 @@ class GroupTable(GroupDBI):
                     # update redis server
                     self.__redis.save_members(members=value, identifier=identifier)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

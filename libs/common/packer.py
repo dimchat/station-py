@@ -132,6 +132,10 @@ def fix_receipt_command(content: ReceiptCommand):
         # (v2.0)
         # compatible with v1.0
         content['envelope'] = origin
+        # compatible with older version
+        content['sender'] = origin.get('sender')
+        content['receiver'] = origin.get('receiver')
+        content['signature'] = origin.get('signature')
         return content
     # check for old version
     env = content.get('envelope')
@@ -139,6 +143,10 @@ def fix_receipt_command(content: ReceiptCommand):
         # (v1.0)
         # compatible with v2.0
         content['origin'] = env
+        # compatible with older version
+        content['sender'] = env.get('sender')
+        content['receiver'] = env.get('receiver')
+        content['signature'] = env.get('signature')
         return content
     # check for older version
     if 'sender' in content:  # and 'receiver' in content:

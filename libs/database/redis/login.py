@@ -65,7 +65,7 @@ class LoginCache(Cache):
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def load_login(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def load_login(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         key = self.__login_key(identifier=identifier)
         value = self.get(name=key)
         if value is None:

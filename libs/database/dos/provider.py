@@ -25,7 +25,7 @@
 
 from typing import Optional, List, Set, Tuple
 
-from dimsdk import ID, Station
+from dimples import ID, Station
 
 from dimples.common import ProviderDBI
 from dimples.database.dos.base import template_replace
@@ -108,7 +108,7 @@ def insert_neighbor(host: str, port: int, identifier: ID, stations: Set[Tuple[st
     return True
 
 
-def remove_neighbor(host: str, port: int, stations: Set[Tuple[str, int, ID]]) -> (bool, ID):
+def remove_neighbor(host: str, port: int, stations: Set[Tuple[str, int, ID]]) -> Tuple[bool, Optional[ID]]:
     for item in stations:
         if item[0] == host and item[1] == port:
             # got it

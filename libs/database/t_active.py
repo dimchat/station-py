@@ -35,6 +35,9 @@ from .redis import LoginCache
 
 class ActiveTable:
 
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
+
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -60,18 +63,18 @@ class ActiveTable:
             # cache empty
             if holder is None:
                 # active_users not load yet, wait to load
-                self.__active_cache.update(key='active_users', life_span=128, now=now)
+                self.__active_cache.update(key='active_users', life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'active_users cache error'
                 if holder.is_alive(now=now):
                     # active_users not exists
                     return set()
                 # active_users expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.active_users()
             # 3. update memory cache
-            self.__active_cache.update(key='active_users', value=value, life_span=300, now=now)
+            self.__active_cache.update(key='active_users', value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

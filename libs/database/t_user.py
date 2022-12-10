@@ -40,6 +40,9 @@ from .dos import UserStorage
 class UserTable(SuperTable):
     """ Implementations of UserDBI """
 
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__(root=root, public=public, private=private)
         self.__dos = UserStorage(root=root, public=public, private=private)
@@ -59,7 +62,7 @@ class UserTable(SuperTable):
             # command expired, drop it
             return False
         # 1. store into memory cache
-        self.__cmd_contacts.update(key=identifier, value=content, life_span=300)
+        self.__cmd_contacts.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
         self.__redis.save_contacts_command(content=content, identifier=identifier)
         # 3. save to local storage
@@ -73,14 +76,14 @@ class UserTable(SuperTable):
             # cache empty
             if holder is None:
                 # storage command not load yet, wait to load
-                self.__cmd_contacts.update(key=identifier, life_span=128, now=now)
+                self.__cmd_contacts.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'storage cache error'
                 if holder.is_alive(now=now):
                     # storage command not exists
                     return None
                 # storage command expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.contacts_command(identifier=identifier)
             if value is None:
@@ -90,7 +93,7 @@ class UserTable(SuperTable):
                     # update redis server
                     self.__redis.save_contacts_command(content=value, identifier=identifier)
             # update memory cache
-            self.__cmd_contacts.update(key=identifier, value=value, life_span=300, now=now)
+            self.__cmd_contacts.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -101,7 +104,7 @@ class UserTable(SuperTable):
             # command expired, drop it
             return False
         # 1. store into memory cache
-        self.__cmd_block.update(key=identifier, value=content, life_span=300)
+        self.__cmd_block.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
         self.__redis.save_block_command(content=content, identifier=identifier)
         # 3. save to local storage
@@ -115,14 +118,14 @@ class UserTable(SuperTable):
             # cache empty
             if holder is None:
                 # block command not load yet, wait to load
-                self.__cmd_block.update(key=identifier, life_span=128, now=now)
+                self.__cmd_block.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'block cache error'
                 if holder.is_alive(now=now):
                     # block command not exists
                     return None
                 # block command expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.block_command(identifier=identifier)
             if value is None:
@@ -132,7 +135,7 @@ class UserTable(SuperTable):
                     # update redis server
                     self.__redis.save_block_command(content=value, identifier=identifier)
             # update memory cache
-            self.__cmd_block.update(key=identifier, value=value, life_span=300, now=now)
+            self.__cmd_block.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -143,7 +146,7 @@ class UserTable(SuperTable):
             # command expired, drop it
             return False
         # 1. store into memory cache
-        self.__cmd_mute.update(key=identifier, value=content, life_span=300)
+        self.__cmd_mute.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
         self.__redis.save_mute_command(content=content, identifier=identifier)
         # 3. save to local storage
@@ -157,14 +160,14 @@ class UserTable(SuperTable):
             # cache empty
             if holder is None:
                 # mute command not load yet, wait to load
-                self.__cmd_mute.update(key=identifier, life_span=128, now=now)
+                self.__cmd_mute.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'mute cache error'
                 if holder.is_alive(now=now):
                     # mute command not exists
                     return None
                 # mute command expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.mute_command(identifier=identifier)
             if value is None:
@@ -174,6 +177,6 @@ class UserTable(SuperTable):
                     # update redis server
                     self.__redis.save_mute_command(content=value, identifier=identifier)
             # update memory cache
-            self.__cmd_mute.update(key=identifier, value=value, life_span=300, now=now)
+            self.__cmd_mute.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value

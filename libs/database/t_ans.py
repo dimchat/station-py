@@ -36,6 +36,9 @@ from .dos import AddressNameStorage
 
 class AddressNameTable:
 
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
+
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = AddressNameStorage(root=root, public=public, private=private)
@@ -63,11 +66,11 @@ class AddressNameTable:
                 holder.renewal(duration=128, now=now)
             # 2. load from local storage
             value = self.__dos.load_records()
-            self.__cache.update(key='all_records', value=value, life_span=36000, now=now)
+            self.__cache.update(key='all_records', value=value, life_span=300, now=now)
         return value
 
     def _save_records(self, records: Dict[str, ID], now: float = None) -> bool:
-        self.__cache.update(key='all_records', value=records, life_span=36000, now=now)
+        self.__cache.update(key='all_records', value=records, life_span=300, now=now)
         return self.__dos.save_records(records=records)
 
     def save_record(self, name: str, identifier: ID) -> bool:
@@ -91,14 +94,14 @@ class AddressNameTable:
             # cache empty
             if holder is None:
                 # ANS record not load yet, wait to load
-                self.__cache.update(key=name, life_span=128, now=now)
+                self.__cache.update(key=name, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'ANS cache error'
                 if holder.is_alive(now=now):
                     # ANS record not exists
                     return None
                 # ANS record expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.record(name=name)
             if value is None:
@@ -110,7 +113,7 @@ class AddressNameTable:
                     if value is not None:
                         self.__redis.save_record(name=name, identifier=value)
             # update memory cache
-            self.__cache.update(key=name, value=value, life_span=36000, now=now)
+            self.__cache.update(key=name, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -122,14 +125,14 @@ class AddressNameTable:
             # cache empty
             if holder is None:
                 # ANS record not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'ANS cache error'
                 if holder.is_alive(now=now):
                     # ANS record not exists
                     return set()
                 # ANS record expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.names(identifier=identifier)
             if value is None:
@@ -138,7 +141,7 @@ class AddressNameTable:
                 if all_records is not None:
                     value = get_names(records=all_records, identifier=identifier)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

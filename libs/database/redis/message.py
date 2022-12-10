@@ -24,11 +24,12 @@
 # ==============================================================================
 
 import time
-from typing import List, Optional
+from typing import Optional, List, Tuple
 
-from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import ID
-from dimsdk import ReliableMessage
+from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import ID
+from dimples import ReliableMessage
+from dimples.database.t_message import get_range
 
 from ...utils import get_msg_sig
 from .base import Cache
@@ -38,10 +39,6 @@ class MessageCache(Cache):
 
     # only relay cached messages within 7 days
     EXPIRES = 3600 * 24 * 7  # seconds
-
-    # only scan no more than 2048 messages for one time
-    # (it's about 1MB at least)
-    LIMIT = 2048
 
     @property  # Override
     def db_name(self) -> Optional[str]:
@@ -86,20 +83,21 @@ class MessageCache(Cache):
         self.zrem(messages_key, utf8_encode(string=sig))
         return True
 
-    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
         # 0. clear expired messages (7 days ago)
         key = self.__messages_key(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
         self.zremrangebyscore(name=key, min_score=0, max_score=expired)
-        # 1. get number of messages
-        count = self.zcard(name=key)
-        if count < 1:
-            return []
-        if count > self.LIMIT:
-            count = self.LIMIT
-        array = []
+        # 1. make range
+        total = self.zcard(name=key)
+        assert total >= 0, 'message cache error: %s' % key
+        start, end = get_range(start=start, limit=limit, total=total)
+        if start >= end:
+            assert end == total, 'out of range: [%d, %d), total=%d' % (start, end, total)
+            return [], 0  # total - end
         # 2. get all messages in the last 7 days
-        signatures = self.zrange(name=key, start=0, end=(count - 1))
+        array = []
+        signatures = self.zrange(name=key, start=start, end=(end - 1))
         for sig in signatures:
             # get messages by receiver & signature
             msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
@@ -113,4 +111,4 @@ class MessageCache(Cache):
                 array.append(msg)
             except Exception as error:
                 print('[REDIS] message error: %s => %s' % (error, value))
-        return array
+        return array, total - end

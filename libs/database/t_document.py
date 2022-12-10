@@ -26,7 +26,7 @@
 import time
 from typing import Optional, List
 
-from dimsdk import ID, Document
+from dimples import ID, Document
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.common import DocumentDBI
@@ -37,6 +37,9 @@ from .dos import DocumentStorage
 
 class DocumentTable(DocumentDBI):
     """ Implementations of DocumentDBI """
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -63,7 +66,7 @@ class DocumentTable(DocumentDBI):
             # document expired, drop it
             return False
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=document, life_span=36000)
+        self.__cache.update(key=identifier, value=document, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_document(document=document)
         # 3. save into local storage
@@ -78,14 +81,14 @@ class DocumentTable(DocumentDBI):
             # cache empty
             if holder is None:
                 # document not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'document cache error'
                 if holder.is_alive(now=now):
                     # document not exists
                     return None
                 # document expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.document(identifier=identifier, doc_type=doc_type)
             if value is None:
@@ -95,7 +98,7 @@ class DocumentTable(DocumentDBI):
                     # update redis server
                     self.__redis.save_document(document=value)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -108,15 +111,15 @@ class DocumentTable(DocumentDBI):
             # cache empty
             if holder is None:
                 # scan results not load yet, wait to load
-                self.__cache.update(key='all_documents', life_span=512, now=now)
+                self.__cache.update(key='all_documents', life_span=128, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'scan cache error'
                 if holder.is_alive(now=now):
                     # scan results not exists
                     return []
                 # scan results expired, wait to reload
-                holder.renewal(duration=512, now=now)
+                holder.renewal(duration=128, now=now)
             # 2. scan local storage
             value = self.__dos.scan_documents()
-            self.__cache.update(key='all_documents', value=value, life_span=36000, now=now)
+            self.__cache.update(key='all_documents', value=value, life_span=600, now=now)
         return value

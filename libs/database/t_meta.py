@@ -26,7 +26,7 @@
 import time
 from typing import Optional
 
-from dimsdk import ID, Meta
+from dimples import ID, Meta
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.common import MetaDBI
@@ -37,6 +37,9 @@ from .dos import MetaStorage
 
 class MetaTable(MetaDBI):
     """ Implementations of MetaDBI """
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -60,7 +63,7 @@ class MetaTable(MetaDBI):
             # meta exists, no need to update it
             return True
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=meta, life_span=36000)
+        self.__cache.update(key=identifier, value=meta, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_meta(meta=meta, identifier=identifier)
         # 3. store into local storage
@@ -75,14 +78,14 @@ class MetaTable(MetaDBI):
             # cache empty
             if holder is None:
                 # meta not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'meta cache error'
                 if holder.is_alive(now=now):
                     # meta not exists
                     return None
                 # meta expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.meta(identifier=identifier)
             if value is None:
@@ -92,6 +95,6 @@ class MetaTable(MetaDBI):
                     # update redis server
                     self.__redis.save_meta(meta=value, identifier=identifier)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value

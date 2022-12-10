@@ -24,9 +24,9 @@
 # ==============================================================================
 
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
-from dimsdk import ID, ReliableMessage
+from dimples import ID, ReliableMessage
 
 from dimples.utils import CacheHolder, CacheManager
 from dimples.common import LoginDBI
@@ -38,6 +38,9 @@ from .dos import LoginStorage
 
 class LoginTable(LoginDBI):
     """ Implementations of LoginDBI """
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -63,14 +66,14 @@ class LoginTable(LoginDBI):
             # command expired, drop it
             return False
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=(content, msg), life_span=300)
+        self.__cache.update(key=identifier, value=(content, msg), life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_login(identifier=identifier, content=content, msg=msg)
         # 3. save into local storage
         return self.__dos.save_login_command_message(identifier=identifier, content=content, msg=msg)
 
     # Override
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         now = time.time()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=identifier, now=now)
@@ -78,14 +81,14 @@ class LoginTable(LoginDBI):
             # cache empty
             if holder is None:
                 # login command message not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'login cache error'
                 if holder.is_alive(now=now):
                     # login command message not exists
-                    return None
+                    return None, None
                 # login command message expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             cmd, msg = self.__redis.load_login(identifier=identifier)
             value = (cmd, msg)
@@ -97,7 +100,7 @@ class LoginTable(LoginDBI):
                     # update redis server
                     self.__redis.save_login(identifier=identifier, content=cmd, msg=msg)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=300, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

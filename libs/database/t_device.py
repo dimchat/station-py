@@ -26,7 +26,7 @@
 import time
 from typing import Optional, List
 
-from dimsdk import ID
+from dimples import ID
 
 from dimples.utils import CacheHolder, CacheManager
 
@@ -35,6 +35,9 @@ from .dos import DeviceStorage
 
 
 class DeviceTable:
+
+    CACHE_EXPIRES = 60    # seconds
+    CACHE_REFRESHING = 8  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
@@ -48,7 +51,7 @@ class DeviceTable:
 
     def save_device(self, device: dict, identifier: ID) -> bool:
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=device, life_span=36000)
+        self.__cache.update(key=identifier, value=device, life_span=60)
         # 2. store into redis server
         self.__redis.save_device(device=device, identifier=identifier)
         # 3. store into local storage
@@ -62,14 +65,14 @@ class DeviceTable:
             # cache empty
             if holder is None:
                 # meta not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=128, now=now)
+                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 assert isinstance(holder, CacheHolder), 'meta cache error'
                 if holder.is_alive(now=now):
                     # meta not exists
                     return None
                 # meta expired, wait to reload
-                holder.renewal(duration=128, now=now)
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.device(identifier=identifier)
             if value is None:
@@ -79,7 +82,7 @@ class DeviceTable:
                     # update redis server
                     self.__redis.save_device(device=value, identifier=identifier)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=36000, now=now)
+            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 

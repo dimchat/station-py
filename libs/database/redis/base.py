@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 
 from redis import Redis
 
@@ -103,7 +103,7 @@ class Cache:
         self.redis.expire(name=name, time=ti)
         return True
 
-    def scan(self, cursor: int, match: str, count: int) -> (int, Optional[List[bytes]]):
+    def scan(self, cursor: int, match: str, count: int) -> Tuple[int, Optional[List[bytes]]]:
         """ Scan key names, return next cursor and partial results """
         return self.redis.scan(cursor=cursor, match=match, count=count)
 

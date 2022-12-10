@@ -43,7 +43,7 @@ from dimples.database.t_cipherkey import CipherKeyTable
 from ..common import BlockCommand, MuteCommand
 
 from .t_provider import ProviderTable
-from .t_ans import AddressNameTable
+# from .t_ans import AddressNameTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_device import DeviceTable
@@ -69,8 +69,8 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__msg_key_table = CipherKeyTable(root=root, public=public, private=private)
         # Message
         self.__message_table = MessageTable(root=root, public=public, private=private)
-        # ANS
-        self.__ans_table = AddressNameTable(root=root, public=public, private=private)
+        # # ANS
+        # self.__ans_table = AddressNameTable(root=root, public=public, private=private)
         # Login info
         self.__login_table = LoginTable(root=root, public=public, private=private)
         self.__active_table = ActiveTable(root=root, public=public, private=private)
@@ -87,8 +87,8 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__msg_key_table.show_info()
         # Message
         self.__message_table.show_info()
-        # ANS
-        self.__ans_table.show_info()
+        # # ANS
+        # self.__ans_table.show_info()
         # Login info
         self.__login_table.show_info()
         self.__active_table.show_info()
@@ -310,7 +310,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def reliable_messages(self, receiver: ID) -> List[ReliableMessage]:
+    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
         return self.__message_table.reliable_messages(receiver=receiver)
 
     # Override
@@ -361,7 +361,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def login_command_message(self, identifier: ID) -> (Optional[LoginCommand], Optional[ReliableMessage]):
+    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         return self.__login_table.login_command_message(identifier=identifier)
 
     # Override
