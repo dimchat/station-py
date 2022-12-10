@@ -57,7 +57,7 @@ class GlobalVariable:
         self.pusher: Optional[Pusher] = None
 
 
-def init_database(shared: GlobalVariable):
+def create_database(shared: GlobalVariable) -> Database:
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -75,9 +75,10 @@ def init_database(shared: GlobalVariable):
     for node in neighbors:
         print('adding neighbor node: (%s:%d), ID="%s"' % (node.host, node.port, node.identifier))
         db.add_neighbor(host=node.host, port=node.port, identifier=node.identifier)
+    return db
 
 
-def init_facebook(shared: GlobalVariable) -> CommonFacebook:
+def create_facebook(shared: GlobalVariable) -> CommonFacebook:
     # create facebook with account database
     facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
@@ -92,7 +93,7 @@ def init_facebook(shared: GlobalVariable) -> CommonFacebook:
     return facebook
 
 
-def init_ans(shared: GlobalVariable) -> AddressNameService:
+def create_ans(shared: GlobalVariable) -> AddressNameService:
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
@@ -102,7 +103,7 @@ def init_ans(shared: GlobalVariable) -> AddressNameService:
     return ans
 
 
-def init_pusher(shared: GlobalVariable) -> Pusher:
+def create_pusher(shared: GlobalVariable) -> Pusher:
     # create notification pusher
     pusher = NotificationPusher(facebook=shared.facebook)
     shared.pusher = pusher
@@ -134,7 +135,7 @@ def init_pusher(shared: GlobalVariable) -> Pusher:
     return pusher
 
 
-def init_dispatcher(shared: GlobalVariable) -> Dispatcher:
+def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     # create dispatcher
     dispatcher = Dispatcher()
     dispatcher.database = shared.mdb

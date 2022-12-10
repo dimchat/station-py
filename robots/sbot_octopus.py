@@ -32,6 +32,7 @@
 """
 
 from dimples.utils import Path
+from dimples.edge.shared import GlobalVariable as DemoVariable
 from dimples.edge.start import main
 
 path = Path.abs(path=__file__)
@@ -39,7 +40,16 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
+from robots.shared import GlobalVariable as BotVariable
+from robots.shared import create_database
+
 
 # just call 'dime --config=/etc/dim/edge.ini'
 if __name__ == '__main__':
     main()
+    # replace database
+    db = create_database(shared=BotVariable())
+    shared = DemoVariable()
+    shared.sdb = db
+    shared.mdb = db
+    shared.sdb = db

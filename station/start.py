@@ -48,9 +48,9 @@ Path.add(path=path)
 from libs.utils.mtp import Server as UDPServer
 
 from station.shared import GlobalVariable
-from station.shared import init_database, init_facebook, init_ans
-from station.shared import init_pusher, stop_pusher
-from station.shared import init_dispatcher, stop_dispatcher
+from station.shared import create_database, create_facebook, create_ans
+from station.shared import create_pusher, stop_pusher
+from station.shared import create_dispatcher, stop_dispatcher
 from station.handler import RequestHandler
 
 
@@ -109,11 +109,11 @@ def main():
     print('[DB] init with config: %s => %s' % (ini_file, config))
     shared = GlobalVariable()
     shared.config = config
-    init_database(shared=shared)
-    init_facebook(shared=shared)
-    init_ans(shared=shared)
-    init_pusher(shared=shared)
-    init_dispatcher(shared=shared)
+    create_database(shared=shared)
+    create_facebook(shared=shared)
+    create_ans(shared=shared)
+    create_pusher(shared=shared)
+    create_dispatcher(shared=shared)
 
     server_address = (config.station_host, config.station_port)
 

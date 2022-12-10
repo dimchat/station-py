@@ -55,7 +55,7 @@ class GlobalVariable:
         self.facebook: Optional[CommonFacebook] = None
 
 
-def init_database(shared: GlobalVariable):
+def create_database(shared: GlobalVariable) -> Database:
     config = shared.config
     root = config.database_root
     public = config.database_public
@@ -67,9 +67,10 @@ def init_database(shared: GlobalVariable):
     shared.mdb = db
     shared.sdb = db
     shared.database = db
+    return db
 
 
-def init_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
+def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
     # create facebook with account database
     facebook = CommonFacebook(database=shared.adb)
     shared.facebook = facebook
@@ -186,8 +187,8 @@ def create_terminal(config: Config, processor_class) -> Terminal:
     assert identifier is not None, 'Bot ID not found: %s' % config
     shared = GlobalVariable()
     shared.config = config
-    init_database(shared=shared)
-    init_facebook(shared=shared, current_user=identifier)
+    create_database(shared=shared)
+    create_facebook(shared=shared, current_user=identifier)
     # create messenger and connect to station (host:port)
     host = config.station_host
     port = config.station_port
