@@ -30,17 +30,13 @@
     Upload/download image files
 """
 
+import os
+
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
 
-import dimp
-
-import sys
-import os
-
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+from dimples import md5, hex_encode
+from dimples import ID
 
 HOST = '0.0.0.0'
 PORT = 8081
@@ -55,7 +51,11 @@ ALLOWED_FILE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'mp3', 'mp4'}
 IMAGE_FILE_TYPES = {'png', 'jpg', 'jpeg'}
 
 
-def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
+def get_filename(data: bytes, ext: str) -> str:
+    return '%s.%s' % (hex_encode(md5(data)), ext)
+
+
+def save_data(data: bytes, filename: str, identifier: ID) -> str:
     """ save encrypted data file """
     (useless, ext) = os.path.splitext(filename)
     if ext is None or data is None:
@@ -68,7 +68,7 @@ def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
+    filename = get_filename(data=data, ext=ext)
     save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
@@ -83,7 +83,7 @@ def save_data(data: bytes, filename: str, identifier: dimp.ID) -> str:
     return render_template('response.html', code=500, message='Internal Server Error', filename=filename)
 
 
-def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
+def save_avatar(data: bytes, filename: str, identifier: ID) -> str:
     """ save avatar """
     (useless, ext) = os.path.splitext(filename)
     if ext is None or data is None:
@@ -96,7 +96,7 @@ def save_avatar(data: bytes, filename: str, identifier: dimp.ID) -> str:
         msg = 'File extensions not support: %s' % ext
         return render_template('response.html', code=415, message=msg, filename=filename)
     # save it with real filename
-    filename = '%s.%s' % (dimp.Hex.encode(dimp.md5(data)), ext)
+    filename = get_filename(data=data, ext=ext)
     save_dir = os.path.join(AVATAR_DIRECTORY, str(identifier.address))
     path = os.path.join(save_dir, filename)
     if not os.path.exists(save_dir):
@@ -134,7 +134,7 @@ def test() -> str:
 def upload(identifier: str) -> str:
     """ upload encrypted data file or avatar """
     # TODO: check identifier
-    identifier = dimp.ID.parse(identifier=identifier)
+    identifier = ID.parse(identifier=identifier)
 
     # check file
     file = request.files.get('file')
@@ -167,7 +167,7 @@ def upload(identifier: str) -> str:
 @app.route('/download/<string:identifier>/<path:filename>', methods=['GET'])
 def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
-    identifier = dimp.ID.parse(identifier=identifier)
+    identifier = ID.parse(identifier=identifier)
     filename = secure_filename(filename)
     save_dir = os.path.join(UPLOAD_DIRECTORY, str(identifier.address))
     return send_from_directory(save_dir, filename, as_attachment=True)
@@ -178,7 +178,7 @@ def download(identifier: str, filename: str) -> str:
 @app.route('/<string:identifier>/avatar.<string:ext>', methods=['GET'])
 def avatar(identifier: str, filename: str = None, ext: str = None) -> str:
     """ response avatar file as attachment """
-    identifier = dimp.ID.parse(identifier=identifier)
+    identifier = ID.parse(identifier=identifier)
     if filename is not None:
         filename = secure_filename(filename)
     elif ext is not None:
