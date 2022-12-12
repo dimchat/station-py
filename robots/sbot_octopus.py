@@ -31,25 +31,51 @@
     Bot for bridging neighbor stations
 """
 
+from dimples.utils import Log
 from dimples.utils import Path
-from dimples.edge.shared import GlobalVariable as DemoVariable
-from dimples.edge.start import main
+from dimples.edge.octopus import Octopus
+from dimples.edge.shared import GlobalVariable
+from dimples.edge.shared import create_config
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from robots.shared import GlobalVariable as BotVariable
-from robots.shared import create_database
+from robots.shared import create_database, create_facebook
 
 
-# just call 'dime --config=/etc/dim/edge.ini'
-if __name__ == '__main__':
-    main()
-    # replace database
-    db = create_database(shared=BotVariable())
-    shared = DemoVariable()
-    shared.sdb = db
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
+
+
+DEFAULT_CONFIG = '/etc/dim/edge.ini'
+
+
+def main():
+    # create global variable
+    shared = GlobalVariable()
+    # Step 1: load config
+    config = create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
+    shared.config = config
+    # Step 2: create database
+    db = create_database(config=config)
+    shared.adb = db
     shared.mdb = db
     shared.sdb = db
+    # Step 3: create facebook
+    sid = config.station_id
+    assert sid is not None, 'current station ID not set: %s' % config
+    facebook = create_facebook(database=db, current_user=sid)
+    shared.facebook = facebook
+    # create & start octopus
+    host = config.station_host
+    port = config.station_port
+    octopus = Octopus(shared=shared, local_host=host, local_port=port)
+    octopus.start()
+
+
+if __name__ == '__main__':
+    main()

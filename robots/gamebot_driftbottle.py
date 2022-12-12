@@ -29,7 +29,6 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-import threading
 from typing import Optional, Union, List
 
 from dimples import ID
@@ -48,8 +47,7 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from robots.shared import create_config, create_terminal
-from robots.shared import check_bot_id
+from robots.shared import start_bot
 
 
 class AppContentHandler(TwinsHelper, CustomizedContentHandler):
@@ -187,14 +185,8 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-def main():
-    config = create_config(app_name='Game: Drift Bottle', default_config=DEFAULT_CONFIG)
-    if not check_bot_id(config=config, ans_name='bottle'):
-        raise LookupError('Failed to get Bot ID: %s' % config)
-    terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
-    thread = threading.Thread(target=terminal.run, daemon=False)
-    thread.start()
-
-
 if __name__ == '__main__':
-    main()
+    start_bot(default_config=DEFAULT_CONFIG,
+              app_name='Game: Drift Bottle',
+              ans_name='bottle',
+              processor_class=BotMessageProcessor)

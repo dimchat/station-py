@@ -33,7 +33,6 @@
 
 import sys
 import os
-import threading
 from typing import Optional, List, Dict
 
 from startrek import DeparturePriority
@@ -52,8 +51,8 @@ sys.path.append(rootPath)
 
 from libs.common import ReceiptCommand
 from libs.common import CommonFacebook
-from robots.shared import create_config, create_terminal
-from robots.shared import check_bot_id
+
+from robots.shared import start_bot
 
 
 def exists_member(member: ID, group: ID, facebook: CommonFacebook) -> bool:
@@ -313,14 +312,8 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-def main():
-    config = create_config(app_name='DIM Group Assistant', default_config=DEFAULT_CONFIG)
-    if not check_bot_id(config=config, ans_name='assistant'):
-        raise LookupError('Failed to get Bot ID: %s' % config)
-    terminal = create_terminal(config=config, processor_class=AssistantProcessor)
-    thread = threading.Thread(target=terminal.run, daemon=False)
-    thread.start()
-
-
 if __name__ == '__main__':
-    main()
+    start_bot(default_config=DEFAULT_CONFIG,
+              app_name='DIM Group Assistant',
+              ans_name='assistant',
+              processor_class=AssistantProcessor)

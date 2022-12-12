@@ -21,9 +21,9 @@ udp==0.5.8
 stun==0.2.3
 dmtp==0.3.4
 
-mkm==0.12.3
-dkd==0.12.2
-dimp==0.12.2
-dimsdk==0.8.1
-dimplugins==0.1.0
-dimples==0.0.8
+mkm==0.12.4
+dkd==0.12.4
+dimp==0.12.4
+dimsdk==0.8.2
+dimplugins==0.1.1
+dimples==0.0.9

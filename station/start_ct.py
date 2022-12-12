@@ -31,9 +31,7 @@
     DIM network server node
 """
 
-import getopt
 import socket
-import sys
 import traceback
 from typing import Optional
 
@@ -41,8 +39,6 @@ from gevent import spawn, monkey
 
 from dimples.utils import Log, Logging
 from dimples.utils import Path
-from dimples.database import Storage
-from dimples import Config
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
@@ -54,9 +50,8 @@ monkey.patch_all()
 from libs.utils.mtp import Server as UDPServer
 
 from station.shared import GlobalVariable
-from station.shared import create_database, create_facebook, create_ans
-from station.shared import create_pusher, stop_pusher
-from station.shared import create_dispatcher, stop_dispatcher
+from station.shared import create_config, create_database, create_facebook
+from station.shared import create_ans, create_pusher, create_dispatcher
 from station.handler import RequestHandler
 
 
@@ -101,59 +96,34 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
-def show_help():
-    cmd = sys.argv[0]
-    print('')
-    print('    DIM Network Station')
-    print('')
-    print('usages:')
-    print('    %s [--config=<FILE>]' % cmd)
-    print('    %s [-h|--help]' % cmd)
-    print('')
-    print('optional arguments:')
-    print('    --config        config file path (default: "%s")' % DEFAULT_CONFIG)
-    print('    --help, -h      show this help message and exit')
-    print('')
-
-
 def main():
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help()
-        sys.exit(1)
-    # check options
-    ini_file = None
-    for opt, arg in opts:
-        if opt == '--config':
-            ini_file = arg
-        else:
-            show_help()
-            sys.exit(0)
-    # check config filepath
-    if ini_file is None:
-        ini_file = DEFAULT_CONFIG
-    if not Storage.exists(path=ini_file):
-        show_help()
-        print('')
-        print('!!! config file not exists: %s' % ini_file)
-        print('')
-        sys.exit(0)
-    # load config
-    config = Config.load(file=ini_file)
-    # initializing
-    print('[DB] init with config: %s => %s' % (ini_file, config))
+    # create global variable
     shared = GlobalVariable()
+    # Step 1: load config
+    config = create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     shared.config = config
-    create_database(shared=shared)
-    create_facebook(shared=shared)
-    create_ans(shared=shared)
+    # Step 2: create database
+    db = create_database(config=config)
+    shared.adb = db
+    shared.mdb = db
+    shared.sdb = db
+    shared.database = db
+    # Step 3: create facebook
+    sid = config.station_id
+    assert sid is not None, 'current station ID not set: %s' % config
+    facebook = create_facebook(database=db, current_user=sid)
+    shared.facebook = facebook
+    # Step 4: create ANS
+    create_ans(config=config)
+    # Step 5: create pusher
     create_pusher(shared=shared)
+    # Step 6: create dispatcher
     create_dispatcher(shared=shared)
-
-    server_address = (config.station_host, config.station_port)
+    # check bind host & port
+    host = config.station_host
+    port = config.station_port
+    assert host is not None and port > 0, 'station config error: %s' % config
+    server_address = (host, port)
 
     # start UDP Server
     Log.info('>>> UDP server %s starting ...' % str(server_address))
@@ -171,8 +141,6 @@ def main():
         Log.info(msg='~~~~~~~~ %s' % ex)
     finally:
         g_udp_server.stop()
-        stop_dispatcher(shared=shared)
-        stop_pusher(shared=shared)
         Log.info(msg='======== station shutdown!')
 
 

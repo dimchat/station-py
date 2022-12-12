@@ -25,6 +25,7 @@
 
 import getopt
 import sys
+import threading
 from typing import Optional, List
 
 from dimples import ID
@@ -39,6 +40,7 @@ from libs.common import Config
 from libs.database import Storage
 from libs.database import Database
 from libs.client import ClientSession, ClientMessenger
+from libs.client import ClientProcessor
 from libs.client import Terminal
 
 
@@ -55,60 +57,12 @@ class GlobalVariable:
         self.facebook: Optional[CommonFacebook] = None
 
 
-def create_database(shared: GlobalVariable) -> Database:
-    config = shared.config
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    # create database
-    db = Database(root=root, public=public, private=private)
-    db.show_info()
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
-    return db
-
-
-def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
-    # create facebook with account database
-    facebook = CommonFacebook(database=shared.adb)
-    shared.facebook = facebook
-    # set current user
-    # make sure private key exists
-    assert facebook.private_key_for_visa_signature(identifier=current_user) is not None, \
-        'failed to get sign key for current user: %s' % current_user
-    print('set current user: %s' % current_user)
-    facebook.current_user = facebook.user(identifier=current_user)
-    return facebook
-
-
-def create_messenger(user: ID, host: str, port: int, processor_class) -> ClientMessenger:
-    shared = GlobalVariable()
-    facebook = shared.facebook
-    # 0. create station with remote host & port
-    station = Station(host=host, port=port)
-    station.data_source = facebook
-    # 1. create session with SessionDB
-    session = ClientSession(station=station, database=shared.sdb)
-    session.set_identifier(identifier=user)
-    # 2. create messenger with session and MessageDB
-    messenger = ClientMessenger(session=session, facebook=facebook, database=shared.mdb)
-    # 3. create packer, processor for messenger
-    #    they have weak references to facebook & messenger
-    messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
-    messenger.processor = processor_class(facebook=facebook, messenger=messenger)
-    # 4. set weak reference to messenger
-    session.messenger = messenger
-    return messenger
-
-
 def show_help(cmd: str, app_name: str, default_config: str):
     print('')
     print('    %s' % app_name)
     print('')
     print('usages:')
-    print('    %s [--config=<FILE>] <BID>' % cmd)
+    print('    %s [--config=<FILE>] [BID]' % cmd)
     print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
@@ -118,12 +72,14 @@ def show_help(cmd: str, app_name: str, default_config: str):
 
 
 def create_config(app_name: str, default_config: str) -> Config:
+    """ Step 1: load config """
+    cmd = sys.argv[0]
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
                                    longopts=['help', 'config='])
     except getopt.GetoptError:
-        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         sys.exit(1)
     # check options
     ini_file = None
@@ -131,13 +87,13 @@ def create_config(app_name: str, default_config: str) -> Config:
         if opt == '--config':
             ini_file = arg
         else:
-            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
             sys.exit(0)
     # check config filepath
     if ini_file is None:
         ini_file = default_config
     if not Storage.exists(path=ini_file):
-        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
         print('')
@@ -149,7 +105,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     if len(args) == 1:
         identifier = ID.parse(identifier=args[0])
         if identifier is None:
-            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
+            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
             print('')
             print('!!! Bot ID error: %s' % args[0])
             print('')
@@ -162,6 +118,66 @@ def create_config(app_name: str, default_config: str) -> Config:
         bot['id'] = str(identifier)
     # OK
     return config
+
+
+def create_database(config: Config) -> Database:
+    """ Step 2: create database """
+    root = config.database_root
+    public = config.database_public
+    private = config.database_private
+    # create database
+    db = Database(root=root, public=public, private=private)
+    db.show_info()
+    # add neighbors
+    neighbors = config.neighbors
+    for node in neighbors:
+        print('adding neighbor node: (%s:%d), ID=%s' % (node.host, node.port, node.identifier))
+        db.add_neighbor(host=node.host, port=node.port)
+    return db
+
+
+def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+    """ Step 3: create facebook """
+    facebook = CommonFacebook(database=database)
+    # make sure private key exists
+    sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
+    msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
+    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+    print('set current user: %s' % current_user)
+    facebook.current_user = facebook.user(identifier=current_user)
+    return facebook
+
+
+def create_session(facebook: CommonFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
+    # 1. create station with remote host & port
+    station = Station(host=host, port=port)
+    station.data_source = facebook
+    # 2. create session with SessionDB
+    session = ClientSession(station=station, database=database)
+    # 3. set current user
+    user = facebook.current_user
+    session.set_identifier(identifier=user.identifier)
+    return session
+
+
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: ClientSession, processor_class) -> ClientMessenger:
+    assert issubclass(processor_class, ClientProcessor), 'processor class error: %s' % processor_class
+    # 1. create messenger with session and MessageDB
+    messenger = ClientMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor for messenger
+    #    they have weak references to facebook & messenger
+    messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
+    messenger.processor = processor_class(facebook=facebook, messenger=messenger)
+    # 3. set weak reference to messenger
+    session.messenger = messenger
+    return messenger
+
+
+#
+#   DIM Bot
+#
 
 
 def check_bot_id(config: Config, ans_name: str) -> bool:
@@ -181,20 +197,33 @@ def check_bot_id(config: Config, ans_name: str) -> bool:
     return True
 
 
-def create_terminal(config: Config, processor_class) -> Terminal:
-    # initializing
-    identifier = config.get_id(section='bot', option='id')
-    assert identifier is not None, 'Bot ID not found: %s' % config
+def start_bot(default_config: str, app_name: str, ans_name: str, processor_class) -> Terminal:
+    # create global variable
     shared = GlobalVariable()
+    # Step 1: load config
+    config = create_config(app_name=app_name, default_config=default_config)
     shared.config = config
-    create_database(shared=shared)
-    create_facebook(shared=shared, current_user=identifier)
-    # create messenger and connect to station (host:port)
+    if not check_bot_id(config=config, ans_name=ans_name):
+        raise LookupError('Failed to get Bot ID: %s' % config)
+    # Step 2: create database
+    db = create_database(config=config)
+    shared.adb = db
+    shared.mdb = db
+    shared.sdb = db
+    shared.database = db
+    # Step 3: create facebook
+    bid = config.get_id(section='bot', option='id')
+    facebook = create_facebook(database=db, current_user=bid)
+    shared.facebook = facebook
+    # create session for messenger
     host = config.station_host
     port = config.station_port
-    messenger = create_messenger(user=identifier, host=host, port=port, processor_class=processor_class)
-    # create terminal with messenger
+    session = create_session(facebook=facebook, database=db, host=host, port=port)
+    messenger = create_messenger(facebook=facebook, database=db, session=session, processor_class=processor_class)
+    # create & start terminal
     terminal = Terminal(messenger=messenger)
+    thread = threading.Thread(target=terminal.run, daemon=False)
+    thread.start()
     return terminal
 
 

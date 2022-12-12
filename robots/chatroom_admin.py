@@ -31,7 +31,6 @@
     Chat room for web demo
 """
 
-import threading
 import time
 from enum import IntEnum
 from typing import Optional, Union, List
@@ -62,8 +61,7 @@ from libs.client.cpu.text import get_name
 
 from robots.shared import GlobalVariable
 from robots.shared import chat_bots
-from robots.shared import create_config, create_terminal
-from robots.shared import check_bot_id
+from robots.shared import start_bot
 
 
 #
@@ -331,19 +329,10 @@ Log.LEVEL = Log.DEVELOP
 
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
-g_room: Optional[ChatRoom] = None
-
-
-def main():
-    global g_room
-    config = create_config(app_name='ChatRoom: Administrator', default_config=DEFAULT_CONFIG)
-    if not check_bot_id(config=config, ans_name='administrator'):
-        raise LookupError('Failed to get Bot ID: %s' % config)
-    terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
-    g_room = ChatRoom(messenger=terminal.messenger)
-    thread = threading.Thread(target=terminal.run, daemon=False)
-    thread.start()
-
 
 if __name__ == '__main__':
-    main()
+    terminal = start_bot(default_config=DEFAULT_CONFIG,
+                         app_name='ChatRoom: Administrator',
+                         ans_name='administrator',
+                         processor_class=BotMessageProcessor)
+    g_room = ChatRoom(messenger=terminal.messenger)

@@ -31,7 +31,6 @@
     Chat bot powered by XiaoI
 """
 
-import threading
 from typing import Optional, Union
 
 from dimples import ContentType
@@ -49,8 +48,7 @@ from libs.client import ClientProcessor, ClientContentProcessorCreator
 
 from robots.shared import GlobalVariable
 from robots.shared import chat_bots
-from robots.shared import create_config, create_terminal
-from robots.shared import check_bot_id
+from robots.shared import start_bot
 
 
 class BotTextContentProcessor(ChatTextContentProcessor):
@@ -88,14 +86,8 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-def main():
-    config = create_config(app_name='ChatBot: Xiao I', default_config=DEFAULT_CONFIG)
-    if not check_bot_id(config=config, ans_name='xiao'):
-        raise LookupError('Failed to get Bot ID: %s' % config)
-    terminal = create_terminal(config=config, processor_class=BotMessageProcessor)
-    thread = threading.Thread(target=terminal.run, daemon=False)
-    thread.start()
-
-
 if __name__ == '__main__':
-    main()
+    start_bot(default_config=DEFAULT_CONFIG,
+              app_name='ChatBot: Xiao I',
+              ans_name='xiao',
+              processor_class=BotMessageProcessor)

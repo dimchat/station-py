@@ -23,10 +23,13 @@
 # SOFTWARE.
 # ==============================================================================
 
+import getopt
+import sys
 from typing import Optional
 
 from dimples import ID
 from dimples import AccountDBI, MessageDBI, SessionDBI
+from dimples.database import Storage
 
 from libs.utils import Singleton
 from libs.common import Config
@@ -57,18 +60,61 @@ class GlobalVariable:
         self.pusher: Optional[Pusher] = None
 
 
-def create_database(shared: GlobalVariable) -> Database:
-    config = shared.config
+def show_help(cmd: str, app_name: str, default_config: str):
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+def create_config(app_name: str, default_config: str) -> Config:
+    """ Step 1: load config """
+    cmd = sys.argv[0]
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not Storage.exists(path=ini_file):
+        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    return config
+
+
+def create_database(config: Config) -> Database:
+    """ Step 2: create database """
     root = config.database_root
     public = config.database_public
     private = config.database_private
     # create database
     db = Database(root=root, public=public, private=private)
     db.show_info()
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
     db.clear_socket_addresses()  # clear before station start
     # add neighbors
     neighbors = config.neighbors
@@ -78,33 +124,31 @@ def create_database(shared: GlobalVariable) -> Database:
     return db
 
 
-def create_facebook(shared: GlobalVariable) -> CommonFacebook:
-    # create facebook with account database
-    facebook = CommonFacebook(database=shared.adb)
-    shared.facebook = facebook
-    # set current station
-    sid = shared.config.station_id
-    if sid is not None:
-        # make sure private key exists
-        assert facebook.private_key_for_visa_signature(identifier=sid) is not None,\
-            'failed to get sign key for current station: %s' % sid
-        print('set current user: %s' % sid)
-        facebook.current_user = facebook.user(identifier=sid)
+def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+    """ Step 3: create facebook """
+    facebook = CommonFacebook(database=database)
+    # make sure private keys exists
+    sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
+    msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
+    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+    print('set current user: %s' % current_user)
+    facebook.current_user = facebook.user(identifier=current_user)
     return facebook
 
 
-def create_ans(shared: GlobalVariable) -> AddressNameService:
+def create_ans(config: Config) -> AddressNameService:
+    """ Step 4: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
     # load ANS records from 'config.ini'
-    config = shared.config
     ans.fix(fixed=config.ans_records)
     return ans
 
 
 def create_pusher(shared: GlobalVariable) -> Pusher:
-    # create notification pusher
+    """ Step 5: create pusher """
     pusher = NotificationPusher(facebook=shared.facebook)
     shared.pusher = pusher
     # create push services for PushCenter
@@ -136,7 +180,7 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
 
 
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    # create dispatcher
+    """ Step 6: create dispatcher """
     dispatcher = Dispatcher()
     dispatcher.database = shared.mdb
     dispatcher.facebook = shared.facebook
@@ -163,19 +207,3 @@ def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     station_deliver.start()
     roamer.start()
     return dispatcher
-
-
-# noinspection PyUnusedLocal
-def stop_dispatcher(shared: GlobalVariable) -> bool:
-    # TODO: stop Dispatcher
-    # dispatcher = Dispatcher()
-    # dispatcher.stop()
-    return True
-
-
-# noinspection PyUnusedLocal
-def stop_pusher(shared: GlobalVariable) -> bool:
-    # stop PushCenter
-    center = PushCenter()
-    center.stop()
-    return True
