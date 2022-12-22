@@ -28,7 +28,7 @@ from typing import Optional, List
 
 from dimples import ID, Document
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.common import DocumentDBI
 
 from .redis import DocumentCache
@@ -83,7 +83,6 @@ class DocumentTable(DocumentDBI):
                 # document not load yet, wait to load
                 self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'document cache error'
                 if holder.is_alive(now=now):
                     # document not exists
                     return None
@@ -113,7 +112,6 @@ class DocumentTable(DocumentDBI):
                 # scan results not load yet, wait to load
                 self.__cache.update(key='all_documents', life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'scan cache error'
                 if holder.is_alive(now=now):
                     # scan results not exists
                     return []

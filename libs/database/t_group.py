@@ -28,7 +28,7 @@ from typing import Optional, List
 
 from dimples import ID
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.common import GroupDBI
 
 from .redis import GroupCache
@@ -85,7 +85,6 @@ class GroupTable(GroupDBI):
                 # meta not load yet, wait to load
                 self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'meta cache error'
                 if holder.is_alive(now=now):
                     # meta not exists
                     return []

@@ -28,7 +28,7 @@ from typing import Optional, Tuple
 
 from dimples import ID, ReliableMessage
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.common import LoginDBI
 from dimples.common import LoginCommand
 
@@ -83,7 +83,6 @@ class LoginTable(LoginDBI):
                 # login command message not load yet, wait to load
                 self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'login cache error'
                 if holder.is_alive(now=now):
                     # login command message not exists
                     return None, None

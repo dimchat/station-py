@@ -29,7 +29,7 @@ from typing import List, Tuple
 from dimples import ID
 from dimples import ReliableMessage
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.common import ReliableMessageDBI
 
 from .redis import MessageCache
@@ -93,7 +93,6 @@ class MessageTable(ReliableMessageDBI):
                 # messages not load yet, wait to load
                 self.__cache.update(key=receiver, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'messages cache error'
                 if holder.is_alive(now=now):
                     # messages not exists
                     return [], 0
@@ -108,7 +107,7 @@ class MessageTable(ReliableMessageDBI):
         return value.messages, value.remaining
 
     # Override
-    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         # 1. store into redis server
         if self.__redis.save_reliable_message(msg=msg, receiver=receiver):
             # 2. clear cache to reload

@@ -44,7 +44,7 @@ from libs.server import ServerMessenger
 from libs.server import ServerProcessor
 from libs.server import DefaultFilter
 
-from .shared import GlobalVariable
+from station.shared import GlobalVariable
 
 
 def create_messenger(facebook: CommonFacebook, database: MessageDBI,

@@ -28,7 +28,7 @@ from typing import Optional
 
 from dimples import ID, Command
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.database.t_user import UserTable as SuperTable
 
 from ..common import BlockCommand, MuteCommand
@@ -78,7 +78,6 @@ class UserTable(SuperTable):
                 # storage command not load yet, wait to load
                 self.__cmd_contacts.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'storage cache error'
                 if holder.is_alive(now=now):
                     # storage command not exists
                     return None
@@ -120,7 +119,6 @@ class UserTable(SuperTable):
                 # block command not load yet, wait to load
                 self.__cmd_block.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'block cache error'
                 if holder.is_alive(now=now):
                     # block command not exists
                     return None
@@ -162,7 +160,6 @@ class UserTable(SuperTable):
                 # mute command not load yet, wait to load
                 self.__cmd_mute.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'mute cache error'
                 if holder.is_alive(now=now):
                     # mute command not exists
                     return None

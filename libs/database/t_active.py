@@ -28,7 +28,7 @@ from typing import Dict, Set, Tuple
 
 from dimples import ID
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 
 from .redis import LoginCache
 
@@ -65,7 +65,6 @@ class ActiveTable:
                 # active_users not load yet, wait to load
                 self.__active_cache.update(key='active_users', life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'active_users cache error'
                 if holder.is_alive(now=now):
                     # active_users not exists
                     return set()

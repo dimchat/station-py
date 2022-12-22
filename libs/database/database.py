@@ -314,8 +314,8 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         return self.__message_table.reliable_messages(receiver=receiver)
 
     # Override
-    def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        return self.__message_table.save_reliable_message(msg=msg, receiver=receiver)
+    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+        return self.__message_table.cache_reliable_message(msg=msg, receiver=receiver)
 
     # Override
     def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:

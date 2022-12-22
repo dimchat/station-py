@@ -28,7 +28,7 @@ from typing import Optional, Set, Tuple
 
 from dimples import ID
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 from dimples.common import ProviderDBI
 
 from .dos.provider import insert_neighbor, remove_neighbor
@@ -78,7 +78,6 @@ class ProviderTable(ProviderDBI):
                 # neighbors not load yet, wait to load
                 self.__cache.update(key='neighbors', life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'neighbors cache error'
                 if holder.is_alive(now=now):
                     # neighbors not exists
                     return set()

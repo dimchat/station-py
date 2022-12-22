@@ -28,7 +28,7 @@ from typing import Optional, Set, Dict
 
 from dimples import ID
 
-from dimples.utils import CacheHolder, CacheManager
+from dimples.utils import CacheManager
 
 from .redis import AddressNameCache
 from .dos import AddressNameStorage
@@ -58,7 +58,6 @@ class AddressNameTable:
                 # ANS record not load yet, wait to load
                 self.__cache.update(key='all_records', life_span=128, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'ANS cache error'
                 if holder.is_alive(now=now):
                     # ANS records not exists
                     return {}
@@ -96,7 +95,6 @@ class AddressNameTable:
                 # ANS record not load yet, wait to load
                 self.__cache.update(key=name, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'ANS cache error'
                 if holder.is_alive(now=now):
                     # ANS record not exists
                     return None
@@ -127,7 +125,6 @@ class AddressNameTable:
                 # ANS record not load yet, wait to load
                 self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
-                assert isinstance(holder, CacheHolder), 'ANS cache error'
                 if holder.is_alive(now=now):
                     # ANS record not exists
                     return set()

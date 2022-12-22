@@ -29,7 +29,6 @@
 """
 from typing import Optional
 
-from dimples import ID
 from dimples import InstantMessage, SecureMessage, ReliableMessage
 from dimples import DocumentCommand
 
@@ -58,16 +57,9 @@ class CommonPacker(SuperPacker):
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
 
-    def __is_waiting(self, identifier: ID) -> bool:
-        if identifier.is_group:
-            # checking group meta
-            return self.facebook.meta(identifier=identifier) is None
-        else:
-            # checking visa key
-            return self.facebook.public_key_for_encryption(identifier=identifier) is None
-
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
+        fix_meta_attachment(msg=msg)
         attach_key_digest(msg=msg, messenger=self.messenger)
         if self.mtp_format == self.MTP_JSON:
             # JsON
@@ -83,16 +75,15 @@ class CommonPacker(SuperPacker):
         if data.startswith(b'{'):
             # JsON
             msg = super().deserialize_message(data=data)
-            if msg is not None:
-                fix_visa(msg=msg)
-            return msg
         else:
             # D-MTP
             msg = MTPUtils.deserialize_message(data=data)
             if msg is not None:
                 # FIXME: just change it when first package received
                 self.mtp_format = self.MTP_DMTP
-                return msg
+        if msg is not None:
+            fix_meta_attachment(msg=msg)
+        return msg
 
     # Override
     def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
@@ -123,6 +114,26 @@ class CommonPacker(SuperPacker):
                 # compatible with v1.0
                 fix_document_command(content=content)
         return i_msg
+
+
+#
+#  Compatible with old versions
+#
+
+
+# TODO: remove after all server/client upgraded
+def fix_meta_attachment(msg: ReliableMessage):
+    meta = msg.get('meta')
+    if meta is not None:
+        fix_meta_version(meta=meta)
+
+
+def fix_meta_version(meta: dict):
+    version = meta.get('version')
+    if version is None:
+        meta['version'] = meta['type']
+    elif 'type' not in meta:
+        meta['type'] = version
 
 
 def copy_receipt_values(content: ReceiptCommand, env: dict):
@@ -204,15 +215,3 @@ def fix_document_command(content: DocumentCommand):
         #    }
         content['document'] = info
     return content
-
-
-# TODO: remove after all server/client upgraded
-def fix_visa(msg: ReliableMessage):
-    # move 'profile' -> 'visa'
-    profile = msg.get('profile')
-    if profile is not None:
-        msg.pop('profile')
-        # 1.* => 2.0
-        visa = msg.get('visa')
-        if visa is None:
-            msg['visa'] = profile
