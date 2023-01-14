@@ -35,7 +35,7 @@ from typing import Optional, Union
 
 from dimples import ContentType
 from dimples import ContentProcessor, ContentProcessorCreator
-from dimples.client import ClientProcessor, ClientContentProcessorCreator
+from dimples.client import ClientContentProcessorCreator
 from dimples.utils import Log
 from dimples.utils import Path
 
@@ -46,6 +46,7 @@ Path.add(path=path)
 
 from libs.client.protocol import SearchCommand
 from libs.client.cpu import SearchCommandProcessor
+from libs.client import ClientProcessor
 
 from robots.shared import start_bot
 

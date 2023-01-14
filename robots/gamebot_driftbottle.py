@@ -38,7 +38,7 @@ from dimples import ReliableMessage
 from dimples import Content, TextContent, CustomizedContent, AppCustomizedContent
 from dimples import CustomizedContentProcessor, CustomizedContentHandler
 from dimples import TwinsHelper
-from dimples.client import ClientProcessor, ClientContentProcessorCreator
+from dimples.client import ClientContentProcessorCreator
 from dimples.utils import Log
 from dimples.utils import Path
 
@@ -47,6 +47,7 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
+from libs.client import ClientProcessor
 from robots.shared import start_bot
 
 

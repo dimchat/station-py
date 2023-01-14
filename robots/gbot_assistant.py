@@ -42,7 +42,6 @@ from dimples import Envelope, InstantMessage, ReliableMessage
 from dimples import ContentType
 from dimples import Content, GroupCommand
 from dimples import ForwardContent
-from dimples.client import ClientProcessor
 from dimples.utils import Log
 
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -51,6 +50,7 @@ sys.path.append(rootPath)
 
 from libs.common import ReceiptCommand
 from libs.common import CommonFacebook
+from libs.client import ClientProcessor
 
 from robots.shared import start_bot
 
