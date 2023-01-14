@@ -15,9 +15,9 @@ sysv-ipc   # 1.1.0
 
 ipx==0.2.2
 
-startrek==0.3.8
-tcp==0.3.8
-udp==0.5.8
+startrek==0.4.0
+tcp==0.4.0
+udp==0.5.9
 stun==0.2.3
 dmtp==0.3.4
 
@@ -26,4 +26,4 @@ dkd==0.12.4
 dimp==0.12.4
 dimsdk==0.8.3
 dimplugins==0.1.2
-dimples==0.1.0
+dimples==0.1.2

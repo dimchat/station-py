@@ -32,16 +32,14 @@ from typing import Optional
 from dimples import InstantMessage, SecureMessage, ReliableMessage
 from dimples import DocumentCommand
 
-from dimples.common.packer import attach_key_digest
-from dimples.common import CommonPacker as SuperPacker
+from dimples.common import ReceiptCommand
 from dimples.common import CommonFacebook, CommonMessenger
+from dimples.server import ServerMessagePacker as SuperPacker
 
 from ..utils.mtp import MTPUtils
 
-from .protocol import ReceiptCommand
 
-
-class CommonPacker(SuperPacker):
+class ServerPacker(SuperPacker):
 
     MTP_JSON = 0x01
     MTP_DMTP = 0x02
@@ -60,7 +58,6 @@ class CommonPacker(SuperPacker):
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
         fix_meta_attachment(msg=msg)
-        attach_key_digest(msg=msg, messenger=self.messenger)
         if self.mtp_format == self.MTP_JSON:
             # JsON
             return super().serialize_message(msg=msg)

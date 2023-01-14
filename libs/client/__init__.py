@@ -34,6 +34,7 @@ from dimples.client import *
 from .protocol import *
 from .cpu import *
 
+from .packer import ClientPacker
 from .gman import GroupManager
 
 
@@ -64,9 +65,10 @@ __all__ = [
     #   Client
     #
     'ClientSession', 'SessionState',
-    'ClientProcessor', 'ClientContentProcessorCreator',
+    'ClientContentProcessorCreator',
     'ClientMessenger',
     'Terminal',
 
+    'ClientPacker',
     'GroupManager',
 ]

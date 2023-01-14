@@ -44,6 +44,7 @@ from .cpu import *
 
 from .session import ServerSession
 from .messenger import ServerMessenger
+from .packer import ServerPacker
 from .processor import ServerProcessor
 from .processor import ServerContentProcessorCreator
 
@@ -75,6 +76,7 @@ __all__ = [
     'Filter', 'DefaultFilter',
 
     'ServerMessenger',
+    'ServerPacker',
     'ServerProcessor',
     'ServerContentProcessorCreator',
 

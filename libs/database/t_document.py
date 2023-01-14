@@ -60,6 +60,8 @@ class DocumentTable(DocumentDBI):
         assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
         doc_type = document.type
+        if doc_type is None or len(doc_type) == 0:
+            doc_type = '*'
         # 0. check old record with time
         old = self.document(identifier=identifier, doc_type=doc_type)
         if old is not None and old.time >= document.time > 0:

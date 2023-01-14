@@ -35,7 +35,7 @@ from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
 from dimples import BaseContentProcessor
 
-from dimples.server import ServerProcessor as SuperProcessor
+from dimples.server import ServerMessageProcessor as SuperProcessor
 from dimples.server import ServerContentProcessorCreator as SuperCreator
 
 from ..common import ReceiptCommand

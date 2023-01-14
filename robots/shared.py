@@ -35,12 +35,12 @@ from dimples.common import AccountDBI, MessageDBI, SessionDBI
 from libs.utils import Log
 from libs.utils import Singleton
 from libs.utils.nlp import ChatBot, Tuling, XiaoI
-from libs.common import CommonFacebook, CommonPacker
+from libs.common import CommonFacebook
 from libs.common import Config
 from libs.database import Storage
 from libs.database import Database
 from libs.client import ClientSession, ClientMessenger
-from libs.client import ClientProcessor
+from libs.client import ClientProcessor, ClientPacker
 from libs.client import Terminal
 
 
@@ -168,7 +168,7 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     messenger = ClientMessenger(session=session, facebook=facebook, database=database)
     # 2. create packer, processor for messenger
     #    they have weak references to facebook & messenger
-    messenger.packer = CommonPacker(facebook=facebook, messenger=messenger)
+    messenger.packer = ClientPacker(facebook=facebook, messenger=messenger)
     messenger.processor = processor_class(facebook=facebook, messenger=messenger)
     # 3. set weak reference to messenger
     session.messenger = messenger

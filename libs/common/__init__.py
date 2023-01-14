@@ -36,7 +36,6 @@ from dimples import Config
 from .protocol import *
 
 from .facebook import CommonFacebook
-from .packer import CommonPacker
 
 
 __all__ = [
@@ -52,7 +51,7 @@ __all__ = [
     #   Common libs
     #
     'CommonFacebook',
-    'CommonMessenger', 'CommonPacker',
+    'CommonMessenger',
 
     'Config',
 ]

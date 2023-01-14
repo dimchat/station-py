@@ -88,7 +88,8 @@ class GroupManager:
                 messenger.send_content(sender=None, receiver=bot, content=cmd)
             return False
         # let group assistant to split and deliver this message to all members
-        return messenger.send_content(sender=None, receiver=self.group, content=content)
+        i_msg, r_msg = messenger.send_content(sender=None, receiver=self.group, content=content)
+        return r_msg is not None
 
     def __send_group_command(self, content: Command, members: List[ID]) -> bool:
         messenger = self.messenger
