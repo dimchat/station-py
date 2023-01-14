@@ -30,6 +30,7 @@
 """
 
 from dimples.client import *
+from dimples.client import ClientMessageProcessor as ClientProcessor
 
 from .protocol import *
 from .cpu import *
@@ -69,6 +70,7 @@ __all__ = [
     'ClientMessenger',
     'Terminal',
 
-    'ClientPacker',
+    'ClientPacker', 'ClientProcessor',
+
     'GroupManager',
 ]
