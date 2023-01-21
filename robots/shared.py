@@ -181,11 +181,11 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
 
 
 def check_bot_id(config: Config, ans_name: str) -> bool:
-    identifier = config.get_id(section='bot', option='id')
+    identifier = config.get_identifier(section='bot', option='id')
     if identifier is not None:
         # got it
         return True
-    identifier = config.get_id(section='ans', option=ans_name)
+    identifier = config.get_identifier(section='ans', option=ans_name)
     if identifier is None:
         # failed to get Bot ID
         return False
@@ -212,7 +212,7 @@ def start_bot(default_config: str, app_name: str, ans_name: str, processor_class
     shared.sdb = db
     shared.database = db
     # Step 3: create facebook
-    bid = config.get_id(section='bot', option='id')
+    bid = config.get_identifier(section='bot', option='id')
     facebook = create_facebook(database=db, current_user=bid)
     shared.facebook = facebook
     # create session for messenger
@@ -252,7 +252,7 @@ def chat_bot(name: str, shared: GlobalVariable) -> Optional[ChatBot]:
     config = shared.config
     if 'tuling' == name:
         # Tuling ChatBot
-        path = config.get_str(section='nlp', option='tuling_keys')
+        path = config.get_string(section='nlp', option='tuling_keys')
         if path is None:
             Log.error(msg='Tuling keys not config')
             return None
@@ -261,7 +261,7 @@ def chat_bot(name: str, shared: GlobalVariable) -> Optional[ChatBot]:
         assert api_key is not None, 'Tuling keys error: %s' % tuling_keys
         tuling = Tuling(api_key=api_key)
         # config ignores
-        tuling_ignores = config.get_str(section='nlp', option='tuling_ignores')
+        tuling_ignores = config.get_string(section='nlp', option='tuling_ignores')
         array = tuling_ignores.split(',')
         for item in array:
             value = int(item)
@@ -270,7 +270,7 @@ def chat_bot(name: str, shared: GlobalVariable) -> Optional[ChatBot]:
         return tuling
     elif 'xiaoi' == name:
         # XiaoI ChatBot
-        path = config.get_str(section='nlp', option='xiaoi_keys')
+        path = config.get_string(section='nlp', option='xiaoi_keys')
         if path is None:
             Log.error(msg='XiaoI keys not config')
             return None
@@ -280,7 +280,7 @@ def chat_bot(name: str, shared: GlobalVariable) -> Optional[ChatBot]:
         assert app_key is not None and app_secret is not None, 'XiaoI keys error: %s' % xiaoi_keys
         xiaoi = XiaoI(app_key=app_key, app_secret=app_secret)
         # config ignores
-        xiaoi_ignores = config.get_str(section='nlp', option='xiaoi_ignores')
+        xiaoi_ignores = config.get_string(section='nlp', option='xiaoi_ignores')
         array = xiaoi_ignores.split(',')
         for item in array:
             value = item.strip()

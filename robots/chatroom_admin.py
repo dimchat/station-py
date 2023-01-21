@@ -136,12 +136,12 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
         return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
         # receipt
-        if cmd_name == ReceiptCommand.RECEIPT:
+        if cmd == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)
 
 
 class BotMessageProcessor(ClientProcessor):

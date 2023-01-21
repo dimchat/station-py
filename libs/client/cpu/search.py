@@ -190,7 +190,7 @@ def save_response(facebook: CommonFacebook, station: ID, users: List[ID], result
         identifier = ID.parse(identifier=key)
         meta = Meta.parse(meta=results[key])
         if identifier is not None and meta is not None:
-            # assert Meta.matches(meta=meta, identifier=identifier), 'meta error'
+            # assert Meta.match_id(meta=meta, identifier=identifier), 'meta error'
             facebook.save_meta(meta=meta, identifier=identifier)
     # # store in redis server
     # for item in users:

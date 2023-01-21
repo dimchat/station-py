@@ -38,7 +38,7 @@
 
 from typing import Optional, Any, Dict, List
 
-from dimsdk import ID, BaseCommand
+from dimples import ID, BaseCommand
 
 
 class BlockCommand(BaseCommand):
@@ -70,11 +70,11 @@ class BlockCommand(BaseCommand):
     def block_list(self) -> Optional[List[ID]]:
         array = self.get('list')
         if array is not None:
-            return ID.convert(members=array)
+            return ID.convert(array=array)
 
     @block_list.setter
     def block_list(self, value: List[ID]):
         if value is None:
             self.pop('list', None)
         else:
-            self['list'] = ID.revert(members=value)
+            self['list'] = ID.revert(array=value)

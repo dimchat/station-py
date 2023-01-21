@@ -127,7 +127,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not Meta.matches(meta=meta, identifier=identifier):
+        if not Meta.match_id(meta=meta, identifier=identifier):
             raise AssertionError('meta not match ID: %s' % identifier)
         return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 

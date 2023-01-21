@@ -25,8 +25,8 @@
 
 from typing import Optional, List, Dict
 
-from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import ID
+from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import ID
 
 from .base import Cache
 
@@ -63,7 +63,7 @@ class GroupCache(Cache):
         return '%s.%s.%s.members' % (self.db_name, self.tbl_name, identifier)
 
     def save_members(self, members: List[ID], identifier: ID) -> bool:
-        members = ID.revert(members=members)
+        members = ID.revert(array=members)
         text = '\n'.join(members)
         value = utf8_encode(string=text)
         key = self.__members_key(identifier=identifier)
@@ -76,7 +76,7 @@ class GroupCache(Cache):
         if value is None:
             return []
         text = utf8_decode(data=value)
-        return ID.convert(members=text.splitlines())
+        return ID.convert(array=text.splitlines())
 
     """
         Group members

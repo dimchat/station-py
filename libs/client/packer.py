@@ -38,6 +38,9 @@ from dimples.client import ClientMessagePacker as SuperPacker
 from dimples.client import ClientMessenger
 
 from ..utils.mtp import MTPUtils
+from ..common.compatible import fix_meta_attachment
+from ..common.compatible import fix_receipt_command
+from ..common.compatible import fix_document_command
 
 from .protocol import ReceiptCommand
 
@@ -115,104 +118,3 @@ class ClientPacker(SuperPacker):
                 # compatible with v1.0
                 fix_document_command(content=content)
         return i_msg
-
-
-#
-#  Compatible with old versions
-#
-
-
-# TODO: remove after all server/client upgraded
-def fix_meta_attachment(msg: ReliableMessage):
-    meta = msg.get('meta')
-    if meta is not None:
-        fix_meta_version(meta=meta)
-
-
-def fix_meta_version(meta: dict):
-    version = meta.get('version')
-    if version is None:
-        meta['version'] = meta['type']
-    elif 'type' not in meta:
-        meta['type'] = version
-
-
-def copy_receipt_values(content: ReceiptCommand, env: dict):
-    for key in ['sender', 'receiver', 'sn', 'signature']:
-        value = env.get(key)
-        if value is not None:
-            content[key] = value
-
-
-# TODO: remove after all server/client upgraded
-def fix_receipt_command(content: ReceiptCommand):
-    origin = content.get('origin')
-    if origin is not None:
-        # (v2.0)
-        # compatible with v1.0
-        content['envelope'] = origin
-        # compatible with older version
-        copy_receipt_values(content=content, env=origin)
-        return content
-    # check for old version
-    env = content.get('envelope')
-    if env is not None:
-        # (v1.0)
-        # compatible with v2.0
-        content['origin'] = env
-        # compatible with older version
-        copy_receipt_values(content=content, env=env)
-        return content
-    # check for older version
-    if 'sender' in content:  # and 'receiver' in content:
-        # older version
-        env = {
-            'sender': content.get('sender'),
-            'receiver': content.get('receiver'),
-            'time': content.get('time'),
-            'sn': content.get('sn'),
-            'signature': content.get('signature'),
-        }
-        content['origin'] = env
-        content['envelope'] = env
-        return content
-
-
-# TODO: remove after all server/client upgraded
-def fix_document_command(content: DocumentCommand):
-    info = content.get('document')
-    if info is not None:
-        # (v2.0)
-        #    "ID"      : "{ID}",
-        #    "document" : {
-        #        "ID"        : "{ID}",
-        #        "data"      : "{JsON}",
-        #        "signature" : "{BASE64}"
-        #    }
-        return content
-    info = content.get('profile')
-    if info is None:
-        # query document command
-        return content
-    # 1.* => 2.0
-    content.pop('profile')
-    if isinstance(info, str):
-        # compatible with v1.0
-        #    "ID"        : "{ID}",
-        #    "profile"   : "{JsON}",
-        #    "signature" : "{BASE64}"
-        content['document'] = {
-            'ID': str(content.identifier),
-            'data': info,
-            'signature': content.get("signature")
-        }
-    else:
-        # compatible with v1.1
-        #    "ID"      : "{ID}",
-        #    "profile" : {
-        #        "ID"        : "{ID}",
-        #        "data"      : "{JsON}",
-        #        "signature" : "{BASE64}"
-        #    }
-        content['document'] = info
-    return content

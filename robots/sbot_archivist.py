@@ -54,14 +54,14 @@ from robots.shared import start_bot
 class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
         # search
-        if cmd_name == SearchCommand.SEARCH:
+        if cmd == SearchCommand.SEARCH:
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name == SearchCommand.ONLINE_USERS:
+        elif cmd == SearchCommand.ONLINE_USERS:
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)
 
 
 class ArchivistMessageProcessor(ClientProcessor):

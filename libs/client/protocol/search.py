@@ -71,7 +71,7 @@ class SearchCommand(BaseCommand):
             self['keywords'] = keywords
         # users
         if users is not None:
-            self['users'] = ID.revert(members=users)
+            self['users'] = ID.revert(array=users)
         self.__users = users
         # results
         if results is not None:
@@ -142,7 +142,7 @@ class SearchCommand(BaseCommand):
         if self.__users is None:
             array = self.get('users')
             if isinstance(array, list):
-                self.__users = ID.convert(members=array)
+                self.__users = ID.convert(array=array)
         return self.__users
 
     @users.setter
@@ -150,7 +150,7 @@ class SearchCommand(BaseCommand):
         if value is None:
             self.pop('users', None)
         else:
-            self['users'] = ID.revert(members=value)
+            self['users'] = ID.revert(array=value)
         self.__users = value
 
     #

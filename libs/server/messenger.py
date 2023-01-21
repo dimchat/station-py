@@ -40,10 +40,9 @@ from dimples import Command, MetaCommand, ReceiptCommand
 from dimples.server import ServerMessenger as SuperMessenger
 from dimples.server.pusher import get_name
 
+from ..common.compatible import fix_meta_version, fix_receipt_command
 from ..common import CommonFacebook
 from ..database import Database
-
-from .packer import fix_meta_version, fix_receipt_command
 
 
 class ServerMessenger(SuperMessenger):

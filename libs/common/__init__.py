@@ -35,7 +35,11 @@ from dimples import Config
 
 from .protocol import *
 
+from .compatible import patch
 from .facebook import CommonFacebook
+
+
+patch()
 
 
 __all__ = [

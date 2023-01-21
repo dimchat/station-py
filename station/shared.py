@@ -155,9 +155,9 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
     center = PushCenter()
     config = shared.config
     # 1. add push service: APNs
-    credentials = config.get_str(section='push', option='apns_credentials')
-    use_sandbox = config.get_bool(section='push', option='apns_use_sandbox')
-    topic = config.get_str(section='push', option='apns_topic')
+    credentials = config.get_string(section='push', option='apns_credentials')
+    use_sandbox = config.get_boolean(section='push', option='apns_use_sandbox')
+    topic = config.get_string(section='push', option='apns_topic')
     if credentials is not None and len(credentials) > 0:
         apple = ApplePushNotificationService(credentials=credentials,
                                              use_sandbox=use_sandbox)
@@ -166,9 +166,9 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
         apple.delegate = shared.database
         center.add_service(service=apple)
     # 2. add push service: JPush
-    app_key = config.get_str(section='push', option='app_key')
-    master_secret = config.get_str(section='push', option='master_secret')
-    production = config.get_bool(section='push', option='apns_production')
+    app_key = config.get_string(section='push', option='app_key')
+    master_secret = config.get_string(section='push', option='master_secret')
+    production = config.get_boolean(section='push', option='apns_production')
     if app_key is not None and len(app_key) > 0 and master_secret is not None and len(master_secret) > 0:
         android = AndroidPushNotificationService(app_key=app_key,
                                                  master_secret=master_secret,

@@ -58,7 +58,7 @@ class UserCache(Cache):
 
     def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
-        contacts = ID.revert(members=contacts)
+        contacts = ID.revert(array=contacts)
         text = '\n'.join(contacts)
         text = utf8_encode(string=text)
         key = self.__contacts_key(identifier=identifier)
@@ -71,7 +71,7 @@ class UserCache(Cache):
         if value is None:
             return []
         text = utf8_decode(data=value)
-        return ID.convert(members=text.splitlines())
+        return ID.convert(array=text.splitlines())
 
     """
         Contacts Command

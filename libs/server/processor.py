@@ -65,20 +65,20 @@ class ServerContentProcessorCreator(SuperCreator):
         return super().create_content_processor(msg_type=msg_type)
 
     # Override
-    def create_command_processor(self, msg_type: Union[int, ContentType], cmd_name: str) -> Optional[ContentProcessor]:
+    def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
         # receipt
-        if cmd_name == ReceiptCommand.RECEIPT:
+        if cmd == ReceiptCommand.RECEIPT:
             return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # mute
-        if cmd_name == MuteCommand.MUTE:
+        if cmd == MuteCommand.MUTE:
             return MuteCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # block
-        if cmd_name == BlockCommand.BLOCK:
+        if cmd == BlockCommand.BLOCK:
             return BlockCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
-        if cmd_name == ReportCommand.REPORT:
+        if cmd == ReportCommand.REPORT:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd_name in ['broadcast', 'apns', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
+        elif cmd in ['broadcast', 'apns', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
-        return super().create_command_processor(msg_type=msg_type, cmd_name=cmd_name)
+        return super().create_command_processor(msg_type=msg_type, cmd=cmd)
