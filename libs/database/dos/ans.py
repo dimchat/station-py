@@ -25,7 +25,7 @@
 
 from typing import Dict
 
-from dimp import ID, ANYONE, EVERYONE, FOUNDER
+from dimples import ID, ANYONE, EVERYONE, FOUNDER
 
 from dimples.database.dos.base import template_replace
 from dimples.database.dos import Storage

@@ -26,7 +26,7 @@
 import os
 from typing import Optional, Union, List
 
-from dimp import ID, Document
+from dimples import ID, Document
 
 from dimples.utils import Log
 from dimples.database.dos.base import template_replace

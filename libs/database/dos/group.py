@@ -25,7 +25,7 @@
 
 from typing import Optional, Dict
 
-from dimp import ID
+from dimples import ID
 
 from dimples.database.dos.base import template_replace
 from dimples.database import GroupStorage as SuperStorage

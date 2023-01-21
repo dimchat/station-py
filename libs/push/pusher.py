@@ -25,7 +25,7 @@
 
 from typing import Optional
 
-from dimp import ID
+from dimples import ID
 from dimples.server import DefaultPusher
 
 from ..common import CommonFacebook

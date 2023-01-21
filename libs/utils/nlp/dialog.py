@@ -38,8 +38,8 @@
 import random
 from typing import Union, List
 
-from dimp import ID
-from dimp import Content, TextContent, AudioContent
+from dimples import ID
+from dimples import Content, TextContent, AudioContent
 
 from .chatbot import ChatBot
 

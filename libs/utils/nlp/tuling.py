@@ -38,7 +38,7 @@
 import urllib.request
 from typing import Optional
 
-from dimsdk import json_encode, json_decode, utf8_encode, utf8_decode
+from dimples import json_encode, json_decode, utf8_encode, utf8_decode
 
 from .chatbot import ChatBot
 

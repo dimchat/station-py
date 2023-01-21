@@ -25,8 +25,8 @@
 
 from typing import Optional, Set, Tuple
 
-from dimsdk import utf8_encode, utf8_decode, json_encode, json_decode
-from dimsdk import ID
+from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import ID
 
 from ..dos.provider import insert_neighbor, remove_neighbor
 from ..dos.provider import convert_neighbors, revert_neighbors

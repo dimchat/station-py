@@ -31,7 +31,8 @@
 import zlib
 from typing import Optional
 
-from dimsdk import utf8_encode, utf8_decode
+from dimples import utf8_encode, utf8_decode
+
 from udp.ba import ByteArray, Data, Convert
 
 from .api import Type, BaseImage, BaseScanner

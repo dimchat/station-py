@@ -32,9 +32,9 @@
 
 from typing import List
 
-from dimsdk import ReliableMessage
-from dimsdk import Content, Command, BaseCommand
-from dimsdk import BaseCommandProcessor
+from dimples import ReliableMessage
+from dimples import Content, Command, BaseCommand
+from dimples import BaseCommandProcessor
 
 from ...database import Database
 from ..protocol import MuteCommand

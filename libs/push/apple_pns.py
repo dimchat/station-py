@@ -43,7 +43,7 @@ from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
 from apns2.payload import Payload, PayloadAlert
 
-from dimp import ID
+from dimples import ID
 
 from dimples.server import PushService, PushInfo
 
