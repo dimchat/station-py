@@ -38,6 +38,8 @@ from dimples import Content
 from dimples.server.cpu import ReportCommandProcessor as SuperCommandProcessor
 
 from ...utils import Logging
+
+from ...common.compatible import fix_report_command
 from ...database import Database
 from ...common import ReportCommand
 from ...common import CommonFacebook
@@ -78,26 +80,3 @@ class ReportCommandProcessor(SuperCommandProcessor, Logging):
         db.save_device_token(token=token, identifier=msg.sender)
         text = 'Token received.'
         return self._respond_text(text=text)
-
-
-def fix_report_command(content: ReportCommand):
-    # check state for oldest version
-    state = content.get('state')
-    if state == 'background':
-        # oldest version
-        content['title'] = ReportCommand.OFFLINE
-        return content
-    elif state == 'foreground':
-        # oldest version
-        content['title'] = ReportCommand.ONLINE
-        return content
-    # check title for v1.0
-    title = content.title
-    if title is None:
-        name = content.cmd
-        if name != ReportCommand.REPORT:
-            # (v1.0)
-            # content: {
-            #     'command': 'online', // or 'offline', 'apns', ...
-            # }
-            content['title'] = name

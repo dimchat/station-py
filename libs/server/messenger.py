@@ -35,12 +35,12 @@ from typing import Optional
 from dimples import SymmetricKey
 from dimples import Envelope, Content, TextContent
 from dimples import InstantMessage, SecureMessage, ReliableMessage
-from dimples import Command, MetaCommand, ReceiptCommand
+from dimples import Command
 
 from dimples.server import ServerMessenger as SuperMessenger
 from dimples.server.pusher import get_name
 
-from ..common.compatible import fix_meta_version, fix_receipt_command
+from ..common.compatible import fix_command
 from ..common import CommonFacebook
 from ..database import Database
 
@@ -87,32 +87,12 @@ class ServerMessenger(SuperMessenger):
     # Override
     def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
         if isinstance(content, Command):
-            content = fix_cmd(content=content)
+            content = fix_command(content=content)
         return super().serialize_content(content=content, key=key, msg=msg)
 
     # Override
     def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
         content = super().deserialize_content(data=data, key=key, msg=msg)
         if isinstance(content, Command):
-            content = fix_cmd(content=content)
+            content = fix_command(content=content)
         return content
-
-
-def fix_cmd(content: Command) -> Command:
-    # check 'cmd'
-    cmd = content.get('cmd')
-    if cmd is None:
-        # copy 'command' to 'cmd' and recreate it
-        cmd = content.get('command')
-        content['cmd'] = cmd
-        content = Command.parse(content=content)
-    elif 'command' not in content:
-        content['command'] = cmd
-    # check other command
-    if isinstance(content, ReceiptCommand):
-        fix_receipt_command(content=content)
-    elif isinstance(content, MetaCommand):
-        meta = content.get('meta')
-        if meta is not None:
-            fix_meta_version(meta=meta)
-    return content

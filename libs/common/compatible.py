@@ -25,27 +25,9 @@
 
 from typing import Any, Dict
 
-from mkm.factory import FactoryManager
-
 from dimples import ReliableMessage
-from dimples import DocumentCommand
-
-from .protocol import ReceiptCommand
-
-
-def get_meta_type(meta: Dict[str, Any]) -> int:
-    """ get meta type(version) """
-    version = meta.get('type')
-    if version is None:
-        version = meta.get('version')
-        if version is not None:
-            # fix it
-            meta['type'] = version
-    return 0 if version is None else int(version)
-
-
-def patch():
-    FactoryManager.general_factory.get_meta_type = get_meta_type
+from dimples import Command, MetaCommand, DocumentCommand
+from dimples import ReceiptCommand, ReportCommand
 
 
 #
@@ -53,7 +35,34 @@ def patch():
 #
 
 
-# TODO: remove after all server/client upgraded
+def patch():
+    patch_meta()
+    patch_cmd()
+
+
+def patch_meta():
+    from mkm.factory import FactoryManager
+    FactoryManager.general_factory.get_meta_type = get_meta_type
+
+
+def patch_cmd():
+    from dimp.dkd.factory import FactoryManager
+    FactoryManager.general_factory.get_cmd = get_cmd
+
+
+def get_meta_type(meta: Dict[str, Any]) -> int:
+    """ get meta type(version) """
+    fix_meta_version(meta=meta)
+    version = meta.get('type')
+    return 0 if version is None else int(version)
+
+
+def get_cmd(content: Dict[str, Any]) -> str:
+    """ get command name(cmd) """
+    fix_cmd(content=content)
+    return content.get('cmd')
+
+
 def fix_meta_attachment(msg: ReliableMessage):
     meta = msg.get('meta')
     if meta is not None:
@@ -63,9 +72,32 @@ def fix_meta_attachment(msg: ReliableMessage):
 def fix_meta_version(meta: dict):
     version = meta.get('version')
     if version is None:
-        meta['version'] = meta['type']
+        meta['version'] = meta.get('type')
     elif 'type' not in meta:
         meta['type'] = version
+    return meta
+
+
+def fix_cmd(content: dict):
+    cmd = content.get('cmd')
+    if cmd is None:
+        content['cmd'] = content.get('command')
+    elif 'command' not in content:
+        content['command'] = cmd
+    return content
+
+
+def fix_command(content: Command) -> Command:
+    fix_cmd(content=content.dictionary)
+    content = Command.parse(content=content)
+    # check other command
+    if isinstance(content, ReceiptCommand):
+        fix_receipt_command(content=content)
+    elif isinstance(content, MetaCommand):
+        meta = content.get('meta')
+        if meta is not None:
+            fix_meta_version(meta=meta)
+    return content
 
 
 def copy_receipt_values(content: ReceiptCommand, env: dict):
@@ -147,3 +179,26 @@ def fix_document_command(content: DocumentCommand):
         #    }
         content['document'] = info
     return content
+
+
+def fix_report_command(content: ReportCommand):
+    # check state for oldest version
+    state = content.get('state')
+    if state == 'background':
+        # oldest version
+        content['title'] = ReportCommand.OFFLINE
+        return content
+    elif state == 'foreground':
+        # oldest version
+        content['title'] = ReportCommand.ONLINE
+        return content
+    # check title for v1.0
+    title = content.title
+    if title is None:
+        name = content.cmd
+        if name != ReportCommand.REPORT:
+            # (v1.0)
+            # content: {
+            #     'command': 'online', // or 'offline', 'apns', ...
+            # }
+            content['title'] = name
