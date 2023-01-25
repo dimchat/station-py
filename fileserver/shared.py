@@ -27,7 +27,7 @@ import getopt
 import sys
 from typing import Optional, Set
 
-from dimples import utf8_encode
+from dimples import hex_decode
 from dimples.database import Storage
 
 from libs.utils import Singleton
@@ -40,42 +40,59 @@ class GlobalVariable:
     def __init__(self):
         super().__init__()
         self.config: Optional[Config] = None
-        self.__cached = {}
+        # cached values
+        self.__image_types: Optional[Set[str]] = None
+        self.__allowed_types: Optional[Set[str]] = None
+        self.__md5_secret: Optional[bytes] = None
+
+    @property
+    def server_host(self) -> str:
+        return self.config.get_string(section='ftp', option='host')
+
+    @property
+    def server_port(self) -> int:
+        return self.config.get_integer(section='ftp', option='port')
+
+    #
+    #   download
+    #
+
+    @property
+    def avatar_url(self) -> str:
+        return self.config.get_string(section='ftp', option='avatar_url')
+
+    @property
+    def download_url(self) -> str:
+        return self.config.get_string(section='ftp', option='download_url')
+
+    #
+    #   upload
+    #
 
     @property
     def avatar_directory(self) -> str:
-        path = self.__cached.get('avatar_directory')
-        if path is None:
-            path = self.config.get_string(section='ftp', option='avatar')
-            assert path is not None, 'avatar directory not set'
-            self.__cached['avatar_directory'] = path
-        return path
+        return self.config.get_string(section='ftp', option='avatar_dir')
 
     @property
     def upload_directory(self) -> str:
-        path = self.__cached.get('upload_directory')
-        if path is None:
-            path = self.config.get_string(section='ftp', option='upload')
-            assert path is not None, 'upload directory not set'
-            self.__cached['upload_directory'] = path
-        return path
+        return self.config.get_string(section='ftp', option='upload_dir')
 
     @property
     def image_file_types(self) -> Set[str]:
-        types = self.__cached.get('image_file_types')
+        types = self.__image_types
         if types is None:
-            types = self.__get_set(section='ftp', option='image')
+            types = self.__get_set(section='ftp', option='image_types')
             assert len(types) > 0, 'image file types not set'
-            self.__cached['image_file_types'] = types
+            self.__image_types = types
         return types
 
     @property
     def allowed_file_types(self) -> Set[str]:
-        types = self.__cached.get('allowed_file_types')
+        types = self.__allowed_types
         if types is None:
-            types = self.__get_set(section='ftp', option='allowed')
+            types = self.__get_set(section='ftp', option='allowed_types')
             assert len(types) > 0, 'allowed file types not set'
-            self.__cached['allowed_file_types'] = types
+            self.__allowed_types = types
         return types
 
     def __get_set(self, section: str, option: str) -> Set[str]:
@@ -90,13 +107,13 @@ class GlobalVariable:
         return result
 
     @property
-    def md5_key(self) -> bytes:
-        key = self.__cached.get('md5_key')
+    def md5_secret(self) -> bytes:
+        key = self.__md5_secret
         if key is None:
-            string = self.config.get_string(section='ftp', option='md5_key')
+            string = self.config.get_string(section='ftp', option='md5_secret')
             assert string is not None, 'md5 key not set'
-            key = utf8_encode(string=string)
-            self.__cached['md5_key'] = key
+            key = hex_decode(string=string)
+            self.__md5_secret = key
         return key
 
 

@@ -36,7 +36,7 @@ from typing import Optional, Tuple, Set
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
 
-from dimples import md5, hex_encode, base64_decode
+from dimples import md5, hex_encode, hex_decode
 from dimples import ID
 
 from fileserver.shared import GlobalVariable
@@ -125,36 +125,43 @@ def upload(identifier: str) -> str:
             filename = None
     if filename is None or len(filename) == 0:
         # 400 - Bad Request
-        return render_template('response.html', code=400, message='Bad Request')
+        return render_template('error.html', code=400, message='Bad Request')
     elif data is None or len(data) == 0:
         # 204 - No Content
-        return render_template('response.html', code=204, message='No Content', filename=filename)
+        return render_template('error.html', code=204, message='No Content')
     # 2. check digest
     digest_salt = request.args.get('salt')
     digest_value = request.args.get('md5')
     uid = ID.parse(identifier=identifier)
     if digest_salt is None or digest_value is None or uid is None:
         # 400 - Bad Request
-        return render_template('response.html', code=400, message='Bad Request')
-    digest_salt = base64_decode(string=digest_salt)
-    digest_value = base64_decode(string=digest_value)
-    # md5(data + key + salt)
-    md5_key = shared.md5_key
-    if digest_value != md5(data=(data + md5_key + digest_salt)):
+        return render_template('error.html', code=400, message='Bad Request')
+    digest_salt = hex_decode(string=digest_salt)
+    digest_value = hex_decode(string=digest_value)
+    md5_secret = shared.md5_secret
+    # md5(data + secret + salt)
+    if digest_value != md5(data=(data + md5_secret + digest_salt)):
         # 401 - Unauthorized
-        return render_template('response.html', code=401, message='Unauthorized')
+        return render_template('error.html', code=401, message='Unauthorized')
     # 3. save file data
     if encrypted_file is not None:
         # save encrypted data file
         file_types = shared.allowed_file_types
         directory = get_upload_directory(identifier=uid)
+        url = shared.download_url
     else:
         # save avatar
         file_types = shared.image_file_types
         directory = get_avatar_directory(identifier=uid)
+        url = shared.avatar_url
     # filename = secure_filename(filename=filename)
     code, msg, name = save_file(data=data, filename=filename, file_types=file_types, directory=directory)
-    return render_template('response.html', code=code, message=msg, filename=name)
+    if code != 200:
+        return render_template('error.html', code=code, message=msg)
+    # OK!
+    url = url.replace('{ID}', identifier)
+    url = url.replace('{FILENAME}', name)
+    return render_template('success.html', code=code, message=msg, filename=name, url=url)
 
 
 @app.route('/download/<string:identifier>/<path:filename>', methods=['GET'])
@@ -162,7 +169,7 @@ def download(identifier: str, filename: str) -> str:
     """ response file data as attachment """
     uid = ID.parse(identifier=identifier)
     if uid is None or filename is None:
-        return render_template('response.html', code=400, message='Bad Request')
+        return render_template('error.html', code=400, message='Bad Request')
     # send from directory
     directory = get_upload_directory(identifier=uid)
     filename = secure_filename(filename)
@@ -174,7 +181,7 @@ def avatar(identifier: str, filename: str) -> str:
     """ response avatar file as attachment """
     uid = ID.parse(identifier=identifier)
     if uid is None or filename is None:
-        return render_template('response.html', code=400, message='Bad Request')
+        return render_template('error.html', code=400, message='Bad Request')
     # send from directory
     directory = get_avatar_directory(identifier=uid)
     filename = secure_filename(filename)

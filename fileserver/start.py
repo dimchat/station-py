@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ==============================================================================
 # MIT License
@@ -55,12 +56,12 @@ DEFAULT_CONFIG = '/etc/dim/ftp.ini'
 def main():
     # create global variable
     shared = GlobalVariable()
-    # Step 1: load config
-    config = create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    # load config
+    config = create_config(app_name='File Server', default_config=DEFAULT_CONFIG)
     shared.config = config
     # start server
-    host = config.get_string(section='ftp', option='host')
-    port = config.get_integer(section='ftp', option='port')
+    host = shared.server_host
+    port = shared.server_port
     # app.run(host=host, port=port, debug=True)
     app.run(host=host, port=port)
 
