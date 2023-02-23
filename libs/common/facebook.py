@@ -36,6 +36,7 @@ from dimples import PrivateKey
 from dimples import ID
 from dimples.common import AccountDBI
 from dimples.common import CommonFacebook as SuperFacebook
+from dimples.utils import Log
 
 
 class CommonFacebook(SuperFacebook):
@@ -73,13 +74,20 @@ class CommonFacebook(SuperFacebook):
         if len(self.__group_assistants) > 0:
             return self.__group_assistants
         # get from ANS
-        bot = ID.parse(identifier='assistant')
+        bot = ans_id(name='assistant')
         if bot is not None:
             return [bot]
 
     def add_assistant(self, assistant: ID):
         if assistant not in self.__group_assistants:
-            if assistant == ID.parse(identifier='assistant'):
+            if assistant == ans_id(name='assistant'):
                 self.__group_assistants.insert(0, assistant)
             else:
                 self.__group_assistants.append(assistant)
+
+
+def ans_id(name: str) -> Optional[ID]:
+    try:
+        return ID.parse(identifier=name)
+    except ValueError as e:
+        Log.warning(msg='ANS record not exists: %s, %s' % (name, e))

@@ -26,4 +26,4 @@ dkd==0.12.6
 dimp==0.12.6
 dimsdk==0.8.4
 dimplugins==0.1.3
-dimples==0.1.3
+dimples==0.1.4

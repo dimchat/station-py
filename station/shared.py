@@ -27,8 +27,9 @@ import getopt
 import sys
 from typing import Optional
 
-from dimples import ID
+from dimples import Address, ID, IDFactory
 from dimples import AccountDBI, MessageDBI, SessionDBI
+from dimples.common import AddressNameServer
 from dimples.database import Storage
 
 from libs.utils import Singleton
@@ -40,10 +41,34 @@ from libs.server import Dispatcher
 from libs.server import UserDeliver, BotDeliver, StationDeliver
 from libs.server import GroupDeliver, BroadcastDeliver
 from libs.server import DeliverWorker, DefaultRoamer
-from libs.server import AddressNameService, AddressNameServer, ANSFactory
 from libs.push import NotificationPusher
 from libs.push import ApplePushNotificationService
 from libs.push import AndroidPushNotificationService
+
+
+class ANSFactory(IDFactory):
+
+    def __init__(self, factory: IDFactory, ans: AddressNameServer):
+        super().__init__()
+        self.__origin = factory
+        self.__ans = ans
+
+    # Override
+    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
+        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
+
+    # Override
+    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
+        return self.__origin.create_id(address=address, name=name, terminal=terminal)
+
+    # Override
+    def parse_id(self, identifier: str) -> Optional[ID]:
+        # try ANS record
+        aid = self.__ans.identifier(name=identifier)
+        if aid is None:
+            # parse by original factory
+            aid = self.__origin.parse_id(identifier=identifier)
+        return aid
 
 
 @Singleton
@@ -137,13 +162,15 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     return facebook
 
 
-def create_ans(config: Config) -> AddressNameService:
+def create_ans(config: Config) -> AddressNameServer:
     """ Step 4: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
     # load ANS records from 'config.ini'
-    ans.fix(fixed=config.ans_records)
+    ans_records = config.ans_records
+    if ans_records is not None:
+        ans.fix(records=ans_records)
     return ans
 
 
