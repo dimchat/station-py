@@ -29,7 +29,6 @@
     Redis Client
 """
 
-from .provider import ProviderCache
 from .ans import AddressNameCache
 from .meta import MetaCache
 from .document import DocumentCache
@@ -39,12 +38,11 @@ from .login import LoginCache
 from .group import GroupCache
 from .message import MessageCache
 from .msg_key import MessageKeyCache
-from .provider import ProviderCache
+from .station import StationCache
 
 
 __all__ = [
 
-    'ProviderCache',
     'AddressNameCache',
     'MetaCache',
     'DocumentCache', 'DeviceCache',
@@ -52,5 +50,5 @@ __all__ = [
     'GroupCache',
     'MessageCache',
     'MessageKeyCache',
-    'ProviderCache',
+    'StationCache',
 ]

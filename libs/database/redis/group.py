@@ -62,16 +62,16 @@ class GroupCache(Cache):
     def __members_key(self, identifier: ID) -> str:
         return '%s.%s.%s.members' % (self.db_name, self.tbl_name, identifier)
 
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
+    def save_members(self, members: List[ID], group: ID) -> bool:
         members = ID.revert(array=members)
         text = '\n'.join(members)
         value = utf8_encode(string=text)
-        key = self.__members_key(identifier=identifier)
+        key = self.__members_key(identifier=group)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def members(self, identifier: ID) -> List[ID]:
-        key = self.__members_key(identifier=identifier)
+    def members(self, group: ID) -> List[ID]:
+        key = self.__members_key(identifier=group)
         value = self.get(name=key)
         if value is None:
             return []
@@ -84,11 +84,11 @@ class GroupCache(Cache):
 
         redis key: 'mkm.group.{ID}.assistants'
     """
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # TODO: store assistants with group ID
         pass
 
-    def assistants(self, identifier: ID) -> List[ID]:
+    def assistants(self, group: ID) -> List[ID]:
         # TODO: get assistants with group ID
         pass
 

@@ -49,17 +49,17 @@ class CommonFacebook(SuperFacebook):
     #   Contacts
     #
 
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         db = self.database
-        return db.save_contacts(contacts=contacts, identifier=identifier)
+        return db.save_contacts(contacts=contacts, user=user)
 
     #
     #   Private Keys
     #
 
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
+    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
         db = self.database
-        return db.save_private_key(key=key, identifier=identifier, key_type=key_type)
+        return db.save_private_key(key=key, user=user, key_type=key_type)
 
     #
     #    GroupDataSource

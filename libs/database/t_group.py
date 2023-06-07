@@ -56,34 +56,34 @@ class GroupTable(GroupDBI):
     #
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
+    def founder(self, group: ID) -> Optional[ID]:
         # TODO: get founder
         pass
 
     # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
+    def owner(self, group: ID) -> Optional[ID]:
         # TODO: get owner
         pass
 
     # Override
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
+    def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=members, life_span=self.CACHE_EXPIRES)
+        self.__cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_members(members=members, identifier=identifier)
+        self.__redis.save_members(members=members, group=group)
         # 3. store into local storage
-        return self.__dos.save_members(members=members, identifier=identifier)
+        return self.__dos.save_members(members=members, group=group)
 
     # Override
-    def members(self, identifier: ID) -> List[ID]:
+    def members(self, group: ID) -> List[ID]:
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=identifier, now=now)
+        value, holder = self.__cache.fetch(key=group, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # meta not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
+                self.__cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # meta not exists
@@ -91,24 +91,48 @@ class GroupTable(GroupDBI):
                 # meta expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.members(identifier=identifier)
+            value = self.__redis.members(group=group)
             if len(value) == 0:
                 # 3. check local storage
-                value = self.__dos.members(identifier=identifier)
+                value = self.__dos.members(group=group)
                 if len(value) > 0:
                     # update redis server
-                    self.__redis.save_members(members=value, identifier=identifier)
+                    self.__redis.save_members(members=value, group=group)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
+    def add_member(self, member: ID, group: ID) -> bool:
+        array = self.members(group=group)
+        if member in array:
+            # self.warning(msg='member exists: %s, group: %s' % (member, group))
+            return True
+        array.append(member)
+        return self.save_members(members=array, group=group)
+
+    # Override
+    def remove_member(self, member: ID, group: ID) -> bool:
+        array = self.members(group=group)
+        if member not in array:
+            # self.warning(msg='member not exists: %s, group: %s' % (member, group))
+            return True
+        array.remove(member)
+        return self.save_members(members=array, group=group)
+
+    # Override
+    def remove_group(self, group: ID) -> bool:
+        # TODO: remove group
+        # self.warning(msg='TODO: remove group: %s' % group)
+        return False
+
+    # Override
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # TODO: save assistants
         pass
 
     # Override
-    def assistants(self, identifier: ID) -> List[ID]:
+    def assistants(self, group: ID) -> List[ID]:
         # TODO: get assistants
         pass

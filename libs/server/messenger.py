@@ -33,46 +33,28 @@
 from typing import Optional
 
 from dimples import SymmetricKey
-from dimples import Envelope, Content, TextContent
+from dimples import Content, TextContent, Command
 from dimples import InstantMessage, SecureMessage, ReliableMessage
-from dimples import Command
 
 from dimples.server import ServerMessenger as SuperMessenger
+from dimples.server import BlockFilter as SuperBlockFilter
+from dimples.server import MuteFilter as SuperMuteFilter
 from dimples.server.pusher import get_name
 
 from ..common.compatible import fix_command
-from ..common import CommonFacebook
 from ..database import Database
 
 
 class ServerMessenger(SuperMessenger):
 
-    @property
-    def facebook(self) -> CommonFacebook:
-        return super().facebook
-
-    @property
-    def database(self) -> Database:
-        db = super().database
-        assert isinstance(db, Database), 'database error: %s' % db
-        return db
-
     # Override
-    def verify_message(self, msg: ReliableMessage) -> Optional[SecureMessage]:
-        res = self.__check_block(envelope=msg.envelope)
-        if res is None:
-            return super().verify_message(msg=msg)
-        else:
-            self.send_content(sender=None, receiver=msg.sender, content=res)
-
-    def __check_block(self, envelope: Envelope) -> Optional[Content]:
-        sender = envelope.sender
-        receiver = envelope.receiver
-        group = envelope.group
-        # check block-list
-        db = self.database
-        if db.is_blocked(sender=sender, receiver=receiver, group=group):
-            facebook = self.facebook
+    def is_blocked(self, msg: ReliableMessage) -> bool:
+        blocked = super().is_blocked(msg=msg)
+        if blocked:
+            sender = msg.sender
+            receiver = msg.receiver
+            group = msg.group
+            facebook = self.__facebook
             nickname = get_name(identifier=receiver, facebook=facebook)
             if group is None:
                 text = 'Message is blocked by %s' % nickname
@@ -82,7 +64,8 @@ class ServerMessenger(SuperMessenger):
             # response
             res = TextContent.create(text=text)
             res.group = group
-            return res
+            self.send_content(sender=None, receiver=sender, content=res, priority=1)
+            return True
 
     # Override
     def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
@@ -96,3 +79,41 @@ class ServerMessenger(SuperMessenger):
         if isinstance(content, Command):
             content = fix_command(content=content)
         return content
+
+
+class BlockFilter(SuperBlockFilter):
+
+    def __init__(self, database: Database):
+        super().__init__()
+        self.__database = database
+
+    # Override
+    def is_blocked(self, msg: ReliableMessage) -> bool:
+        blocked = super().is_blocked(msg=msg)
+        if blocked:
+            return True
+        sender = msg.sender
+        receiver = msg.receiver
+        group = msg.group
+        # check block-list
+        db = self.__database
+        return db.is_blocked(sender=sender, receiver=receiver, group=group)
+
+
+class MuteFilter(SuperMuteFilter):
+
+    def __init__(self, database: Database):
+        super().__init__()
+        self.__database = database
+
+    # Override
+    def is_muted(self, msg: ReliableMessage) -> bool:
+        muted = super().is_muted(msg=msg)
+        if muted:
+            return True
+        sender = msg.sender
+        receiver = msg.receiver
+        group = msg.group
+        # check block-list
+        db = self.__database
+        return db.is_muted(sender=sender, receiver=receiver, group=group)

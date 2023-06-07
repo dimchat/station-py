@@ -31,6 +31,7 @@ from typing import Optional, List
 from dimples import ID
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
+from dimples.common import ProviderInfo
 
 from libs.utils import Log
 from libs.utils import Singleton
@@ -128,11 +129,13 @@ def create_database(config: Config) -> Database:
     # create database
     db = Database(root=root, public=public, private=private)
     db.show_info()
+    # default provider
+    provider = ProviderInfo.GSP
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:
-        print('adding neighbor node: (%s:%d), ID=%s' % (node.host, node.port, node.identifier))
-        db.add_neighbor(host=node.host, port=node.port)
+        print('adding neighbor node: %s' % node)
+        db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     return db
 
 

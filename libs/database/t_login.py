@@ -57,31 +57,31 @@ class LoginTable(LoginDBI):
     #
 
     # Override
-    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        assert identifier == msg.sender, 'msg sender not match: %s => %s' % (identifier, msg.sender)
-        assert identifier == content.identifier, 'cmd ID not match: %s => %s' % (identifier, content.identifier)
+    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        assert user == msg.sender, 'msg sender not match: %s => %s' % (user, msg.sender)
+        assert user == content.identifier, 'cmd ID not match: %s => %s' % (user, content.identifier)
         # 0. check old record with time
-        old, _ = self.login_command_message(identifier=identifier)
+        old, _ = self.login_command_message(user=user)
         if old is not None and old.time >= content.time > 0:
             # command expired, drop it
             return False
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=(content, msg), life_span=self.CACHE_EXPIRES)
+        self.__cache.update(key=user, value=(content, msg), life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_login(identifier=identifier, content=content, msg=msg)
+        self.__redis.save_login(user=user, content=content, msg=msg)
         # 3. save into local storage
-        return self.__dos.save_login_command_message(identifier=identifier, content=content, msg=msg)
+        return self.__dos.save_login_command_message(user=user, content=content, msg=msg)
 
     # Override
-    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=identifier, now=now)
+        value, holder = self.__cache.fetch(key=user, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # login command message not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
+                self.__cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # login command message not exists
@@ -89,24 +89,24 @@ class LoginTable(LoginDBI):
                 # login command message expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            cmd, msg = self.__redis.load_login(identifier=identifier)
+            cmd, msg = self.__redis.load_login(user=user)
             value = (cmd, msg)
             if cmd is None:
                 # 3. check local storage
-                cmd, msg = self.__dos.login_command_message(identifier=identifier)
+                cmd, msg = self.__dos.login_command_message(user=user)
                 value = (cmd, msg)
                 if cmd is not None:
                     # update redis server
-                    self.__redis.save_login(identifier=identifier, content=cmd, msg=msg)
+                    self.__redis.save_login(user=user, content=cmd, msg=msg)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
-        cmd, _ = self.login_command_message(identifier=identifier)
+    def login_command(self, user: ID) -> Optional[LoginCommand]:
+        cmd, _ = self.login_command_message(user=user)
         return cmd
 
-    def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
-        _, msg = self.login_command_message(identifier=identifier)
+    def login_message(self, user: ID) -> Optional[ReliableMessage]:
+        _, msg = self.login_command_message(user=user)
         return msg

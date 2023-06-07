@@ -37,12 +37,12 @@ from dimples import ReliableMessage
 
 from dimples import Command, LoginCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
+from dimples.common.dbi import ProviderInfo, StationInfo
 from dimples.database.t_private import PrivateKeyTable
 from dimples.database.t_cipherkey import CipherKeyTable
 
 from ..common import BlockCommand, MuteCommand
 
-from .t_provider import ProviderTable
 # from .t_ans import AddressNameTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
@@ -52,13 +52,13 @@ from .t_login import LoginTable
 from .t_active import ActiveTable
 from .t_group import GroupTable
 from .t_message import MessageTable
+from .t_station import StationTable
 
 
 class Database(AccountDBI, MessageDBI, SessionDBI):
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
-        self.__provider_table = ProviderTable(root=root, public=public, private=private)
         # Entity
         self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
         self.__meta_table = MetaTable(root=root, public=public, private=private)
@@ -74,9 +74,10 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         # Login info
         self.__login_table = LoginTable(root=root, public=public, private=private)
         self.__active_table = ActiveTable(root=root, public=public, private=private)
+        # ISP
+        self.__station_table = StationTable(root=root, public=public, private=private)
 
     def show_info(self):
-        self.__provider_table.show_info()
         # Entity
         self.__private_table.show_info()
         self.__meta_table.show_info()
@@ -92,6 +93,8 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         # Login info
         self.__login_table.show_info()
         self.__active_table.show_info()
+        # ISP
+        self.__station_table.show_info()
 
     """
         Private Key file for Users
@@ -102,20 +105,20 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def save_private_key(self, key: PrivateKey, identifier: ID, key_type: str = 'M') -> bool:
-        return self.__private_table.save_private_key(key=key, identifier=identifier, key_type=key_type)
+    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+        return self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
-    def private_keys_for_decryption(self, identifier: ID) -> List[DecryptKey]:
-        return self.__private_table.private_keys_for_decryption(identifier=identifier)
+    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+        return self.__private_table.private_keys_for_decryption(user=user)
 
     # Override
-    def private_key_for_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_signature(identifier=identifier)
+    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, identifier: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_visa_signature(identifier=identifier)
+    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+        return self.__private_table.private_key_for_visa_signature(user=user)
 
     """
         Meta file for entities
@@ -177,12 +180,36 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         return self.__user_table.save_local_users(users=users)
 
     # Override
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
-        return self.__user_table.save_contacts(contacts=contacts, identifier=identifier)
+    def add_user(self, user: ID) -> bool:
+        return self.__user_table.add_user(user=user)
 
     # Override
-    def contacts(self, identifier: ID) -> List[ID]:
-        return self.__user_table.contacts(identifier=identifier)
+    def remove_user(self, user: ID) -> bool:
+        return self.__user_table.remove_user(user=user)
+
+    # Override
+    def current_user(self) -> Optional[ID]:
+        return self.__user_table.current_user()
+
+    # Override
+    def set_current_user(self, user: ID) -> bool:
+        return self.__user_table.set_current_user(user=user)
+
+    # Override
+    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        return self.__user_table.save_contacts(contacts=contacts, user=user)
+
+    # Override
+    def contacts(self, user: ID) -> List[ID]:
+        return self.__user_table.contacts(user=user)
+
+    # Override
+    def add_contact(self, contact: ID, user: ID) -> bool:
+        return self.__user_table.add_contact(contact=contact, user=user)
+
+    # Override
+    def remove_contact(self, contact: ID, user: ID) -> bool:
+        return self.__user_table.remove_contact(contact=contact, user=user)
 
     """
         Stored Contacts for User
@@ -192,9 +219,11 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
 
+    # Override
     def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         return self.__user_table.save_contacts_command(content=content, identifier=identifier)
 
+    # Override
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         return self.__user_table.contacts_command(identifier=identifier)
 
@@ -278,28 +307,40 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def founder(self, identifier: ID) -> Optional[ID]:
-        return self.__group_table.founder(identifier=identifier)
+    def founder(self, group: ID) -> Optional[ID]:
+        return self.__group_table.founder(group=group)
 
     # Override
-    def owner(self, identifier: ID) -> Optional[ID]:
-        return self.__group_table.owner(identifier=identifier)
+    def owner(self, group: ID) -> Optional[ID]:
+        return self.__group_table.owner(group=group)
 
     # Override
-    def members(self, identifier: ID) -> List[ID]:
-        return self.__group_table.members(identifier=identifier)
+    def members(self, group: ID) -> List[ID]:
+        return self.__group_table.members(group=group)
 
     # Override
-    def assistants(self, identifier: ID) -> List[ID]:
-        return self.__group_table.assistants(identifier=identifier)
+    def save_members(self, members: List[ID], group: ID) -> bool:
+        return self.__group_table.save_members(members=members, group=group)
 
     # Override
-    def save_members(self, members: List[ID], identifier: ID) -> bool:
-        return self.__group_table.save_members(members=members, identifier=identifier)
+    def add_member(self, member: ID, group: ID) -> bool:
+        return self.__group_table.add_member(member=member, group=group)
 
     # Override
-    def save_assistants(self, assistants: List[ID], identifier: ID) -> bool:
-        return self.__group_table.save_assistants(assistants=assistants, identifier=identifier)
+    def remove_member(self, member: ID, group: ID) -> bool:
+        return self.__group_table.remove_member(member=member, group=group)
+
+    # Override
+    def remove_group(self, group: ID) -> bool:
+        return self.__group_table.remove_group(group=group)
+
+    # Override
+    def assistants(self, group: ID) -> List[ID]:
+        return self.__group_table.assistants(group=group)
+
+    # Override
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+        return self.__group_table.save_assistants(assistants=assistants, group=group)
 
     """
         Reliable message for Receivers
@@ -361,18 +402,18 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def login_command_message(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        return self.__login_table.login_command_message(identifier=identifier)
+    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        return self.__login_table.login_command_message(user=user)
 
     # Override
-    def save_login_command_message(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login_command_message(identifier=identifier, content=content, msg=msg)
+    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        return self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
-        return self.__login_table.login_command(identifier=identifier)
+    def login_command(self, user: ID) -> Optional[LoginCommand]:
+        return self.__login_table.login_command(user=user)
 
-    def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
-        return self.__login_table.login_message(identifier=identifier)
+    def login_message(self, user: ID) -> Optional[ReliableMessage]:
+        return self.__login_table.login_message(user=user)
 
     #
     #   Active DBI
@@ -396,17 +437,41 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     #
 
     # Override
-    def all_neighbors(self) -> Set[Tuple[str, int, Optional[ID]]]:
-        return self.__provider_table.all_neighbors()
+    def all_providers(self) -> List[ProviderInfo]:
+        """ get list of (SP_ID, chosen) """
+        return self.__station_table.all_providers()
 
     # Override
-    def get_neighbor(self, host: str, port: int) -> Optional[ID]:
-        return self.__provider_table.get_neighbor(host=host, port=port)
+    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def add_neighbor(self, host: str, port: int, identifier: ID = None) -> bool:
-        return self.__provider_table.add_neighbor(host=host, port=port, identifier=identifier)
+    def update_provider(self, identifier: ID, chosen: int) -> bool:
+        return self.__station_table.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def del_neighbor(self, host: str, port: int) -> Optional[ID]:
-        return self.__provider_table.del_neighbor(host=host, port=port)
+    def remove_provider(self, identifier: ID) -> bool:
+        return self.__station_table.remove_provider(identifier=identifier)
+
+    # Override
+    def all_stations(self, provider: ID) -> List[StationInfo]:
+        """ get list of (host, port, SP_ID, chosen) """
+        return self.__station_table.all_stations(provider=provider)
+
+    # Override
+    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+        return self.__station_table.add_station(identifier=identifier, host=host, port=port,
+                                                provider=provider, chosen=chosen)
+
+    # Override
+    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+        return self.__station_table.update_station(identifier=identifier, host=host, port=port,
+                                                   provider=provider, chosen=chosen)
+
+    # Override
+    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+        return self.__station_table.remove_station(host=host, port=port, provider=provider)
+
+    # Override
+    def remove_stations(self, provider: ID) -> bool:
+        return self.__station_table.remove_stations(provider=provider)

@@ -23,7 +23,7 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Any, Dict
+from typing import Optional, Any, Dict
 
 from dimples import ReliableMessage
 from dimples import Command, MetaCommand, DocumentCommand
@@ -41,23 +41,22 @@ def patch():
 
 
 def patch_meta():
-    from mkm.factory import FactoryManager
-    FactoryManager.general_factory.get_meta_type = get_meta_type
+    from mkm.factory import AccountFactoryManager
+    AccountFactoryManager.general_factory.get_meta_type = get_meta_type
 
 
 def patch_cmd():
-    from dimp.dkd.factory import FactoryManager
-    FactoryManager.general_factory.get_cmd = get_cmd
+    from dimp.dkd.factory import CommandFactoryManager
+    CommandFactoryManager.general_factory.get_cmd = get_cmd
 
 
-def get_meta_type(meta: Dict[str, Any]) -> int:
+def get_meta_type(meta: Dict[str, Any]) -> Optional[int]:
     """ get meta type(version) """
     fix_meta_version(meta=meta)
-    version = meta.get('type')
-    return 0 if version is None else int(version)
+    return meta.get('type')
 
 
-def get_cmd(content: Dict[str, Any]) -> str:
+def get_cmd(content: Dict[str, Any]) -> Optional[str]:
     """ get command name(cmd) """
     fix_cmd(content=content)
     return content.get('cmd')

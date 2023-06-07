@@ -29,18 +29,17 @@ from typing import Optional
 
 from dimples import Address, ID, IDFactory
 from dimples import AccountDBI, MessageDBI, SessionDBI
+from dimples.common import ProviderInfo
 from dimples.common import AddressNameServer
 from dimples.database import Storage
+from dimples.server import FilterManager
 
 from libs.utils import Singleton
 from libs.common import Config
 from libs.common import CommonFacebook
 from libs.database import Database
 from libs.server import PushCenter, Pusher
-from libs.server import Dispatcher
-from libs.server import UserDeliver, BotDeliver, StationDeliver
-from libs.server import GroupDeliver, BroadcastDeliver
-from libs.server import DeliverWorker, DefaultRoamer
+from libs.server import Dispatcher, BlockFilter, MuteFilter
 from libs.push import NotificationPusher
 from libs.push import ApplePushNotificationService
 from libs.push import AndroidPushNotificationService
@@ -117,7 +116,7 @@ def create_config(app_name: str, default_config: str) -> Config:
         else:
             show_help(cmd=cmd, app_name=app_name, default_config=default_config)
             sys.exit(0)
-    # check config filepath
+    # check config file path
     if ini_file is None:
         ini_file = default_config
     if not Storage.exists(path=ini_file):
@@ -141,11 +140,17 @@ def create_database(config: Config) -> Database:
     db = Database(root=root, public=public, private=private)
     db.show_info()
     db.clear_socket_addresses()  # clear before station start
+    # default provider
+    provider = ProviderInfo.GSP
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:
-        print('adding neighbor node: (%s:%d), ID="%s"' % (node.host, node.port, node.identifier))
-        db.add_neighbor(host=node.host, port=node.port, identifier=node.identifier)
+        print('adding neighbor node: %s' % node)
+        db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    # filter
+    man = FilterManager()
+    man.block_filter = BlockFilter(database=db)
+    man.mute_filter = MuteFilter(database=db)
     return db
 
 
@@ -185,6 +190,7 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
     credentials = config.get_string(section='push', option='apns_credentials')
     use_sandbox = config.get_boolean(section='push', option='apns_use_sandbox')
     topic = config.get_string(section='push', option='apns_topic')
+    print('APNs: credentials=%s, use_sandbox=%d, topic=%s' % (credentials, use_sandbox, topic))
     if credentials is not None and len(credentials) > 0:
         apple = ApplePushNotificationService(credentials=credentials,
                                              use_sandbox=use_sandbox)
@@ -196,6 +202,7 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
     app_key = config.get_string(section='push', option='app_key')
     master_secret = config.get_string(section='push', option='master_secret')
     production = config.get_boolean(section='push', option='apns_production')
+    print('APNs: app_key=%s, master_secret=%s, production=%s' % (app_key, master_secret, production))
     if app_key is not None and len(app_key) > 0 and master_secret is not None and len(master_secret) > 0:
         android = AndroidPushNotificationService(app_key=app_key,
                                                  master_secret=master_secret,
@@ -209,28 +216,9 @@ def create_pusher(shared: GlobalVariable) -> Pusher:
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     """ Step 6: create dispatcher """
     dispatcher = Dispatcher()
-    dispatcher.database = shared.mdb
+    dispatcher.mdb = shared.mdb
+    dispatcher.sdb = shared.sdb
     dispatcher.facebook = shared.facebook
-    # set base deliver delegates
-    user_deliver = UserDeliver(database=shared.mdb, pusher=shared.pusher)
-    bot_deliver = BotDeliver(database=shared.mdb)
-    station_deliver = StationDeliver()
-    dispatcher.set_user_deliver(deliver=user_deliver)
-    dispatcher.set_bot_deliver(deliver=bot_deliver)
-    dispatcher.set_station_deliver(deliver=station_deliver)
-    # set special deliver delegates
-    group_deliver = GroupDeliver(facebook=shared.facebook)
-    broadcast_deliver = BroadcastDeliver(database=shared.sdb)
-    dispatcher.set_group_deliver(deliver=group_deliver)
-    dispatcher.set_broadcast_deliver(deliver=broadcast_deliver)
-    # set roamer & worker
-    roamer = DefaultRoamer(database=shared.mdb)
-    worker = DeliverWorker(database=shared.sdb, facebook=shared.facebook)
-    dispatcher.set_roamer(roamer=roamer)
-    dispatcher.set_deliver_worker(worker=worker)
-    # start all delegates
-    user_deliver.start()
-    bot_deliver.start()
-    station_deliver.start()
-    roamer.start()
+    dispatcher.pusher = shared.pusher
+    dispatcher.start()
     return dispatcher

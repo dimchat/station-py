@@ -52,11 +52,15 @@ from libs.utils import JSONFile
 
 """
     Configuration
+    ~~~~~~~~~~~~~
+    
+    openssl pkcs12 -nodes -in Certificates.p1k2 -out credentials.pem
 """
 base_dir = '/data/.dim/'
 
 credentials = '/srv/dims/etc/apns/credentials.pem'
 use_sandbox = True
+topic = 'chat.dim.tarsier'
 
 
 class Device:
@@ -94,7 +98,7 @@ class SMS:
             return 0
         count = 0
         for token in tokens:
-            self.__client.send_notification(token_hex=token, notification=self.__payload)
+            self.__client.send_notification(token_hex=token, notification=self.__payload, topic=topic)
             count += 1
         print('Message has been sent to %d device(s)' % count)
         return count

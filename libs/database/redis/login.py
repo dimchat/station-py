@@ -56,17 +56,17 @@ class LoginCache(Cache):
     def __login_key(self, identifier: ID) -> str:
         return '%s.%s.%s.login' % (self.db_name, self.tbl_name, identifier)
 
-    def save_login(self, identifier: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         """ Save login command & message into Redis Server """
         dictionary = {'cmd': content.dictionary, 'msg': msg.dictionary}
         js = json_encode(obj=dictionary)
         value = utf8_encode(string=js)
-        key = self.__login_key(identifier=identifier)
+        key = self.__login_key(identifier=user)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def load_login(self, identifier: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        key = self.__login_key(identifier=identifier)
+    def load_login(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        key = self.__login_key(identifier=user)
         value = self.get(name=key)
         if value is None:
             # data not exists
@@ -79,12 +79,12 @@ class LoginCache(Cache):
             cmd = LoginCommand(cmd)
         return cmd, ReliableMessage.parse(msg=msg)
 
-    def login_command(self, identifier: ID) -> Optional[LoginCommand]:
-        cmd, _ = self.load_login(identifier=identifier)
+    def login_command(self, user: ID) -> Optional[LoginCommand]:
+        cmd, _ = self.load_login(user=user)
         return cmd
 
-    def login_message(self, identifier: ID) -> Optional[ReliableMessage]:
-        _, msg = self.load_login(identifier=identifier)
+    def login_message(self, user: ID) -> Optional[ReliableMessage]:
+        _, msg = self.load_login(user=user)
         return msg
 
     """
