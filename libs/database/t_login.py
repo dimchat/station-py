@@ -31,6 +31,7 @@ from dimples import ID, ReliableMessage
 from dimples.utils import CacheManager
 from dimples.common import LoginDBI
 from dimples.common import LoginCommand
+from dimples.common.dbi import is_expired
 
 from .redis import LoginCache
 from .dos import LoginStorage
@@ -62,7 +63,7 @@ class LoginTable(LoginDBI):
         assert user == content.identifier, 'cmd ID not match: %s => %s' % (user, content.identifier)
         # 0. check old record with time
         old, _ = self.login_command_message(user=user)
-        if old is not None and old.time >= content.time > 0:
+        if old is not None and is_expired(old_time=old.time, new_time=content.time):
             # command expired, drop it
             return False
         # 1. store into memory cache

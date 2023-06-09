@@ -30,6 +30,7 @@ from dimples import ID, Document
 
 from dimples.utils import CacheManager
 from dimples.common import DocumentDBI
+from dimples.common.dbi import is_expired
 
 from .redis import DocumentCache
 from .dos import DocumentStorage
@@ -64,7 +65,7 @@ class DocumentTable(DocumentDBI):
             doc_type = '*'
         # 0. check old record with time
         old = self.document(identifier=identifier, doc_type=doc_type)
-        if old is not None and old.time >= document.time > 0:
+        if old is not None and is_expired(old_time=old.time, new_time=document.time):
             # document expired, drop it
             return False
         # 1. store into memory cache

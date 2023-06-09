@@ -29,6 +29,7 @@ from typing import Optional
 from dimples import ID, Command
 
 from dimples.utils import CacheManager
+from dimples.common.dbi import is_expired
 from dimples.database.t_user import UserTable as SuperTable
 
 from ..common import BlockCommand, MuteCommand
@@ -58,7 +59,7 @@ class UserTable(SuperTable):
     def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         # 0. check old record with time
         old = self.contacts_command(identifier=identifier)
-        if old is not None and old.time >= content.time > 0:
+        if old is not None and is_expired(old_time=old.time, new_time=content.time):
             # command expired, drop it
             return False
         # 1. store into memory cache
@@ -99,7 +100,7 @@ class UserTable(SuperTable):
     def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         # 0. check old record with time
         old = self.block_command(identifier=identifier)
-        if old is not None and old.time >= content.time > 0:
+        if old is not None and is_expired(old_time=old.time, new_time=content.time):
             # command expired, drop it
             return False
         # 1. store into memory cache
@@ -140,7 +141,7 @@ class UserTable(SuperTable):
     def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         # 0. check old record with time
         old = self.mute_command(identifier=identifier)
-        if old is not None and old.time >= content.time > 0:
+        if old is not None and is_expired(old_time=old.time, new_time=content.time):
             # command expired, drop it
             return False
         # 1. store into memory cache

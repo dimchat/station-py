@@ -168,7 +168,8 @@ class StationCache(Cache):
             info = StationInfo(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
             stations.insert(0, info)
         else:
-            info.identifier = identifier
+            if not (identifier is None or identifier.is_broadcast):
+                info.identifier = identifier
             info.chosen = chosen
         return self.save_stations(stations=stations, provider=provider)
 
