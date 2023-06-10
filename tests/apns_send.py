@@ -34,20 +34,21 @@
 """
 
 import sys
-from typing import List
+from typing import Optional, List
 
 from apns2.client import APNsClient
 from apns2.payload import Payload
 
 from dimples import *
-from dimples.utils import Path
+from dimples.utils import Path, Log
+from dimples.database.dos import Storage
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from libs.utils import JSONFile
+from libs.database import DeviceInfo
 
 
 """
@@ -56,14 +57,14 @@ from libs.utils import JSONFile
     
     openssl pkcs12 -nodes -in Certificates.p1k2 -out credentials.pem
 """
-base_dir = '/data/.dim/'
+base_dir = '/data/.dim'
 
 credentials = '/srv/dims/etc/apns/credentials.pem'
 use_sandbox = True
-topic = 'chat.dim.tarsier'
+default_topic = 'chat.dim.tarsier'
 
 
-class Device:
+class DeviceLoader:
     """ Get device tokens """
 
     def __init__(self, identifier: str):
@@ -72,41 +73,80 @@ class Device:
     @property
     def path(self) -> str:
         address = self.__identifier.address
-        return base_dir + '/private/' + str(address) + '/device.js'
+        return base_dir + '/private/' + str(address) + '/devices.js'
 
     @property
-    def tokens(self) -> List[str]:
-        device = JSONFile(self.path).read()
-        if device is not None:
-            # TODO: only get the last two devices
-            return device.get('tokens')
+    def devices(self) -> List[DeviceInfo]:
+        array = Storage.read_json(path=self.path)
+        if not isinstance(array, List):
+            array = []
+        Log.info('loaded %d device(s) from: %s' % (len(array), path))
+        return DeviceInfo.convert(array=array)
 
 
 class SMS:
     """ Push SMS via APNs """
 
-    def __init__(self, text: str):
-        self.__client = APNsClient(credentials=credentials, use_sandbox=use_sandbox)
-        self.__payload = Payload(alert=text)
+    def __init__(self):
+        super().__init__()
+        self.__client_prod = None  # production
+        self.__client_test = None  # sandbox
 
-    def send(self, identifier: str) -> int:
+    @classmethod
+    def connect(cls, sandbox: bool) -> Optional[APNsClient]:
+        try:
+            return APNsClient(credentials=credentials, use_sandbox=sandbox)
+        except IOError as error:
+            Log.error('failed to connect apple server: %s' % error)
+
+    @property
+    def client_prod(self) -> Optional[APNsClient]:
+        client = self.__client_prod
+        if client is None:
+            client = self.connect(sandbox=False)
+            self.__client_prod = client
+        return client
+
+    @property
+    def client_test(self) -> Optional[APNsClient]:
+        client = self.__client_test
+        if client is None:
+            client = self.connect(sandbox=True)
+            self.__client_test = client
+        return client
+
+    def send(self, identifier: str, text: str) -> int:
         identifier = ID.parse(identifier=identifier)
-        device = Device(identifier)
-        tokens = device.tokens
-        if tokens is None:
-            print('Device token not found, failed to push message: %s' % self.__payload.alert)
+        payload = Payload(alert=text)
+        # get devices
+        loader = DeviceLoader(identifier)
+        devices = loader.devices
+        if devices is None or len(devices) == 0:
+            print('Device token not found, failed to push message: %s' % payload.alert)
             return 0
         count = 0
-        for token in tokens:
-            self.__client.send_notification(token_hex=token, notification=self.__payload, topic=topic)
+        for item in devices:
+            topic = item.topic
+            if topic is None:
+                topic = default_topic
+            sandbox = item.sandbox
+            if sandbox is None:
+                sandbox = use_sandbox
+            # get APNsClient
+            if sandbox:
+                client = self.client_test
+            else:
+                client = self.client_prod
+            # try to send
+            client.send_notification(token_hex=item.token, notification=payload, topic=topic)
             count += 1
         print('Message has been sent to %d device(s)' % count)
         return count
 
 
 def send(text: str, identifier: str) -> bool:
-    msg = SMS(text=text)
-    count = msg.send(identifier=identifier)
+    msg = SMS()
+    count = msg.send(identifier=identifier, text=text)
     return count > 0
 
 

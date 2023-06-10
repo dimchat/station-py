@@ -23,12 +23,102 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import Optional, Any, List, Dict
 
+from mkm.types import Converter
 from dimples import ID
-
+from dimples.common.dbi import is_expired
 from dimples.database.dos.base import template_replace
 from dimples.database.dos import Storage
+
+
+class DeviceInfo:
+
+    def __init__(self, info: Dict[str, Any]):
+        super().__init__()
+        self.__info = info
+
+    @property
+    def token(self) -> str:               # Hex encoded
+        value = self.__info.get('token')
+        if value is None:
+            value = self.__info.get('device_token')
+        return value
+
+    @property
+    def topic(self) -> Optional[str]:     # 'chat.dim.sechat'
+        return self.__info.get('topic')
+
+    @property
+    def sandbox(self) -> Optional[bool]:
+        value = self.__info.get('sandbox')
+        return Converter.get_bool(value=value)
+
+    @property
+    def time(self) -> Optional[float]:
+        value = self.__info.get('time')
+        return Converter.get_time(value=value)
+
+    @property
+    def model(self) -> Optional[str]:     # 'iPad'
+        return self.__info.get('model')
+
+    @property
+    def platform(self) -> Optional[str]:  # 'iOS'
+        return self.__info.get('platform')
+
+    @property
+    def system(self) -> Optional[str]:    # 'iPadOS 16.3'
+        return self.__info.get('system')
+
+    def __str__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s token="%s" topic="%s" sandbox=%d />' % (clazz, self.token, self.topic, self.sandbox)
+
+    def __repr__(self) -> str:
+        clazz = self.__class__.__name__
+        return '<%s token="%s" topic="%s" sandbox=%d>' \
+               '%s (%s) %s' \
+               '</%s>' % (clazz, self.token, self.topic, self.sandbox, self.model, self.platform, self.system, clazz)
+
+    def to_json(self) -> Dict[str, Any]:
+        return self.__info
+
+    @classmethod
+    def from_json(cls, info: Dict[str, Any]):  # -> Optional[DeviceInfo]:
+        if isinstance(info, Dict):
+            pass
+        elif isinstance(info, str):
+            info = {'token': info}
+        else:
+            # assert False, 'device info error: %s' % info
+            return None
+        return DeviceInfo(info=info)
+
+    @classmethod
+    def convert(cls, array: List[Dict[str, Any]]):  # -> List[DeviceInfo]:
+        devices = []
+        for item in array:
+            info = cls.from_json(info=item)
+            if info is None:
+                continue
+            devices.append(info)
+        return devices
+
+    @classmethod
+    def revert(cls, array) -> List[Dict[str, Any]]:
+        devices = []
+        for item in array:
+            if isinstance(item, DeviceInfo):
+                info = item.to_json()
+            elif isinstance(item, Dict):
+                info = item
+            elif isinstance(item, str):
+                info = {'token': str}
+            else:
+                continue
+            devices.append(info)
+        return devices
 
 
 class DeviceStorage(Storage):
@@ -36,62 +126,63 @@ class DeviceStorage(Storage):
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/device.js'
+        file path: '.dim/private/{ADDRESS}/devices.js'
     """
-    device_path = '{PRIVATE}/{ADDRESS}/device.js'
+    devices_path = '{PRIVATE}/{ADDRESS}/devices.js'
 
     def show_info(self):
-        path = template_replace(self.device_path, 'PRIVATE', self._private)
-        print('!!!    device path: %s' % path)
+        path = template_replace(self.devices_path, 'PRIVATE', self._private)
+        print('!!!   devices path: %s' % path)
 
-    def __device_path(self, identifier: ID) -> str:
-        path = self.device_path
+    def __devices_path(self, identifier: ID) -> str:
+        path = self.devices_path
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def save_device(self, device: dict, identifier: ID) -> bool:
-        path = self.__device_path(identifier=identifier)
-        self.info('Saving device info into: %s' % path)
-        return self.write_json(container=device, path=path)
+    def devices(self, identifier: ID) -> List[DeviceInfo]:
+        path = self.__devices_path(identifier=identifier)
+        array = self.read_json(path=path)
+        if not isinstance(array, List):
+            array = []
+        self.info('loaded %d device(s) from: %s' % (len(array), path))
+        return DeviceInfo.convert(array=array)
 
-    def device(self, identifier: ID) -> Optional[dict]:
-        path = self.__device_path(identifier=identifier)
-        self.info('Loading device from: %s' % path)
-        return self.read_json(path=path)
+    def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
+        path = self.__devices_path(identifier=identifier)
+        self.info('saving %d device(s) into: %s' % (len(devices), path))
+        return self.write_json(container=DeviceInfo.revert(array=devices), path=path)
 
-    def save_device_token(self, token: str, identifier: ID) -> bool:
-        # get device info with ID
-        device = self.device(identifier=identifier)
-        device = append_device_token(device=device, token=token)
-        if device is not None:
-            return self.save_device(device=device, identifier=identifier)
-
-    def device_tokens(self, identifier: ID) -> Optional[List[str]]:
-        # get device info with ID
-        device = self.device(identifier=identifier)
-        if device is not None:
-            return device.get('tokens')
+    def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
+        # get all devices info with ID
+        array = self.devices(identifier=identifier)
+        array = insert_device(info=device, devices=array)
+        if array is not None:
+            return self.save_devices(devices=array, identifier=identifier)
 
 
-def append_device_token(device: Optional[dict], token: str) -> Optional[dict]:
-    if device is None:
-        return {'tokens': [token]}
-    # get tokens list for updating
-    tokens: list = device.get('tokens')
-    if tokens is None or len(tokens) == 0:
-        # new device token
-        tokens = [token]
-    elif token == tokens[0]:
-        # already exists
-        return None
-    elif token in tokens:
-        # move to the first place
-        tokens.remove(token)
-        tokens.insert(0, token)
-    else:
+def insert_device(info: DeviceInfo, devices: List[DeviceInfo]) -> Optional[List[DeviceInfo]]:
+    index = find_device(info=info, devices=devices)
+    if index < 0:
         # keep only last three records
-        while len(tokens) > 2:
-            tokens.pop()
-        tokens.insert(0, token)
-    device['tokens'] = tokens
-    return device
+        while len(devices) > 2:
+            devices.pop()
+    elif is_expired(old_time=devices[index].time, new_time=info.time):
+        # device info expired, drop it
+        return None
+    else:
+        # token exists, replace with new device info
+        devices.pop(index)
+    # insert as the first device
+    devices.insert(0, info)
+    return devices
+
+
+def find_device(info: DeviceInfo, devices: List[DeviceInfo]) -> int:
+    index = 0
+    for item in devices:
+        if item.token == info.token:
+            return index
+        else:
+            index += 1
+    # device token not exists
+    return -1

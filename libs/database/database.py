@@ -43,6 +43,8 @@ from dimples.database.t_cipherkey import CipherKeyTable
 
 from ..common import BlockCommand, MuteCommand
 
+from .dos import DeviceInfo
+
 # from .t_ans import AddressNameTable
 from .t_meta import MetaTable
 from .t_document import DocumentTable
@@ -287,16 +289,18 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/protected/{ADDRESS}/device.js'
-        redis key: 'dim.user.{ID}.device'
+        file path: '.dim/protected/{ADDRESS}/devices.js'
+        redis key: 'dim.user.{ID}.devices'
     """
 
-    def save_device_token(self, token: str, identifier: ID) -> bool:
-        return self.__device_table.save_device_token(token=token, identifier=identifier)
+    def devices(self, identifier: ID) -> List[DeviceInfo]:
+        return self.__device_table.devices(identifier=identifier)
 
-    def device_tokens(self, identifier: ID) -> List[str]:
-        """ Tokens for APNs """
-        return self.__device_table.device_tokens(identifier=identifier)
+    def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
+        return self.__device_table.save_devices(devices=devices, identifier=identifier)
+
+    def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
+        return self.__device_table.add_device(device=device, identifier=identifier)
 
     """
         Group members

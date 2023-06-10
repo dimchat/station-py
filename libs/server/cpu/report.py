@@ -30,7 +30,7 @@
     Report protocol
 """
 
-from typing import List
+from typing import List, Dict
 
 from dimples import ReliableMessage
 from dimples import Content
@@ -40,6 +40,7 @@ from dimples.server.cpu import ReportCommandProcessor as SuperCommandProcessor
 from ...utils import Logging
 
 from ...common.compatible import fix_report_command
+from ...database import DeviceInfo
 from ...database import Database
 from ...common import ReportCommand
 from ...common import CommonFacebook
@@ -73,10 +74,24 @@ class ReportCommandProcessor(SuperCommandProcessor, Logging):
 
     def __process_apns(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # submit device token for APNs
-        token = content.get('device_token')
+        info = content.dictionary
+        token = info.get('device_token')
+        if token is None:
+            token = info.get('token')
+            if token is None:
+                # token not found, try to get device
+                info = info.get('device')
+                if isinstance(info, Dict):
+                    # device info found
+                    token = info.get('token')
+                else:
+                    self.error(msg='device info not found: %s' % self)
+                    return []
         if token is None or len(token) == 0:
             return []
+        device = DeviceInfo.from_json(info=info)
+        assert device is not None, 'failed to parse device info: %s' % info
         db = self.database
-        db.save_device_token(token=token, identifier=msg.sender)
-        text = 'Token received.'
+        db.add_device(device=device, identifier=msg.sender)
+        text = 'Device token received.'
         return self._respond_text(text=text)

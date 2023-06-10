@@ -37,7 +37,7 @@ from dimples.database.dos import StationStorage
 
 from .ans import AddressNameStorage
 from .document import DocumentStorage
-from .device import DeviceStorage
+from .device import DeviceStorage, DeviceInfo
 from .user import UserStorage
 from .group import GroupStorage
 
@@ -50,5 +50,5 @@ __all__ = [
     'StationStorage',
 
     'AddressNameStorage',
-    'DeviceStorage',
+    'DeviceStorage', 'DeviceInfo',
 ]

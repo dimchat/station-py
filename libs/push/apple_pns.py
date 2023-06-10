@@ -48,6 +48,7 @@ from dimples import ID
 from dimples.server import PushService, PushInfo
 
 from ..utils import Logging
+from ..database import DeviceInfo
 
 
 class ApplePushNotificationService(PushService, Logging):
@@ -59,8 +60,8 @@ class ApplePushNotificationService(PushService, Logging):
         """
 
         @abstractmethod
-        def device_tokens(self, identifier: ID) -> List[str]:
-            """ get device tokens in hex format """
+        def devices(self, identifier: ID) -> List[DeviceInfo]:
+            """ get devices with token in hex format """
             pass
 
     def __init__(self, credentials, use_sandbox=False, use_alternative_port=False, proto=None, json_encoder=None,
@@ -75,7 +76,9 @@ class ApplePushNotificationService(PushService, Logging):
         self.password = password
         self.proxy_host = proxy_host
         self.proxy_port = proxy_port
-        self.client = None  # APNsClient
+        # APNsClient
+        self.__client_prod = None  # production
+        self.__client_test = None  # sandbox
         # topic
         self.topic = 'chat.dim.sechat'
         # delegate to get device token
@@ -90,28 +93,46 @@ class ApplePushNotificationService(PushService, Logging):
     def delegate(self, value: Delegate):
         self.__delegate = weakref.ref(value)
 
-    def connect(self) -> bool:
+    def __connect(self, sandbox: bool) -> Optional[APNsClient]:
         try:
-            self.client = APNsClient(credentials=self.credentials, use_sandbox=self.use_sandbox,
-                                     use_alternative_port=self.use_alternative_port,
-                                     proto=self.proto, json_encoder=self.json_encoder, password=self.password,
-                                     proxy_host=self.proxy_host, proxy_port=self.proxy_port)
-            return True
+            return APNsClient(credentials=self.credentials, use_sandbox=sandbox,
+                              use_alternative_port=self.use_alternative_port,
+                              proto=self.proto, json_encoder=self.json_encoder, password=self.password,
+                              proxy_host=self.proxy_host, proxy_port=self.proxy_port)
         except IOError as error:
             self.error('failed to connect apple server: %s' % error)
-            return False
 
-    def send_notification(self, token_hex, notification, topic=None,
+    @property
+    def client_prod(self) -> Optional[APNsClient]:
+        client = self.__client_prod
+        if client is None:
+            client = self.__connect(sandbox=False)
+            self.__client_prod = client
+        return client
+
+    @property
+    def client_test(self) -> Optional[APNsClient]:
+        client = self.__client_test
+        if client is None:
+            client = self.__connect(sandbox=True)
+            self.__client_test = client
+        return client
+
+    def send_notification(self, notification, token_hex, topic: Optional[str], sandbox: bool,
                           priority=NotificationPriority.Immediate, expiration=None, collapse_id=None) -> int:
-        if self.client is None and self.connect() is False:
+        # get APNsClient
+        if sandbox:
+            client = self.client_test
+        else:
+            client = self.client_prod
+        if client is None:
             self.error('cannot connect apple server, message dropped: %s' % notification)
             return -503  # Service Unavailable
+        # try to send notification
         try:
-            if topic is None:
-                topic = self.topic
             # push to apple server
-            self.client.send_notification(token_hex=token_hex, notification=notification, topic=topic,
-                                          priority=priority, expiration=expiration, collapse_id=collapse_id)
+            client.send_notification(token_hex=token_hex, notification=notification, topic=topic,
+                                     priority=priority, expiration=expiration, collapse_id=collapse_id)
             return 200  # OK
         except IOError as error:
             self.error('connection lost: %s' % error)
@@ -129,27 +150,42 @@ class ApplePushNotificationService(PushService, Logging):
                           title: str = None, content: str = None, image: str = None,
                           badge: int = 0, sound: str = None):
         # 1. check
-        tokens = self.delegate.device_tokens(identifier=receiver)
-        if tokens is None:
+        devices = self.delegate.devices(identifier=receiver)
+        if devices is None or len(devices) == 0:
             self.error('cannot get device token for user %s' % receiver)
             return False
         # 2. send
         alert = PayloadAlert(title=title, body=content, launch_image=image)
         payload = Payload(alert=alert, badge=badge, sound=sound)
         success = 0
-        for token in tokens:
-            self.debug('sending notification %s -> %s (%s) with token: %s' % (sender, receiver, content, token))
+        for item in devices:
+            self.debug('sending notification %s -> %s (%s) to device: %s' % (sender, receiver, content, item))
+            # check for iOS platform
+            platform = item.platform
+            if platform is not None and platform.lower() != 'ios':
+                self.warning(msg='it is not an iOS device, skip it: %s' % item.platform)
+                continue
+            token = item.token
+            topic = item.topic
+            sandbox = item.sandbox
+            if topic is None:
+                topic = self.topic
+            if sandbox is None:
+                sandbox = self.use_sandbox
             # first try
-            result = self.send_notification(token_hex=token, notification=payload)
+            result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
             if result == -503:  # Service Unavailable
                 # connection failed
                 break
             elif result == -408:  # Request Timeout
                 self.error('Broken pipe? try to reconnect again!')
                 # reset APNs client
-                self.client = None
+                if sandbox:
+                    self.__client_test = None
+                else:
+                    self.__client_prod = None
                 # try again
-                result = self.send_notification(token_hex=token, notification=payload)
+                result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
             if result == 200:  # OK
                 success = success + 1
         if success > 0:

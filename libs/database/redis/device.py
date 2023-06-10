@@ -28,7 +28,8 @@ from typing import List, Optional
 from dimples import json_encode, json_decode, utf8_encode, utf8_decode
 from dimples import ID
 
-from ..dos.device import append_device_token
+from ..dos.device import insert_device
+from ..dos import DeviceInfo
 
 from .base import Cache
 
@@ -51,34 +52,33 @@ class DeviceCache(Cache):
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 
-        redis key: 'dim.user.{ID}.device'
+        redis key: 'dim.user.{ID}.devices'
     """
-    def __device_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.device' % (self.db_name, self.tbl_name, identifier)
+    def __devices_key(self, identifier: ID) -> str:
+        return '%s.%s.%s.devices' % (self.db_name, self.tbl_name, identifier)
 
-    def save_device(self, device: dict, identifier: ID) -> bool:
-        value = json_encode(obj=device)
-        value = utf8_encode(string=value)
-        name = self.__device_key(identifier=identifier)
+    def devices(self, identifier: ID) -> List[DeviceInfo]:
+        name = self.__devices_key(identifier=identifier)
+        value = self.get(name=name)
+        if value is None:
+            return []
+        js = utf8_decode(data=value)
+        array = json_decode(string=js)
+        if isinstance(array, List):
+            return DeviceInfo.convert(array=array)
+        else:
+            return []
+
+    def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
+        array = DeviceInfo.revert(array=devices)
+        js = json_encode(obj=array)
+        value = utf8_encode(string=js)
+        name = self.__devices_key(identifier=identifier)
         self.set(name=name, value=value, expires=self.EXPIRES)
         return True
 
-    def device(self, identifier: ID) -> Optional[dict]:
-        name = self.__device_key(identifier=identifier)
-        value = self.get(name=name)
-        if value is not None:
-            js = utf8_decode(data=value)
-            return json_decode(string=js)
-
-    def save_device_token(self, token: str, identifier: ID) -> bool:
-        # get device info with ID
-        device = self.device(identifier=identifier)
-        device = append_device_token(device=device, token=token)
-        if device is not None:
-            return self.save_device(device=device, identifier=identifier)
-
-    def device_tokens(self, identifier: ID) -> Optional[List[str]]:
-        # get device info with ID
-        device = self.device(identifier=identifier)
-        if device is not None:
-            return device.get('tokens')
+    def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
+        # get all devices info with ID
+        array = self.devices(identifier=identifier)
+        array = insert_device(info=device, devices=array)
+        return self.save_devices(devices=array, identifier=identifier)

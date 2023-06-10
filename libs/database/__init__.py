@@ -58,10 +58,11 @@ __all__ = [
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
     'UserStorage', 'GroupStorage',
     'LoginStorage',
+    'StationStorage',
 
     'AddressNameStorage',
     'DeviceStorage',
-    'StationStorage',
+    'DeviceInfo',
 
     #
     #   Redis
