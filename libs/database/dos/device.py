@@ -73,11 +73,11 @@ class DeviceInfo:
 
     def __str__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s token="%s" topic="%s" sandbox=%d />' % (clazz, self.token, self.topic, self.sandbox)
+        return '<%s token="%s" topic="%s" sandbox=%s />' % (clazz, self.token, self.topic, self.sandbox)
 
     def __repr__(self) -> str:
         clazz = self.__class__.__name__
-        return '<%s token="%s" topic="%s" sandbox=%d>' \
+        return '<%s token="%s" topic="%s" sandbox=%s>' \
                '%s (%s) %s' \
                '</%s>' % (clazz, self.token, self.topic, self.sandbox, self.model, self.platform, self.system, clazz)
 

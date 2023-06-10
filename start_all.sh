@@ -66,9 +66,6 @@ restart chatroom "robots/chatroom_admin.py"
 title "DIM File Server"
 restart ftp "fileserver/start.py"
 
-#title "DIM Web Server"
-#restart www "webserver/httpd.py"
-
 echo ""
 echo "    >>> Done <<<"
 echo ""

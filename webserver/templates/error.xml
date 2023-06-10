@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?xml-stylesheet type="text/xsl" href="/static/error.xsl"?>
-<result>
-    <code>{{result['code']}}</code>
-    <name>{{result['name']}}</name>
-    <message>{{result['message']}}</message>
-</result>

@@ -159,7 +159,7 @@ class ApplePushNotificationService(PushService, Logging):
         payload = Payload(alert=alert, badge=badge, sound=sound)
         success = 0
         for item in devices:
-            self.debug('sending notification %s -> %s (%s) to device: %s' % (sender, receiver, content, item))
+            self.info(msg='sending notification %s -> %s (%s) to device: %s' % (sender, receiver, content, item))
             # check for iOS platform
             platform = item.platform
             if platform is not None and platform.lower() != 'ios':
