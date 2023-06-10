@@ -36,7 +36,6 @@ from .protocol import *
 from .cpu import *
 
 from .packer import ClientPacker
-from .gman import GroupManager
 
 
 __all__ = [

@@ -30,7 +30,7 @@
     Transform and send message
 """
 
-from typing import Optional
+from typing import Optional, List
 
 from dimples import SymmetricKey
 from dimples import Content, TextContent, Command
@@ -44,8 +44,15 @@ from dimples.server.pusher import get_name
 from ..common.compatible import fix_command
 from ..database import Database
 
+from .monitor import Monitor
+
 
 class ServerMessenger(SuperMessenger):
+
+    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+        monitor = Monitor()
+        monitor.message_received(msg=msg)
+        return super().process_reliable_message(msg=msg)
 
     # Override
     def is_blocked(self, msg: ReliableMessage) -> bool:

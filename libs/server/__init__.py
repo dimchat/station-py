@@ -44,6 +44,8 @@ from .packer import ServerPacker
 from .processor import ServerProcessor
 from .processor import ServerContentProcessorCreator
 
+from .monitor import Monitor
+
 
 __all__ = [
 
@@ -72,4 +74,7 @@ __all__ = [
     'ServerPacker',
     'ServerProcessor',
     'ServerContentProcessorCreator',
+
+    'Monitor',
+
 ]
