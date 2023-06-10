@@ -139,11 +139,12 @@ class DeviceStorage(Storage):
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def devices(self, identifier: ID) -> List[DeviceInfo]:
+    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         path = self.__devices_path(identifier=identifier)
         array = self.read_json(path=path)
         if not isinstance(array, List):
-            array = []
+            self.error(msg='devices not exists: %s' % path)
+            return None
         self.info('loaded %d device(s) from: %s' % (len(array), path))
         return DeviceInfo.convert(array=array)
 
@@ -155,9 +156,13 @@ class DeviceStorage(Storage):
     def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
         # get all devices info with ID
         array = self.devices(identifier=identifier)
-        array = insert_device(info=device, devices=array)
-        if array is not None:
-            return self.save_devices(devices=array, identifier=identifier)
+        if array is None:
+            array = [device]
+        else:
+            array = insert_device(info=device, devices=array)
+            if array is None:
+                return False
+        return self.save_devices(devices=array, identifier=identifier)
 
 
 def insert_device(info: DeviceInfo, devices: List[DeviceInfo]) -> Optional[List[DeviceInfo]]:

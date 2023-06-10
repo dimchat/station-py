@@ -57,17 +57,15 @@ class DeviceCache(Cache):
     def __devices_key(self, identifier: ID) -> str:
         return '%s.%s.%s.devices' % (self.db_name, self.tbl_name, identifier)
 
-    def devices(self, identifier: ID) -> List[DeviceInfo]:
+    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         name = self.__devices_key(identifier=identifier)
         value = self.get(name=name)
         if value is None:
-            return []
+            return None
         js = utf8_decode(data=value)
         array = json_decode(string=js)
         if isinstance(array, List):
             return DeviceInfo.convert(array=array)
-        else:
-            return []
 
     def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
         array = DeviceInfo.revert(array=devices)
@@ -80,5 +78,10 @@ class DeviceCache(Cache):
     def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
         # get all devices info with ID
         array = self.devices(identifier=identifier)
-        array = insert_device(info=device, devices=array)
+        if array is None:
+            array = [device]
+        else:
+            array = insert_device(info=device, devices=array)
+            if array is None:
+                return False
         return self.save_devices(devices=array, identifier=identifier)

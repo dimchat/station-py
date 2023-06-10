@@ -293,7 +293,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'dim.user.{ID}.devices'
     """
 
-    def devices(self, identifier: ID) -> List[DeviceInfo]:
+    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         return self.__device_table.devices(identifier=identifier)
 
     def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:

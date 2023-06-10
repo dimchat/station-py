@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import time
-from typing import List
+from typing import Optional, List
 
 from dimples import ID
 
@@ -50,7 +50,7 @@ class DeviceTable:
     def show_info(self):
         self.__dos.show_info()
 
-    def devices(self, identifier: ID) -> List[DeviceInfo]:
+    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         now = time.time()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=identifier, now=now)
@@ -62,7 +62,7 @@ class DeviceTable:
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
-                    return []
+                    return None
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
@@ -90,5 +90,10 @@ class DeviceTable:
     def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
         # get all devices info with ID
         array = self.devices(identifier=identifier)
-        array = insert_device(info=device, devices=array)
+        if array is None:
+            array = [device]
+        else:
+            array = insert_device(info=device, devices=array)
+            if array is None:
+                return False
         return self.save_devices(devices=array, identifier=identifier)
