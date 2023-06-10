@@ -42,7 +42,7 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from robots.shared import create_database, create_facebook
+from sbots.shared import create_database, create_facebook
 
 
 #

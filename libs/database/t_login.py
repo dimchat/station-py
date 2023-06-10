@@ -29,9 +29,9 @@ from typing import Optional, Tuple
 from dimples import ID, ReliableMessage
 
 from dimples.utils import CacheManager
-from dimples.common import LoginDBI
-from dimples.common import LoginCommand
 from dimples.common.dbi import is_expired
+from dimples import LoginDBI
+from dimples import LoginCommand
 
 from .redis import LoginCache
 from .dos import LoginStorage

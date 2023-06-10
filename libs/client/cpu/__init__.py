@@ -32,12 +32,10 @@
 
 from .storage import StorageCommandProcessor
 from .search import SearchCommandProcessor
-from .text import ChatTextContentProcessor
 
 
 __all__ = [
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',
-    'ChatTextContentProcessor',
 ]

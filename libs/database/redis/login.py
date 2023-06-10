@@ -27,8 +27,7 @@ from typing import Optional, Set, Tuple
 
 from dimples import json_encode, json_decode, utf8_encode, utf8_decode
 from dimples import ID, ReliableMessage
-
-from ...common import LoginCommand
+from dimples import LoginCommand
 
 from .base import Cache
 

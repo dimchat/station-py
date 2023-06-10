@@ -46,10 +46,6 @@ from dimples.utils import Log, Logging
 
 from dimples.conn.session import get_sig as get_msg_sig
 
-from .img import Image, ImageScanner
-from .img import PNG, PNGScanner, PNGChunk, PNGTypeCode
-from .img import JPEG, JPEGScanner, JPEGSegment, JPEGMarkCode
-
 
 @Singleton
 class NotificationCenter(DefaultNotificationCenter):
@@ -80,8 +76,4 @@ __all__ = [
 
     'Path',
     'File', 'TextFile', 'JSONFile',
-
-    'Image', 'ImageScanner',
-    'PNG', 'PNGScanner', 'PNGChunk', 'PNGTypeCode',
-    'JPEG', 'JPEGScanner', 'JPEGSegment', 'JPEGMarkCode',
 ]

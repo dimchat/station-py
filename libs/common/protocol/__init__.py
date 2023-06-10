@@ -24,10 +24,10 @@
 # ==============================================================================
 
 from dimples import Command, CommandFactoryBuilder
-from dimples.common import HandshakeCommand, HandshakeState
-from dimples.common import ReceiptCommand
-from dimples.common import LoginCommand
-from dimples.common import ReportCommand
+from dimples import HandshakeCommand, HandshakeState
+from dimples import ReceiptCommand
+from dimples import LoginCommand
+from dimples import ReportCommand
 
 from .mute import MuteCommand
 from .block import BlockCommand
@@ -41,9 +41,10 @@ def register_ext_factories():
     Command.register(cmd=BlockCommand.BLOCK, factory=CommandFactoryBuilder(command_class=BlockCommand))
 
     # Report extra
-    Command.register(cmd='broadcast', factory=CommandFactoryBuilder(command_class=ReportCommand))
-    Command.register(cmd=ReportCommand.ONLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
-    Command.register(cmd=ReportCommand.OFFLINE, factory=CommandFactoryBuilder(command_class=ReportCommand))
+    factory = CommandFactoryBuilder(command_class=ReportCommand)
+    Command.register(cmd='broadcast', factory=factory)
+    Command.register(cmd=ReportCommand.ONLINE, factory=factory)
+    Command.register(cmd=ReportCommand.OFFLINE, factory=factory)
 
 
 register_ext_factories()

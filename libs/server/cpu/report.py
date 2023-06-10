@@ -33,7 +33,7 @@
 from typing import List, Dict
 
 from dimples import ReliableMessage
-from dimples import Content
+from dimples import Content, ReportCommand
 
 from dimples.server.cpu import ReportCommandProcessor as SuperCommandProcessor
 
@@ -42,7 +42,6 @@ from ...utils import Logging
 from ...common.compatible import fix_report_command
 from ...database import DeviceInfo
 from ...database import Database
-from ...common import ReportCommand
 from ...common import CommonFacebook
 
 

@@ -43,25 +43,22 @@ start "dims" "station/start_ct.py"
 sleep 2
 
 title "DIM Station Bridge"
-restart octopus "robots/sbot_octopus.py"
+restart octopus "sbots/sbot_octopus.py"
 
 
 #
-#   Bots
+#   Service Bots
 #
 
 title "DIM Search Engine"
-restart search "robots/sbot_archivist.py"
+restart search "sbots/sbot_archivist.py"
 
 title "DIM Group Assistant"
-restart group "robots/gbot_assistant.py"
+restart group "sbots/gbot_assistant.py"
 
-title "DIM Chat Bots"
-restart ling "robots/chatbot_ling.py"
-restart xiao "robots/chatbot_xiao.py"
-
-title "DIM Chat Room"
-restart chatroom "robots/chatroom_admin.py"
+#
+#  File Server
+#
 
 title "DIM File Server"
 restart ftp "fileserver/start.py"

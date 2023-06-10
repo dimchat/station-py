@@ -24,9 +24,9 @@
 # ==============================================================================
 
 from dimples import Command, CommandFactoryBuilder
+from dimples import HandshakeCommand, HandshakeState
+from dimples import ReceiptCommand, ReportCommand, LoginCommand
 
-from ...common import HandshakeCommand, HandshakeState
-from ...common import ReceiptCommand, LoginCommand, ReportCommand
 from ...common import BlockCommand, MuteCommand
 
 from .storage import StorageCommand
@@ -41,9 +41,10 @@ def register_ext_factories():
     Command.register(cmd=StorageCommand.CONTACTS, factory=factory)
     Command.register(cmd=StorageCommand.PRIVATE_KEY, factory=factory)
 
-    # Search
-    Command.register(cmd=SearchCommand.SEARCH, factory=CommandFactoryBuilder(command_class=SearchCommand))
-    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=CommandFactoryBuilder(command_class=SearchCommand))
+    # Search (users)
+    factory = CommandFactoryBuilder(command_class=SearchCommand)
+    Command.register(cmd=SearchCommand.SEARCH, factory=factory)
+    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=factory)
 
 
 register_ext_factories()

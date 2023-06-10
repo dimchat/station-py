@@ -30,7 +30,7 @@
 from typing import Optional
 
 from dimples import InstantMessage, SecureMessage, ReliableMessage
-from dimples import DocumentCommand
+from dimples import DocumentCommand, ReceiptCommand
 
 from dimples.common import CommonFacebook
 from dimples.client.packer import attach_key_digest
@@ -41,8 +41,6 @@ from ..utils.mtp import MTPUtils
 from ..common.compatible import fix_meta_attachment
 from ..common.compatible import fix_receipt_command
 from ..common.compatible import fix_document_command
-
-from .protocol import ReceiptCommand
 
 
 class ClientPacker(SuperPacker):

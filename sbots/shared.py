@@ -26,16 +26,14 @@
 import getopt
 import sys
 import threading
-from typing import Optional, List
+from typing import Optional
 
 from dimples import ID
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
 
-from libs.utils import Log
 from libs.utils import Singleton
-from libs.utils.nlp import ChatBot, Tuling, XiaoI
 from libs.common import CommonFacebook
 from libs.common import Config
 from libs.database import Storage
@@ -228,67 +226,3 @@ def start_bot(default_config: str, app_name: str, ans_name: str, processor_class
     thread = threading.Thread(target=terminal.run, daemon=False)
     thread.start()
     return terminal
-
-
-#
-#   Natural Language Processing
-#   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#
-
-
-def chat_bots(names: List[str], shared: GlobalVariable) -> List[ChatBot]:
-    """
-        Chat Bots
-        ~~~~~~~~~
-
-        Chat bots from 3rd-party
-    """
-    bots = []
-    for n in names:
-        b = chat_bot(name=n, shared=shared)
-        if b is not None:
-            bots.append(b)
-    return bots
-
-
-def chat_bot(name: str, shared: GlobalVariable) -> Optional[ChatBot]:
-    config = shared.config
-    if 'tuling' == name:
-        # Tuling ChatBot
-        path = config.get_string(section='nlp', option='tuling_keys')
-        if path is None:
-            Log.error(msg='Tuling keys not config')
-            return None
-        tuling_keys = Storage.read_json(path=path)
-        api_key = tuling_keys.get('api_key')
-        assert api_key is not None, 'Tuling keys error: %s' % tuling_keys
-        tuling = Tuling(api_key=api_key)
-        # config ignores
-        tuling_ignores = config.get_string(section='nlp', option='tuling_ignores')
-        array = tuling_ignores.split(',')
-        for item in array:
-            value = int(item)
-            if value not in tuling.ignores:
-                tuling.ignores.append(value)
-        return tuling
-    elif 'xiaoi' == name:
-        # XiaoI ChatBot
-        path = config.get_string(section='nlp', option='xiaoi_keys')
-        if path is None:
-            Log.error(msg='XiaoI keys not config')
-            return None
-        xiaoi_keys = Storage.read_json(path=path)
-        app_key = xiaoi_keys.get('app_key')
-        app_secret = xiaoi_keys.get('app_secret')
-        assert app_key is not None and app_secret is not None, 'XiaoI keys error: %s' % xiaoi_keys
-        xiaoi = XiaoI(app_key=app_key, app_secret=app_secret)
-        # config ignores
-        xiaoi_ignores = config.get_string(section='nlp', option='xiaoi_ignores')
-        array = xiaoi_ignores.split(',')
-        for item in array:
-            value = item.strip()
-            if value not in xiaoi.ignores:
-                xiaoi.ignores.append(value)
-        return xiaoi
-    else:
-        raise NotImplementedError('unknown chat bot: %s' % name)

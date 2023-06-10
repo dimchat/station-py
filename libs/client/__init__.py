@@ -60,7 +60,6 @@ __all__ = [
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',
-    'ChatTextContentProcessor',
 
     #
     #   Client

@@ -31,6 +31,8 @@
 from typing import Optional, Union
 
 from dimples import ContentType
+from dimples import ReceiptCommand, ReportCommand
+
 from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
 from dimples import BaseContentProcessor
@@ -38,9 +40,7 @@ from dimples import BaseContentProcessor
 from dimples.server import ServerMessageProcessor as SuperProcessor
 from dimples.server import ServerContentProcessorCreator as SuperCreator
 
-from ..common import ReceiptCommand
 from ..common import MuteCommand, BlockCommand
-from ..common import ReportCommand
 
 from .cpu import ReceiptCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor

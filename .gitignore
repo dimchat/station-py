@@ -3,4 +3,3 @@ etc/*/secret.js
 .DS_Store
 /.idea
 *.pyc
-robots/secret.py

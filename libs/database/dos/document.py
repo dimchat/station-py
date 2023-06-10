@@ -66,7 +66,7 @@ class DocumentStorage(SuperStorage):
             doc = load_document(address=item, pub=pub)
             if doc is not None:
                 documents.append(doc)
-        self.debug('Scanned %d documents(s) from %s' % (len(documents), pub))
+        self.info(msg='Scanned %d documents(s) from %s' % (len(documents), pub))
         return documents
 
 

@@ -44,11 +44,11 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from libs.client.protocol import SearchCommand
-from libs.client.cpu import SearchCommandProcessor
+from libs.client.protocol import SearchCommand, StorageCommand
+from libs.client.cpu import SearchCommandProcessor, StorageCommandProcessor
 from libs.client import ClientProcessor
 
-from robots.shared import start_bot
+from sbots.shared import start_bot
 
 
 class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
@@ -60,6 +60,11 @@ class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         elif cmd == SearchCommand.ONLINE_USERS:
             return SearchCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # storage
+        if cmd == StorageCommand.STORAGE:
+            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == StorageCommand.CONTACTS or cmd == StorageCommand.PRIVATE_KEY:
+            return StorageCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd=cmd)
 

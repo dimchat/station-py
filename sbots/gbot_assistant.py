@@ -39,7 +39,7 @@ from startrek import DeparturePriority
 
 from dimples import EntityType, ID
 from dimples import Envelope, InstantMessage, ReliableMessage
-from dimples import Content, ForwardContent, GroupCommand
+from dimples import Content, ForwardContent, GroupCommand, ReceiptCommand
 from dimples.client import GroupManager
 from dimples.utils import Log
 
@@ -47,10 +47,9 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from libs.common import ReceiptCommand
 from libs.client import ClientProcessor
 
-from robots.shared import start_bot
+from sbots.shared import start_bot
 
 
 # 'sender -> group' => keys

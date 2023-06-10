@@ -32,8 +32,8 @@ from typing import Optional
 from dimples import InstantMessage, SecureMessage, ReliableMessage
 from dimples import DocumentCommand
 
-from dimples.common import ReceiptCommand
-from dimples.common import CommonFacebook, CommonMessenger
+from dimples import ReceiptCommand
+from dimples import CommonFacebook, CommonMessenger
 from dimples.server import ServerMessagePacker as SuperPacker
 
 from ..utils.mtp import MTPUtils
