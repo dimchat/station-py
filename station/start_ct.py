@@ -48,6 +48,7 @@ Path.add(path=path)
 monkey.patch_all()
 
 from libs.utils.mtp import Server as UDPServer
+from libs.server import Monitor
 
 from station.shared import GlobalVariable
 from station.shared import create_config, create_database, create_facebook
@@ -119,6 +120,10 @@ def main():
     create_pusher(shared=shared)
     # Step 6: create dispatcher
     create_dispatcher(shared=shared)
+    # prepare for monitor
+    monitor = Monitor()
+    monitor.facebook = facebook
+    monitor.config = config.get(key='monitor')
     # check bind host & port
     host = config.station_host
     port = config.station_port

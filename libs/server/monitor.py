@@ -24,21 +24,32 @@
 # ==============================================================================
 
 import threading
+import time
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List
+from typing import Optional, Union, Tuple, Set, Dict
 
 from dimples import ID, ReliableMessage
 from dimples.server import PushCenter
+from dimples.database.dos.base import template_replace
 
 from ..utils import Singleton, Logging
 from ..utils import Runner
 from ..common import CommonFacebook
+from ..database import Storage
+
+
+class Recorder(ABC):
+
+    @abstractmethod
+    def flush(self, config: Dict):
+        """ save records into local storage """
+        raise NotImplemented
 
 
 class Event(ABC):
 
     @abstractmethod
-    def handle(self):
+    def handle(self, config: Dict, recorder: Recorder):
         """ handle the event """
         raise NotImplemented
 
@@ -48,10 +59,24 @@ class Monitor(Runner, Logging):
 
     def __init__(self):
         super().__init__()
+        self.__config: Optional[Dict] = None
         self.__facebook: Optional[CommonFacebook] = None
         self.__events = []
         self.__lock = threading.Lock()
+        # records
+        self.__active_recorder = ActiveRecorder()
+        self.__msg_recorder = MessageRecorder()
+        self.__flush_expired = 0
         self.start()
+
+    @property
+    def config(self) -> Dict:
+        return self.__config
+
+    @config.setter
+    def config(self, info: Dict):
+        assert isinstance(info, dict), 'monitor config error: %s' % info
+        self.__config = info
 
     @property
     def facebook(self) -> Optional[CommonFacebook]:
@@ -83,16 +108,36 @@ class Monitor(Runner, Logging):
 
     # Override
     def process(self) -> bool:
-        task = self.next()
-        if task is None:
+        event = self.next()
+        if event is None:
             # nothing to do now, return False to let the thread have a rest
+            now = time.time()
+            if self.__flush_expired < now:
+                self.__flush_expired = now + 120
+                self.__flush(config=self.config)
             return False
+        # get recorder
+        if isinstance(event, ActiveEvent):
+            recorder = self.__active_recorder
+        elif isinstance(event, MessageEvent):
+            recorder = self.__msg_recorder
+        else:
+            self.error(msg='event error: %s' % event)
+            return True
+        # try to handle event with recorder
         try:
-            task.handle()
+            event.handle(config=self.config, recorder=recorder)
         except Exception as e:
             self.error(msg='task error: %s' % e)
         finally:
             return True
+
+    def __flush(self, config: Dict):
+        try:
+            self.__active_recorder.flush(config=config)
+            self.__msg_recorder.flush(config=config)
+        except Exception as error:
+            self.error(msg='flush record error: %s' % error)
 
     #
     #   Events
@@ -124,12 +169,21 @@ class ActiveEvent(Event, Logging):
         self.remote_address = remote_address
         self.online = online
 
-    # Override
-    def handle(self):
-        self.__notice_master()
-        # TODO: record online/offline activity with sender.type and current time
+    # noinspection PyMethodMayBeStatic
+    def __masters(self, config: Dict) -> Set[ID]:
+        masters = config.get('masters')
+        if isinstance(masters, str):
+            masters = masters.split(',')
+        else:
+            return set()
+        array = set()
+        for item in masters:
+            mid = ID.parse(identifier=item.strip())
+            if mid is not None:
+                array.add(mid)
+        return array
 
-    def __notice_master(self):
+    def __notice_master(self, config: Dict):
         identifier = self.sender
         monitor = Monitor()
         # build notification
@@ -146,17 +200,78 @@ class ActiveEvent(Event, Logging):
             text = '%s is offline, socket %s' % (name, self.remote_address)
         # push notification
         sender = ID.parse(identifier='monitor@anywhere')
-        masters = self.__masters()
+        masters = self.__masters(config=config)
         self.warning(msg='notice masters %s: %s' % (masters, text))
         center = PushCenter()
         for receiver in masters:
             center.add_notification(sender=sender, receiver=receiver, title=title, content=text)
 
-    # noinspection PyMethodMayBeStatic
-    def __masters(self) -> List[ID]:
-        # TODO: get master from station.ini
-        master = ID.parse(identifier='0x9527cFD9b6a0736d8417354088A4fC6e345E31F8')
-        return [master]
+    # Override
+    def handle(self, config: Dict, recorder: Recorder):
+        self.__notice_master(config=config)
+        assert isinstance(recorder, ActiveRecorder), 'recorder error: %s' % recorder
+        sender = self.sender
+        when = self.when
+        online = self.online
+        recorder.increase_counter(sender_type=sender.type, when=when, online=online)
+
+
+class ActiveRecorder(Recorder):
+
+    def __init__(self):
+        super().__init__()
+        self.__stat = {}
+        self.__path = None
+
+    def increase_counter(self, sender_type: int, when: float, online: Union[bool, int]):
+        if isinstance(online, bool):
+            online = int(online)
+        # get data list for current hour
+        now = time.localtime(when)
+        hour = time.strftime('%Y-%m-%d %H', now)
+        array = self.__stat.get(hour)
+        if array is None:
+            array = []
+            self.__stat[hour] = array
+        # get data record
+        record = None
+        for item in array:
+            if item.get('sender_type') == sender_type and item.get('online') == online:
+                # got it
+                record = item
+                break
+        # increase counter
+        if record is None:
+            # create new record
+            record = {
+                'sender_type': sender_type,
+                'online': online,
+                'count': 1,
+            }
+            array.append(record)
+        else:
+            # update old record
+            count = record.get('count')
+            record['count'] = 1 if count is None else count + 1
+
+    # Override
+    def flush(self, config: Dict):
+        # get file path
+        path = config.get('online_stat')
+        assert isinstance(path, str), 'online stat file path not found: %s' % config
+        now = time.gmtime()
+        path = template_replace(path, 'yyyy', str(now.tm_year))
+        path = template_replace(path, 'mm', two_digit(value=now.tm_mon))
+        path = template_replace(path, 'dd', two_digit(value=now.tm_mday))
+        if self.__path is None:
+            self.__path = path
+        elif self.__path != path:
+            # FIXME: it's the next day now, save the increased values
+            self.__stat = {}
+            self.__path = None
+            return False
+        # save data
+        Storage.write_json(container=self.__stat, path=path)
 
 
 class MessageEvent(Event):
@@ -166,6 +281,73 @@ class MessageEvent(Event):
         self.msg = msg
 
     # Override
-    def handle(self):
-        # TODO: record message count with sender.type, msg.type and current time
-        pass
+    def handle(self, config: Dict, recorder: Recorder):
+        assert isinstance(recorder, MessageRecorder), 'recorder error: %s' % recorder
+        sender = self.msg.sender
+        msg_type = self.msg.type
+        recorder.increase_counter(sender_type=sender.type, msg_type=msg_type)
+
+
+class MessageRecorder(Recorder):
+
+    def __init__(self):
+        super().__init__()
+        self.__stat = {}
+        self.__path = None
+
+    def increase_counter(self, sender_type: int, msg_type: Optional[int]):
+        if msg_type is None:
+            msg_type = 0
+        # get data list for current hour
+        now = time.localtime()
+        hour = time.strftime('%Y-%m-%d %H', now)
+        array = self.__stat.get(hour)
+        if array is None:
+            array = []
+            self.__stat[hour] = array
+        # get data record
+        record = None
+        for item in array:
+            if item.get('sender_type') == sender_type and item.get('msg_type') == msg_type:
+                # got it
+                record = item
+                break
+        # increase counter
+        if record is None:
+            # create new record
+            record = {
+                'sender_type': sender_type,
+                'msg_type': msg_type,
+                'count': 1,
+            }
+            array.append(record)
+        else:
+            # update old record
+            count = record.get('count')
+            record['count'] = 1 if count is None else count + 1
+
+    # Override
+    def flush(self, config: Dict):
+        # get file path
+        path = config.get('msg_stat')
+        assert isinstance(path, str), 'msg stat file path not found: %s' % config
+        now = time.gmtime()
+        path = template_replace(path, 'yyyy', str(now.tm_year))
+        path = template_replace(path, 'mm', two_digit(value=now.tm_mon))
+        path = template_replace(path, 'dd', two_digit(value=now.tm_mday))
+        if self.__path is None:
+            self.__path = path
+        elif self.__path != path:
+            # FIXME: it's the next day now, save the increased values
+            self.__stat = {}
+            self.__path = None
+            return False
+        # save data
+        Storage.write_json(container=self.__stat, path=path)
+
+
+def two_digit(value: int) -> str:
+    if value < 10:
+        return '0%s' % value
+    else:
+        return '%s' % value

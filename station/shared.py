@@ -38,7 +38,7 @@ from libs.utils import Singleton
 from libs.common import Config
 from libs.common import CommonFacebook
 from libs.database import Database
-from libs.server import PushCenter, Pusher, Monitor
+from libs.server import PushCenter, Pusher
 from libs.server import Dispatcher, BlockFilter, MuteFilter
 from libs.push import NotificationPusher
 from libs.push import ApplePushNotificationService
@@ -164,8 +164,6 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
     print('set current user: %s' % current_user)
     facebook.current_user = facebook.user(identifier=current_user)
-    monitor = Monitor()
-    monitor.facebook = facebook
     return facebook
 
 
