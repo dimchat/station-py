@@ -76,15 +76,12 @@ class ServerSession(SuperSession):
     def set_active(self, active: bool, when: float = None):
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-        # check for login
-        identifier = self.identifier
-        if identifier is not None:
-            remote_address = self.remote_address
-            monitor = Monitor()
-            if active:
-                monitor.user_online(sender=identifier, when=when, remote_address=remote_address)
-            else:
-                monitor.user_offline(sender=identifier, when=when, remote_address=remote_address)
+            if not active:
+                identifier = self.identifier
+                if identifier is not None:
+                    monitor = Monitor()
+                    monitor.user_offline(sender=identifier, when=when, remote_address=self.remote_address)
+            return True
 
 
 def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):

@@ -132,22 +132,25 @@ class ActiveEvent(Event, Logging):
     def __notice_master(self):
         identifier = self.sender
         monitor = Monitor()
+        # build notification
         name = monitor.nickname(identifier=identifier)
         if name is None:
             name = str(identifier)
         else:
             name = '%s (%s)' % (identifier, name)
         if self.online:
-            text = '%s is online' % name
+            title = 'Activity: Online'
+            text = '%s is online, socket %s' % (name, self.remote_address)
         else:
-            text = '%s is offline' % name
-        #
+            title = 'Activity: Offline'
+            text = '%s is offline, socket %s' % (name, self.remote_address)
+        # push notification
         sender = ID.parse(identifier='monitor@anywhere')
         masters = self.__masters()
         self.warning(msg='notice masters %s: %s' % (masters, text))
         center = PushCenter()
         for receiver in masters:
-            center.add_notification(sender=sender, receiver=receiver, title='Activity', content=text)
+            center.add_notification(sender=sender, receiver=receiver, title=title, content=text)
 
     # noinspection PyMethodMayBeStatic
     def __masters(self) -> List[ID]:

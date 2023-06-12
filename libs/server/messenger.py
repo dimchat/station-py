@@ -49,6 +49,16 @@ from .monitor import Monitor
 
 class ServerMessenger(SuperMessenger):
 
+    # Override
+    def handshake_success(self):
+        # monitor
+        session = self.session
+        monitor = Monitor()
+        monitor.user_online(sender=session.identifier, when=None, remote_address=session.remote_address)
+        # process suspended messages
+        super().handshake_success()
+
+    # Override
     def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         monitor = Monitor()
         monitor.message_received(msg=msg)
