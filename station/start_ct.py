@@ -123,7 +123,7 @@ def main():
     # prepare for monitor
     monitor = Monitor()
     monitor.facebook = facebook
-    monitor.config = config.get(key='monitor')
+    monitor.start(config=config)
     # check bind host & port
     host = config.station_host
     port = config.station_port
