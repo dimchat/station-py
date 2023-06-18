@@ -29,11 +29,17 @@ from dimples import ReceiptCommand
 from dimples import LoginCommand
 from dimples import ReportCommand
 
+from .apns import PushCommand
+from .apns import PushAlert, PushInfo, PushItem
+
 from .mute import MuteCommand
 from .block import BlockCommand
 
 
 def register_ext_factories():
+
+    # APNs
+    Command.register(cmd=PushCommand.PUSH, factory=CommandFactoryBuilder(command_class=PushCommand))
 
     # Mute
     Command.register(cmd=MuteCommand.MUTE, factory=CommandFactoryBuilder(command_class=MuteCommand))
@@ -51,6 +57,9 @@ register_ext_factories()
 
 
 __all__ = [
+
+    'PushCommand',
+    'PushAlert', 'PushInfo', 'PushItem',
 
     'HandshakeCommand', 'HandshakeState',
     'ReceiptCommand',

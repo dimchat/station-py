@@ -27,47 +27,24 @@ import getopt
 import sys
 from typing import Optional
 
-from dimples import Address, ID, IDFactory
+from dimples import ID
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
+from dimples.common import ANSFactory
 from dimples.common import AddressNameServer
 from dimples.database import Storage
 from dimples.server import FilterManager
+from dimples.server import BroadcastRecipientManager
 
 from libs.utils import Singleton
 from libs.common import Config
 from libs.common import CommonFacebook
 from libs.database import Database
-from libs.server import PushCenter, Pusher
+from libs.server import ServerMessenger, ServerPacker, ServerProcessor
+from libs.server import ServerSession
+from libs.server import PushCenter, DefaultPushService
 from libs.server import Dispatcher, BlockFilter, MuteFilter
-from libs.push import NotificationPusher
-from libs.push import ApplePushNotificationService
-from libs.push import AndroidPushNotificationService
-
-
-class ANSFactory(IDFactory):
-
-    def __init__(self, factory: IDFactory, ans: AddressNameServer):
-        super().__init__()
-        self.__origin = factory
-        self.__ans = ans
-
-    # Override
-    def generate_id(self, meta, network: int, terminal: Optional[str] = None) -> ID:
-        return self.__origin.generate_id(meta=meta, network=network, terminal=terminal)
-
-    # Override
-    def create_id(self, name: Optional[str], address: Address, terminal: Optional[str] = None) -> ID:
-        return self.__origin.create_id(address=address, name=name, terminal=terminal)
-
-    # Override
-    def parse_id(self, identifier: str) -> Optional[ID]:
-        # try ANS record
-        aid = self.__ans.identifier(name=identifier)
-        if aid is None:
-            # parse by original factory
-            aid = self.__origin.parse_id(identifier=identifier)
-        return aid
+from libs.server import Monitor
 
 
 @Singleton
@@ -81,7 +58,7 @@ class GlobalVariable:
         self.sdb: Optional[SessionDBI] = None
         self.database: Optional[Database] = None
         self.facebook: Optional[CommonFacebook] = None
-        self.pusher: Optional[Pusher] = None
+        self.messenger: Optional[ServerMessenger] = None
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -147,7 +124,7 @@ def create_database(config: Config) -> Database:
     for node in neighbors:
         print('adding neighbor node: %s' % node)
         db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
-    # filter
+    # filters
     man = FilterManager()
     man.block_filter = BlockFilter(database=db)
     man.mute_filter = MuteFilter(database=db)
@@ -167,8 +144,17 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     return facebook
 
 
+def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
+    """ Step 4: create dispatcher """
+    dispatcher = Dispatcher()
+    dispatcher.mdb = shared.mdb
+    dispatcher.sdb = shared.sdb
+    dispatcher.facebook = shared.facebook
+    return dispatcher
+
+
 def create_ans(config: Config) -> AddressNameServer:
-    """ Step 4: create ANS """
+    """ Step 5: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
@@ -176,49 +162,51 @@ def create_ans(config: Config) -> AddressNameServer:
     ans_records = config.ans_records
     if ans_records is not None:
         ans.fix(records=ans_records)
+    # set bots to receive message for 'everyone@everywhere'
+    bots = set()
+    se = ans.identifier(name='archivist')  # Search Engine
+    if se is not None:
+        bots.add(se)
+    if len(bots) > 0:
+        manager = BroadcastRecipientManager()
+        manager.station_bots = bots
     return ans
 
 
-def create_pusher(shared: GlobalVariable) -> Pusher:
-    """ Step 5: create pusher """
-    pusher = NotificationPusher(facebook=shared.facebook)
-    shared.pusher = pusher
-    # create push services for PushCenter
+def create_apns(shared: GlobalVariable) -> PushCenter:
+    """ Step 6: create push center """
+    # 1. create messenger with session and MessageDB
+    facebook = shared.facebook
+    messenger = shared.messenger
+    if messenger is None:
+        messenger = create_messenger(facebook=facebook, database=shared.mdb, session=None)
+        shared.messenger = messenger
+    # 3. create push service
     center = PushCenter()
+    keeper = center.badge_keeper
+    center.service = DefaultPushService(facebook=facebook, messenger=messenger, badge_keeper=keeper)
+    return center
+
+
+def create_monitor(shared: GlobalVariable) -> Monitor:
+    """ Step 7: create monitor """
+    facebook = shared.facebook
     config = shared.config
-    # 1. add push service: APNs
-    credentials = config.get_string(section='push', option='apns_credentials')
-    use_sandbox = config.get_boolean(section='push', option='apns_use_sandbox')
-    topic = config.get_string(section='push', option='apns_topic')
-    print('APNs: credentials=%s, use_sandbox=%d, topic=%s' % (credentials, use_sandbox, topic))
-    if credentials is not None and len(credentials) > 0:
-        apple = ApplePushNotificationService(credentials=credentials,
-                                             use_sandbox=use_sandbox)
-        if topic is not None and len(topic) > 0:
-            apple.topic = topic
-        apple.delegate = shared.database
-        center.add_service(service=apple)
-    # 2. add push service: JPush
-    app_key = config.get_string(section='push', option='app_key')
-    master_secret = config.get_string(section='push', option='master_secret')
-    production = config.get_boolean(section='push', option='apns_production')
-    print('APNs: app_key=%s, master_secret=%s, production=%s' % (app_key, master_secret, production))
-    if app_key is not None and len(app_key) > 0 and master_secret is not None and len(master_secret) > 0:
-        android = AndroidPushNotificationService(app_key=app_key,
-                                                 master_secret=master_secret,
-                                                 apns_production=production)
-        center.add_service(service=android)
-    # start PushCenter
-    center.start()
-    return pusher
+    monitor = Monitor()
+    monitor.facebook = facebook
+    monitor.start(config=config)
+    return monitor
 
 
-def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    """ Step 6: create dispatcher """
-    dispatcher = Dispatcher()
-    dispatcher.mdb = shared.mdb
-    dispatcher.sdb = shared.sdb
-    dispatcher.facebook = shared.facebook
-    dispatcher.pusher = shared.pusher
-    dispatcher.start()
-    return dispatcher
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: Optional[ServerSession]) -> ServerMessenger:
+    # 1. create messenger with session and MessageDB
+    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor, filter for messenger
+    #    they have weak references to session, facebook & messenger
+    messenger.packer = ServerPacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
+    # 3. set weak reference messenger in session
+    if session is not None:
+        session.messenger = messenger
+    return messenger

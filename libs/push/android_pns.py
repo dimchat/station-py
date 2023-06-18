@@ -11,12 +11,14 @@ import jpush
 
 from dimples import ID
 
-from dimples.server import PushService, PushInfo
-
 from ..utils import Logging
+from ..common import PushInfo
+from ..database import DeviceInfo
+
+from .manager import PushNotificationService
 
 
-class AndroidPushNotificationService(PushService, Logging):
+class AndroidPushNotificationService(PushNotificationService, Logging):
 
     def __init__(self, app_key: str, master_secret: str, apns_production: bool = False):
         super().__init__()
@@ -56,11 +58,11 @@ class AndroidPushNotificationService(PushService, Logging):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
-                          title: str = None, content: str = None, image: str = None,
-                          badge: int = 0, sound: str = None):
+    def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
         # TODO: check whether receiver has signed-in via Android client
-        alias = str(receiver.address)
-        if len(alias) > 40:
-            alias = alias[-40:]
-        return self.push(alias=alias, message=content)
+        alias = device.token
+        if alias is None or len(alias) == 0:
+            alias = str(receiver.address)
+            if len(alias) > 40:
+                alias = alias[-40:]
+        return self.push(alias=alias, message=aps.content)

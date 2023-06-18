@@ -35,9 +35,7 @@
     A service for pushing notification to offline device
 """
 
-import weakref
-from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from apns2.client import APNsClient, NotificationPriority
 from apns2.errors import APNsException
@@ -45,24 +43,14 @@ from apns2.payload import Payload, PayloadAlert
 
 from dimples import ID
 
-from dimples.server import PushService, PushInfo
-
 from ..utils import Logging
+from ..common import PushInfo
 from ..database import DeviceInfo
 
+from .manager import PushNotificationService
 
-class ApplePushNotificationService(PushService, Logging):
 
-    class Delegate(ABC):
-        """
-            APNs Delegate
-            ~~~~~~~~~~~~~
-        """
-
-        @abstractmethod
-        def devices(self, identifier: ID) -> List[DeviceInfo]:
-            """ get devices with token in hex format """
-            pass
+class ApplePushNotificationService(PushNotificationService, Logging):
 
     def __init__(self, credentials, use_sandbox=False, use_alternative_port=False, proto=None, json_encoder=None,
                  password=None, proxy_host=None, proxy_port=None):
@@ -81,17 +69,6 @@ class ApplePushNotificationService(PushService, Logging):
         self.__client_test = None  # sandbox
         # topic
         self.topic = 'chat.dim.sechat'
-        # delegate to get device token
-        self.__delegate: Optional[weakref.ReferenceType] = None  # APNs Delegate
-
-    @property
-    def delegate(self) -> Delegate:
-        if self.__delegate is not None:
-            return self.__delegate()
-
-    @delegate.setter
-    def delegate(self, value: Delegate):
-        self.__delegate = weakref.ref(value)
 
     def __connect(self, sandbox: bool) -> Optional[APNsClient]:
         try:
@@ -146,48 +123,43 @@ class ApplePushNotificationService(PushService, Logging):
     #
 
     # Override
-    def push_notification(self, sender: ID, receiver: ID, info: PushInfo = None,
-                          title: str = None, content: str = None, image: str = None,
-                          badge: int = 0, sound: str = None):
-        # 1. check
-        devices = self.delegate.devices(identifier=receiver)
-        if devices is None or len(devices) == 0:
-            self.error('cannot get device token for user %s' % receiver)
-            return False
+    def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
+        # 1. check parameters
+        title = aps.title
+        content = aps.content
+        image = aps.image
+        badge = aps.badge
+        sound = aps.sound
         # 2. send
         alert = PayloadAlert(title=title, body=content, launch_image=image)
         payload = Payload(alert=alert, badge=badge, sound=sound)
-        success = 0
-        for item in devices:
-            self.info(msg='sending notification %s -> %s (%s) to device: %s' % (sender, receiver, content, item))
-            # check for iOS platform
-            platform = item.platform
-            if platform is not None and platform.lower() != 'ios':
-                self.warning(msg='it is not an iOS device, skip it: %s' % item.platform)
-                continue
-            token = item.token
-            topic = item.topic
-            sandbox = item.sandbox
-            if topic is None:
-                topic = self.topic
-            if sandbox is None:
-                sandbox = self.use_sandbox
-            # first try
+        self.info(msg='sending notification for %s (%s) to device: %s' % (receiver, content, device))
+        # check for iOS platform
+        platform = device.platform
+        if platform is not None and platform.lower() != 'ios':
+            self.warning(msg='it is not an iOS device, skip it: %s' % device.platform)
+            return False
+        token = device.token
+        topic = device.topic
+        sandbox = device.sandbox
+        if topic is None:
+            topic = self.topic
+        if sandbox is None:
+            sandbox = self.use_sandbox
+        # first try
+        result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
+        if result == -503:  # Service Unavailable
+            # connection failed
+            return False
+        elif result == -408:  # Request Timeout
+            self.error('Broken pipe? try to reconnect again!')
+            # reset APNs client
+            if sandbox:
+                self.__client_test = None
+            else:
+                self.__client_prod = None
+            # try again
             result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
-            if result == -503:  # Service Unavailable
-                # connection failed
-                break
-            elif result == -408:  # Request Timeout
-                self.error('Broken pipe? try to reconnect again!')
-                # reset APNs client
-                if sandbox:
-                    self.__client_test = None
-                else:
-                    self.__client_prod = None
-                # try again
-                result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
-            if result == 200:  # OK
-                success = success + 1
-        if success > 0:
-            self.info('sending notification %s -> %s success:%d badge=%d' % (sender, receiver, success, badge))
+        if result == 200:  # OK
+            self.info('sending notification for %s, badge=%d' % (receiver, badge))
             return True

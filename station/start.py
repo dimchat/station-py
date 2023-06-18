@@ -42,11 +42,11 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils.mtp import Server as UDPServer
-from libs.server import Monitor
 
 from station.shared import GlobalVariable
 from station.shared import create_config, create_database, create_facebook
-from station.shared import create_ans, create_pusher, create_dispatcher
+from station.shared import create_dispatcher
+from station.shared import create_ans, create_apns, create_monitor
 from station.handler import RequestHandler
 
 
@@ -76,16 +76,14 @@ def main():
     assert sid is not None, 'current station ID not set: %s' % config
     facebook = create_facebook(database=db, current_user=sid)
     shared.facebook = facebook
-    # Step 4: create ANS
-    create_ans(config=config)
-    # Step 5: create pusher
-    create_pusher(shared=shared)
-    # Step 6: create dispatcher
+    # Step 4: create dispatcher
     create_dispatcher(shared=shared)
-    # prepare for monitor
-    monitor = Monitor()
-    monitor.facebook = facebook
-    monitor.start(config=config)
+    # Step 5: create ANS
+    create_ans(config=config)
+    # Step 6: create push center
+    create_apns(shared=shared)
+    # Step 7: create monitor
+    create_monitor(shared=shared)
     # check bind host & port
     host = config.station_host
     port = config.station_port

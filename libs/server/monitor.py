@@ -33,9 +33,10 @@ from dimples import ID, ReliableMessage
 from dimples.server import PushCenter
 from dimples.database.dos.base import template_replace
 
-from ..utils import Singleton, Logging
+from ..utils import Singleton, Log, Logging
 from ..utils import Runner
 from ..common import CommonFacebook
+from ..common import PushItem
 from ..database import Storage
 
 
@@ -183,11 +184,6 @@ class Monitor(Runner, Logging):
         self.append(event=event)
 
 
-def get_masters() -> Set[ID]:
-    monitor = Monitor()
-    return monitor.masters
-
-
 #
 #   Event Handlers
 #
@@ -218,12 +214,23 @@ class ActiveEvent(Event, Logging):
             title = 'Activity: Offline'
             text = '%s is offline, socket %s' % (name, self.remote_address)
         # push notification
-        sender = ID.parse(identifier='monitor@anywhere')
-        masters = get_masters()
+        monitor = Monitor()
+        masters = monitor.masters
         self.warning(msg='notice masters %s: %s' % (masters, text))
+        if len(masters) == 0:
+            return False
         center = PushCenter()
+        keeper = center.badge_keeper
+        items = []
         for receiver in masters:
-            center.add_notification(sender=sender, receiver=receiver, title=title, content=text)
+            badge = keeper.increase_badge(identifier=receiver)
+            items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
+        service = center.service
+        from .push import DefaultPushService
+        if isinstance(service, DefaultPushService):
+            return service.push(items=items)
+        else:
+            Log.warning(msg='push service error: %s' % service)
 
     # Override
     def handle(self, recorder: Recorder):
@@ -260,7 +267,7 @@ class ActiveRecorder(Recorder):
             online = int(online)
         # get data list for current hour
         now = time.localtime(when)
-        hour = time.strftime('%Y-%m-%d %H', now)
+        hour = time.strftime('%Y-%m-%d %H:%M', now)
         array = self.__stat.get(hour)
         if array is None:
             array = []
@@ -340,7 +347,7 @@ class MessageRecorder(Recorder):
             msg_type = 0
         # get data list for current hour
         now = time.localtime()
-        hour = time.strftime('%Y-%m-%d %H', now)
+        hour = time.strftime('%Y-%m-%d %H:%M', now)
         array = self.__stat.get(hour)
         if array is None:
             array = []

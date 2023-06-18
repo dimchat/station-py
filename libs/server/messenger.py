@@ -39,12 +39,12 @@ from dimples import InstantMessage, SecureMessage, ReliableMessage
 from dimples.server import ServerMessenger as SuperMessenger
 from dimples.server import BlockFilter as SuperBlockFilter
 from dimples.server import MuteFilter as SuperMuteFilter
-from dimples.server.pusher import get_name
 
 from ..common.compatible import fix_command
 from ..database import Database
 
 from .monitor import Monitor
+from .push import get_name
 
 
 class ServerMessenger(SuperMessenger):

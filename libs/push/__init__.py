@@ -29,15 +29,14 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from .pusher import NotificationPusher
-
-from .apple_pns import ApplePushNotificationService
+from .manager import PushNotificationService, PushNotificationClient
 from .android_pns import AndroidPushNotificationService
+from .apple_pns import ApplePushNotificationService
 
 __all__ = [
 
-    'NotificationPusher',
+    'PushNotificationService', 'PushNotificationClient',
 
-    'ApplePushNotificationService',
     'AndroidPushNotificationService',
+    'ApplePushNotificationService',
 ]

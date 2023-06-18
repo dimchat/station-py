@@ -33,30 +33,12 @@
 import traceback
 from socketserver import StreamRequestHandler
 
-from dimples.common import MessageDBI
-
 from libs.utils import Logging, Runner
-from libs.common import CommonFacebook
-
 from libs.server import ServerSession, SessionCenter
 from libs.server import ServerMessenger
-from libs.server import ServerPacker
-from libs.server import ServerProcessor
 
+from station.shared import create_messenger
 from station.shared import GlobalVariable
-
-
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
-                     session: ServerSession) -> ServerMessenger:
-    # 1. create messenger with session and MessageDB
-    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor, filter for messenger
-    #    they have weak references to session, facebook & messenger
-    messenger.packer = ServerPacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
-    # 3. set weak reference messenger in session
-    session.messenger = messenger
-    return messenger
 
 
 class RequestHandler(StreamRequestHandler, Logging):
