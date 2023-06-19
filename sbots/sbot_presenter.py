@@ -63,17 +63,17 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
-        array = content.items
+        items = content.items
         # check expired
         expired = time.time() - self.MESSAGE_EXPIRES
         if msg.time < expired:
-            self.warning(msg='drop expired push items: %s' % array)
+            self.warning(msg='drop expired push items: %s' % items)
             return []
+        else:
+            self.info(msg='push %d item(s).' % len(items))
+        # add push task
         pnc = PushNotificationClient()
-        # push items
-        for item in array:
-            self.info(msg='push item: %s' % item)
-            pnc.push_notification(aps=item.info, receiver=item.receiver)
+        pnc.add_task(items=items, msg_time=msg.time)
         return []
 
 
