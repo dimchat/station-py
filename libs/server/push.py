@@ -31,6 +31,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
+import time
 from typing import Optional, Tuple, List
 
 from dimples import ID, ContentType, Envelope
@@ -45,6 +46,8 @@ from ..common import PushCommand, PushItem
 
 
 class DefaultPushService(PushService, Logging):
+
+    MESSAGE_EXPIRES = 128
 
     def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger, badge_keeper: BadgeKeeper):
         super().__init__()
@@ -69,7 +72,24 @@ class DefaultPushService(PushService, Logging):
             if bot is None:
                 self.warning(msg='apns bot not set')
                 return False
-            items = self.__build_push_items(messages=messages)
+            mute_filter = FilterManager().mute_filter
+            expired = time.time() - self.MESSAGE_EXPIRES
+            items = []
+            for msg in messages:
+                if msg.time < expired:
+                    env = self._origin_envelope(msg=msg)
+                    self.warning(msg='drop expired message: %s -> %s (group: %s) type: %d'
+                                     % (env.sender, msg.receiver, env.group, env.type))
+                    continue
+                if mute_filter.is_muted(msg=msg):
+                    env = self._origin_envelope(msg=msg)
+                    self.info(msg='muted sender: %s -> %s (group: %s) type: %d'
+                                  % (env.sender, msg.receiver, env.group, env.type))
+                    continue
+                # build push item for message
+                pi = self.__build_push_item(msg=msg)
+                if pi is not None:
+                    items.append(pi)
             if len(items) > 0:
                 self.push(items=items)
         except Exception as error:
@@ -103,31 +123,22 @@ class DefaultPushService(PushService, Logging):
         self.info(msg='delivering message to %s' % receiver)
         return True
 
-    def __build_push_items(self, messages: List[ReliableMessage]) -> List[PushItem]:
-        items = []
+    def __build_push_item(self, msg: ReliableMessage) -> Optional[PushItem]:
+        # 1. check original sender, group & msg type
+        env = self._origin_envelope(msg=msg)
+        receiver = msg.receiver
+        sender = env.sender
+        group = env.group
+        msg_type = env.type
+        # 2. build title & content text
+        title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        if text is None:
+            self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
+            return None
+        # 3. increase badge
         keeper = self.__keeper
-        for msg in messages:
-            # 1. check original sender, group & msg type
-            env = self._origin_envelope(msg=msg)
-            receiver = msg.receiver
-            sender = env.sender
-            group = env.group
-            msg_type = env.type
-            # 2. check mute-list
-            mute_filter = FilterManager().mute_filter
-            if mute_filter.is_muted(msg=msg):
-                self.info(msg='muted sender: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
-                continue
-            # 3. build title & content text
-            title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
-            if text is None:
-                self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
-                continue
-            # 4. increase badge
-            badge = keeper.increase_badge(identifier=receiver)
-            # OK
-            items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
-        return items
+        badge = keeper.increase_badge(identifier=receiver)
+        return PushItem.create(receiver=receiver, title=title, content=text, badge=badge)
 
     # noinspection PyMethodMayBeStatic
     def _origin_envelope(self, msg: ReliableMessage) -> Envelope:

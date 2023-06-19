@@ -30,7 +30,7 @@
 
     Bot as Push Center
 """
-
+import time
 from typing import Optional, Union, List
 
 from dimples import ContentType, Content, ReliableMessage
@@ -58,11 +58,19 @@ from sbots.shared import start_bot
 
 class PushCommandProcessor(BaseCommandProcessor, Logging):
 
+    MESSAGE_EXPIRES = 256
+
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
-        pnc = PushNotificationClient()
         array = content.items
+        # check expired
+        expired = time.time() - self.MESSAGE_EXPIRES
+        if msg.time < expired:
+            self.warning(msg='drop expired push items: %s' % array)
+            return []
+        pnc = PushNotificationClient()
+        # push items
         for item in array:
             self.info(msg='push item: %s' % item)
             pnc.push_notification(aps=item.info, receiver=item.receiver)
@@ -95,7 +103,7 @@ def create_apns(shared: GlobalVariable):
     credentials = config.get_string(section='push', option='apns_credentials')
     use_sandbox = config.get_boolean(section='push', option='apns_use_sandbox')
     topic = config.get_string(section='push', option='apns_topic')
-    print('APNs: credentials=%s, use_sandbox=%d, topic=%s' % (credentials, use_sandbox, topic))
+    print('APNs: credentials=%s, use_sandbox=%s, topic=%s' % (credentials, use_sandbox, topic))
     if credentials is not None and len(credentials) > 0:
         apple = ApplePushNotificationService(credentials=credentials,
                                              use_sandbox=use_sandbox)

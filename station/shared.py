@@ -25,6 +25,7 @@
 
 import getopt
 import sys
+import time
 from typing import Optional
 
 from dimples import ID
@@ -140,7 +141,16 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
     assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
     print('set current user: %s' % current_user)
-    facebook.current_user = facebook.user(identifier=current_user)
+    user = facebook.user(identifier=current_user)
+    assert user is not None, 'failed to get current user: %s' % current_user
+    visa = user.visa
+    if visa is not None:
+        # refresh visa
+        now = time.time()
+        visa.set_property(key='time', value=now)
+        visa.sign(private_key=sign_key)
+        facebook.save_document(document=visa)
+    facebook.current_user = user
     return facebook
 
 

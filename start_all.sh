@@ -42,8 +42,8 @@ start "dims" "station/start_ct.py"
 
 sleep 2
 
-title "DIM Station Bridge"
-restart octopus "sbots/sbot_octopus.py"
+#title "DIM Station Bridge"
+#restart octopus "sbots/sbot_octopus.py"
 
 
 #
@@ -53,11 +53,11 @@ restart octopus "sbots/sbot_octopus.py"
 title "DIM Search Engine"
 restart search "sbots/sbot_archivist.py"
 
-title "DIM Group Assistant"
-restart group "sbots/gbot_assistant.py"
+title "DIM Push Center"
+restart apns "sbots/sbot_presenter.py"
 
 #
-#  File Server
+#   File Server
 #
 
 title "DIM File Server"

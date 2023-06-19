@@ -161,5 +161,5 @@ class ApplePushNotificationService(PushNotificationService, Logging):
             # try again
             result = self.send_notification(notification=payload, token_hex=token, topic=topic, sandbox=sandbox)
         if result == 200:  # OK
-            self.info('sending notification for %s, badge=%d' % (receiver, badge))
+            self.info(msg='notification sent for %s, badge=%d' % (receiver, badge))
             return True

@@ -151,12 +151,15 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # Override
     def save_document(self, document: Document) -> bool:
-        # check with meta first
+        # check meta first
         meta = self.meta(identifier=document.identifier)
-        assert meta is not None, 'meta not exists: %s' % document
+        if meta is None:
+            raise LookupError('meta not exists: %s' % document.identifier)
         # check document valid before saving it
-        if document.valid or document.verify(public_key=meta.key):
-            return self.__document_table.save_document(document=document)
+        if not (document.valid or document.verify(public_key=meta.key)):
+            raise ValueError('document error: %s' % document.identifier)
+        # document ok, try to save it
+        return self.__document_table.save_document(document=document)
 
     # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
