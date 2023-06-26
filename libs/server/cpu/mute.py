@@ -37,9 +37,8 @@ from dimples import Content, Command, BaseCommand
 from dimples import BaseCommandProcessor
 
 from ...database import Database
-from ..protocol import MuteCommand
-
-from ..facebook import CommonFacebook
+from ...common import MuteCommand
+from ...common import CommonFacebook
 
 
 class MuteCommandProcessor(BaseCommandProcessor):

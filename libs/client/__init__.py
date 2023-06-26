@@ -36,6 +36,7 @@ from .protocol import *
 from .cpu import *
 
 from .packer import ClientPacker
+from .checkpoint import Checkpoint
 
 
 __all__ = [
@@ -59,6 +60,7 @@ __all__ = [
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',
+    'ReportCommandProcessor',
 
     #
     #   Client
@@ -71,4 +73,6 @@ __all__ = [
     'ClientPacker', 'ClientProcessor',
 
     'GroupManager',
+
+    'Checkpoint',
 ]

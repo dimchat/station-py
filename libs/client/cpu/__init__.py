@@ -32,10 +32,12 @@
 
 from .storage import StorageCommandProcessor
 from .search import SearchCommandProcessor
+from .report import ReportCommandProcessor
 
 
 __all__ = [
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',
+    'ReportCommandProcessor',
 ]

@@ -47,6 +47,8 @@ Path.add(path=path)
 
 from libs.utils import Logging
 from libs.common import PushCommand
+from libs.client import Checkpoint
+from libs.client import ReportCommandProcessor
 from libs.client import ClientProcessor
 from libs.push import PushNotificationClient
 from libs.push import ApplePushNotificationService
@@ -54,6 +56,9 @@ from libs.push import AndroidPushNotificationService
 
 from sbots.shared import GlobalVariable
 from sbots.shared import start_bot
+
+
+g_checkpoint = Checkpoint()
 
 
 class PushCommandProcessor(BaseCommandProcessor, Logging):
@@ -64,6 +69,9 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
         items = content.items
+        if g_checkpoint.duplicated(msg=msg):
+            self.warning(msg='duplicated: %s' % items)
+            return []
         # check expired
         expired = time.time() - self.MESSAGE_EXPIRES
         if msg.time < expired:
@@ -84,6 +92,9 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
         # push
         if cmd == PushCommand.PUSH:
             return PushCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        # report
+        if cmd == 'apns':
+            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd=cmd)
 

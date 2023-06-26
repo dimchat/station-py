@@ -24,25 +24,27 @@
 # ==============================================================================
 
 """
-    Command Processor for 'block'
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Command Processor for 'report'
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Block protocol
+    Report protocol
 """
 
-from typing import List
+from typing import List, Dict
 
 from dimples import ReliableMessage
-from dimples import Content, Command, BaseCommand
+from dimples import Content, ReportCommand
 from dimples import BaseCommandProcessor
 
+from ...utils import Logging
+
+from ...common.compatible import fix_report_command
+from ...database import DeviceInfo
 from ...database import Database
-from ..protocol import BlockCommand
-
-from ..facebook import CommonFacebook
+from ...common import CommonFacebook
 
 
-class BlockCommandProcessor(BaseCommandProcessor):
+class ReportCommandProcessor(BaseCommandProcessor, Logging):
 
     @property
     def facebook(self) -> CommonFacebook:
@@ -58,25 +60,36 @@ class BlockCommandProcessor(BaseCommandProcessor):
 
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
-        assert isinstance(content, BlockCommand), 'block command error: %s' % content
-        db = self.database
-        if 'list' in content:
-            # upload block-list, save it
-            if db.save_block_command(content=content, identifier=msg.sender):
-                text = 'Block command of %s received!' % msg.sender
-                return self._respond_text(text=text)
-            else:
-                text = 'Sorry, block-list not stored: %s!' % content
-                return self._respond_text(text=text)
+        assert isinstance(content, ReportCommand), 'report command error: %s' % content
+        # compatible with v1.0
+        fix_report_command(content=content)
+        # report title
+        title = content.title
+        if title == 'apns':
+            return self.__process_apns(content=content, msg=msg)
         else:
-            # query block-list, load it
-            stored: Command = db.block_command(identifier=msg.sender)
-            if stored is not None:
-                # response the stored block command directly
-                return [stored]
-            else:
-                # return TextContent.new(text='Sorry, block-list of %s not found.' % sender)
-                # TODO: here should response an empty HistoryCommand: 'block'
-                res = BaseCommand(cmd=BlockCommand.BLOCK)
-                res['list'] = []
-                return [res]
+            return super().process(content=content, msg=msg)
+
+    def __process_apns(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
+        # submit device token for APNs
+        info = content.dictionary
+        token = info.get('device_token')
+        if token is None:
+            token = info.get('token')
+            if token is None:
+                # token not found, try to get device
+                info = info.get('device')
+                if isinstance(info, Dict):
+                    # device info found
+                    token = info.get('token')
+                else:
+                    self.error(msg='device info not found: %s' % self)
+                    return []
+        if token is None or len(token) == 0:
+            return []
+        device = DeviceInfo.from_json(info=info)
+        assert device is not None, 'failed to parse device info: %s' % info
+        db = self.database
+        db.add_device(device=device, identifier=msg.sender)
+        text = 'Device token received.'
+        return self._respond_text(text=text)

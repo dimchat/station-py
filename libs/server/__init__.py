@@ -41,7 +41,7 @@ from .session import ServerSession
 from .messenger import ServerMessenger, BlockFilter, MuteFilter
 from .packer import ServerPacker
 from .processor import ServerProcessor
-from .processor import ServerContentProcessorCreator
+from .processor import ServerProcessorCreator
 
 from .monitor import Monitor
 from .push import DefaultPushService
@@ -56,7 +56,6 @@ __all__ = [
     'DocumentCommandProcessor', 'ReceiptCommandProcessor',
 
     'MuteCommandProcessor', 'BlockCommandProcessor',
-    'ReportCommandProcessor',
 
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',
@@ -73,7 +72,7 @@ __all__ = [
     'ServerMessenger',
     'ServerPacker',
     'ServerProcessor',
-    'ServerContentProcessorCreator',
+    'ServerProcessorCreator',
 
     'Monitor',
 

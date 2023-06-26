@@ -37,24 +37,24 @@ from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
 from dimples import BaseContentProcessor
 
-from dimples.server import ServerMessageProcessor as SuperProcessor
-from dimples.server import ServerContentProcessorCreator as SuperCreator
+from dimples.server import ReportCommandProcessor
+from dimples.server import ServerMessageProcessor
+from dimples.server import ServerContentProcessorCreator
 
 from ..common import MuteCommand, BlockCommand
 
 from .cpu import ReceiptCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
-from .cpu import ReportCommandProcessor
 
 
-class ServerProcessor(SuperProcessor):
+class ServerProcessor(ServerMessageProcessor):
 
     # Override
     def _create_creator(self) -> ContentProcessorCreator:
-        return ServerContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
+        return ServerProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-class ServerContentProcessorCreator(SuperCreator):
+class ServerProcessorCreator(ServerContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
@@ -76,9 +76,7 @@ class ServerContentProcessorCreator(SuperCreator):
         if cmd == BlockCommand.BLOCK:
             return BlockCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
-        if cmd == ReportCommand.REPORT:
-            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
-        elif cmd in ['broadcast', 'apns', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
+        if cmd in ['broadcast', ReportCommand.ONLINE, ReportCommand.OFFLINE]:
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd=cmd)
