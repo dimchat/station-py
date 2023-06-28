@@ -54,7 +54,7 @@ class ServerMessenger(SuperMessenger):
         # monitor
         session = self.session
         monitor = Monitor()
-        monitor.user_online(sender=session.identifier, when=None, remote_address=session.remote_address)
+        monitor.user_online(sender=session.identifier, remote_address=session.remote_address)
         # process suspended messages
         super().handshake_success()
 

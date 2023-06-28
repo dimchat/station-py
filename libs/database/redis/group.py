@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List, Dict
+from typing import Optional, List
 
-from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import utf8_encode, utf8_decode
 from dimples import ID
 
 from .base import Cache
@@ -91,28 +91,3 @@ class GroupCache(Cache):
     def assistants(self, group: ID) -> List[ID]:
         # TODO: get assistants with group ID
         pass
-
-    """
-        Encrypted keys
-        ~~~~~~~~~~~~~~
-
-        redis key: 'mkm.group.{GID}.encrypted-keys'
-    """
-    def __keys_name(self, group: ID) -> str:
-        return '%s.%s.%s.encrypted-keys' % (self.db_name, self.tbl_name, group)
-
-    def save_keys(self, keys: Dict[str, str], sender: ID, group: ID) -> bool:
-        name = self.__keys_name(group=group)
-        key = str(sender)
-        js = json_encode(obj=keys)
-        value = utf8_encode(string=js)
-        self.hset(name=name, key=key, value=value)
-        return True
-
-    def load_keys(self, sender: ID, group: ID) -> Optional[Dict[str, str]]:
-        name = self.__keys_name(group=group)
-        key = str(sender)
-        value = self.hget(name=name, key=key)
-        if value is not None and len(value) > 2:
-            js = utf8_decode(data=value)
-            return json_decode(string=js)

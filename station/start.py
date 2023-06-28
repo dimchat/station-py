@@ -43,10 +43,7 @@ Path.add(path=path)
 
 from libs.utils.mtp import Server as UDPServer
 
-from station.shared import GlobalVariable
-from station.shared import create_config, create_database, create_facebook
-from station.shared import create_dispatcher
-from station.shared import create_ans, create_apns, create_monitor
+from station.shared import prepare_server
 from station.handler import RequestHandler
 
 
@@ -60,30 +57,8 @@ DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
 def main():
-    # create global variable
-    shared = GlobalVariable()
-    # Step 1: load config
-    config = create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
-    shared.config = config
-    # Step 2: create database
-    db = create_database(config=config)
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
-    # Step 3: create facebook
-    sid = config.station_id
-    assert sid is not None, 'current station ID not set: %s' % config
-    facebook = create_facebook(database=db, current_user=sid)
-    shared.facebook = facebook
-    # Step 4: create dispatcher
-    create_dispatcher(shared=shared)
-    # Step 5: create ANS
-    create_ans(config=config)
-    # Step 6: create push center
-    create_apns(shared=shared)
-    # Step 7: create monitor
-    create_monitor(shared=shared)
+    shared = prepare_server(server_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    config = shared.config
     # check bind host & port
     host = config.station_host
     port = config.station_port

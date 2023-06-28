@@ -45,7 +45,7 @@ from libs.server import ServerMessenger, ServerPacker, ServerProcessor
 from libs.server import ServerSession
 from libs.server import PushCenter, DefaultPushService
 from libs.server import Dispatcher, BlockFilter, MuteFilter
-from libs.server import Monitor
+from libs.server import Emitter, Monitor
 
 
 @Singleton
@@ -59,7 +59,7 @@ class GlobalVariable:
         self.sdb: Optional[SessionDBI] = None
         self.database: Optional[Database] = None
         self.facebook: Optional[CommonFacebook] = None
-        self.messenger: Optional[ServerMessenger] = None
+        self.emitter: Optional[Emitter] = None
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -163,8 +163,30 @@ def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     return dispatcher
 
 
+def create_emitter(shared: GlobalVariable) -> Emitter:
+    """ Step 5. create emitter """
+    messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=None)
+    emitter = Emitter(messenger=messenger)
+    shared.emitter = emitter
+    return emitter
+
+
+def create_messenger(facebook: CommonFacebook, database: MessageDBI,
+                     session: Optional[ServerSession]) -> ServerMessenger:
+    # 1. create messenger with session and MessageDB
+    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
+    # 2. create packer, processor, filter for messenger
+    #    they have weak references to session, facebook & messenger
+    messenger.packer = ServerPacker(facebook=facebook, messenger=messenger)
+    messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
+    # 3. set weak reference messenger in session
+    if session is not None:
+        session.messenger = messenger
+    return messenger
+
+
 def create_ans(config: Config) -> AddressNameServer:
-    """ Step 5: create ANS """
+    """ Step 6: create ANS """
     ans = AddressNameServer()
     factory = ID.factory()
     ID.register(factory=ANSFactory(factory=factory, ans=ans))
@@ -184,39 +206,49 @@ def create_ans(config: Config) -> AddressNameServer:
 
 
 def create_apns(shared: GlobalVariable) -> PushCenter:
-    """ Step 6: create push center """
-    # 1. create messenger with session and MessageDB
+    """ Step 7: create push center """
     facebook = shared.facebook
-    messenger = shared.messenger
-    if messenger is None:
-        messenger = create_messenger(facebook=facebook, database=shared.mdb, session=None)
-        shared.messenger = messenger
-    # 3. create push service
+    emitter = shared.emitter
     center = PushCenter()
     keeper = center.badge_keeper
-    center.service = DefaultPushService(facebook=facebook, messenger=messenger, badge_keeper=keeper)
+    center.service = DefaultPushService(badge_keeper=keeper, facebook=facebook, emitter=emitter)
     return center
 
 
 def create_monitor(shared: GlobalVariable) -> Monitor:
-    """ Step 7: create monitor """
-    facebook = shared.facebook
+    """ Step 8: create monitor """
     config = shared.config
     monitor = Monitor()
-    monitor.facebook = facebook
     monitor.start(config=config)
     return monitor
 
 
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
-                     session: Optional[ServerSession]) -> ServerMessenger:
-    # 1. create messenger with session and MessageDB
-    messenger = ServerMessenger(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor, filter for messenger
-    #    they have weak references to session, facebook & messenger
-    messenger.packer = ServerPacker(facebook=facebook, messenger=messenger)
-    messenger.processor = ServerProcessor(facebook=facebook, messenger=messenger)
-    # 3. set weak reference messenger in session
-    if session is not None:
-        session.messenger = messenger
-    return messenger
+def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
+    # create global variable
+    shared = GlobalVariable()
+    # Step 1: load config
+    config = create_config(app_name=server_name, default_config=default_config)
+    shared.config = config
+    # Step 2: create database
+    db = create_database(config=config)
+    shared.adb = db
+    shared.mdb = db
+    shared.sdb = db
+    shared.database = db
+    # Step 3: create facebook
+    sid = config.station_id
+    assert sid is not None, 'current station ID not set: %s' % config
+    facebook = create_facebook(database=db, current_user=sid)
+    shared.facebook = facebook
+    # Step 4: create dispatcher
+    create_dispatcher(shared=shared)
+    # Step 5. create emitter
+    create_emitter(shared=shared)
+    # Step 6: create ANS
+    create_ans(config=config)
+    # Step 7: create push center
+    create_apns(shared=shared)
+    # Step 8: create monitor
+    create_monitor(shared=shared)
+    # OK
+    return shared

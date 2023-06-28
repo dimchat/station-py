@@ -80,7 +80,7 @@ class ServerSession(SuperSession):
                 identifier = self.identifier
                 if identifier is not None:
                     monitor = Monitor()
-                    monitor.user_offline(sender=identifier, when=when, remote_address=self.remote_address)
+                    monitor.user_offline(sender=identifier, remote_address=self.remote_address)
             return True
 
 

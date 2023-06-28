@@ -34,27 +34,26 @@
 import time
 from typing import Optional, Tuple, List
 
-from dimples import ID, ContentType, Envelope
-from dimples import InstantMessage, ReliableMessage
+from dimples import ID, ContentType, Envelope, ReliableMessage
 from dimples.server import PushService, BadgeKeeper
 from dimples.server import AnsCommandProcessor, FilterManager
-from dimples.server import Dispatcher
 
 from ..utils import Logging
-from ..common import CommonFacebook, CommonMessenger
+from ..common import CommonFacebook
 from ..common import PushCommand, PushItem
+
+from .emitter import Emitter
 
 
 class DefaultPushService(PushService, Logging):
 
     MESSAGE_EXPIRES = 128
 
-    def __init__(self, facebook: CommonFacebook, messenger: CommonMessenger, badge_keeper: BadgeKeeper):
+    def __init__(self, badge_keeper: BadgeKeeper, facebook: CommonFacebook, emitter: Emitter):
         super().__init__()
-        self.__facebook = facebook
-        self.__messenger = messenger
         self.__keeper = badge_keeper
-        self.__dispatcher = Dispatcher()
+        self.__facebook = facebook
+        self.__emitter = emitter
         self.__bot = None
 
     @property
@@ -91,36 +90,14 @@ class DefaultPushService(PushService, Logging):
                 if pi is not None:
                     items.append(pi)
             if len(items) > 0:
-                self.push(items=items)
+                # push items to the bot
+                bot = self.bot
+                if bot is not None:
+                    content = PushCommand(items=items)
+                    emitter = self.__emitter
+                    emitter.send_content(content=content, receiver=bot)
         except Exception as error:
             self.error(msg='push %d messages error: %s' % (len(messages), error))
-        return True
-
-    def push(self, items: List[PushItem]):
-        content = PushCommand(items=items)
-        facebook = self.__facebook
-        current = facebook.current_user
-        sender = current.identifier
-        assert sender is not None, 'current user error: %s' % current
-        receiver = self.bot
-        if receiver is None:
-            self.error(msg='bot ID not found: %s' % receiver)
-            return False
-        env = Envelope.create(sender=sender, receiver=receiver)
-        i_msg = InstantMessage.create(head=env, body=content)
-        # pack message
-        messenger = self.__messenger
-        s_msg = messenger.encrypt_message(msg=i_msg)
-        if s_msg is None:
-            self.error(msg='failed to encrypt message: %s -> %s' % (sender, receiver))
-            return False
-        r_msg = messenger.sign_message(msg=s_msg)
-        if r_msg is None:
-            self.error(msg='failed to sign message: %s -> %s' % (sender, receiver))
-            return False
-        dispatcher = self.__dispatcher
-        dispatcher.deliver_message(msg=r_msg, receiver=receiver)
-        self.info(msg='delivering message to %s' % receiver)
         return True
 
     def __build_push_item(self, msg: ReliableMessage) -> Optional[PushItem]:
@@ -152,7 +129,6 @@ class DefaultPushService(PushService, Logging):
             msg.pop('origin', None)
         return env
 
-    # noinspection PyMethodMayBeStatic
     def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
         """ build title, content for notification """
         facebook = self.__facebook

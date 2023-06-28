@@ -26,33 +26,96 @@
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Tuple, List, Set, Dict
+from typing import Optional, Union, Tuple, List, Dict
 
-from mkm.types import Mapper
 from dimples import ID, ReliableMessage
+from dimples import CustomizedContent
+from dimples import CommonFacebook
 from dimples.server import PushCenter
-from dimples.database.dos.base import template_replace
+from dimples.server import AnsCommandProcessor
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Runner
-from ..common import CommonFacebook
-from ..common import PushItem
-from ..database import Storage
+from ..common import Config
+from ..common import PushItem, PushCommand
+
+from .emitter import Emitter
 
 
+def get_facebook() -> Optional[CommonFacebook]:
+    from ...station.shared import GlobalVariable
+    shared = GlobalVariable()
+    return shared.facebook
+
+
+def get_emitter() -> Optional[Emitter]:
+    from ...station.shared import GlobalVariable
+    shared = GlobalVariable()
+    return shared.emitter
+
+
+def _get_nickname(identifier: ID) -> Optional[str]:
+    facebook = get_facebook()
+    if facebook is None:
+        Log.warning(msg='facebook not found')
+        return None
+    name = None
+    doc = facebook.document(identifier=identifier)
+    if doc is not None:
+        name = doc.name
+    if name is None or len(name) == 0:
+        return str(identifier)
+    else:
+        return '%s (%s)' % (identifier, name)
+
+
+# TODO: temporary function, remove it after too many users online
+def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
+    # get sender's name
+    name = _get_nickname(identifier=sender)
+    if online:
+        title = 'Activity: Online'
+        text = '%s is online, socket %s' % (name, remote_address)
+    else:
+        title = 'Activity: Offline'
+        text = '%s is offline, socket %s' % (name, remote_address)
+    # build notifications
+    masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
+    masters = _get_masters(value=masters)
+    Log.warning(msg='notice masters %s: %s' % (masters, text))
+    if len(masters) == 0:
+        return False
+    center = PushCenter()
+    keeper = center.badge_keeper
+    items = []
+    for receiver in masters:
+        badge = keeper.increase_badge(identifier=receiver)
+        items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
+    # send to apns bot
+    bot = AnsCommandProcessor.ans_id(name='apns')
+    if bot is None:
+        Log.error(msg='apns bot not found')
+        return
+    content = PushCommand(items=items)
+    emitter = get_emitter()
+    emitter.send_content(content=content, receiver=bot)
+    Log.info(msg='push %d items to: %s' % (len(items), bot))
+
+
+def _get_masters(value: str) -> List[ID]:
+    text = value.replace(' ', '')
+    array = text.split(',')
+    return ID.convert(array=array)
+
+
+#
+#   Event Recorder
+#
 class Recorder(ABC):
 
-    @classmethod
-    def file_path(cls, path_temp: str) -> str:
-        now = time.gmtime()
-        path = path_temp
-        path = template_replace(path, 'yyyy', str(now.tm_year))
-        path = template_replace(path, 'mm', two_digit(value=now.tm_mon))
-        return template_replace(path, 'dd', two_digit(value=now.tm_mday))
-
     @abstractmethod
-    def flush(self):
-        """ save records into local storage """
+    def extract(self) -> Union[List, Dict]:
+        """ get and clear records """
         raise NotImplemented
 
 
@@ -69,119 +132,110 @@ class Monitor(Runner, Logging):
 
     def __init__(self):
         super().__init__()
-        self.__facebook: Optional[CommonFacebook] = None
-        # events
         self.__events = []
         self.__lock = threading.Lock()
-        # config
-        self.__masters: Set[ID] = set()
-        # records
-        self.__active_recorder: Optional[Recorder] = None
+        self.__interval = 60  # seconds
+        self.__next_time = 0
+        # masters
+        self.__users_listeners = []
+        self.__stats_listeners = []
+        # recorders
+        self.__usr_recorder: Optional[Recorder] = None
         self.__msg_recorder: Optional[Recorder] = None
-        self.__flush_expired = 0
 
-    @property
-    def facebook(self) -> Optional[CommonFacebook]:
-        return self.__facebook
-
-    @facebook.setter
-    def facebook(self, barrack: CommonFacebook):
-        self.__facebook = barrack
-
-    def nickname(self, identifier: ID) -> Optional[str]:
-        facebook = self.facebook
-        if facebook is not None:
-            doc = facebook.document(identifier=identifier)
-            if doc is not None:
-                return doc.name
-
-    def append(self, event: Event):
+    def append_event(self, event: Event):
         with self.__lock:
             self.__events.append(event)
 
-    def next(self) -> Optional[Event]:
+    def next_event(self) -> Optional[Event]:
         with self.__lock:
             if len(self.__events) > 0:
                 return self.__events.pop(0)
 
-    @property
-    def masters(self) -> Set[ID]:
-        return self.__masters
-
-    def start(self, config: Union[Dict, Mapper]):
-        value = config.get('monitor')
-        if isinstance(value, Dict):
-            config = value
-        # parse master IDs
-        masters = config.get('masters')
+    def start(self, config: Config):
+        # time interval
+        interval = config.get_integer(section='monitor', option='interval')
+        if interval > 0:
+            self.__interval = interval
+        self.__next_time = time.time() + self.__interval
+        # listeners
+        masters = config.get_string(section='monitor', option='users_listeners')
         if masters is not None:
-            if isinstance(masters, str):
-                masters = masters.replace(' ', '').split(',')
-            else:
-                assert isinstance(masters, List), 'masters error: %s' % masters
-            for item in masters:
-                mid = ID.parse(identifier=item)
-                assert mid is not None, 'master ID error: %s' % item
-                self.__masters.add(mid)
-        # create recorders with log file paths
-        online_stat = config.get('online_stat')
-        assert isinstance(online_stat, str), 'online stat file path error: %s' % online_stat
-        self.__active_recorder = ActiveRecorder(path_temp=online_stat)
-        msg_stat = config.get('msg_stat')
-        assert isinstance(msg_stat, str), 'msg stat file path error: %s' % msg_stat
-        self.__msg_recorder = MessageRecorder(path_temp=msg_stat)
+            self.__users_listeners = _get_masters(value=masters)
+        masters = config.get_string(section='monitor', option='stats_listeners')
+        if masters is not None:
+            self.__stats_listeners = _get_masters(value=masters)
+        # create recorders
+        self.__usr_recorder = ActiveRecorder()
+        self.__msg_recorder = MessageRecorder()
         # start thread
         thread = threading.Thread(target=self.run, daemon=True)
         thread.start()
 
     # Override
     def process(self) -> bool:
-        event = self.next()
+        # 1. check to flush data
+        now = time.time()
+        if now > self.__next_time:
+            users = self.__usr_recorder.extract()
+            stats = self.__msg_recorder.extract()
+            try:
+                self.__flush(users=users, stats=stats)
+            except Exception as e:
+                self.error(msg='flush data error: %s' % e)
+            # flush next time
+            self.__next_time = now + self.__interval
+        # 2. check for next event
+        event = self.next_event()
         if event is None:
             # nothing to do now, return False to let the thread have a rest
-            now = time.time()
-            if self.__flush_expired < now:
-                self.__flush_expired = now + 120
-                self.__flush()
             return False
-        # get recorder
+        try:
+            self.__handle(event=event)
+        except Exception as e:
+            self.error(msg='handle event error: %s' % e)
+        return True
+
+    def __handle(self, event: Event):
         if isinstance(event, ActiveEvent):
-            recorder = self.__active_recorder
+            event.handle(recorder=self.__usr_recorder)
         elif isinstance(event, MessageEvent):
-            recorder = self.__msg_recorder
+            event.handle(recorder=self.__msg_recorder)
         else:
             self.error(msg='event error: %s' % event)
-            return True
-        # try to handle event with recorder
-        try:
-            event.handle(recorder=recorder)
-        except Exception as e:
-            self.error(msg='task error: %s' % e)
-        finally:
-            return True
 
-    def __flush(self):
-        try:
-            self.__active_recorder.flush()
-            self.__msg_recorder.flush()
-        except Exception as error:
-            self.error(msg='flush record error: %s' % error)
+    def __flush(self, users: List, stats: List):
+        emitter = get_emitter()
+        # send users data
+        listeners = self.__users_listeners
+        if len(listeners) > 0:
+            content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')
+            content['users'] = users
+            for master in listeners:
+                emitter.send_content(content=content, receiver=master)
+        # send stats data
+        listeners = self.__stats_listeners
+        if len(listeners) > 0:
+            content = CustomizedContent.create(app='chat.dim.monitor', mod='stats', act='post')
+            content['stats'] = stats
+            for master in listeners:
+                emitter.send_content(content=content, receiver=master)
 
     #
     #   Events
     #
 
-    def user_online(self, sender: ID, when: Optional[float], remote_address: Tuple[str, int]):
-        event = ActiveEvent(sender=sender, when=when, remote_address=remote_address, online=True)
-        self.append(event=event)
+    def user_online(self, sender: ID, remote_address: Tuple[str, int]):
+        event = ActiveEvent(sender=sender, remote_address=remote_address, online=True)
+        self.append_event(event=event)
 
-    def user_offline(self, sender: ID, when: Optional[float], remote_address: Tuple[str, int]):
-        event = ActiveEvent(sender=sender, when=when, remote_address=remote_address, online=False)
-        self.append(event=event)
+    def user_offline(self, sender: ID, remote_address: Tuple[str, int]):
+        event = ActiveEvent(sender=sender, remote_address=remote_address, online=False)
+        self.append_event(event=event)
 
     def message_received(self, msg: ReliableMessage):
         event = MessageEvent(msg=msg)
-        self.append(event=event)
+        self.append_event(event=event)
 
 
 #
@@ -191,121 +245,41 @@ class Monitor(Runner, Logging):
 
 class ActiveEvent(Event, Logging):
 
-    def __init__(self, sender: ID, when: Optional[float], remote_address: Tuple[str, int], online: bool):
+    def __init__(self, sender: ID, remote_address: Tuple[str, int], online: bool):
         super().__init__()
-        self.sender = sender
-        self.when = when
-        self.remote_address = remote_address
-        self.online = online
-
-    def __notice_master(self):
-        identifier = self.sender
-        monitor = Monitor()
-        # build notification
-        name = monitor.nickname(identifier=identifier)
-        if name is None:
-            name = str(identifier)
-        else:
-            name = '%s (%s)' % (identifier, name)
-        if self.online:
-            title = 'Activity: Online'
-            text = '%s is online, socket %s' % (name, self.remote_address)
-        else:
-            title = 'Activity: Offline'
-            text = '%s is offline, socket %s' % (name, self.remote_address)
-        # push notification
-        monitor = Monitor()
-        masters = monitor.masters
-        self.warning(msg='notice masters %s: %s' % (masters, text))
-        if len(masters) == 0:
-            return False
-        center = PushCenter()
-        keeper = center.badge_keeper
-        items = []
-        for receiver in masters:
-            badge = keeper.increase_badge(identifier=receiver)
-            items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
-        service = center.service
-        from .push import DefaultPushService
-        if isinstance(service, DefaultPushService):
-            return service.push(items=items)
-        else:
-            Log.warning(msg='push service error: %s' % service)
+        self.__sender = sender
+        self.__remote_address = remote_address
+        self.__online = online
 
     # Override
     def handle(self, recorder: Recorder):
-        self.__notice_master()
         assert isinstance(recorder, ActiveRecorder), 'recorder error: %s' % recorder
-        sender = self.sender
-        when = self.when
-        online = self.online
-        recorder.increase_counter(sender_type=sender.type, when=when, online=online)
+        sender = self.__sender
+        recorder.add_user(identifier=sender)
+        # TODO: temporary notification, remove after too many users online
+        online = self.__online
+        remote = self.__remote_address
+        _notice_master(sender=sender, online=online, remote_address=remote)
 
 
 class ActiveRecorder(Recorder):
     """
-        'S' - Sender type
-        'A' - Active flag: 1 = online, 0 = offline
-        'N' - Number
+        Active users recorder
+        ~~~~~~~~~~~~~~~~~~~~~
     """
 
-    def __init__(self, path_temp: str):
+    def __init__(self):
         super().__init__()
-        self.__temp = path_temp
-        self.__stat = {}
-        self.__path = self.__load()
+        self.__users = set()
 
-    def __load(self) -> Optional[str]:
-        path = self.file_path(path_temp=self.__temp)
-        stat = Storage.read_json(path=path)
-        if isinstance(stat, Dict):
-            self.__stat = stat
-            return path
-
-    def increase_counter(self, sender_type: int, when: float, online: Union[bool, int]):
-        if isinstance(online, bool):
-            online = int(online)
-        # get data list for current hour
-        now = time.localtime(when)
-        hour = time.strftime('%Y-%m-%d %H:%M', now)
-        array = self.__stat.get(hour)
-        if array is None:
-            array = []
-            self.__stat[hour] = array
-        # get data record
-        record = None
-        for item in array:
-            if item.get('S') == sender_type and item.get('A') == online:
-                # got it
-                record = item
-                break
-        # increase counter
-        if record is None:
-            # create new record
-            record = {
-                'S': sender_type,
-                'A': online,
-                'N': 1,
-            }
-            array.append(record)
-        else:
-            # update old record
-            count = record.get('N')
-            record['N'] = 1 if count is None else count + 1
+    def add_user(self, identifier: id):
+        self.__users.add(identifier)
 
     # Override
-    def flush(self):
-        # get file path
-        path = self.file_path(path_temp=self.__temp)
-        if self.__path is None:
-            self.__path = path
-        elif self.__path != path:
-            # FIXME: it's the next day now, save the increased values
-            self.__stat = {}
-            self.__path = None
-            return False
-        # save data
-        Storage.write_json(container=self.__stat, path=path)
+    def extract(self) -> Union[List, Dict]:
+        users = self.__users
+        self.__users = set()
+        return ID.revert(array=users)
 
 
 class MessageEvent(Event):
@@ -319,43 +293,31 @@ class MessageEvent(Event):
         assert isinstance(recorder, MessageRecorder), 'recorder error: %s' % recorder
         sender = self.msg.sender
         msg_type = self.msg.type
+        if msg_type is None:
+            msg_type = 0
         recorder.increase_counter(sender_type=sender.type, msg_type=msg_type)
 
 
 class MessageRecorder(Recorder):
     """
+        Message stats recorder
+        ~~~~~~~~~~~~~~~~~~~~~~
+
         'S' - Sender type
-        'M' - Message type
+        'T' - Message type
         'N' - Number
     """
 
-    def __init__(self, path_temp: str):
+    def __init__(self):
         super().__init__()
-        self.__temp = path_temp
-        self.__stat = {}
-        self.__path = self.__load()
+        self.__data = []
 
-    def __load(self) -> Optional[str]:
-        path = self.file_path(path_temp=self.__temp)
-        stat = Storage.read_json(path=path)
-        if isinstance(stat, Dict):
-            self.__stat = stat
-            return path
-
-    def increase_counter(self, sender_type: int, msg_type: Optional[int]):
-        if msg_type is None:
-            msg_type = 0
-        # get data list for current hour
-        now = time.localtime()
-        hour = time.strftime('%Y-%m-%d %H:%M', now)
-        array = self.__stat.get(hour)
-        if array is None:
-            array = []
-            self.__stat[hour] = array
+    def increase_counter(self, sender_type: int, msg_type: int):
+        array = self.__data
         # get data record
         record = None
         for item in array:
-            if item.get('S') == sender_type and item.get('M') == msg_type:
+            if item.get('S') == sender_type and item.get('T') == msg_type:
                 # got it
                 record = item
                 break
@@ -364,7 +326,7 @@ class MessageRecorder(Recorder):
             # create new record
             record = {
                 'S': sender_type,
-                'M': msg_type,
+                'T': msg_type,
                 'N': 1,
             }
             array.append(record)
@@ -374,22 +336,7 @@ class MessageRecorder(Recorder):
             record['N'] = 1 if count is None else count + 1
 
     # Override
-    def flush(self):
-        # get file path
-        path = self.file_path(path_temp=self.__temp)
-        if self.__path is None:
-            self.__path = path
-        elif self.__path != path:
-            # FIXME: it's the next day now, save the increased values
-            self.__stat = {}
-            self.__path = None
-            return False
-        # save data
-        Storage.write_json(container=self.__stat, path=path)
-
-
-def two_digit(value: int) -> str:
-    if value < 10:
-        return '0%s' % value
-    else:
-        return '%s' % value
+    def extract(self) -> Union[List, Dict]:
+        array = self.__data
+        self.__data = []
+        return array

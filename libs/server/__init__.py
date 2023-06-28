@@ -43,6 +43,7 @@ from .packer import ServerPacker
 from .processor import ServerProcessor
 from .processor import ServerProcessorCreator
 
+from .emitter import Emitter
 from .monitor import Monitor
 from .push import DefaultPushService
 
@@ -74,6 +75,7 @@ __all__ = [
     'ServerProcessor',
     'ServerProcessorCreator',
 
+    'Emitter',
     'Monitor',
 
 ]
