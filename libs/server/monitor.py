@@ -30,7 +30,6 @@ from typing import Optional, Union, Tuple, List, Dict
 
 from dimples import ID, ReliableMessage
 from dimples import CustomizedContent
-from dimples import CommonFacebook
 from dimples.server import PushCenter
 from dimples.server import AnsCommandProcessor
 
@@ -42,20 +41,17 @@ from ..common import PushItem, PushCommand
 from .emitter import Emitter
 
 
-def get_facebook() -> Optional[CommonFacebook]:
-    from ...station.shared import GlobalVariable
-    shared = GlobalVariable()
-    return shared.facebook
-
-
 def get_emitter() -> Optional[Emitter]:
-    from ...station.shared import GlobalVariable
-    shared = GlobalVariable()
-    return shared.emitter
+    monitor = Monitor()
+    return monitor.emitter
 
 
 def _get_nickname(identifier: ID) -> Optional[str]:
-    facebook = get_facebook()
+    emitter = get_emitter()
+    if emitter is None:
+        Log.error(msg='emitter not found')
+        return None
+    facebook = emitter.facebook
     if facebook is None:
         Log.warning(msg='facebook not found')
         return None
@@ -104,6 +100,8 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
 
 def _get_masters(value: str) -> List[ID]:
     text = value.replace(' ', '')
+    if len(text) == 0:
+        return []
     array = text.split(',')
     return ID.convert(array=array)
 
@@ -142,6 +140,16 @@ class Monitor(Runner, Logging):
         # recorders
         self.__usr_recorder: Optional[Recorder] = None
         self.__msg_recorder: Optional[Recorder] = None
+        # emitter to send message
+        self.__emitter: Optional[Emitter] = None
+
+    @property
+    def emitter(self) -> Emitter:
+        return self.__emitter
+
+    @emitter.setter
+    def emitter(self, delegate: Emitter):
+        self.__emitter = delegate
 
     def append_event(self, event: Event):
         with self.__lock:
@@ -205,7 +213,7 @@ class Monitor(Runner, Logging):
             self.error(msg='event error: %s' % event)
 
     def __flush(self, users: List, stats: List):
-        emitter = get_emitter()
+        emitter = self.__emitter
         # send users data
         listeners = self.__users_listeners
         if len(listeners) > 0:

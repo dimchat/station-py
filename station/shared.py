@@ -217,8 +217,11 @@ def create_apns(shared: GlobalVariable) -> PushCenter:
 
 def create_monitor(shared: GlobalVariable) -> Monitor:
     """ Step 8: create monitor """
+    emitter = shared.emitter
+    assert emitter is not None, 'emitter not set'
     config = shared.config
     monitor = Monitor()
+    monitor.emitter = emitter
     monitor.start(config=config)
     return monitor
 
