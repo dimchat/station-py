@@ -151,11 +151,11 @@ class Monitor(Runner, Logging):
     def emitter(self, delegate: Emitter):
         self.__emitter = delegate
 
-    def append_event(self, event: Event):
+    def _append_event(self, event: Event):
         with self.__lock:
             self.__events.append(event)
 
-    def next_event(self) -> Optional[Event]:
+    def _next_event(self) -> Optional[Event]:
         with self.__lock:
             if len(self.__events) > 0:
                 return self.__events.pop(0)
@@ -194,7 +194,7 @@ class Monitor(Runner, Logging):
             # flush next time
             self.__next_time = now + self.__interval
         # 2. check for next event
-        event = self.next_event()
+        event = self._next_event()
         if event is None:
             # nothing to do now, return False to let the thread have a rest
             return False
@@ -235,15 +235,15 @@ class Monitor(Runner, Logging):
 
     def user_online(self, sender: ID, remote_address: Tuple[str, int]):
         event = ActiveEvent(sender=sender, remote_address=remote_address, online=True)
-        self.append_event(event=event)
+        self._append_event(event=event)
 
     def user_offline(self, sender: ID, remote_address: Tuple[str, int]):
         event = ActiveEvent(sender=sender, remote_address=remote_address, online=False)
-        self.append_event(event=event)
+        self._append_event(event=event)
 
     def message_received(self, msg: ReliableMessage):
         event = MessageEvent(msg=msg)
-        self.append_event(event=event)
+        self._append_event(event=event)
 
 
 #

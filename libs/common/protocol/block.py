@@ -50,7 +50,7 @@ class BlockCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "block", // command name
+            command : "block", // command name
             list    : []       // block-list
         }
     """

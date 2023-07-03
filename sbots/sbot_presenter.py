@@ -46,7 +46,7 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils import Logging
-from libs.common import PushCommand
+from libs.common import ReportCommand, PushCommand
 from libs.client import Checkpoint
 from libs.client import ReportCommandProcessor
 from libs.client import ClientProcessor
@@ -93,7 +93,9 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
         if cmd == PushCommand.PUSH:
             return PushCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # report
-        if cmd == 'apns':
+        if cmd == ReportCommand.REPORT:
+            return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
+        elif cmd == 'apns':
             return ReportCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # others
         return super().create_command_processor(msg_type=msg_type, cmd=cmd)

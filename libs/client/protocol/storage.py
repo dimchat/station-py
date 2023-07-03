@@ -51,7 +51,7 @@ class StorageCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "storage", // command name
+            command : "storage", // command name
             title   : "...",     // "contacts", "private_key", ...
 
             data    : "...",  // base64_encode(symmetric)

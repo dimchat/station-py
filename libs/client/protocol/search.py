@@ -44,7 +44,7 @@ class SearchCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd      : "search",        // or "users"
+            command  : "search",        // or "users"
             keywords : "keywords",      // keyword string
 
             start    : 0,

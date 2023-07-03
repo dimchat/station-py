@@ -50,7 +50,7 @@ class MuteCommand(BaseCommand):
             type : 0x88,
             sn   : 123,
 
-            cmd     : "mute", // command name
+            command : "mute", // command name
             list    : []      // mute-list
         }
     """
