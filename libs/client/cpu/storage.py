@@ -58,27 +58,44 @@ class StorageCommandProcessor(BaseCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, StorageCommand), 'command error: %s' % content
+        sender = msg.sender
         title = content.title
         if title == StorageCommand.CONTACTS:
             db = self.database
             if content.data is None and 'contacts' not in content:
                 # query contacts, load it
-                stored = db.contacts_command(identifier=msg.sender)
+                stored = db.contacts_command(identifier=sender)
                 # response
                 if stored is None:
-                    text = 'Sorry, contacts of %s not found.' % msg.sender
-                    return self._respond_text(text=text)
+                    return self._respond_text(text='Contacts not found.', extra={
+                        'template': 'Contacts not found: ${ID}.',
+                        'replacements': {
+                            'ID': str(sender),
+                        }
+                    })
                 else:
                     # response the stored contacts command directly
                     return [stored]
             else:
                 # upload contacts, save it
-                if db.save_contacts_command(content=content, identifier=msg.sender):
-                    text = 'Contacts of %s received!' % msg.sender
-                    return self._respond_text(text=text)
+                if db.save_contacts_command(content=content, identifier=sender):
+                    return self._respond_text(text='Contacts received.', extra={
+                        'template': 'Contacts received: ${ID}.',
+                        'replacements': {
+                            'ID': str(sender),
+                        }
+                    })
                 else:
-                    text = 'Sorry, contacts not stored %s!' % content
-                    return self._respond_text(text=text)
+                    return self._respond_text(text='Contacts not changed.', extra={
+                        'template': 'Contacts not changed: ${ID}.',
+                        'replacements': {
+                            'ID': str(sender),
+                        }
+                    })
         else:
-            text = 'Storage command (title: %s) not support yet!' % title
-            return self._respond_text(text=text)
+            return self._respond_text(text='Command not support.', extra={
+                'template': 'Storage command (title: ${title}) not support yet!',
+                'replacements': {
+                    'title': title,
+                }
+            })

@@ -58,18 +58,27 @@ class BlockCommandProcessor(BaseCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, BlockCommand), 'block command error: %s' % content
+        sender = msg.sender
         db = self.database
         if 'list' in content:
             # upload block-list, save it
-            if db.save_block_command(content=content, identifier=msg.sender):
-                text = 'Block command of %s received!' % msg.sender
-                return self._respond_text(text=text)
+            if db.save_block_command(content=content, identifier=sender):
+                return self._respond_text(text='Block received.', extra={
+                    'template': 'Block command received: ${ID}.',
+                    'replacements': {
+                        'ID': str(sender),
+                    }
+                })
             else:
-                text = 'Sorry, block-list not stored: %s!' % content
-                return self._respond_text(text=text)
+                return self._respond_text(text='Block not changed.', extra={
+                    'template': 'Block command not changed: ${ID}.',
+                    'replacements': {
+                        'ID': str(sender),
+                    }
+                })
         else:
             # query block-list, load it
-            stored: Command = db.block_command(identifier=msg.sender)
+            stored: Command = db.block_command(identifier=sender)
             if stored is not None:
                 # response the stored block command directly
                 return [stored]

@@ -87,9 +87,14 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
                     return []
         if token is None or len(token) == 0:
             return []
+        sender = msg.sender
         device = DeviceInfo.from_json(info=info)
         assert device is not None, 'failed to parse device info: %s' % info
         db = self.database
-        db.add_device(device=device, identifier=msg.sender)
-        text = 'Device token received.'
-        return self._respond_text(text=text)
+        db.add_device(device=device, identifier=sender)
+        return self._respond_text(text='Device token received.', extra={
+            'template': 'Device token received: ${ID}.',
+            'replacements': {
+                'ID': str(sender),
+            }
+        })

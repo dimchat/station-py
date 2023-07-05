@@ -31,7 +31,7 @@
 from typing import Optional, Union
 
 from dimples import ContentType
-from dimples import ReceiptCommand, ReportCommand
+from dimples import ReportCommand
 
 from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
@@ -43,7 +43,6 @@ from dimples.server import ServerContentProcessorCreator
 
 from ..common import MuteCommand, BlockCommand
 
-from .cpu import ReceiptCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
 
 
@@ -66,9 +65,6 @@ class ServerProcessorCreator(ServerContentProcessorCreator):
 
     # Override
     def create_command_processor(self, msg_type: Union[int, ContentType], cmd: str) -> Optional[ContentProcessor]:
-        # receipt
-        if cmd == ReceiptCommand.RECEIPT:
-            return ReceiptCommandProcessor(facebook=self.facebook, messenger=self.messenger)
         # mute
         if cmd == MuteCommand.MUTE:
             return MuteCommandProcessor(facebook=self.facebook, messenger=self.messenger)

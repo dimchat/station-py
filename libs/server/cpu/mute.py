@@ -58,18 +58,27 @@ class MuteCommandProcessor(BaseCommandProcessor):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, MuteCommand), 'mute command error: %s' % content
+        sender = msg.sender
         db = self.database
         if 'list' in content:
             # upload mute-list, save it
-            if db.save_mute_command(content=content, identifier=msg.sender):
-                text = 'Mute command of %s received!' % msg.sender
-                return self._respond_text(text=text)
+            if db.save_mute_command(content=content, identifier=sender):
+                return self._respond_text(text='Mute received.', extra={
+                    'template': 'Mute command received: ${ID}.',
+                    'replacements': {
+                        'ID': str(sender),
+                    }
+                })
             else:
-                text = 'Sorry, mute-list not stored %s!' % content
-                return self._respond_text(text=text)
+                return self._respond_text(text='Mute not changed.', extra={
+                    'template': 'Mute command not changed: ${ID}.',
+                    'replacements': {
+                        'ID': str(sender),
+                    }
+                })
         else:
             # query mute-list, load it
-            stored: Command = db.mute_command(identifier=msg.sender)
+            stored: Command = db.mute_command(identifier=sender)
             if stored is not None:
                 # response the stored mute command directly
                 return [stored]

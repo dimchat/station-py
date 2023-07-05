@@ -54,7 +54,7 @@ __all__ = [
     #   CPU
     #
     'HandshakeCommandProcessor', 'LoginCommandProcessor',
-    'DocumentCommandProcessor', 'ReceiptCommandProcessor',
+    'DocumentCommandProcessor',
 
     'MuteCommandProcessor', 'BlockCommandProcessor',
 

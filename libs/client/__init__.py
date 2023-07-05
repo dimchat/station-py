@@ -56,7 +56,6 @@ __all__ = [
     #
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
-    'ReceiptCommandProcessor',
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',
