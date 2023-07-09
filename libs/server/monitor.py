@@ -312,8 +312,9 @@ class MessageRecorder(Recorder):
         ~~~~~~~~~~~~~~~~~~~~~~
 
         'S' - Sender type
+        'C' - Counter
+        'U' - User ID (reserved)
         'T' - Message type
-        'N' - Number
     """
 
     def __init__(self):
@@ -335,13 +336,13 @@ class MessageRecorder(Recorder):
             record = {
                 'S': sender_type,
                 'T': msg_type,
-                'N': 1,
+                'C': 1,
             }
             array.append(record)
         else:
             # update old record
-            count = record.get('N')
-            record['N'] = 1 if count is None else count + 1
+            count = record.get('C')
+            record['C'] = 1 if count is None else count + 1
 
     # Override
     def extract(self) -> Union[List, Dict]:

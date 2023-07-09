@@ -63,14 +63,14 @@ class BlockCommandProcessor(BaseCommandProcessor):
         if 'list' in content:
             # upload block-list, save it
             if db.save_block_command(content=content, identifier=sender):
-                return self._respond_text(text='Block received.', extra={
+                return self._respond_receipt(text='Block received.', msg=msg, extra={
                     'template': 'Block command received: ${ID}.',
                     'replacements': {
                         'ID': str(sender),
                     }
                 })
             else:
-                return self._respond_text(text='Block not changed.', extra={
+                return self._respond_receipt(text='Block not changed.', msg=msg, extra={
                     'template': 'Block command not changed: ${ID}.',
                     'replacements': {
                         'ID': str(sender),

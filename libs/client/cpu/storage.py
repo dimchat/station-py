@@ -67,7 +67,7 @@ class StorageCommandProcessor(BaseCommandProcessor):
                 stored = db.contacts_command(identifier=sender)
                 # response
                 if stored is None:
-                    return self._respond_text(text='Contacts not found.', extra={
+                    return self._respond_receipt(text='Contacts not found.', msg=msg, extra={
                         'template': 'Contacts not found: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
@@ -79,21 +79,21 @@ class StorageCommandProcessor(BaseCommandProcessor):
             else:
                 # upload contacts, save it
                 if db.save_contacts_command(content=content, identifier=sender):
-                    return self._respond_text(text='Contacts received.', extra={
+                    return self._respond_receipt(text='Contacts received.', msg=msg, extra={
                         'template': 'Contacts received: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
                         }
                     })
                 else:
-                    return self._respond_text(text='Contacts not changed.', extra={
+                    return self._respond_receipt(text='Contacts not changed.', msg=msg, extra={
                         'template': 'Contacts not changed: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
                         }
                     })
         else:
-            return self._respond_text(text='Command not support.', extra={
+            return self._respond_receipt(text='Command not support.', msg=msg, extra={
                 'template': 'Storage command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

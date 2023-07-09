@@ -63,8 +63,7 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         facebook = self.facebook
         keywords = content.keywords
         if keywords is None:
-            text = 'Search command error.'
-            return self._respond_text(text=text)
+            return self._respond_receipt(text='Search command error.', msg=msg)
         elif keywords == SearchCommand.ONLINE_USERS:
             users, results = online_users(facebook, start=content.start, limit=content.limit)
             self.info('Got %d recent online user(s)' % len(results))

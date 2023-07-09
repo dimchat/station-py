@@ -92,7 +92,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         assert device is not None, 'failed to parse device info: %s' % info
         db = self.database
         db.add_device(device=device, identifier=sender)
-        return self._respond_text(text='Device token received.', extra={
+        return self._respond_receipt(text='Device token received.', msg=msg, extra={
             'template': 'Device token received: ${ID}.',
             'replacements': {
                 'ID': str(sender),
