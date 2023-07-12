@@ -113,9 +113,9 @@ def create_apns(shared: GlobalVariable):
     pnc.delegate = shared.database
     config = shared.config
     # 1. add push service: APNs
-    credentials = config.get_string(section='push', option='apns_credentials')
-    use_sandbox = config.get_boolean(section='push', option='apns_use_sandbox')
-    topic = config.get_string(section='push', option='apns_topic')
+    credentials = config.get_string(section='announcer', option='apns_credentials')
+    use_sandbox = config.get_boolean(section='announcer', option='apns_use_sandbox')
+    topic = config.get_string(section='announcer', option='apns_topic')
     print('APNs: credentials=%s, use_sandbox=%s, topic=%s' % (credentials, use_sandbox, topic))
     if credentials is not None and len(credentials) > 0:
         apple = ApplePushNotificationService(credentials=credentials,
@@ -124,9 +124,9 @@ def create_apns(shared: GlobalVariable):
             apple.topic = topic
         pnc.apple_pns = apple
     # 2. add push service: JPush
-    app_key = config.get_string(section='push', option='app_key')
-    master_secret = config.get_string(section='push', option='master_secret')
-    production = config.get_boolean(section='push', option='apns_production')
+    app_key = config.get_string(section='announcer', option='app_key')
+    master_secret = config.get_string(section='announcer', option='master_secret')
+    production = config.get_boolean(section='announcer', option='apns_production')
     print('APNs: app_key=%s, master_secret=%s, production=%s' % (app_key, master_secret, production))
     if app_key is not None and len(app_key) > 0 and master_secret is not None and len(master_secret) > 0:
         android = AndroidPushNotificationService(app_key=app_key,
@@ -147,7 +147,7 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 if __name__ == '__main__':
     start_bot(default_config=DEFAULT_CONFIG,
               app_name='DIM Push Center',
-              ans_name='apns',
+              ans_name='announcer',
               processor_class=BotMessageProcessor)
     # create push services
     create_apns(shared=GlobalVariable())

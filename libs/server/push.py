@@ -54,13 +54,13 @@ class DefaultPushService(PushService, Logging):
         self.__keeper = badge_keeper
         self.__facebook = facebook
         self.__emitter = emitter
-        self.__bot = None
+        self.__bot: Optional[ID] = None
 
     @property
     def bot(self) -> Optional[ID]:
         receiver = self.__bot
         if receiver is None:
-            receiver = AnsCommandProcessor.ans_id(name='apns')
+            receiver = AnsCommandProcessor.ans_id(name='announcer')
             self.__bot = receiver
         return receiver
 

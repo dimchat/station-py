@@ -35,75 +35,9 @@ from dimples.server import AnsCommandProcessor
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Runner
-from ..common import Config
 from ..common import PushItem, PushCommand
 
 from .emitter import Emitter
-
-
-def get_emitter() -> Optional[Emitter]:
-    monitor = Monitor()
-    return monitor.emitter
-
-
-def _get_nickname(identifier: ID) -> Optional[str]:
-    emitter = get_emitter()
-    if emitter is None:
-        Log.error(msg='emitter not found')
-        return None
-    facebook = emitter.facebook
-    if facebook is None:
-        Log.warning(msg='facebook not found')
-        return None
-    name = None
-    doc = facebook.document(identifier=identifier)
-    if doc is not None:
-        name = doc.name
-    if name is None or len(name) == 0:
-        return str(identifier)
-    else:
-        return '%s (%s)' % (identifier, name)
-
-
-# TODO: temporary function, remove it after too many users online
-def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
-    # get sender's name
-    name = _get_nickname(identifier=sender)
-    if online:
-        title = 'Activity: Online'
-        text = '%s is online, socket %s' % (name, remote_address)
-    else:
-        title = 'Activity: Offline'
-        text = '%s is offline, socket %s' % (name, remote_address)
-    # build notifications
-    masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
-    masters = _get_masters(value=masters)
-    Log.warning(msg='notice masters %s: %s' % (masters, text))
-    if len(masters) == 0:
-        return False
-    center = PushCenter()
-    keeper = center.badge_keeper
-    items = []
-    for receiver in masters:
-        badge = keeper.increase_badge(identifier=receiver)
-        items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
-    # send to apns bot
-    bot = AnsCommandProcessor.ans_id(name='apns')
-    if bot is None:
-        Log.error(msg='apns bot not found')
-        return
-    content = PushCommand(items=items)
-    emitter = get_emitter()
-    emitter.send_content(content=content, receiver=bot)
-    Log.info(msg='push %d items to: %s' % (len(items), bot))
-
-
-def _get_masters(value: str) -> List[ID]:
-    text = value.replace(' ', '')
-    if len(text) == 0:
-        return []
-    array = text.split(',')
-    return ID.convert(array=array)
 
 
 #
@@ -128,20 +62,28 @@ class Event(ABC):
 @Singleton
 class Monitor(Runner, Logging):
 
+    INTERVAL = 60  # seconds
+
     def __init__(self):
         super().__init__()
         self.__events = []
         self.__lock = threading.Lock()
-        self.__interval = 60  # seconds
         self.__next_time = 0
-        # masters
-        self.__users_listeners = []
-        self.__stats_listeners = []
         # recorders
         self.__usr_recorder: Optional[Recorder] = None
         self.__msg_recorder: Optional[Recorder] = None
+        # service bot
+        self.__bot: Optional[ID] = None
         # emitter to send message
         self.__emitter: Optional[Emitter] = None
+
+    @property
+    def bot(self) -> Optional[ID]:
+        receiver = self.__bot
+        if receiver is None:
+            receiver = AnsCommandProcessor.ans_id(name='monitor')
+            self.__bot = receiver
+        return receiver
 
     @property
     def emitter(self) -> Emitter:
@@ -160,19 +102,9 @@ class Monitor(Runner, Logging):
             if len(self.__events) > 0:
                 return self.__events.pop(0)
 
-    def start(self, config: Config):
-        # time interval
-        interval = config.get_integer(section='monitor', option='interval')
-        if interval > 0:
-            self.__interval = interval
-        self.__next_time = time.time() + self.__interval
-        # listeners
-        masters = config.get_string(section='monitor', option='users_listeners')
-        if masters is not None:
-            self.__users_listeners = _get_masters(value=masters)
-        masters = config.get_string(section='monitor', option='stats_listeners')
-        if masters is not None:
-            self.__stats_listeners = _get_masters(value=masters)
+    def start(self):
+        # next time to flush
+        self.__next_time = time.time() + self.INTERVAL
         # create recorders
         self.__usr_recorder = ActiveRecorder()
         self.__msg_recorder = MessageRecorder()
@@ -188,11 +120,11 @@ class Monitor(Runner, Logging):
             users = self.__usr_recorder.extract()
             stats = self.__msg_recorder.extract()
             try:
-                self.__flush(users=users, stats=stats)
+                self.__send(users=users, stats=stats)
             except Exception as e:
-                self.error(msg='flush data error: %s' % e)
+                self.error(msg='failed to send data: %s' % e)
             # flush next time
-            self.__next_time = now + self.__interval
+            self.__next_time = now + self.INTERVAL
         # 2. check for next event
         event = self._next_event()
         if event is None:
@@ -212,22 +144,19 @@ class Monitor(Runner, Logging):
         else:
             self.error(msg='event error: %s' % event)
 
-    def __flush(self, users: List, stats: List):
+    def __send(self, users: List, stats: List):
+        bot = self.bot
+        assert bot is not None, 'monitor bot not set'
         emitter = self.__emitter
+        assert emitter is not None, 'emitter not set'
         # send users data
-        listeners = self.__users_listeners
-        if len(listeners) > 0:
-            content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')
-            content['users'] = users
-            for master in listeners:
-                emitter.send_content(content=content, receiver=master)
+        content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')
+        content['users'] = users
+        emitter.send_content(content=content, receiver=bot)
         # send stats data
-        listeners = self.__stats_listeners
-        if len(listeners) > 0:
-            content = CustomizedContent.create(app='chat.dim.monitor', mod='stats', act='post')
-            content['stats'] = stats
-            for master in listeners:
-                emitter.send_content(content=content, receiver=master)
+        content = CustomizedContent.create(app='chat.dim.monitor', mod='stats', act='post')
+        content['stats'] = stats
+        emitter.send_content(content=content, receiver=bot)
 
     #
     #   Events
@@ -314,7 +243,7 @@ class MessageRecorder(Recorder):
         'S' - Sender type
         'C' - Counter
         'U' - User ID (reserved)
-        'T' - Message type
+        'T' - message Type
     """
 
     def __init__(self):
@@ -349,3 +278,68 @@ class MessageRecorder(Recorder):
         array = self.__data
         self.__data = []
         return array
+
+
+# TODO: temporary function, remove it after too many users online
+def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
+    # get sender's name
+    name = _get_nickname(identifier=sender)
+    if online:
+        title = 'Activity: Online'
+        text = '%s is online, socket %s' % (name, remote_address)
+    else:
+        title = 'Activity: Offline'
+        text = '%s is offline, socket %s' % (name, remote_address)
+    # build notifications
+    masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
+    masters = _get_masters(value=masters)
+    Log.warning(msg='notice masters %s: %s' % (masters, text))
+    if len(masters) == 0:
+        return False
+    center = PushCenter()
+    keeper = center.badge_keeper
+    items = []
+    for receiver in masters:
+        badge = keeper.increase_badge(identifier=receiver)
+        items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
+    # send to apns bot
+    bot = AnsCommandProcessor.ans_id(name='announcer')
+    if bot is None:
+        Log.error(msg='apns bot not found')
+        return
+    content = PushCommand(items=items)
+    emitter = _get_emitter()
+    emitter.send_content(content=content, receiver=bot)
+    Log.info(msg='push %d items to: %s' % (len(items), bot))
+
+
+def _get_masters(value: str) -> List[ID]:
+    text = value.replace(' ', '')
+    if len(text) == 0:
+        return []
+    array = text.split(',')
+    return ID.convert(array=array)
+
+
+def _get_nickname(identifier: ID) -> Optional[str]:
+    emitter = _get_emitter()
+    if emitter is None:
+        Log.error(msg='emitter not found')
+        return None
+    facebook = emitter.facebook
+    if facebook is None:
+        Log.warning(msg='facebook not found')
+        return None
+    name = None
+    doc = facebook.document(identifier=identifier)
+    if doc is not None:
+        name = doc.name
+    if name is None or len(name) == 0:
+        return str(identifier)
+    else:
+        return '%s (%s)' % (identifier, name)
+
+
+def _get_emitter() -> Optional[Emitter]:
+    monitor = Monitor()
+    return monitor.emitter

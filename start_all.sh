@@ -50,11 +50,14 @@ sleep 2
 #   Service Bots
 #
 
+title "DIM Push Center"
+restart apns "sbots/sbot_announcer.py"
+
 title "DIM Search Engine"
 restart search "sbots/sbot_archivist.py"
 
-title "DIM Push Center"
-restart apns "sbots/sbot_presenter.py"
+title "DIM Monitor"
+restart monitor "sbots/sbot_monitor.py"
 
 #
 #   File Server

@@ -219,10 +219,9 @@ def create_monitor(shared: GlobalVariable) -> Monitor:
     """ Step 8: create monitor """
     emitter = shared.emitter
     assert emitter is not None, 'emitter not set'
-    config = shared.config
     monitor = Monitor()
     monitor.emitter = emitter
-    monitor.start(config=config)
+    monitor.start()
     return monitor
 
 
