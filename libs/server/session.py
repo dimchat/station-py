@@ -73,13 +73,16 @@ class ServerSession(SuperSession):
             return True
 
     # Override
-    def set_active(self, active: bool, when: float = None):
+    def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
             session_change_active(session=self, active=active)
-            if not active:
-                identifier = self.identifier
-                if identifier is not None:
-                    monitor = Monitor()
+            identifier = self.identifier
+            self.info(msg='user active changed: %s, %s' % (identifier, active))
+            if identifier is not None:
+                monitor = Monitor()
+                if active:
+                    monitor.user_online(sender=identifier, remote_address=self.remote_address)
+                else:
                     monitor.user_offline(sender=identifier, remote_address=self.remote_address)
             return True
 
