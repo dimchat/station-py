@@ -210,16 +210,20 @@ class ActiveRecorder(Recorder):
         self.__users = set()
 
     def add_user(self, identifier: ID, remote_address: Tuple[str, int]):
-        self.__users.add({
-            'U': str(identifier),
-            'IP': remote_address[0],
-        })
+        record = (identifier, remote_address[0])
+        self.__users.add(record)
 
     # Override
     def extract(self) -> Union[List, Dict]:
         users = self.__users
         self.__users = set()
-        return list(users)
+        array = []
+        for item in users:
+            array.append({
+                'U': str(item[0]),
+                'IP': item[1],
+            })
+        return array
 
 
 class MessageEvent(Event):
