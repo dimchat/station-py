@@ -35,25 +35,43 @@
 
             {
                 "yyyy-mm-dd HH:MM": [
-                    "ID1",
-                    "ID2"
+                    {
+                        "U" : "user_id",
+                        "IP": "127.0.0.1"
+                    }
                 ]
             }
 
         "stats_log-{yyyy}-{mm}-{dd}.js"
 
             {
-                "yyyy-mm-dd HH:MM": {
-                    "S": 0,
-                    "T": 1,
-                    "C": 2
-                }
+                "yyyy-mm-dd HH:MM": [
+                    {
+                        "S": 0,
+                        "T": 1,
+                        "C": 2
+                    }
+                ]
+            }
+
+        "speeds_log-{yyyy}-{mm}-{dd}.js"
+
+            {
+                "yyyy-mm-dd HH:MM": [
+                    {
+                        "U"            : "user_id",
+                        "provider"     : "provider_id",
+                        "station"      : "host:port",
+                        "client"       : "host:port",
+                        "response_time": 0.125
+                    }
+                ]
             }
 
     Fields:
         'S' - Sender type
         'C' - Counter
-        'U' - User ID (reserved)
+        'U' - User ID
         'T' - message Type
 
     Sender type:
@@ -80,12 +98,8 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from libs.client import Checkpoint
 from sbots.shared import GlobalVariable
 from sbots.shared import start_bot
-
-
-g_checkpoint = Checkpoint()
 
 
 def _get_listeners(name: str) -> List[ID]:
@@ -145,9 +159,6 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
         mod = content.module
         act = content.action
         sender = msg.sender
-        if g_checkpoint.duplicated(msg=msg):
-            self.warning(msg='duplicated content from %s: %s, %s, %s' % (sender, app, mod, act))
-            return []
         self.debug(msg='received content from %s: %s, %s, %s' % (sender, app, mod, act))
         return super().process(content=content, msg=msg)
 
@@ -171,6 +182,10 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
             listeners = self.stats_listeners
         elif mod == 'speeds':
             listeners = self.speeds_listeners
+            if 'U' not in content:
+                # speeds stat contents are sent from client,
+                # so the sender must be a user id here
+                content['U'] = str(sender)
         else:
             self.error(msg='unknown module: %s, action: %s' % (mod, act))
             return []

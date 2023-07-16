@@ -192,10 +192,10 @@ class ActiveEvent(Event, Logging):
     def handle(self, recorder: Recorder):
         assert isinstance(recorder, ActiveRecorder), 'recorder error: %s' % recorder
         sender = self.__sender
-        recorder.add_user(identifier=sender)
+        remote = self.__remote_address
+        recorder.add_user(identifier=sender, remote_address=remote)
         # TODO: temporary notification, remove after too many users online
         online = self.__online
-        remote = self.__remote_address
         _notice_master(sender=sender, online=online, remote_address=remote)
 
 
@@ -209,14 +209,17 @@ class ActiveRecorder(Recorder):
         super().__init__()
         self.__users = set()
 
-    def add_user(self, identifier: id):
-        self.__users.add(identifier)
+    def add_user(self, identifier: ID, remote_address: Tuple[str, int]):
+        self.__users.add({
+            'U': str(identifier),
+            'IP': remote_address[0],
+        })
 
     # Override
     def extract(self) -> Union[List, Dict]:
         users = self.__users
         self.__users = set()
-        return ID.revert(array=users)
+        return list(users)
 
 
 class MessageEvent(Event):

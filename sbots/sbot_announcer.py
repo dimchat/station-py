@@ -47,7 +47,6 @@ Path.add(path=path)
 
 from libs.utils import Logging
 from libs.common import ReportCommand, PushCommand
-from libs.client import Checkpoint
 from libs.client import ReportCommandProcessor
 from libs.client import ClientProcessor
 from libs.push import PushNotificationClient
@@ -58,9 +57,6 @@ from sbots.shared import GlobalVariable
 from sbots.shared import start_bot
 
 
-g_checkpoint = Checkpoint()
-
-
 class PushCommandProcessor(BaseCommandProcessor, Logging):
 
     MESSAGE_EXPIRES = 256
@@ -69,9 +65,6 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
         items = content.items
-        if g_checkpoint.duplicated(msg=msg):
-            self.warning(msg='duplicated: %s' % items)
-            return []
         # check expired
         expired = time.time() - self.MESSAGE_EXPIRES
         if msg.time < expired:
