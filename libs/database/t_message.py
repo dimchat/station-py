@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import time
-from typing import List, Tuple
+from typing import List
 
 from dimples import ID
 from dimples import ReliableMessage
@@ -33,17 +33,6 @@ from dimples.utils import CacheManager
 from dimples.common import ReliableMessageDBI
 
 from .redis import MessageCache
-
-
-class PartialInfo:
-    """ Partial messages with range [start, end] """
-
-    def __init__(self, messages: List[ReliableMessage], remaining: int, start: int, limit: int):
-        super().__init__()
-        self.messages = messages
-        self.remaining = remaining
-        self.start = start
-        self.limit = limit
 
 
 class MessageTable(ReliableMessageDBI):
@@ -57,7 +46,7 @@ class MessageTable(ReliableMessageDBI):
         super().__init__()
         self.__redis = MessageCache()
         man = CacheManager()
-        self.__cache = man.get_pool(name='message')  # ID => PartialInfo
+        self.__cache = man.get_pool(name='reliable_messages')  # ID => List[ReliableMessages]
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
@@ -68,43 +57,27 @@ class MessageTable(ReliableMessageDBI):
     #
 
     # Override
-    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
+    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         now = time.time()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=receiver, now=now)
-        if isinstance(value, PartialInfo):
-            if value.start == start and value.limit == limit:
-                # exactly!
-                return value.messages, value.remaining
-            # check range
-            wanted_end = start + limit
-            cached_end = value.start + value.limit
-            if 0 <= value.start <= start and wanted_end <= cached_end:
-                # within the range
-                begin = start - value.start
-                end = wanted_end - value.start
-                remaining = value.remaining + cached_end - wanted_end
-                return value.messages[begin:end], remaining
-            # TODO: what about start < 0?
-            value = None
         if value is None:
             # cache empty
             if holder is None:
-                # messages not load yet, wait to load
+                # cache not load yet, wait to load
                 self.__cache.update(key=receiver, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
-                    # messages not exists
-                    return [], 0
-                # messages expired, wait to reload
+                    # cache not exists
+                    return []
+                # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            messages, remaining = self.__redis.reliable_messages(receiver=receiver, start=start, limit=limit)
+            value = self.__redis.reliable_messages(receiver=receiver, limit=limit)
             # 3. update memory cache
-            value = PartialInfo(messages=messages, remaining=remaining, start=start, limit=limit)
             self.__cache.update(key=receiver, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
-        return value.messages, value.remaining
+        return value
 
     # Override
     def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:

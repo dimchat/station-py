@@ -24,12 +24,11 @@
 # ==============================================================================
 
 import time
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from dimples import utf8_encode, utf8_decode, json_encode, json_decode
 from dimples import ID
 from dimples import ReliableMessage
-from dimples.database.t_message import get_range
 
 from ...utils import get_msg_sig
 from .base import Cache
@@ -83,7 +82,7 @@ class MessageCache(Cache):
         self.zrem(messages_key, utf8_encode(string=sig))
         return True
 
-    def reliable_messages(self, receiver: ID, start: int = 0, limit: int = 1024) -> Tuple[List[ReliableMessage], int]:
+    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         # 0. clear expired messages (7 days ago)
         key = self.__messages_key(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
@@ -91,13 +90,15 @@ class MessageCache(Cache):
         # 1. make range
         total = self.zcard(name=key)
         assert total >= 0, 'message cache error: %s' % key
-        start, end = get_range(start=start, limit=limit, total=total)
-        if start >= end:
-            assert end == total, 'out of range: [%d, %d), total=%d' % (start, end, total)
-            return [], 0  # total - end
+        if total <= limit:
+            start = 0
+            end = total
+        else:
+            start = total - limit
+            end = total
         # 2. get all messages in the last 7 days
         array = []
-        signatures = self.zrange(name=key, start=start, end=(end - 1))
+        signatures = self.zrange(name=key, start=start, end=end)
         for sig in signatures:
             # get messages by receiver & signature
             msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
@@ -111,4 +112,4 @@ class MessageCache(Cache):
                 array.append(msg)
             except Exception as error:
                 print('[REDIS] message error: %s => %s' % (error, value))
-        return array, total - end
+        return array
