@@ -29,9 +29,9 @@
 """
 
 import time
-from typing import List, Tuple
+from typing import List
 
-from dimples import ID, Meta
+from dimples import ID
 from dimples import ReliableMessage
 from dimples import Content
 
@@ -56,24 +56,24 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
     # Override
     def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, SearchCommand), 'search command error: %s' % content
-        if content.users is not None or content.results is not None:
+        if content.users is not None:
             # this is a response
-            return save_response(self.facebook, station=msg.sender, users=content.users, results=content.results)
+            return save_response(self.facebook, station=msg.sender, users=content.users)
         # this is a request
         facebook = self.facebook
         keywords = content.keywords
         if keywords is None:
             return self._respond_receipt(text='Search command error.', msg=msg)
         elif keywords == SearchCommand.ONLINE_USERS:
-            users, results = online_users(facebook, start=content.start, limit=content.limit)
-            self.info('Got %d recent online user(s)' % len(results))
+            users = online_users(start=content.start, limit=content.limit, facebook=facebook)
+            self.info('Got %d recent online user(s)' % len(users))
         else:
             db = facebook.database
             assert isinstance(db, Database), 'database error: %s' % db
-            users, results = search_users(keywords=keywords, start=content.start, limit=content.limit,
-                                          database=db, facebook=facebook)
-            self.info('Got %d account(s) matched %s' % (len(results), keywords))
-        res = SearchCommand.respond(request=content, keywords=keywords, users=users, results=results)
+            users = search_users(keywords=keywords, start=content.start, limit=content.limit,
+                                 database=db, facebook=facebook)
+            self.info('Got %d account(s) matched %s' % (len(users), keywords))
+        res = SearchCommand.respond(request=content, keywords=keywords, users=users)
         station = facebook.current_user
         res.station = station.identifier
         return [res]
@@ -88,34 +88,36 @@ ActiveTable.CACHE_EXPIRES = 8
 g_search_cache = CacheManager().get_pool(name='search')
 
 
-def online_users(facebook: CommonFacebook, start: int, limit: int) -> (List[ID], dict):
-    if start < 0:
-        start = 0
-    if limit < 0:
-        limit = 1024
-    pos = 0
-    end = start + limit
+def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
+    assert start >= 0, 'start position error: %d' % start
+    if limit > 0:
+        end = start + limit
+    elif limit == 0:
+        end = start + 100
+    else:
+        # this is a request from another search bot in neighbor station
+        end = start + 10240
     # check all users in session center
     db = facebook.database
     assert isinstance(db, Database), 'database error: %s' % db
     active_users = db.active_users()
+    index = -1
     users = []
-    results = {}
     for item in active_users:
-        pos += 1
-        if pos < start:
+        index += 1
+        if index < start:
+            # skip
             continue
-        elif pos >= end:
+        elif index >= end:
+            # mission accomplished
             break
+        # got it
         users.append(item)
-        meta = facebook.meta(identifier=item)
-        if isinstance(meta, Meta):
-            results[str(item)] = meta.dictionary
-    return list(users), results
+    return users
 
 
 def search_users(keywords: str, start: int, limit: int,
-                 database: Database, facebook: CommonFacebook) -> Tuple[List[ID], dict]:
+                 database: Database, facebook: CommonFacebook) -> List[ID]:
     # 0. split keywords
     if keywords is None:
         kw_array = []
@@ -124,9 +126,10 @@ def search_users(keywords: str, start: int, limit: int,
     assert start >= 0, 'start position error: %d' % start
     if limit > 0:
         end = start + limit
+    elif limit == 0:
+        end = start + 50
     else:
-        # this is a request from another search bot in neighbor station,
-        # only return ID list for it.
+        # this is a request from another search bot in neighbor station
         end = start + 10240
     # 1. get from cache
     now = time.time()
@@ -139,8 +142,7 @@ def search_users(keywords: str, start: int, limit: int,
         holder.renewal(duration=8, now=now)
     # 2. do searching
     index = -1
-    users: List[ID] = []
-    results = {}
+    users = []
     all_documents = database.scan_documents()
     for doc in all_documents:
         # get user info
@@ -174,23 +176,14 @@ def search_users(keywords: str, start: int, limit: int,
             break
         # got it
         users.append(identifier)
-        if limit > 0:
-            # get meta when limit is set
-            results[str(identifier)] = meta.dictionary
     # 3. cache the search result
-    g_search_cache.update(key=(keywords, start, end), value=(users, results), life_span=600, now=now)
-    return users, results
+    g_search_cache.update(key=(keywords, start, end), value=users, life_span=600, now=now)
+    return users
 
 
 # noinspection PyUnusedLocal
-def save_response(facebook: CommonFacebook, station: ID, users: List[ID], results: dict) -> List[Content]:
+def save_response(facebook: CommonFacebook, station: ID, users: List[ID]) -> List[Content]:
     # TODO: Save online users in a text file
-    for key in results:
-        identifier = ID.parse(identifier=key)
-        meta = Meta.parse(meta=results[key])
-        if identifier is not None and meta is not None:
-            # assert Meta.match_id(meta=meta, identifier=identifier), 'meta error'
-            facebook.save_meta(meta=meta, identifier=identifier)
     # # store in redis server
     # for item in users:
     #     facebook.add_online_user(station=station, user=item)

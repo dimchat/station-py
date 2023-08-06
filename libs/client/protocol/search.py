@@ -48,11 +48,10 @@ class SearchCommand(BaseCommand):
             keywords : "keywords",      // keyword string
 
             start    : 0,
-            limit    : 20,
+            limit    : 50,
 
             station  : "STATION_ID",    // station ID
-            users    : ["ID",],         // user ID list
-            results  : {"ID": {meta}, } // user's meta map
+            users    : ["ID",]          // user ID list
         }
     """
 
@@ -61,7 +60,7 @@ class SearchCommand(BaseCommand):
     ONLINE_USERS = 'users'
 
     def __init__(self, content: Optional[Dict[str, Any]] = None,
-                 keywords: str = None, users: List[ID] = None, results: dict = None):
+                 keywords: str = None, users: List[ID] = None):
         if content is None:
             super().__init__(cmd=SearchCommand.SEARCH)
         else:
@@ -73,10 +72,6 @@ class SearchCommand(BaseCommand):
         if users is not None:
             self['users'] = ID.revert(array=users)
         self.__users = users
-        # results
-        if results is not None:
-            self['results'] = results
-        self.__results = results
 
     #
     #   Keywords
@@ -98,11 +93,7 @@ class SearchCommand(BaseCommand):
 
     @property
     def start(self) -> int:
-        value = self.get('start')
-        if value is None:
-            return 0
-        else:
-            return int(value)
+        return self.get_int(key='start', default=0)
 
     @start.setter
     def start(self, value: int):
@@ -110,11 +101,7 @@ class SearchCommand(BaseCommand):
 
     @property
     def limit(self) -> int:
-        value = self.get('limit')
-        if value is None:
-            return 20
-        else:
-            return int(value)
+        return self.get_int(key='limit', default=0)
 
     @limit.setter
     def limit(self, value: int):
@@ -153,23 +140,9 @@ class SearchCommand(BaseCommand):
             self['users'] = ID.revert(array=value)
         self.__users = value
 
-    #
-    #   User's meta map
-    #
-    @property
-    def results(self) -> dict:
-        return self.get('results')
-
-    @results.setter
-    def results(self, value: dict):
-        if value is None:
-            self.pop('results', None)
-        else:
-            self['results'] = value
-
     @classmethod
-    def respond(cls, request: Command, keywords: str, users: List[ID], results: dict):
-        cmd = SearchCommand(keywords=keywords, users=users, results=results)
+    def respond(cls, request: Command, keywords: str, users: List[ID]):
+        cmd = SearchCommand(keywords=keywords, users=users)
         # extra info
         info = request.copy_dictionary()
         info.pop('type', None)
@@ -179,7 +152,6 @@ class SearchCommand(BaseCommand):
         info.pop('command', None)
         info.pop('keywords', None)
         info.pop('users', None)
-        info.pop('results', None)
         for key in info:
             cmd[key] = info[key]
         return cmd
