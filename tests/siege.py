@@ -77,7 +77,7 @@ create_database(shared=shared)
 class Soldier(Runner, Logging):
 
     def __init__(self, client_id: ID):
-        super().__init__()
+        super().__init__(interval=1.0)
         self.__terminal = None
         self.__messenger = None
         self.__facebook = None
@@ -203,7 +203,7 @@ class Sergeant(Logging):
         print('\n    Net ID: %s\n' % identifier)
         # 4. save private key & meta
         facebook = CommonFacebook(database=shared.adb)
-        facebook.save_private_key(key=pri_key, identifier=identifier)
+        facebook.save_private_key(key=pri_key, user=identifier)
         facebook.save_meta(meta=meta, identifier=identifier)
         # 5. create visa
         visa = Document.create(doc_type=Document.VISA, identifier=identifier)
@@ -219,7 +219,7 @@ class Colonel(Runner, Logging):
     TROOPS = 16  # progresses count
 
     def __init__(self):
-        super().__init__()
+        super().__init__(interval=1.0)
         self.__soldiers: List[ID] = []
         self.__offset = 0
 

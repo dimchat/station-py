@@ -65,7 +65,7 @@ class Monitor(Runner, Logging):
     INTERVAL = 60  # seconds
 
     def __init__(self):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__events = []
         self.__lock = threading.Lock()
         self.__next_time = 0

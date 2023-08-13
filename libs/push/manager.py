@@ -61,7 +61,7 @@ class PushNotificationClient(Runner, Logging):
             pass
 
     def __init__(self):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__apple: Optional[PushNotificationService] = None
         self.__android: Optional[PushNotificationService] = None
         # delegate to get device token

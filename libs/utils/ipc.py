@@ -46,7 +46,7 @@ class AutoArrow(Runner, ABC):
     SHM_SIZE = 1 << 16
 
     def __init__(self, name: str):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         controller = DefaultController.new(size=self.SHM_SIZE, name=name)
         self._arrow = SharedMemoryArrow(controller=controller)
 
@@ -108,7 +108,7 @@ class OutgoArrow(AutoArrow):
 class Pipe(Runner):
 
     def __init__(self, arrows: Tuple[Optional[IncomeArrow], Optional[OutgoArrow]]):
-        super().__init__()
+        super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__income_arrow = arrows[0]
         self.__outgo_arrow = arrows[1]
 
