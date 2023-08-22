@@ -36,11 +36,13 @@ from typing import Optional, Tuple, List
 
 from dimples import ID, ContentType, Envelope, ReliableMessage
 from dimples.server import PushService, BadgeKeeper
-from dimples.server import AnsCommandProcessor, FilterManager
+from dimples.server import FilterManager
 
 from ..utils import Logging
 from ..common import CommonFacebook
 from ..common import PushCommand, PushItem
+
+from .cpu import AnsCommandProcessor
 
 from .emitter import Emitter
 

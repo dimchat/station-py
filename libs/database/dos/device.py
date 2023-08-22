@@ -132,7 +132,7 @@ class DeviceStorage(Storage):
 
     def show_info(self):
         path = template_replace(self.devices_path, 'PRIVATE', self._private)
-        print('!!!   devices path: %s' % path)
+        print('!!!        devices path: %s' % path)
 
     def __devices_path(self, identifier: ID) -> str:
         path = self.devices_path

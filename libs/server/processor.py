@@ -37,12 +37,12 @@ from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
 from dimples import BaseContentProcessor
 
-from dimples.server import ReportCommandProcessor
 from dimples.server import ServerMessageProcessor
 from dimples.server import ServerContentProcessorCreator
 
 from ..common import MuteCommand, BlockCommand
 
+from .cpu import ReportCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
 
 

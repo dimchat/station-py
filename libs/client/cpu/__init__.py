@@ -30,12 +30,26 @@
     Processors for commands
 """
 
+from dimples.client.cpu import *
+
 from .storage import StorageCommandProcessor
 from .search import SearchCommandProcessor
 from .report import ReportCommandProcessor
 
 
 __all__ = [
+
+    'TextContentProcessor',
+
+    'HandshakeCommandProcessor',
+    'LoginCommandProcessor',
+
+    'HistoryCommandProcessor',
+    'GroupCommandProcessor',
+    'InviteCommandProcessor', 'ExpelCommandProcessor',
+    'JoinCommandProcessor', 'QuitCommandProcessor',
+    'ResetCommandProcessor', 'QueryCommandProcessor',
+    'ResignCommandProcessor',
 
     'StorageCommandProcessor',
     'SearchCommandProcessor',

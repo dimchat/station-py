@@ -29,8 +29,9 @@
 
 """
 
-from typing import Optional, List, Set, Tuple
+from typing import Optional, List, Set, Tuple, Dict
 
+from dimp import ResetCommand
 from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
@@ -177,44 +178,12 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def local_users(self) -> List[ID]:
-        return self.__user_table.local_users()
-
-    # Override
-    def save_local_users(self, users: List[ID]) -> bool:
-        return self.__user_table.save_local_users(users=users)
-
-    # Override
-    def add_user(self, user: ID) -> bool:
-        return self.__user_table.add_user(user=user)
-
-    # Override
-    def remove_user(self, user: ID) -> bool:
-        return self.__user_table.remove_user(user=user)
-
-    # Override
-    def current_user(self) -> Optional[ID]:
-        return self.__user_table.current_user()
-
-    # Override
-    def set_current_user(self, user: ID) -> bool:
-        return self.__user_table.set_current_user(user=user)
-
-    # Override
     def save_contacts(self, contacts: List[ID], user: ID) -> bool:
         return self.__user_table.save_contacts(contacts=contacts, user=user)
 
     # Override
     def contacts(self, user: ID) -> List[ID]:
         return self.__user_table.contacts(user=user)
-
-    # Override
-    def add_contact(self, contact: ID, user: ID) -> bool:
-        return self.__user_table.add_contact(contact=contact, user=user)
-
-    # Override
-    def remove_contact(self, contact: ID, user: ID) -> bool:
-        return self.__user_table.remove_contact(contact=contact, user=user)
 
     """
         Stored Contacts for User
@@ -314,14 +283,6 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
-        return self.__group_table.founder(group=group)
-
-    # Override
-    def owner(self, group: ID) -> Optional[ID]:
-        return self.__group_table.owner(group=group)
-
-    # Override
     def members(self, group: ID) -> List[ID]:
         return self.__group_table.members(group=group)
 
@@ -330,24 +291,30 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         return self.__group_table.save_members(members=members, group=group)
 
     # Override
-    def add_member(self, member: ID, group: ID) -> bool:
-        return self.__group_table.add_member(member=member, group=group)
-
-    # Override
-    def remove_member(self, member: ID, group: ID) -> bool:
-        return self.__group_table.remove_member(member=member, group=group)
-
-    # Override
-    def remove_group(self, group: ID) -> bool:
-        return self.__group_table.remove_group(group=group)
-
-    # Override
     def assistants(self, group: ID) -> List[ID]:
         return self.__group_table.assistants(group=group)
 
     # Override
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         return self.__group_table.save_assistants(assistants=assistants, group=group)
+
+    # Override
+    def administrators(self, group: ID) -> List[ID]:
+        return self.__group_table.administrators(group=group)
+
+    # Override
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        return self.__group_table.save_administrators(administrators=administrators, group=group)
+
+    #
+    #   Reset Group DBI
+    #
+
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        pass
+
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        pass
 
     """
         Reliable message for Receivers
@@ -383,6 +350,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     # Override
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
         return self.__msg_key_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+
+    # Override
+    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+        pass
+
+    # Override
+    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+        pass
 
     # """
     #     Address Name Service

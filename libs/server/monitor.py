@@ -31,11 +31,12 @@ from typing import Optional, Union, Tuple, List, Dict
 from dimples import ID, ReliableMessage
 from dimples import CustomizedContent
 from dimples.server import PushCenter
-from dimples.server import AnsCommandProcessor
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Runner
 from ..common import PushItem, PushCommand
+
+from .cpu import AnsCommandProcessor
 
 from .emitter import Emitter
 

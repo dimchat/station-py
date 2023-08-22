@@ -47,7 +47,7 @@ Path.add(path=path)
 
 from libs.utils import Logging
 from libs.common import ReportCommand, PushCommand
-from libs.client import ReportCommandProcessor
+from libs.client.cpu import ReportCommandProcessor
 from libs.client import ClientProcessor
 from libs.push import PushNotificationClient
 from libs.push import ApplePushNotificationService
@@ -62,19 +62,19 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
     MESSAGE_EXPIRES = 256
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
         items = content.items
         # check expired
         expired = time.time() - self.MESSAGE_EXPIRES
-        if msg.time < expired:
+        if r_msg.time < expired:
             self.warning(msg='drop expired push items: %s' % items)
             return []
         else:
             self.info(msg='push %d item(s).' % len(items))
         # add push task
         pnc = PushNotificationClient()
-        pnc.add_task(items=items, msg_time=msg.time)
+        pnc.add_task(items=items, msg_time=r_msg.time)
         return []
 
 

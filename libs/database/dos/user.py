@@ -49,9 +49,9 @@ class UserStorage(SuperStorage):
         path3 = template_replace(self.contacts_command_path, 'PRIVATE', self._private)
         path4 = template_replace(self.block_command_path, 'PRIVATE', self._private)
         path5 = template_replace(self.mute_command_path, 'PRIVATE', self._private)
-        print('!!!  contacts path: %s' % path3)
-        print('!!! block cmd path: %s' % path4)
-        print('!!!  mute cmd path: %s' % path5)
+        print('!!!       contacts path: %s' % path3)
+        print('!!!      block cmd path: %s' % path4)
+        print('!!!       mute cmd path: %s' % path5)
 
     def __contacts_command_path(self, identifier: ID) -> str:
         path = self.contacts_command_path

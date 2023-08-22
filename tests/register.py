@@ -39,8 +39,8 @@ from dimples import ID
 from dimples.utils import Path
 from dimples.utils import Log
 from dimples.database import Storage
-from dimples.register.generate import generate
-from dimples.register.modify import modify
+from dimples.register.shared import generate
+from dimples.register.shared import modify
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
@@ -114,11 +114,11 @@ def main():
     create_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
-        generate(db=shared.adb)
+        generate(database=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
         identifier = ID.parse(identifier=args[1])
         assert identifier is not None, 'ID error: %s' % args[1]
-        modify(identifier=identifier, db=shared.adb)
+        modify(identifier=identifier, database=shared.adb)
     else:
         show_help()
 

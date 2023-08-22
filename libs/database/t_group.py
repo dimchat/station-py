@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import time
-from typing import Optional, List
+from typing import List
 
 from dimples import ID
 
@@ -54,16 +54,6 @@ class GroupTable(GroupDBI):
     #
     #   Group DBI
     #
-
-    # Override
-    def founder(self, group: ID) -> Optional[ID]:
-        # TODO: get founder
-        pass
-
-    # Override
-    def owner(self, group: ID) -> Optional[ID]:
-        # TODO: get owner
-        pass
 
     # Override
     def save_members(self, members: List[ID], group: ID) -> bool:
@@ -104,30 +94,6 @@ class GroupTable(GroupDBI):
         return value
 
     # Override
-    def add_member(self, member: ID, group: ID) -> bool:
-        array = self.members(group=group)
-        if member in array:
-            # self.warning(msg='member exists: %s, group: %s' % (member, group))
-            return True
-        array.append(member)
-        return self.save_members(members=array, group=group)
-
-    # Override
-    def remove_member(self, member: ID, group: ID) -> bool:
-        array = self.members(group=group)
-        if member not in array:
-            # self.warning(msg='member not exists: %s, group: %s' % (member, group))
-            return True
-        array.remove(member)
-        return self.save_members(members=array, group=group)
-
-    # Override
-    def remove_group(self, group: ID) -> bool:
-        # TODO: remove group
-        # self.warning(msg='TODO: remove group: %s' % group)
-        return False
-
-    # Override
     def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # TODO: save assistants
         pass
@@ -135,4 +101,10 @@ class GroupTable(GroupDBI):
     # Override
     def assistants(self, group: ID) -> List[ID]:
         # TODO: get assistants
+        pass
+
+    def administrators(self, group: ID) -> List[ID]:
+        pass
+
+    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         pass

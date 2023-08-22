@@ -42,7 +42,7 @@ class AddressNameStorage(Storage):
 
     def show_info(self):
         path = template_replace(self.ans_path, 'PRIVATE', self._private)
-        print('!!!       ans path: %s' % path)
+        print('!!!            ans path: %s' % path)
 
     def __ans_path(self) -> str:
         path = self.ans_path
