@@ -56,21 +56,21 @@ class MuteCommandProcessor(BaseCommandProcessor):
         return db
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, MuteCommand), 'mute command error: %s' % content
-        sender = msg.sender
+        sender = r_msg.sender
         db = self.database
         if 'list' in content:
             # upload mute-list, save it
             if db.save_mute_command(content=content, identifier=sender):
-                return self._respond_receipt(text='Mute received.', msg=msg, extra={
+                return self._respond_receipt(text='Mute received.', msg=r_msg, extra={
                     'template': 'Mute command received: ${ID}.',
                     'replacements': {
                         'ID': str(sender),
                     }
                 })
             else:
-                return self._respond_receipt(text='Mute not changed.', msg=msg, extra={
+                return self._respond_receipt(text='Mute not changed.', msg=r_msg, extra={
                     'template': 'Mute command not changed: ${ID}.',
                     'replacements': {
                         'ID': str(sender),

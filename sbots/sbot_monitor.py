@@ -153,14 +153,14 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
         return transceiver
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, CustomizedContent), 'stat content error: %s' % content
         app = content.application
         mod = content.module
         act = content.action
-        sender = msg.sender
+        sender = r_msg.sender
         self.debug(msg='received content from %s: %s, %s, %s' % (sender, app, mod, act))
-        return super().process(content=content, msg=msg)
+        return super().process_content(content=content, r_msg=r_msg)
 
     # Override
     def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:

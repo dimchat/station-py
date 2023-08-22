@@ -59,16 +59,16 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         return db
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # compatible with v1.0
         fix_report_command(content=content)
         # report title
         title = content.title
         if title == 'apns':
-            return self.__process_apns(content=content, msg=msg)
-        else:
-            return super().process(content=content, msg=msg)
+            return self.__process_apns(content=content, msg=r_msg)
+        # other reports
+        return super().process_content(content=content, r_msg=r_msg)
 
     def __process_apns(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # submit device token for APNs

@@ -54,16 +54,16 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         return barrack
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, SearchCommand), 'search command error: %s' % content
         if content.users is not None:
             # this is a response
-            return save_response(self.facebook, station=msg.sender, users=content.users)
+            return save_response(self.facebook, station=r_msg.sender, users=content.users)
         # this is a request
         facebook = self.facebook
         keywords = content.keywords
         if keywords is None:
-            return self._respond_receipt(text='Search command error.', msg=msg)
+            return self._respond_receipt(text='Search command error.', msg=r_msg)
         elif keywords == SearchCommand.ONLINE_USERS:
             users = online_users(start=content.start, limit=content.limit, facebook=facebook)
             self.info('Got %d recent online user(s)' % len(users))

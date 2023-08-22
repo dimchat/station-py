@@ -74,7 +74,7 @@ class StationTable(ProviderDBI, StationDBI):
                 if holder.is_alive(now=now):
                     # cache not exists
                     return []
-                # neighbors expired, wait to reload
+                # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.all_providers()

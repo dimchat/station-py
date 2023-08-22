@@ -56,21 +56,21 @@ class BlockCommandProcessor(BaseCommandProcessor):
         return db
 
     # Override
-    def process(self, content: Content, msg: ReliableMessage) -> List[Content]:
+    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, BlockCommand), 'block command error: %s' % content
-        sender = msg.sender
+        sender = r_msg.sender
         db = self.database
         if 'list' in content:
             # upload block-list, save it
             if db.save_block_command(content=content, identifier=sender):
-                return self._respond_receipt(text='Block received.', msg=msg, extra={
+                return self._respond_receipt(text='Block received.', msg=r_msg, extra={
                     'template': 'Block command received: ${ID}.',
                     'replacements': {
                         'ID': str(sender),
                     }
                 })
             else:
-                return self._respond_receipt(text='Block not changed.', msg=msg, extra={
+                return self._respond_receipt(text='Block not changed.', msg=r_msg, extra={
                     'template': 'Block command not changed: ${ID}.',
                     'replacements': {
                         'ID': str(sender),
