@@ -28,9 +28,9 @@ from typing import Optional, List
 
 from dimples import ID, Document
 
-from dimples.utils import CacheManager
-from dimples.common import DocumentDBI
 from dimples.common.dbi import is_expired
+from dimples.utils import CacheManager
+from dimples import DocumentDBI
 
 from .redis import DocumentCache
 from .dos import DocumentStorage

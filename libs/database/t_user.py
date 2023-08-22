@@ -30,7 +30,7 @@ from dimples import ID, Command
 
 from dimples.utils import CacheManager
 from dimples.common.dbi import is_expired
-from dimples.database.t_user import UserTable as SuperTable
+from dimples.database import UserTable as SuperTable
 
 from ..common import BlockCommand, MuteCommand
 

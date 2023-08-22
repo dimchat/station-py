@@ -31,16 +31,15 @@
 
 from typing import Optional, List, Set, Tuple, Dict
 
-from dimp import ResetCommand
+from dimples import ResetCommand
 from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
 
 from dimples import Command, LoginCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
-from dimples.common.dbi import ProviderInfo, StationInfo
-from dimples.database.t_private import PrivateKeyTable
-from dimples.database.t_cipherkey import CipherKeyTable
+from dimples import ProviderInfo, StationInfo
+from dimples.database import PrivateKeyTable
 
 from ..common import BlockCommand, MuteCommand
 
@@ -54,6 +53,8 @@ from .t_user import UserTable
 from .t_login import LoginTable
 from .t_active import ActiveTable
 from .t_group import GroupTable
+from .t_grp_keys import GroupKeysTable
+from .t_cipherkey import CipherKeyTable
 from .t_message import MessageTable
 from .t_station import StationTable
 
@@ -69,8 +70,9 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table = DeviceTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
         self.__group_table = GroupTable(root=root, public=public, private=private)
-        self.__msg_key_table = CipherKeyTable(root=root, public=public, private=private)
         # Message
+        self.__grp_keys_table = GroupKeysTable(root=root, public=public, private=private)
+        self.__cipherkey_table = CipherKeyTable(root=root, public=public, private=private)
         self.__message_table = MessageTable(root=root, public=public, private=private)
         # # ANS
         # self.__ans_table = AddressNameTable(root=root, public=public, private=private)
@@ -88,7 +90,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table.show_info()
         self.__user_table.show_info()
         self.__group_table.show_info()
-        self.__msg_key_table.show_info()
+        self.__cipherkey_table.show_info()
         # Message
         self.__message_table.show_info()
         # # ANS
@@ -345,19 +347,19 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # Override
     def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
-        return self.__msg_key_table.cipher_key(sender=sender, receiver=receiver, generate=generate)
+        return self.__cipherkey_table.cipher_key(sender=sender, receiver=receiver, generate=generate)
 
     # Override
     def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        return self.__msg_key_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+        return self.__cipherkey_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     # Override
     def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        pass
+        return self.__grp_keys_table.group_keys(group=group, sender=sender)
 
     # Override
     def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        pass
+        return self.__grp_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
 
     # """
     #     Address Name Service

@@ -2,7 +2,7 @@
 # ==============================================================================
 # MIT License
 #
-# Copyright (c) 2021 Albert Moky
+# Copyright (c) 2023 Albert Moky
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,15 +23,15 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, Dict
 
 from dimples import json_encode, json_decode, utf8_encode, utf8_decode
-from dimples import ID, SymmetricKey
+from dimples import ID
 
 from .base import Cache
 
 
-class MessageKeyCache(Cache):
+class GroupKeysCache(Cache):
 
     @property  # Override
     def db_name(self) -> Optional[str]:
@@ -39,27 +39,26 @@ class MessageKeyCache(Cache):
 
     @property  # Override
     def tbl_name(self) -> str:
-        return 'key'
+        return 'keys'
 
     """
-        Message Keys
-        ~~~~~~~~~~~~
+        Group Keys
+        ~~~~~~~~~~
 
-        redis key: 'dkd.key.{sender}'
+        redis key: 'dkd.keys.{group}'
     """
-    def __name(self, sender: ID) -> str:
-        return '%s.%s.%s' % (self.db_name, self.tbl_name, sender)
+    def __name(self, group: ID) -> str:
+        return '%s.%s.%s' % (self.db_name, self.tbl_name, group)
 
-    def cipher_key(self, sender: ID, receiver: ID) -> Optional[SymmetricKey]:
-        name = self.__name(sender=sender)
-        data = self.hget(name=name, key=str(receiver))
+    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+        name = self.__name(group=group)
+        data = self.hget(name=name, key=str(sender))
         if data is not None:
             js = utf8_decode(data=data)
-            key = json_decode(string=js)
-            return SymmetricKey.parse(key=key)
+            return json_decode(string=js)
 
-    def save_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        name = self.__name(sender=sender)
-        js = json_encode(obj=key.dictionary)
+    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+        name = self.__name(group=group)
+        js = json_encode(obj=keys)
         data = utf8_encode(string=js)
-        return self.hset(name=name, key=str(receiver), value=data)
+        return self.hset(name=name, key=str(sender), value=data)

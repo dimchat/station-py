@@ -29,7 +29,7 @@ from typing import List
 from dimples import ID
 
 from dimples.utils import CacheManager
-from dimples.common import GroupDBI
+from dimples import GroupDBI
 
 from .redis import GroupCache
 from .dos import GroupStorage

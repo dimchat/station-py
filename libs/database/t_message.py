@@ -26,11 +26,10 @@
 import time
 from typing import List
 
+from dimples.utils import CacheManager
 from dimples import ID
 from dimples import ReliableMessage
-
-from dimples.utils import CacheManager
-from dimples.common import ReliableMessageDBI
+from dimples import ReliableMessageDBI
 
 from .redis import MessageCache
 

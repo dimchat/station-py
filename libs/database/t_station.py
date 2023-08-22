@@ -29,8 +29,8 @@ from typing import Optional, List
 from dimples import ID
 
 from dimples.utils import CacheManager
-from dimples.common import ProviderDBI, StationDBI
-from dimples.common import ProviderInfo, StationInfo
+from dimples import ProviderDBI, StationDBI
+from dimples import ProviderInfo, StationInfo
 
 from .redis import StationCache
 from .dos import StationStorage

@@ -29,7 +29,7 @@ from typing import Optional
 from dimples import ID, Meta
 
 from dimples.utils import CacheManager
-from dimples.common import MetaDBI
+from dimples import MetaDBI
 
 from .redis import MetaCache
 from .dos import MetaStorage
