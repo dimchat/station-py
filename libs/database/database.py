@@ -31,12 +31,10 @@
 
 from typing import Optional, List, Set, Tuple, Dict
 
-from dimples import ResetCommand
 from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
-
-from dimples import Command, LoginCommand
+from dimples import Command, LoginCommand, ResetCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples import ProviderInfo, StationInfo
 from dimples.database import PrivateKeyTable
@@ -53,6 +51,7 @@ from .t_user import UserTable
 from .t_login import LoginTable
 from .t_active import ActiveTable
 from .t_group import GroupTable
+from .t_grp_reset import ResetGroupTable
 from .t_grp_keys import GroupKeysTable
 from .t_cipherkey import CipherKeyTable
 from .t_message import MessageTable
@@ -70,6 +69,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table = DeviceTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
         self.__group_table = GroupTable(root=root, public=public, private=private)
+        self.__grp_reset_table = ResetGroupTable(root=root, public=public, private=private)
         # Message
         self.__grp_keys_table = GroupKeysTable(root=root, public=public, private=private)
         self.__cipherkey_table = CipherKeyTable(root=root, public=public, private=private)
@@ -90,8 +90,10 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table.show_info()
         self.__user_table.show_info()
         self.__group_table.show_info()
-        self.__cipherkey_table.show_info()
+        self.__grp_reset_table.show_info()
         # Message
+        self.__grp_keys_table.show_info()
+        self.__cipherkey_table.show_info()
         self.__message_table.show_info()
         # # ANS
         # self.__ans_table.show_info()
@@ -313,10 +315,10 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     #
 
     def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        pass
+        return self.__grp_reset_table.reset_command_message(group=group)
 
     def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        pass
+        return self.__grp_reset_table.save_reset_command_message(group=group, content=content, msg=msg)
 
     """
         Reliable message for Receivers

@@ -56,7 +56,9 @@ __all__ = [
     #
     'Storage',
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
-    'UserStorage', 'GroupStorage',
+    'UserStorage',
+    'GroupStorage', 'ResetGroupStorage',
+    'GroupKeysStorage',
     'LoginStorage',
     'StationStorage',
 
@@ -72,8 +74,9 @@ __all__ = [
     'DocumentCache', 'DeviceCache',
     'UserCache', 'LoginCache',
     'GroupCache',
+    'GroupKeysCache',
+    'CipherKeyCache',
     'MessageCache',
-    'CipherKeyCache', 'GroupKeysCache',
     'StationCache',
 
     #
