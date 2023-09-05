@@ -47,41 +47,57 @@ class ResetGroupCache(Cache):
         return 'group'
 
     """
-        Reset info for Groups
-        ~~~~~~~~~~~~~~~~~~~~~
+        Reset Group Command
+        ~~~~~~~~~~~~~~~~~~~
 
-        redis key: 'mkm.group.{ID}.reset'
+        redis key: 'mkm.group.{GID}.reset'
     """
-    def __reset_key(self, identifier: ID) -> str:
-        return '%s.%s.%s.reset' % (self.db_name, self.tbl_name, identifier)
-
-    def save_reset(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        """ Save reset command & message into Redis Server """
-        dictionary = {'cmd': content.dictionary, 'msg': msg.dictionary}
-        js = json_encode(obj=dictionary)
-        value = utf8_encode(string=js)
-        key = self.__reset_key(identifier=group)
-        self.set(name=key, value=value, expires=self.EXPIRES)
-        return True
+    def __cache_name(self, group: ID) -> str:
+        return '%s.%s.%s.reset' % (self.db_name, self.tbl_name, group)
 
     def load_reset(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        key = self.__reset_key(identifier=group)
-        value = self.get(name=key)
+        """
+        Get 'reset' group command message
+
+        :param group: group ID
+        :return: (*, None) when cache not found
+        """
+        name = self.__cache_name(group=group)
+        value = self.get(name=name)
         if value is None:
-            # data not exists
-            return None, None
+            # cache not found
+            return ResetGroupCommand(group=group), None
         js = utf8_decode(data=value)
-        dictionary = json_decode(string=js)
-        cmd = dictionary.get('cmd')
-        msg = dictionary.get('msg')
+        assert js is not None, 'failed to decode string: %s' % value
+        info = json_decode(string=js)
+        assert info is not None, 'command error: %s' % value
+        cmd = info.get('cmd')
+        msg = info.get('msg')
         if cmd is not None:
-            cmd = ResetGroupCommand(cmd)
-        return cmd, ReliableMessage.parse(msg=msg)
+            cmd = ResetGroupCommand(content=cmd)
+        if msg is not None:
+            msg = ReliableMessage.parse(msg=msg)
+        return cmd, msg
 
-    def reset_command(self, group: ID) -> Optional[ResetCommand]:
-        cmd, _ = self.load_reset(group=group)
-        return cmd
+    def save_reset(self, group: ID, content: Optional[ResetCommand], msg: Optional[ReliableMessage]) -> bool:
+        """
+        Cache 'reset' command message
 
-    def reset_message(self, group: ID) -> Optional[ReliableMessage]:
-        _, msg = self.load_reset(group=group)
-        return msg
+        :param group:   group ID
+        :param content: 'reset' command, None for placeholder
+        :param msg:     'reset' message, None for placeholder
+        :return: True
+        """
+        if content is not None:
+            content = content.dictionary
+        if msg is not None:
+            msg = msg.dictionary
+        table = {
+            'cmd': content,
+            'msg': msg,
+        }
+        js = json_encode(obj=table)
+        value = utf8_encode(string=js)
+        name = self.__cache_name(group=group)
+        self.set(name=name, value=value, expires=self.EXPIRES)
+        return True

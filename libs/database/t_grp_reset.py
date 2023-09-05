@@ -27,61 +27,58 @@ import time
 from typing import Optional, Tuple
 
 from dimples import ID, ReliableMessage
-
-from dimples.utils import CacheManager
-from dimples.common.dbi import is_expired
-from dimples import ResetGroupDBI
 from dimples import ResetCommand
 
-from .redis import ResetGroupCache
+from dimples.utils import CacheManager
+from dimples.common import ResetGroupDBI
+from dimples.common.dbi import is_expired
+
 from .dos import ResetGroupStorage
+from .redis import ResetGroupCache
 
 
 class ResetGroupTable(ResetGroupDBI):
     """ Implementations of ResetGroupDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = ResetGroupStorage(root=root, public=public, private=private)
         self.__redis = ResetGroupCache()
         man = CacheManager()
-        self.__cache = man.get_pool(name='reset_group')  # ID => (ResetCommand, ReliableMessage)
+        self.__reset_cache = man.get_pool(name='group.reset')  # ID => (ResetCommand, ReliableMessage)
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _is_expired(self, group: ID, content: ResetCommand) -> bool:
+        """ check old record with document time """
+        new_time = content.time
+        if new_time is None or new_time <= 0:
+            return False
+        # check old record
+        old, _ = self.reset_command_message(group=group)
+        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+            # command expired
+            return False
 
     #
     #   Reset Group DBI
     #
 
     # Override
-    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        assert group == content.group, 'cmd group not match: %s => %s' % (group, content.group)
-        # 0. check old record with time
-        old, _ = self.reset_command_message(group=group)
-        if old is not None and is_expired(old_time=old.time, new_time=content.time):
-            # command expired, drop it
-            return False
-        # 1. store into memory cache
-        self.__cache.update(key=group, value=(content, msg), life_span=self.CACHE_EXPIRES)
-        # 2. store into redis server
-        self.__redis.save_reset(group=group, content=content, msg=msg)
-        # 3. save into local storage
-        return self.__dos.save_reset_command_message(group=group, content=content, msg=msg)
-
-    # Override
     def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        """ get reset command message for group """
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=group, now=now)
+        value, holder = self.__reset_cache.fetch(key=group, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
+                self.__reset_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
@@ -90,23 +87,24 @@ class ResetGroupTable(ResetGroupDBI):
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             cmd, msg = self.__redis.load_reset(group=group)
-            value = (cmd, msg)
-            if cmd is None:
+            if msg is None and cmd is not None:
                 # 3. check local storage
                 cmd, msg = self.__dos.reset_command_message(group=group)
-                value = (cmd, msg)
-                if cmd is not None:
-                    # update redis server
-                    self.__redis.save_reset(group=group, content=cmd, msg=msg)
-            # update memory cache
-            self.__cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
+                # update redis server
+                self.__redis.save_reset(group=group, content=cmd, msg=msg)
+            value = (cmd, msg)
+            # 3. update memory cache
+            self.__reset_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
-    def reset_command(self, group: ID) -> Optional[ResetCommand]:
-        cmd, _ = self.reset_command_message(group=group)
-        return cmd
-
-    def reset_message(self, group: ID) -> Optional[ReliableMessage]:
-        _, msg = self.reset_command_message(group=group)
-        return msg
+    # Override
+    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
+        # 0. check command time
+        if self._is_expired(group=group, content=content):
+            # command expired, drop it
+            return False
+        # 1. store into memory cache
+        self.__reset_cache.update(key=group, value=(content, msg), life_span=self.CACHE_EXPIRES)
+        # 3. store into local storage
+        return self.__dos.save_reset_command_message(group=group, content=content, msg=msg)

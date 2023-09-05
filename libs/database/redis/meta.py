@@ -47,27 +47,27 @@ class MetaCache(Cache):
 
     """
         Meta key for Entities (User/Group)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         redis key: 'mkm.meta.{ID}'
     """
-    def __key(self, identifier: ID) -> str:
+    def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
+
+    def meta(self, identifier: ID) -> Optional[Meta]:
+        key = self.__cache_name(identifier=identifier)
+        value = self.get(name=key)
+        if value is not None:
+            js = utf8_decode(data=value)
+            assert js is not None, 'failed to decode string: %s' % value
+            info = json_decode(string=js)
+            assert info is not None, 'meta error: %s' % value
+            return Meta.parse(meta=info)
 
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
         dictionary = meta.dictionary
         js = json_encode(obj=dictionary)
         value = utf8_encode(string=js)
-        key = self.__key(identifier=identifier)
+        key = self.__cache_name(identifier=identifier)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
-
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        key = self.__key(identifier=identifier)
-        value = self.get(name=key)
-        if value is None:
-            return None
-        js = utf8_decode(data=value)
-        dictionary = json_decode(string=js)
-        assert dictionary is not None, 'meta error: %s' % value
-        return Meta.parse(meta=dictionary)

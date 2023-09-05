@@ -35,9 +35,9 @@ from .base import Cache
 
 class StationCache(Cache):
 
-    # provider info cached in Redis will be removed after 10 hours, after that
+    # provider info cached in Redis will be removed after 30 minutes, after that
     # it should be reloaded from local storage
-    EXPIRES = 36000  # seconds
+    EXPIRES = 1800  # seconds
 
     @property  # Override
     def db_name(self) -> Optional[str]:
@@ -53,13 +53,13 @@ class StationCache(Cache):
 
         redis key: 'dim.isp.providers'
     """
-    def __providers_key(self) -> str:
+    def __providers_cache_name(self) -> str:
         return '%s.%s.providers' % (self.db_name, self.tbl_name)
 
     # Override
     def all_providers(self) -> List[ProviderInfo]:
         """ get list of (SP_ID, chosen) """
-        sp_key = self.__providers_key()
+        sp_key = self.__providers_cache_name()
         value = self.get(name=sp_key)
         if value is None:
             return []
@@ -68,7 +68,7 @@ class StationCache(Cache):
         return ProviderInfo.convert(array=array)
 
     def save_providers(self, providers: List[ProviderInfo]) -> bool:
-        sp_key = self.__providers_key()
+        sp_key = self.__providers_cache_name()
         array = ProviderInfo.revert(array=providers)
         js = json_encode(obj=array)
         value = utf8_encode(string=js)
@@ -121,13 +121,13 @@ class StationCache(Cache):
 
         redis key: 'dim.isp.{ID}.stations'
     """
-    def __stations_key(self, provider: ID) -> str:
+    def __stations_cache_name(self, provider: ID) -> str:
         return '%s.%s.%s.stations' % (self.db_name, self.tbl_name, provider)
 
     # Override
     def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get list of (host, port, SP_ID, chosen) """
-        srv_key = self.__stations_key(provider=provider)
+        srv_key = self.__stations_cache_name(provider=provider)
         value = self.get(name=srv_key)
         if value is None:
             return []
@@ -136,7 +136,7 @@ class StationCache(Cache):
         return StationInfo.convert(array=array)
 
     def save_stations(self, stations: List[StationInfo], provider: ID) -> bool:
-        srv_key = self.__stations_key(provider=provider)
+        srv_key = self.__stations_cache_name(provider=provider)
         array = StationInfo.revert(array=stations)
         js = json_encode(obj=array)
         value = utf8_encode(string=js)

@@ -37,8 +37,8 @@ from .redis import MessageCache
 class MessageTable(ReliableMessageDBI):
     """ Implementations of ReliableMessageDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 360     # seconds
+    CACHE_REFRESHING = 128  # seconds
 
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):

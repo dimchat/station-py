@@ -38,7 +38,6 @@ from .login import LoginCache
 from .group import GroupCache
 from .grp_reset import ResetGroupCache
 from .grp_keys import GroupKeysCache
-from .cipherkey import CipherKeyCache
 from .message import MessageCache
 from .station import StationCache
 
@@ -51,7 +50,6 @@ __all__ = [
     'UserCache', 'LoginCache',
     'GroupCache', 'ResetGroupCache',
     'GroupKeysCache',
-    'CipherKeyCache',
     'MessageCache',
     'StationCache',
 ]

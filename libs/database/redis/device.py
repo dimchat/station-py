@@ -36,9 +36,9 @@ from .base import Cache
 
 class DeviceCache(Cache):
 
-    # device info cached in Redis will be removed after 10 hours, after that
+    # device info cached in Redis will be removed after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.
-    EXPIRES = 36000  # seconds
+    EXPIRES = 1800  # seconds
 
     @property  # Override
     def db_name(self) -> Optional[str]:
@@ -54,24 +54,24 @@ class DeviceCache(Cache):
 
         redis key: 'dim.user.{ID}.devices'
     """
-    def __devices_key(self, identifier: ID) -> str:
+    def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.devices' % (self.db_name, self.tbl_name, identifier)
 
     def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
-        name = self.__devices_key(identifier=identifier)
+        name = self.__cache_name(identifier=identifier)
         value = self.get(name=name)
-        if value is None:
-            return None
-        js = utf8_decode(data=value)
-        array = json_decode(string=js)
-        if isinstance(array, List):
+        if value is not None:
+            js = utf8_decode(data=value)
+            assert js is not None, 'failed to decode string: %s' % value
+            array = json_decode(string=js)
+            assert isinstance(array, List), 'devices error: %s' % value
             return DeviceInfo.convert(array=array)
 
     def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
         array = DeviceInfo.revert(array=devices)
         js = json_encode(obj=array)
         value = utf8_encode(string=js)
-        name = self.__devices_key(identifier=identifier)
+        name = self.__cache_name(identifier=identifier)
         self.set(name=name, value=value, expires=self.EXPIRES)
         return True
 

@@ -40,18 +40,29 @@ from .dos import LoginStorage
 class LoginTable(LoginDBI):
     """ Implementations of LoginDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = LoginStorage(root=root, public=public, private=private)
         self.__redis = LoginCache()
         man = CacheManager()
-        self.__cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
+        self.__login_cache = man.get_pool(name='login')  # ID => (LoginCommand, ReliableMessage)
 
     def show_info(self):
         self.__dos.show_info()
+
+    def _is_expired(self, user: ID, content: LoginCommand) -> bool:
+        """ check old record with command time """
+        new_time = content.time
+        if new_time is None or new_time <= 0:
+            return False
+        # check old record
+        old, _ = self.login_command_message(user=user)
+        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+            # command expired
+            return False
 
     #
     #   Login DBI
@@ -61,13 +72,13 @@ class LoginTable(LoginDBI):
     def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         assert user == msg.sender, 'msg sender not match: %s => %s' % (user, msg.sender)
         assert user == content.identifier, 'cmd ID not match: %s => %s' % (user, content.identifier)
-        # 0. check old record with time
-        old, _ = self.login_command_message(user=user)
-        if old is not None and is_expired(old_time=old.time, new_time=content.time):
+        # 0. check command time
+        if self._is_expired(user=user, content=content):
             # command expired, drop it
             return False
+        value = (content, msg)
         # 1. store into memory cache
-        self.__cache.update(key=user, value=(content, msg), life_span=self.CACHE_EXPIRES)
+        self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_login(user=user, content=content, msg=msg)
         # 3. save into local storage
@@ -77,37 +88,28 @@ class LoginTable(LoginDBI):
     def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=user, now=now)
+        value, holder = self.__login_cache.fetch(key=user, now=now)
         if value is None:
             # cache empty
             if holder is None:
-                # login command message not load yet, wait to load
-                self.__cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
+                # cache not load yet, wait to load
+                self.__login_cache.update(key=user, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
-                    # login command message not exists
+                    # cache not exists
                     return None, None
-                # login command message expired, wait to reload
+                # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             cmd, msg = self.__redis.load_login(user=user)
-            value = (cmd, msg)
-            if cmd is None:
+            if msg is None and cmd is not None:
+                # cmd is a placeholder here
                 # 3. check local storage
                 cmd, msg = self.__dos.login_command_message(user=user)
-                value = (cmd, msg)
-                if cmd is not None:
-                    # update redis server
-                    self.__redis.save_login(user=user, content=cmd, msg=msg)
+                # update redis server
+                self.__redis.save_login(user=user, content=cmd, msg=msg)
+            value = (cmd, msg)
             # update memory cache
-            self.__cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
-
-    def login_command(self, user: ID) -> Optional[LoginCommand]:
-        cmd, _ = self.login_command_message(user=user)
-        return cmd
-
-    def login_message(self, user: ID) -> Optional[ReliableMessage]:
-        _, msg = self.login_command_message(user=user)
-        return msg

@@ -39,8 +39,8 @@ from .dos import StationStorage
 class StationTable(ProviderDBI, StationDBI):
     """ Implementations of ProviderDBI, StationDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     # noinspection PyUnusedLocal
     def __init__(self, root: str = None, public: str = None, private: str = None):
@@ -51,7 +51,6 @@ class StationTable(ProviderDBI, StationDBI):
         self.__isp_cache = man.get_pool(name='isp')            # 'providers' => List[ProviderInfo]
         self.__stations_cache = man.get_pool(name='stations')  # SP_ID => List[StationInfo
 
-    # noinspection PyMethodMayBeStatic
     def show_info(self):
         self.__dos.show_info()
 

@@ -47,22 +47,22 @@ class AddressNameCache(Cache):
 
         redis key: 'dim.ans'
     """
-    def __key(self) -> str:
+    def __cache_name(self) -> str:
         return '%s.%s' % (self.db_name, self.tbl_name)
 
     def save_record(self, name: str, identifier: ID):
         value = utf8_encode(string=str(identifier))
-        self.hset(name=self.__key(), key=name, value=value)
+        self.hset(name=self.__cache_name(), key=name, value=value)
         return True
 
     def record(self, name: str) -> Optional[ID]:
-        value = self.hget(name=self.__key(), key=name)
+        value = self.hget(name=self.__cache_name(), key=name)
         if value is not None:
             identifier = utf8_decode(data=value)
             return ID.parse(identifier=identifier)
 
     def names(self, identifier: ID) -> Set[str]:
-        records = self.hgetall(name=self.__key())
+        records = self.hgetall(name=self.__cache_name())
         if records is None:
             return set()
         else:

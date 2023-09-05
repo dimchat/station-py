@@ -54,37 +54,38 @@ class MessageCache(Cache):
         redis key: 'dkd.msg.{ID}.{sig}'
         redis key: 'dkd.msg.{ID}.messages'
     """
-    def __msg_key(self, identifier: ID, sig: str) -> str:
+    def __msg_cache_name(self, identifier: ID, sig: str) -> str:
         return '%s.%s.%s.%s' % (self.db_name, self.tbl_name, identifier, sig)
 
-    def __messages_key(self, identifier: ID) -> str:
+    def __messages_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.messages' % (self.db_name, self.tbl_name, identifier)
 
     def save_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
         # 1. save message: 'dkd.msg.{RECEIVER}.{SIG}
-        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        msg_key = self.__msg_cache_name(identifier=receiver, sig=sig)
         js = json_encode(obj=msg.dictionary)
         value = utf8_encode(string=js)
         self.set(name=msg_key, value=value, expires=self.EXPIRES)
         # 2. append sig to an ordered set
-        messages_key = self.__messages_key(identifier=receiver)
+        messages_key = self.__messages_cache_name(identifier=receiver)
         self.zadd(name=messages_key, mapping={sig: msg.time})
         return True
 
     def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         sig = get_msg_sig(msg=msg)  # last 6 bytes (signature in base64)
         # 1. delete message: 'dkd.msg.{RECEIVER}.{SIG}
-        msg_key = self.__msg_key(identifier=receiver, sig=sig)
+        msg_key = self.__msg_cache_name(identifier=receiver, sig=sig)
         self.delete(msg_key)
         # 2. delete sig from the ordered set
-        messages_key = self.__messages_key(identifier=receiver)
+        messages_key = self.__messages_cache_name(identifier=receiver)
         self.zrem(messages_key, utf8_encode(string=sig))
         return True
 
     def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
+        assert limit > 0, 'message limit error: %d' % limit
         # 0. clear expired messages (7 days ago)
-        key = self.__messages_key(identifier=receiver)
+        key = self.__messages_cache_name(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
         self.zremrangebyscore(name=key, min_score=0, max_score=expired)
         # 1. make range
@@ -101,7 +102,7 @@ class MessageCache(Cache):
         signatures = self.zrange(name=key, start=start, end=end)
         for sig in signatures:
             # get messages by receiver & signature
-            msg_key = self.__msg_key(identifier=receiver, sig=utf8_decode(data=sig))
+            msg_key = self.__msg_cache_name(identifier=receiver, sig=utf8_decode(data=sig))
             value = self.get(name=msg_key)
             if value is None:
                 continue

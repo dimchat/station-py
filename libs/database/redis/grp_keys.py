@@ -33,32 +33,40 @@ from .base import Cache
 
 class GroupKeysCache(Cache):
 
+    # group keys cached in Redis will be removed after 30 minutes, after that
+    # it will be reloaded from local storage if it's still need.
+    EXPIRES = 1800  # seconds
+
     @property  # Override
     def db_name(self) -> Optional[str]:
         return 'dkd'
 
     @property  # Override
     def tbl_name(self) -> str:
-        return 'keys'
+        return 'group'
 
     """
-        Group Keys
-        ~~~~~~~~~~
+        Encrypted keys
+        ~~~~~~~~~~~~~~
 
-        redis key: 'dkd.keys.{group}'
+        redis key: 'dkd.group.{GID}.{UID}.encrypted-keys'
     """
-    def __name(self, group: ID) -> str:
-        return '%s.%s.%s' % (self.db_name, self.tbl_name, group)
+    def __cache_name(self, group: ID, sender: ID) -> str:
+        return '%s.%s.%s.%s.encrypted-keys' % (self.db_name, self.tbl_name, group, sender)
 
     def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        name = self.__name(group=group)
-        data = self.hget(name=name, key=str(sender))
-        if data is not None:
-            js = utf8_decode(data=data)
-            return json_decode(string=js)
+        name = self.__cache_name(group=group, sender=sender)
+        value = self.get(name=name)
+        if value is not None:
+            js = utf8_decode(data=value)
+            assert js is not None, 'failed to decode string: %s' % value
+            info = json_decode(string=js)
+            assert info is not None, 'document error: %s' % value
+            return info
 
     def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        name = self.__name(group=group)
         js = json_encode(obj=keys)
-        data = utf8_encode(string=js)
-        return self.hset(name=name, key=str(sender), value=data)
+        value = utf8_encode(string=js)
+        name = self.__cache_name(group=group, sender=sender)
+        self.set(name=name, value=value, expires=self.EXPIRES)
+        return True

@@ -38,6 +38,7 @@ from dimples import Command, LoginCommand, ResetCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples import ProviderInfo, StationInfo
 from dimples.database import PrivateKeyTable
+from dimples.database import CipherKeyTable
 
 from ..common import BlockCommand, MuteCommand
 
@@ -53,7 +54,6 @@ from .t_active import ActiveTable
 from .t_group import GroupTable
 from .t_grp_reset import ResetGroupTable
 from .t_grp_keys import GroupKeysTable
-from .t_cipherkey import CipherKeyTable
 from .t_message import MessageTable
 from .t_station import StationTable
 
@@ -135,11 +135,16 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.meta.{ID}'
     """
 
+    # noinspection PyMethodMayBeStatic
+    def _verify_meta(self, meta: Meta, identifier: ID) -> bool:
+        if Meta.match_id(meta=meta, identifier=identifier):
+            return True
+        raise ValueError('meta not match ID: %s' % identifier)
+
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if not Meta.match_id(meta=meta, identifier=identifier):
-            raise AssertionError('meta not match ID: %s' % identifier)
-        return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+        if self._verify_meta(meta=meta, identifier=identifier):
+            return self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
     # Override
     def meta(self, identifier: ID) -> Optional[Meta]:
@@ -154,17 +159,19 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.docs.keys'
     """
 
+    def _verify_document(self, document: Document) -> bool:
+        if document.valid:
+            return True
+        meta = self.meta(identifier=document.identifier)
+        assert meta is not None, 'meta not exists: %s' % document.identifier
+        if document.verify(public_key=meta.key):
+            return True
+        raise ValueError('document invalid: %s' % document.identifier)
+
     # Override
     def save_document(self, document: Document) -> bool:
-        # check meta first
-        meta = self.meta(identifier=document.identifier)
-        if meta is None:
-            raise LookupError('meta not exists: %s' % document.identifier)
-        # check document valid before saving it
-        if not (document.valid or document.verify(public_key=meta.key)):
-            raise ValueError('document error: %s' % document.identifier)
-        # document ok, try to save it
-        return self.__document_table.save_document(document=document)
+        if self._verify_document(document=document):
+            return self.__document_table.save_document(document=document)
 
     # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
@@ -197,11 +204,9 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
 
-    # Override
     def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         return self.__user_table.save_contacts_command(content=content, identifier=identifier)
 
-    # Override
     def contacts_command(self, identifier: ID) -> Optional[Command]:
         return self.__user_table.contacts_command(identifier=identifier)
 
@@ -394,12 +399,6 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     # Override
     def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         return self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
-
-    def login_command(self, user: ID) -> Optional[LoginCommand]:
-        return self.__login_table.login_command(user=user)
-
-    def login_message(self, user: ID) -> Optional[ReliableMessage]:
-        return self.__login_table.login_message(user=user)
 
     #
     #   Active DBI

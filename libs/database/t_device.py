@@ -37,8 +37,8 @@ from .dos.device import insert_device
 
 class DeviceTable:
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()

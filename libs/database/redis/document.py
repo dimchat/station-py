@@ -27,8 +27,7 @@ from typing import Optional
 
 from dimples import utf8_encode, utf8_decode, json_encode, json_decode
 from dimples import ID, Document
-
-from ..dos.document import parse_document
+from dimples.database.dos.document import parse_document
 
 from .base import Cache
 
@@ -53,50 +52,24 @@ class DocumentCache(Cache):
 
         redis key: 'mkm.document.{ID}'
     """
-    def __key(self, identifier: ID) -> str:
+    def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
-    def __prefix(self) -> str:
-        return '%s.%s.' % (self.db_name, self.tbl_name)
+    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+        name = self.__cache_name(identifier=identifier)
+        value = self.get(name=name)
+        if value is not None:
+            js = utf8_decode(data=value)
+            assert js is not None, 'failed to decode string: %s' % value
+            info = json_decode(string=js)
+            assert info is not None, 'document error: %s' % value
+            return parse_document(dictionary=info, identifier=identifier, doc_type=doc_type)
 
     def save_document(self, document: Document) -> bool:
         identifier = document.identifier
         dictionary = document.dictionary
         js = json_encode(obj=dictionary)
         value = utf8_encode(string=js)
-        name = self.__key(identifier=identifier)
+        name = self.__cache_name(identifier=identifier)
         self.set(name=name, value=value, expires=self.EXPIRES)
         return True
-
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        name = self.__key(identifier=identifier)
-        value = self.get(name=name)
-        if value is None:
-            return None
-        js = utf8_decode(data=value)
-        dictionary = json_decode(string=js)
-        assert dictionary is not None, 'document error: %s' % value
-        return parse_document(dictionary=dictionary, identifier=identifier, doc_type=doc_type)
-
-    # def scan_documents(self) -> Set[ID]:
-    #     """ Scan documents in Redis Server for IDs """
-    #     all_ids = set()
-    #     prefix = self.__prefix()
-    #     pre_len = len(prefix)
-    #     match = '%s*' % prefix  # 'mkm.document.*'
-    #     cursor = 0
-    #     while True:
-    #         cursor, array = self.scan(cursor=cursor, match=match, count=1024)
-    #         # fetch ID from array result
-    #         for item in array:
-    #             value = utf8_decode(data=item)
-    #             value = value[pre_len:]
-    #             identifier = ID.parse(identifier=value)
-    #             if identifier is None:
-    #                 print('[REDIS] document key error: %s' % item)
-    #                 continue
-    #             all_ids.add(identifier)
-    #         if cursor == 0:
-    #             # mission accomplished
-    #             break
-    #     return all_ids

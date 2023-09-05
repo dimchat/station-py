@@ -38,15 +38,15 @@ from .dos import MetaStorage
 class MetaTable(MetaDBI):
     """ Implementations of MetaDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    # CACHE_EXPIRES = 300  # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = MetaStorage(root=root, public=public, private=private)
         self.__redis = MetaCache()
         man = CacheManager()
-        self.__cache = man.get_pool(name='meta')  # ID => Meta
+        self.__meta_cache = man.get_pool(name='meta')  # ID => Meta
 
     def show_info(self):
         self.__dos.show_info()
@@ -57,13 +57,14 @@ class MetaTable(MetaDBI):
 
     # Override
     def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        # assert Meta.match_id(meta=meta, identifier=identifier), 'meta invalid: %s, %s' % (identifier, meta)
         # 0. check old record
         old = self.meta(identifier=identifier)
         if old is not None:
             # meta exists, no need to update it
             return True
         # 1. store into memory cache
-        self.__cache.update(key=identifier, value=meta, life_span=self.CACHE_EXPIRES)
+        self.__meta_cache.update(key=identifier, value=meta, life_span=36000)
         # 2. store into redis server
         self.__redis.save_meta(meta=meta, identifier=identifier)
         # 3. store into local storage
@@ -73,17 +74,17 @@ class MetaTable(MetaDBI):
     def meta(self, identifier: ID) -> Optional[Meta]:
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=identifier, now=now)
+        value, holder = self.__meta_cache.fetch(key=identifier, now=now)
         if value is None:
             # cache empty
             if holder is None:
-                # meta not load yet, wait to load
-                self.__cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
+                # cache not load yet, wait to load
+                self.__meta_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
-                    # meta not exists
+                    # cache not exists
                     return None
-                # meta expired, wait to reload
+                # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             value = self.__redis.meta(identifier=identifier)
@@ -94,6 +95,9 @@ class MetaTable(MetaDBI):
                     # update redis server
                     self.__redis.save_meta(meta=value, identifier=identifier)
             # update memory cache
-            self.__cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            if value is None:
+                self.__meta_cache.update(key=identifier, value=value, life_span=300, now=now)
+            else:
+                self.__meta_cache.update(key=identifier, value=value, life_span=36000, now=now)
         # OK, return cached value
         return value

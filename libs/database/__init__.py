@@ -75,7 +75,6 @@ __all__ = [
     'UserCache', 'LoginCache',
     'GroupCache',
     'GroupKeysCache',
-    'CipherKeyCache',
     'MessageCache',
     'StationCache',
 

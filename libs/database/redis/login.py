@@ -52,39 +52,46 @@ class LoginCache(Cache):
 
         redis key: 'mkm.user.{ID}.login'
     """
-    def __login_key(self, identifier: ID) -> str:
+    def __login_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.login' % (self.db_name, self.tbl_name, identifier)
 
-    def save_login(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    def save_login(self, user: ID, content: Optional[LoginCommand], msg: Optional[ReliableMessage]) -> bool:
         """ Save login command & message into Redis Server """
-        dictionary = {'cmd': content.dictionary, 'msg': msg.dictionary}
-        js = json_encode(obj=dictionary)
+        if content is not None:
+            content = content.dictionary
+        if msg is not None:
+            msg = msg.dictionary
+        table = {
+            'cmd': content,
+            'msg': msg,
+        }
+        js = json_encode(obj=table)
         value = utf8_encode(string=js)
-        key = self.__login_key(identifier=user)
+        key = self.__login_cache_name(identifier=user)
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
     def load_login(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        key = self.__login_key(identifier=user)
+        """
+        Get 'login' command message
+
+        :param user: user ID
+        :return: (*, None) when cache not found
+        """
+        key = self.__login_cache_name(identifier=user)
         value = self.get(name=key)
         if value is None:
             # data not exists
-            return None, None
+            return LoginCommand(identifier=user), None
         js = utf8_decode(data=value)
-        dictionary = json_decode(string=js)
-        cmd = dictionary.get('cmd')
-        msg = dictionary.get('msg')
+        assert js is not None, 'failed to decode string: %s' % value
+        info = json_decode(string=js)
+        assert info is not None, 'command error: %s' % value
+        cmd = info.get('cmd')
+        msg = info.get('msg')
         if cmd is not None:
             cmd = LoginCommand(cmd)
         return cmd, ReliableMessage.parse(msg=msg)
-
-    def login_command(self, user: ID) -> Optional[LoginCommand]:
-        cmd, _ = self.load_login(user=user)
-        return cmd
-
-    def login_message(self, user: ID) -> Optional[ReliableMessage]:
-        _, msg = self.load_login(user=user)
-        return msg
 
     """
         Session Online
@@ -92,30 +99,30 @@ class LoginCache(Cache):
 
         redis key: 'mkm.user.active_sockets'
     """
-    def __active_sockets_key(self) -> str:
+    def __active_sockets_cache_name(self) -> str:
         return '%s.%s.active_sockets' % (self.db_name, self.tbl_name)
 
     def clear_socket_addresses(self):
         """ clear before station start """
-        name = self.__active_sockets_key()
+        name = self.__active_sockets_cache_name()
         return self.delete(name)
 
     def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
-        name = self.__active_sockets_key()
+        name = self.__active_sockets_cache_name()
         value = serialize_socket_addresses(addresses=addresses)
         if value is None:
             return self.hdel(name=name, key=str(identifier))
         return self.hset(name=name, key=str(identifier), value=value)
 
     def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
-        name = self.__active_sockets_key()
+        name = self.__active_sockets_cache_name()
         value = self.hget(name=name, key=str(identifier))
         if is_empty(value=value):
             return set()
         return deserialize_socket_addresses(value=value)
 
     def all_users(self) -> Set[ID]:
-        name = self.__active_sockets_key()
+        name = self.__active_sockets_cache_name()
         all_keys = self.hkeys(name=name)
         users = set()
         for key in all_keys:
@@ -127,7 +134,7 @@ class LoginCache(Cache):
         return users
 
     def active_users(self) -> Set[ID]:
-        name = self.__active_sockets_key()
+        name = self.__active_sockets_cache_name()
         records = self.hgetall(name=name)  # ID => Set[socket_address]
         if records is None:
             return set()

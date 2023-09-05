@@ -31,22 +31,24 @@ from dimples import ID
 from dimples.utils import CacheManager
 from dimples import GroupDBI
 
-from .redis import GroupCache
 from .dos import GroupStorage
+from .redis import GroupCache
 
 
 class GroupTable(GroupDBI):
     """ Implementations of GroupDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = GroupStorage(root=root, public=public, private=private)
         self.__redis = GroupCache()
         man = CacheManager()
-        self.__cache = man.get_pool(name='members')  # ID => List[ID]
+        self.__members_cache = man.get_pool(name='group.members')                # ID => List[ID]
+        self.__assistants_cache = man.get_pool(name='group.assistants')          # ID => List[ID]
+        self.__administrators_cache = man.get_pool(name='group.administrators')  # ID => List[ID]
 
     def show_info(self):
         self.__dos.show_info()
@@ -56,57 +58,114 @@ class GroupTable(GroupDBI):
     #
 
     # Override
+    def members(self, group: ID) -> List[ID]:
+        now = time.time()
+        # 1. check memory cache
+        value, holder = self.__members_cache.fetch(key=group, now=now)
+        if value is None:
+            # cache empty
+            if holder is None:
+                # cache not load yet, wait to load
+                self.__members_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
+            else:
+                if holder.is_alive(now=now):
+                    # cache not exists
+                    return []
+                # cache expired, wait to reload
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
+            # 2. check redis server
+            value = self.__redis.members(group=group)
+            if value is None:
+                # 3. check local storage
+                value = self.__dos.members(group=group)
+                # update redis server
+                self.__redis.save_members(members=value, group=group)
+            # update memory cache
+            self.__members_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
+        # OK, return cached value
+        return value
+
+    # Override
     def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. store into memory cache
-        self.__cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
+        self.__members_cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
         self.__redis.save_members(members=members, group=group)
         # 3. store into local storage
         return self.__dos.save_members(members=members, group=group)
 
     # Override
-    def members(self, group: ID) -> List[ID]:
+    def assistants(self, group: ID) -> List[ID]:
+        """ get assistants of group """
         now = time.time()
         # 1. check memory cache
-        value, holder = self.__cache.fetch(key=group, now=now)
+        value, holder = self.__assistants_cache.fetch(key=group, now=now)
         if value is None:
             # cache empty
             if holder is None:
-                # meta not load yet, wait to load
-                self.__cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
+                # cache not load yet, wait to load
+                self.__assistants_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
-                    # meta not exists
+                    # cache not exists
                     return []
-                # meta expired, wait to reload
+                # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.members(group=group)
-            if len(value) == 0:
+            value = self.__redis.assistants(group=group)
+            if value is None:
                 # 3. check local storage
-                value = self.__dos.members(group=group)
-                if len(value) > 0:
-                    # update redis server
-                    self.__redis.save_members(members=value, group=group)
+                value = self.__dos.assistants(group=group)
+                # update redis server
+                self.__redis.save_assistants(assistants=value, group=group)
             # update memory cache
-            self.__cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__assistants_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def assistants(self, group: ID) -> List[ID]:
-        # TODO: get assistants
-        return []
+    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+        # 1. store into memory cache
+        self.__assistants_cache.update(key=group, value=assistants, life_span=self.CACHE_EXPIRES)
+        # 2. store into redis server
+        self.__redis.save_assistants(assistants=assistants, group=group)
+        # 3. store into local storage
+        return self.__dos.save_assistants(assistants=assistants, group=group)
 
     # Override
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
-        # TODO: save assistants
-        return False
-
     def administrators(self, group: ID) -> List[ID]:
-        # TODO: get administrators
-        return []
+        """ get administrators of group """
+        now = time.time()
+        # 1. check memory cache
+        value, holder = self.__administrators_cache.fetch(key=group, now=now)
+        if value is None:
+            # cache empty
+            if holder is None:
+                # cache not load yet, wait to load
+                self.__administrators_cache.update(key=group, life_span=self.CACHE_REFRESHING, now=now)
+            else:
+                if holder.is_alive(now=now):
+                    # cache not exists
+                    return []
+                # cache expired, wait to reload
+                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
+            # 2. check redis server
+            value = self.__redis.administrators(group=group)
+            if value is None:
+                # 3. check local storage
+                value = self.__dos.administrators(group=group)
+                # update redis server
+                self.__redis.save_administrators(administrators=value, group=group)
+            # update memory cache
+            self.__administrators_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
+        # OK, return cached value
+        return value
 
+    # Override
     def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        # TODO: save administrators
-        return False
+        # 1. store into memory cache
+        self.__administrators_cache.update(key=group, value=administrators, life_span=self.CACHE_EXPIRES)
+        # 2. store into redis server
+        self.__redis.save_administrators(administrators=administrators, group=group)
+        # 3. store into local storage
+        return self.__dos.save_administrators(administrators=administrators, group=group)

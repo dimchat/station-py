@@ -29,46 +29,65 @@ from typing import Optional, Dict
 from dimples.utils import CacheManager
 from dimples import ID
 from dimples import GroupKeysDBI
-from dimples.database import GroupKeysStorage
 
+from .dos import GroupKeysStorage
 from .redis import GroupKeysCache
 
 
 class GroupKeysTable(GroupKeysDBI):
     """ Implementations of GroupKeysDBI """
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
+    CACHE_EXPIRES = 300    # seconds
+    CACHE_REFRESHING = 32  # seconds
 
     def __init__(self, root: str = None, public: str = None, private: str = None):
         super().__init__()
         self.__dos = GroupKeysStorage(root=root, public=public, private=private)
         self.__redis = GroupKeysCache()
         man = CacheManager()
-        self.__memory_cache = man.get_pool(name='group_keys')  # (ID, ID) => Dict
+        self.__keys_cache = man.get_pool(name='group.keys')   # (sender, group) => Dict[str, str]
 
     def show_info(self):
         self.__dos.show_info()
 
+    def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
+        if 'digest' not in keys:
+            # FIXME: old version?
+            return keys
+        # 0. check old record
+        table = self.group_keys(group=group, sender=sender)
+        if table is None or 'digest' not in table:
+            # new keys
+            return keys
+        elif table.get('digest') != keys.get('digest'):
+            # key changed
+            return keys
+        else:
+            # same digest, merge keys
+            table = table.copy()
+            for receiver in keys:
+                table[receiver] = keys[receiver]
+            return table
+
     #
-    #   CipherKey DBI
+    #   Group Keys DBI
     #
 
     # Override
     def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        direction = (group, sender)
         now = time.time()
+        identifier = (group, sender)
         # 1. check memory cache
-        value, holder = self.__memory_cache.fetch(key=direction, now=now)
+        value, holder = self.__keys_cache.fetch(key=group, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__memory_cache.update(key=direction, life_span=self.CACHE_REFRESHING, now=now)
+                self.__keys_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
-                    return None
+                    return {}
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
@@ -76,11 +95,12 @@ class GroupKeysTable(GroupKeysDBI):
             if value is None:
                 # 3. check local storage
                 value = self.__dos.group_keys(group=group, sender=sender)
-                if value is not None:
-                    # update redis server
-                    self.__redis.save_group_keys(group=group, sender=sender, keys=value)
+                if value is None:
+                    value = {}  # placeholder
+                # update redis server
+                self.__redis.save_group_keys(keys=value, sender=sender, group=group)
             # update memory cache
-            self.__memory_cache.update(key=direction, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__keys_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -88,20 +108,10 @@ class GroupKeysTable(GroupKeysDBI):
     def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         identifier = (group, sender)
         # 0. check old record
-        table = self.group_keys(group=group, sender=sender)
-        if table is None or 'digest' not in table or 'digest' not in keys:
-            # new keys
-            table = keys
-        elif table.get('digest') != keys.get('digest'):
-            # key changed
-            table = keys
-        else:
-            # same digest, merge keys
-            for receiver in keys:
-                table[receiver] = keys[receiver]
+        keys = self._merge_keys(group=group, sender=sender, keys=keys)
         # 1. store into memory cache
-        self.__memory_cache.update(key=identifier, value=table, life_span=self.CACHE_EXPIRES)
+        self.__keys_cache.update(key=identifier, value=keys, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_group_keys(group=group, sender=sender, keys=table)
-        # 2. store into local storage
-        return self.__dos.save_group_keys(group=group, sender=sender, keys=table)
+        self.__redis.save_group_keys(keys=keys, sender=sender, group=group)
+        # 3. store into local storage
+        return self.__dos.save_group_keys(keys=keys, sender=sender, group=group)
