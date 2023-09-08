@@ -44,7 +44,7 @@ from dimples.utils import File, TextFile, JSONFile
 from dimples.utils import Singleton
 from dimples.utils import Log, Logging
 
-from dimples.conn.session import get_sig as get_msg_sig
+from dimples.common import get_msg_sig
 
 
 @Singleton

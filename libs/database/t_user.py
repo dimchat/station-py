@@ -121,7 +121,7 @@ class UserTable(SuperTable):
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = self.block_command(identifier=user)
+        old = self.block_command(identifier=user)
         if old is not None and is_expired(old_time=old.time, new_time=new_time):
             # command expired
             return False
@@ -176,7 +176,7 @@ class UserTable(SuperTable):
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = self.mute_command(identifier=user)
+        old = self.mute_command(identifier=user)
         if old is not None and is_expired(old_time=old.time, new_time=new_time):
             # command expired
             return False

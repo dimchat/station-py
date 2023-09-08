@@ -40,6 +40,7 @@ from ipx import SharedMemoryArrow
 from .sysv import SysvSharedMemoryController as DefaultController
 
 
+# noinspection PyAbstractClass
 class AutoArrow(Runner, ABC):
 
     # Memory cache size: 64KB
