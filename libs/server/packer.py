@@ -29,17 +29,12 @@
 """
 from typing import Optional
 
-from dimples import InstantMessage, SecureMessage, ReliableMessage
-from dimples import DocumentCommand
+from dimples import ReliableMessage
 
-from dimples import ReceiptCommand
 from dimples import CommonFacebook, CommonMessenger
 from dimples.server import ServerMessagePacker as SuperPacker
 
 from ..utils.mtp import MTPUtils
-from ..common.compatible import fix_meta_attachment
-from ..common.compatible import fix_receipt_command
-from ..common.compatible import fix_document_command
 
 
 class ServerPacker(SuperPacker):
@@ -60,7 +55,6 @@ class ServerPacker(SuperPacker):
 
     # Override
     def serialize_message(self, msg: ReliableMessage) -> bytes:
-        fix_meta_attachment(msg=msg)
         if self.mtp_format == self.MTP_JSON:
             # JsON
             return super().serialize_message(msg=msg)
@@ -81,36 +75,17 @@ class ServerPacker(SuperPacker):
             if msg is not None:
                 # FIXME: just change it when first package received
                 self.mtp_format = self.MTP_DMTP
-        if msg is not None:
-            fix_meta_attachment(msg=msg)
         return msg
 
-    # Override
-    def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
-        # make sure visa.key exists before encrypting message
-        content = msg.content
-        if isinstance(content, ReceiptCommand):
-            # compatible with v1.0
-            fix_receipt_command(content=content)
-        # call super to encrypt message
-        s_msg = super().encrypt_message(msg=msg)
-        receiver = msg.receiver
-        if receiver.is_group:
-            # reuse group message keys
-            key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
-            key['reused'] = True
-        # TODO: reuse personal message key?
-        return s_msg
-
-    # Override
-    def decrypt_message(self, msg: SecureMessage) -> Optional[InstantMessage]:
-        i_msg = super().decrypt_message(msg=msg)
-        if i_msg is not None:
-            content = i_msg.content
-            if isinstance(content, ReceiptCommand):
-                # compatible with v1.0
-                fix_receipt_command(content=content)
-            elif isinstance(content, DocumentCommand):
-                # compatible with v1.0
-                fix_document_command(content=content)
-        return i_msg
+    # # Override
+    # def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+    #     # make sure visa.key exists before encrypting message
+    #     # call super to encrypt message
+    #     s_msg = super().encrypt_message(msg=msg)
+    #     receiver = msg.receiver
+    #     if receiver.is_group:
+    #         # reuse group message keys
+    #         key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
+    #         key['reused'] = True
+    #     # TODO: reuse personal message key?
+    #     return s_msg

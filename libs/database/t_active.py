@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Dict, Set, Tuple
 
+from dimples import DateTime
 from dimples import ID
 
 from dimples.utils import CacheManager
@@ -56,7 +56,7 @@ class ActiveTable:
 
     def active_users(self) -> Set[ID]:
         """ read by archivist bot """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__active_cache.fetch(key='active_users', now=now)
         if value is None:

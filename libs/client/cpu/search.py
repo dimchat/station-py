@@ -28,9 +28,9 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-import time
 from typing import List
 
+from dimples import DateTime
 from dimples import ID
 from dimples import ReliableMessage
 from dimples import Content
@@ -63,7 +63,8 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         facebook = self.facebook
         keywords = content.keywords
         if keywords is None:
-            return self._respond_receipt(text='Search command error.', msg=r_msg)
+            text = 'Search command error.'
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={})
         elif keywords == SearchCommand.ONLINE_USERS:
             users = online_users(start=content.start, limit=content.limit, facebook=facebook)
             self.info('Got %d recent online user(s)' % len(users))
@@ -132,7 +133,7 @@ def search_users(keywords: str, start: int, limit: int,
         # this is a request from another search bot in neighbor station
         end = start + 10240
     # 1. get from cache
-    now = time.time()
+    now = DateTime.now()
     value, holder = g_search_cache.fetch(key=(keywords, start, end), now=now)
     if value is not None:
         # got it

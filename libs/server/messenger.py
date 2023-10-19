@@ -30,17 +30,15 @@
     Transform and send message
 """
 
-from typing import Optional, List
+from typing import List
 
-from dimples import SymmetricKey
-from dimples import Content, TextContent, Command
-from dimples import InstantMessage, SecureMessage, ReliableMessage
+from dimples import TextContent
+from dimples import ReliableMessage
 
 from dimples.server import ServerMessenger as SuperMessenger
 from dimples.server import BlockFilter as SuperBlockFilter
 from dimples.server import MuteFilter as SuperMuteFilter
 
-from ..common.compatible import fix_command
 from ..database import Database
 
 from .monitor import Monitor
@@ -83,19 +81,6 @@ class ServerMessenger(SuperMessenger):
             res.group = group
             self.send_content(sender=None, receiver=sender, content=res, priority=1)
             return True
-
-    # Override
-    def serialize_content(self, content: Content, key: SymmetricKey, msg: InstantMessage) -> bytes:
-        if isinstance(content, Command):
-            content = fix_command(content=content)
-        return super().serialize_content(content=content, key=key, msg=msg)
-
-    # Override
-    def deserialize_content(self, data: bytes, key: SymmetricKey, msg: SecureMessage) -> Optional[Content]:
-        content = super().deserialize_content(data=data, key=key, msg=msg)
-        if isinstance(content, Command):
-            content = fix_command(content=content)
-        return content
 
 
 class BlockFilter(SuperBlockFilter):

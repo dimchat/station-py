@@ -31,15 +31,11 @@
 """
 
 from dimples import CommonMessenger
-from dimples import Config
+from dimples.utils import Config
 
 from .protocol import *
 
-from .compatible import patch
 from .facebook import CommonFacebook
-
-
-patch()
 
 
 __all__ = [

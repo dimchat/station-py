@@ -23,18 +23,20 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from dimples import json_encode, json_decode, utf8_encode, utf8_decode
 from dimples import ID, ReliableMessage
-from dimples import ResetCommand, ResetGroupCommand
+from dimples import Command, GroupCommand
+
+from ...utils import Logging
 
 from .base import Cache
 
 
-class ResetGroupCache(Cache):
+class GroupHistoryCache(Cache, Logging):
 
-    # reset command cached in Redis will be expired after 30 minutes, after that
+    # history command cached in Redis will be expired after 30 minutes, after that
     # it will be reloaded from local storage if it's still need.
     EXPIRES = 1800  # seconds
 
@@ -47,56 +49,49 @@ class ResetGroupCache(Cache):
         return 'group'
 
     """
-        Reset Group Command
-        ~~~~~~~~~~~~~~~~~~~
+        Group History Command
+        ~~~~~~~~~~~~~~~~~~~~~
 
-        redis key: 'mkm.group.{GID}.reset'
+        redis key: 'mkm.group.{GID}.history'
     """
     def __cache_name(self, group: ID) -> str:
-        return '%s.%s.%s.reset' % (self.db_name, self.tbl_name, group)
+        return '%s.%s.%s.history' % (self.db_name, self.tbl_name, group)
 
-    def load_reset(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        """
-        Get 'reset' group command message
-
-        :param group: group ID
-        :return: (*, None) when cache not found
-        """
+    def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         name = self.__cache_name(group=group)
         value = self.get(name=name)
         if value is None:
             # cache not found
-            return ResetGroupCommand(group=group), None
+            return []
         js = utf8_decode(data=value)
         assert js is not None, 'failed to decode string: %s' % value
-        info = json_decode(string=js)
-        assert info is not None, 'command error: %s' % value
-        cmd = info.get('cmd')
-        msg = info.get('msg')
-        if cmd is not None:
-            cmd = ResetGroupCommand(content=cmd)
-        if msg is not None:
+        array = json_decode(string=js)
+        assert isinstance(array, List), 'history error: %s' % value
+        histories = []
+        for item in array:
+            cmd = item.get('cmd')
+            msg = item.get('msg')
+            cmd = Command.parse(content=cmd)
             msg = ReliableMessage.parse(msg=msg)
-        return cmd, msg
+            if cmd is None or msg is None:
+                self.error(msg='group history error: %s' % item)
+                continue
+            his = (cmd, msg)
+            histories.append(his)
+        return histories
 
-    def save_reset(self, group: ID, content: Optional[ResetCommand], msg: Optional[ReliableMessage]) -> bool:
-        """
-        Cache 'reset' command message
-
-        :param group:   group ID
-        :param content: 'reset' command, None for placeholder
-        :param msg:     'reset' message, None for placeholder
-        :return: True
-        """
-        if content is not None:
-            content = content.dictionary
-        if msg is not None:
-            msg = msg.dictionary
-        table = {
-            'cmd': content,
-            'msg': msg,
-        }
-        js = json_encode(obj=table)
+    def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
+        array = []
+        for his in histories:
+            # assert len(his) == 2, 'group history error: %s' % his
+            cmd = his[0]
+            msg = his[1]
+            item = {
+                'cmd': cmd.dictionary,
+                'msg': msg.dictionary,
+            }
+            array.append(item)
+        js = json_encode(obj=array)
         value = utf8_encode(string=js)
         name = self.__cache_name(group=group)
         self.set(name=name, value=value, expires=self.EXPIRES)

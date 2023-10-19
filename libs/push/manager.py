@@ -8,11 +8,11 @@
 """
 
 import threading
-import time
 import weakref
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
+from dimples import DateTime
 from dimples import ID
 
 from ..utils import Singleton, Logging, Runner
@@ -31,10 +31,10 @@ class PushTask:
 
     EXPIRES = 300
 
-    def __init__(self, items: List[PushItem], msg_time: float):
+    def __init__(self, items: List[PushItem], msg_time: DateTime):
         super().__init__()
         self.__items = items
-        self.__time = msg_time
+        self.__time = msg_time.timestamp
 
     @property
     def items(self) -> List[PushItem]:
@@ -42,8 +42,8 @@ class PushTask:
 
     @property
     def is_expired(self) -> bool:
-        now = time.time()
-        return self.__time < (now - self.EXPIRES)
+        now = DateTime.now()
+        return self.__time < (now.timestamp - self.EXPIRES)
 
 
 @Singleton
@@ -96,7 +96,7 @@ class PushNotificationClient(Runner, Logging):
     def delegate(self, value: Delegate):
         self.__delegate = weakref.ref(value)
 
-    def add_task(self, items: List[PushItem], msg_time: float):
+    def add_task(self, items: List[PushItem], msg_time: DateTime):
         task = PushTask(items=items, msg_time=msg_time)
         with self.__lock:
             self.__tasks.append(task)

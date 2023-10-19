@@ -23,12 +23,12 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
+from dimples import DateTime
 from dimples import ID, Document
 
-from dimples.common.dbi import is_expired
+from dimples.utils import is_before
 from dimples.utils import CacheManager
 from dimples import DocumentDBI
 
@@ -62,7 +62,7 @@ class DocumentTable(DocumentDBI):
             doc_type = '*'
         # check old record
         old = self.document(identifier=document.identifier, doc_type=doc_type)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # cache expired, drop it
             return True
 
@@ -87,7 +87,7 @@ class DocumentTable(DocumentDBI):
 
     # Override
     def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__doc_cache.fetch(key=identifier, now=now)
         if value is None:
@@ -116,7 +116,7 @@ class DocumentTable(DocumentDBI):
 
     def scan_documents(self) -> List[Document]:
         """ Scan all documents from data directory """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__doc_cache.fetch(key='all_documents', now=now)
         if value is None:

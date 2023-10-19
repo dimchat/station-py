@@ -38,7 +38,6 @@ from dimples import BaseCommandProcessor
 
 from ...utils import Logging
 
-from ...common.compatible import fix_report_command
 from ...database import DeviceInfo
 from ...database import Database
 from ...common import CommonFacebook
@@ -61,8 +60,6 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
     # Override
     def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
-        # compatible with v1.0
-        fix_report_command(content=content)
         # report title
         title = content.title
         if title == 'apns':
@@ -92,7 +89,8 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         assert device is not None, 'failed to parse device info: %s' % info
         db = self.database
         db.add_device(device=device, identifier=sender)
-        return self._respond_receipt(text='Device token received.', msg=msg, extra={
+        text = 'Device token received.'
+        return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
             'template': 'Device token received: ${ID}.',
             'replacements': {
                 'ID': str(sender),

@@ -87,7 +87,7 @@ class MessageCache(Cache):
         # 0. clear expired messages (7 days ago)
         key = self.__messages_cache_name(identifier=receiver)
         expired = int(time.time()) - self.EXPIRES
-        self.zremrangebyscore(name=key, min_score=0, max_score=expired)
+        self.zremrangebyscore(name=key, min_score=1, max_score=expired)
         # 1. make range
         total = self.zcard(name=key)
         assert total >= 0, 'message cache error: %s' % key

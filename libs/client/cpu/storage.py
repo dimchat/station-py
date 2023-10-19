@@ -67,7 +67,8 @@ class StorageCommandProcessor(BaseCommandProcessor):
                 stored = db.contacts_command(identifier=sender)
                 # response
                 if stored is None:
-                    return self._respond_receipt(text='Contacts not found.', msg=r_msg, extra={
+                    text = 'Contacts not found.'
+                    return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                         'template': 'Contacts not found: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
@@ -79,21 +80,24 @@ class StorageCommandProcessor(BaseCommandProcessor):
             else:
                 # upload contacts, save it
                 if db.save_contacts_command(content=content, identifier=sender):
-                    return self._respond_receipt(text='Contacts received.', msg=r_msg, extra={
+                    text = 'Contacts received.'
+                    return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                         'template': 'Contacts received: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
                         }
                     })
                 else:
-                    return self._respond_receipt(text='Contacts not changed.', msg=r_msg, extra={
+                    text = 'Contacts not changed.'
+                    return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                         'template': 'Contacts not changed: ${ID}.',
                         'replacements': {
                             'ID': str(sender),
                         }
                     })
         else:
-            return self._respond_receipt(text='Command not support.', msg=r_msg, extra={
+            text = 'Command not support.'
+            return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                 'template': 'Storage command (title: ${title}) not support yet!',
                 'replacements': {
                     'title': title,

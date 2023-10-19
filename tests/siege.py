@@ -197,7 +197,7 @@ class Sergeant(Logging):
         # 1. generate private key
         pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
         # 2. generate meta
-        meta = Meta.generate(version=MetaType.DEFAULT, key=pri_key, seed=seed)
+        meta = Meta.generate(version=MetaType.DEFAULT, private_key=pri_key, seed=seed)
         # 3. generate ID
         identifier = ID.generate(meta=meta, network=EntityType.BOT)
         print('\n    Net ID: %s\n' % identifier)

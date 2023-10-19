@@ -75,11 +75,11 @@ class PushAlert(Dictionary):
 
     @property
     def title(self) -> Optional[str]:
-        return self.get_str(key='title')
+        return self.get_str(key='title', default=None)
 
     @property
     def subtitle(self) -> Optional[str]:
-        return self.get_str(key='subtitle')
+        return self.get_str(key='subtitle', default=None)
 
     @property
     def body(self) -> str:
@@ -87,7 +87,7 @@ class PushAlert(Dictionary):
 
     @property
     def image(self) -> Optional[str]:
-        return self.get_str(key='image')
+        return self.get_str(key='image', default=None)
 
     #
     #   Factory methods
@@ -154,7 +154,7 @@ class PushInfo(Dictionary):
             text = alert.title
             if text is not None:
                 return text
-        return self.get_str(key='title')
+        return self.get_str(key='title', default=None)
 
     @property
     def content(self) -> str:
@@ -171,7 +171,7 @@ class PushInfo(Dictionary):
 
     @property
     def sound(self) -> Optional[str]:
-        return self.get_str(key='sound')
+        return self.get_str(key='sound', default=None)
 
     @property
     def badge(self) -> int:
@@ -179,7 +179,7 @@ class PushInfo(Dictionary):
 
     @property
     def category(self) -> Optional[str]:
-        return self.get_str(key='category')
+        return self.get_str(key='category', default=None)
 
     #
     #   Factory methods

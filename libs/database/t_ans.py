@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, Set, Dict
 
+from dimples import DateTime
 from dimples import ID
 
 from dimples.utils import CacheManager
@@ -73,7 +73,7 @@ class AddressNameTable:
         return self.__dos.save_records(records=records)
 
     def save_record(self, name: str, identifier: ID) -> bool:
-        now = time.time()
+        now = DateTime.now()
         # 1. update memory cache
         if identifier is not None:
             # remove: ID => Set[str]
@@ -86,7 +86,7 @@ class AddressNameTable:
         return self._save_records(records=all_records, now=now)
 
     def record(self, name: str) -> Optional[ID]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=name, now=now)
         if value is None:
@@ -116,7 +116,7 @@ class AddressNameTable:
         return value
 
     def names(self, identifier: ID) -> Set[str]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=identifier, now=now)
         if value is None:

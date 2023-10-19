@@ -41,7 +41,7 @@ __all__ = [
     'Storage',
     'PrivateKeyStorage', 'MetaStorage', 'DocumentStorage',
     'UserStorage',
-    'GroupStorage', 'ResetGroupStorage',
+    'GroupStorage', 'GroupHistoryStorage',
     'GroupKeysStorage',
     'LoginStorage',
     'StationStorage',

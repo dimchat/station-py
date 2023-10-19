@@ -67,7 +67,7 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
         items = content.items
         # check expired
         expired = time.time() - self.MESSAGE_EXPIRES
-        if r_msg.time < expired:
+        if 0 < r_msg.time < expired:
             self.warning(msg='drop expired push items: %s' % items)
             return []
         else:

@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
+from dimples import DateTime
 from dimples import ID
 
 from dimples.utils import CacheManager
@@ -51,7 +51,7 @@ class DeviceTable:
         self.__dos.show_info()
 
     def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=identifier, now=now)
         if value is None:

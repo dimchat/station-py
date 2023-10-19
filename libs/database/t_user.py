@@ -23,13 +23,13 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional
 
+from dimples import DateTime
 from dimples import ID, Command
 
 from dimples.utils import CacheManager
-from dimples.common.dbi import is_expired
+from dimples.utils import is_before
 from dimples.database import UserTable as SuperTable
 
 from ..common import BlockCommand, MuteCommand
@@ -67,7 +67,7 @@ class UserTable(SuperTable):
             return False
         # check old record
         old, _ = self.contacts_command(identifier=user)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
@@ -84,7 +84,7 @@ class UserTable(SuperTable):
         return self.__dos.save_contacts_command(content=content, identifier=identifier)
 
     def contacts_command(self, identifier: ID) -> Optional[Command]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_contacts.fetch(key=identifier, now=now)
         if value is None:
@@ -122,7 +122,7 @@ class UserTable(SuperTable):
             return False
         # check old record
         old = self.block_command(identifier=user)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
@@ -139,7 +139,7 @@ class UserTable(SuperTable):
         return self.__dos.save_block_command(content=content, identifier=identifier)
 
     def block_command(self, identifier: ID) -> Optional[BlockCommand]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_block.fetch(key=identifier, now=now)
         if value is None:
@@ -177,7 +177,7 @@ class UserTable(SuperTable):
             return False
         # check old record
         old = self.mute_command(identifier=user)
-        if old is not None and is_expired(old_time=old.time, new_time=new_time):
+        if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
@@ -194,7 +194,7 @@ class UserTable(SuperTable):
         return self.__dos.save_mute_command(content=content, identifier=identifier)
 
     def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_mute.fetch(key=identifier, now=now)
         if value is None:

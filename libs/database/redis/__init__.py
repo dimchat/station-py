@@ -36,7 +36,7 @@ from .device import DeviceCache
 from .user import UserCache
 from .login import LoginCache
 from .group import GroupCache
-from .grp_reset import ResetGroupCache
+from .grp_history import GroupHistoryCache
 from .grp_keys import GroupKeysCache
 from .message import MessageCache
 from .station import StationCache
@@ -48,7 +48,7 @@ __all__ = [
     'MetaCache',
     'DocumentCache', 'DeviceCache',
     'UserCache', 'LoginCache',
-    'GroupCache', 'ResetGroupCache',
+    'GroupCache', 'GroupHistoryCache',
     'GroupKeysCache',
     'MessageCache',
     'StationCache',

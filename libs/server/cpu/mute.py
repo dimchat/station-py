@@ -63,14 +63,16 @@ class MuteCommandProcessor(BaseCommandProcessor):
         if 'list' in content:
             # upload mute-list, save it
             if db.save_mute_command(content=content, identifier=sender):
-                return self._respond_receipt(text='Mute received.', msg=r_msg, extra={
+                text = 'Mute received.'
+                return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                     'template': 'Mute command received: ${ID}.',
                     'replacements': {
                         'ID': str(sender),
                     }
                 })
             else:
-                return self._respond_receipt(text='Mute not changed.', msg=r_msg, extra={
+                text = 'Mute not changed.'
+                return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                     'template': 'Mute command not changed: ${ID}.',
                     'replacements': {
                         'ID': str(sender),

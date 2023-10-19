@@ -23,9 +23,9 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
+from dimples import DateTime
 from dimples import ID
 
 from dimples.utils import CacheManager
@@ -61,7 +61,7 @@ class StationTable(ProviderDBI, StationDBI):
     # Override
     def all_providers(self) -> List[ProviderInfo]:
         """ get list of (SP_ID, chosen) """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__isp_cache.fetch(key='providers', now=now)
         if value is None:
@@ -117,7 +117,7 @@ class StationTable(ProviderDBI, StationDBI):
     # Override
     def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get list of (host, port, SP_ID, chosen) """
-        now = time.time()
+        now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__stations_cache.fetch(key=provider, now=now)
         if value is None:

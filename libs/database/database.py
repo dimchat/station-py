@@ -34,7 +34,7 @@ from typing import Optional, List, Set, Tuple, Dict
 from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
-from dimples import Command, LoginCommand, ResetCommand
+from dimples import Command, LoginCommand, GroupCommand, ResetCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples import ProviderInfo, StationInfo
 from dimples.database import PrivateKeyTable
@@ -52,7 +52,7 @@ from .t_user import UserTable
 from .t_login import LoginTable
 from .t_active import ActiveTable
 from .t_group import GroupTable
-from .t_grp_reset import ResetGroupTable
+from .t_grp_history import GroupHistoryTable
 from .t_grp_keys import GroupKeysTable
 from .t_message import MessageTable
 from .t_station import StationTable
@@ -69,7 +69,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table = DeviceTable(root=root, public=public, private=private)
         self.__user_table = UserTable(root=root, public=public, private=private)
         self.__group_table = GroupTable(root=root, public=public, private=private)
-        self.__grp_reset_table = ResetGroupTable(root=root, public=public, private=private)
+        self.__history_table = GroupHistoryTable(root=root, public=public, private=private)
         # Message
         self.__grp_keys_table = GroupKeysTable(root=root, public=public, private=private)
         self.__cipherkey_table = CipherKeyTable(root=root, public=public, private=private)
@@ -90,7 +90,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__device_table.show_info()
         self.__user_table.show_info()
         self.__group_table.show_info()
-        self.__grp_reset_table.show_info()
+        self.__history_table.show_info()
         # Message
         self.__grp_keys_table.show_info()
         self.__cipherkey_table.show_info()
@@ -137,7 +137,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # noinspection PyMethodMayBeStatic
     def _verify_meta(self, meta: Meta, identifier: ID) -> bool:
-        if Meta.match_id(meta=meta, identifier=identifier):
+        if meta.match_identifier(identifier=identifier):
             return True
         raise ValueError('meta not match ID: %s' % identifier)
 
@@ -164,7 +164,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
             return True
         meta = self.meta(identifier=document.identifier)
         assert meta is not None, 'meta not exists: %s' % document.identifier
-        if document.verify(public_key=meta.key):
+        if document.verify(public_key=meta.public_key):
             return True
         raise ValueError('document invalid: %s' % document.identifier)
 
@@ -179,6 +179,18 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     def scan_documents(self) -> List[Document]:
         return self.__document_table.scan_documents()
+
+    #
+    #   User DBI
+    #
+
+    # Override
+    def local_users(self) -> List[ID]:
+        return self.__user_table.local_users()
+
+    # Override
+    def save_local_users(self, users: List[ID]) -> bool:
+        return self.__user_table.save_local_users(users=users)
 
     """
         User contacts
@@ -292,6 +304,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
+    def founder(self, group: ID) -> Optional[ID]:
+        return self.__group_table.founder(group=group)
+
+    # Override
+    def owner(self, group: ID) -> Optional[ID]:
+        return self.__group_table.owner(group=group)
+
+    # Override
     def members(self, group: ID) -> List[ID]:
         return self.__group_table.members(group=group)
 
@@ -316,14 +336,28 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         return self.__group_table.save_administrators(administrators=administrators, group=group)
 
     #
-    #   Reset Group DBI
+    #   Group History DBI
     #
 
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        return self.__grp_reset_table.reset_command_message(group=group)
+    # Override
+    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        return self.__history_table.save_group_history(group=group, content=content, message=message)
 
-    def save_reset_command_message(self, group: ID, content: ResetCommand, msg: ReliableMessage) -> bool:
-        return self.__grp_reset_table.save_reset_command_message(group=group, content=content, msg=msg)
+    # Override
+    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        return self.__history_table.group_histories(group=group)
+
+    # Override
+    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        return self.__history_table.reset_command_message(group=group)
+
+    # Override
+    def clear_group_member_histories(self, group: ID) -> bool:
+        return self.__history_table.clear_group_member_histories(group=group)
+
+    # Override
+    def clear_group_admin_histories(self, group: ID) -> bool:
+        return self.__history_table.clear_group_admin_histories(group=group)
 
     """
         Reliable message for Receivers

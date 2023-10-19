@@ -26,8 +26,9 @@
 from typing import Optional, Any, List, Dict
 
 from mkm.types import Converter
+from dimples import DateTime
 from dimples import ID
-from dimples.common.dbi import is_expired
+from dimples.utils import is_before
 from dimples.database.dos.base import template_replace
 from dimples.database.dos import Storage
 
@@ -52,12 +53,12 @@ class DeviceInfo:
     @property
     def sandbox(self) -> Optional[bool]:
         value = self.__info.get('sandbox')
-        return Converter.get_bool(value=value)
+        return Converter.get_bool(value=value, default=None)
 
     @property
-    def time(self) -> Optional[float]:
+    def time(self) -> Optional[DateTime]:
         value = self.__info.get('time')
-        return Converter.get_time(value=value)
+        return Converter.get_datetime(value=value, default=None)
 
     @property
     def model(self) -> Optional[str]:     # 'iPad'
@@ -171,7 +172,7 @@ def insert_device(info: DeviceInfo, devices: List[DeviceInfo]) -> Optional[List[
         # keep only last three records
         while len(devices) > 2:
             devices.pop()
-    elif is_expired(old_time=devices[index].time, new_time=info.time):
+    elif is_before(old_time=devices[index].time, new_time=info.time):
         # device info expired, drop it
         return None
     else:
