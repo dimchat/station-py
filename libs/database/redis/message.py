@@ -23,10 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-import time
 from typing import Optional, List
 
 from dimples import utf8_encode, utf8_decode, json_encode, json_decode
+from dimples import DateTime
 from dimples import ID
 from dimples import ReliableMessage
 
@@ -69,7 +69,9 @@ class MessageCache(Cache):
         self.set(name=msg_key, value=value, expires=self.EXPIRES)
         # 2. append sig to an ordered set
         messages_key = self.__messages_cache_name(identifier=receiver)
-        self.zadd(name=messages_key, mapping={sig: msg.time})
+        msg_time = msg.time
+        timestamp = 0 if msg_time is None else int(msg_time)
+        self.zadd(name=messages_key, mapping={sig: timestamp})
         return True
 
     def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
@@ -86,7 +88,7 @@ class MessageCache(Cache):
         assert limit > 0, 'message limit error: %d' % limit
         # 0. clear expired messages (7 days ago)
         key = self.__messages_cache_name(identifier=receiver)
-        expired = int(time.time()) - self.EXPIRES
+        expired = int(DateTime.current_timestamp()) - self.EXPIRES
         self.zremrangebyscore(name=key, min_score=1, max_score=expired)
         # 1. make range
         total = self.zcard(name=key)
