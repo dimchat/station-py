@@ -43,6 +43,7 @@ class GlobalVariable:
         # cached values
         self.__image_types: Optional[Set[str]] = None
         self.__allowed_types: Optional[Set[str]] = None
+        self.__allowed_size = None  # default is 16 MB
         self.__md5_secret: Optional[bytes] = None
 
     @property
@@ -105,6 +106,16 @@ class GlobalVariable:
             if len(string) > 0:
                 result.add(string)
         return result
+
+    @property
+    def allowed_file_size(self) -> int:
+        size = self.__allowed_size
+        if size is None:
+            size = self.config.get_integer(section='ftp', option='allowed_size')
+            if size <= 0:
+                size = 1 << 24  # 16 MB
+            self.__allowed_size = size
+        return size
 
     @property
     def md5_secret(self) -> bytes:

@@ -126,9 +126,13 @@ def upload(identifier: str) -> str:
     if filename is None or len(filename) == 0:
         # 400 - Bad Request
         return render_template('error.html', code=400, message='Bad Request')
-    elif data is None or len(data) == 0:
+    data_size = 0 if data is None else len(data)
+    if data_size <= 0:
         # 204 - No Content
         return render_template('error.html', code=204, message='No Content')
+    elif data_size > shared.allowed_file_size:
+        # 403 - Forbidden
+        return render_template('error.html', code=403, message='Forbidden')
     # 2. check digest
     digest_salt = request.args.get('salt')
     digest_value = request.args.get('md5')
