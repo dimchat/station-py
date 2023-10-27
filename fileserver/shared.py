@@ -25,9 +25,8 @@
 
 import getopt
 import sys
-from typing import Optional, Set
+from typing import Optional, Set, List
 
-from dimples import hex_decode
 from dimples.database import Storage
 
 from libs.utils import Singleton
@@ -44,7 +43,7 @@ class GlobalVariable:
         self.__image_types: Optional[Set[str]] = None
         self.__allowed_types: Optional[Set[str]] = None
         self.__allowed_size = None  # default is 16 MB
-        self.__md5_secret: Optional[bytes] = None
+        self.__secrets: Optional[List[str]] = None
 
     @property
     def server_host(self) -> str:
@@ -107,6 +106,17 @@ class GlobalVariable:
                 result.add(string)
         return result
 
+    def __get_list(self, section: str, option: str) -> List[str]:
+        result = []
+        value = self.config.get_string(section=section, option=option)
+        assert value is not None, 'string value not found: section=%s, option=%s' % (section, option)
+        array = value.split(',')
+        for item in array:
+            string = item.strip()
+            if len(string) > 0:
+                result.append(string)
+        return result
+
     @property
     def allowed_file_size(self) -> int:
         size = self.__allowed_size
@@ -118,14 +128,13 @@ class GlobalVariable:
         return size
 
     @property
-    def md5_secret(self) -> bytes:
-        key = self.__md5_secret
-        if key is None:
-            string = self.config.get_string(section='ftp', option='md5_secret')
-            assert string is not None, 'md5 key not set'
-            key = hex_decode(string=string)
-            self.__md5_secret = key
-        return key
+    def md5_secrets(self) -> List[str]:
+        secrets = self.__secrets
+        if secrets is None:
+            secrets = self.__get_list(section='ftp', option='md5_secrets')
+            assert len(secrets) > 0, 'md5 keys not set'
+            self.__secrets = secrets
+        return secrets
 
 
 def show_help(cmd: str, app_name: str, default_config: str):

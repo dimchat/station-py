@@ -31,7 +31,7 @@
 """
 
 import os
-from typing import Optional, Tuple, Set
+from typing import Optional, Tuple, Set, List
 
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
@@ -93,6 +93,19 @@ def save_file(data: bytes, filename: str, file_types: Set[str], directory: str) 
         return 500, 'Internal Server Error', filename
 
 
+def fetch_secret(secrets: List[str], enigma: Optional[str]) -> Optional[bytes]:
+    """ decode the secret starts with enigma """
+    assert len(secrets) > 0, 'secrets not found'
+    if enigma is None:
+        # enigma not found, decode the first one
+        return hex_decode(string=secrets[0])
+    # search by enigma
+    for item in secrets:
+        if item.startswith(enigma):
+            # decode the item starts with enigma
+            return hex_decode(string=item)
+
+
 """
     Flask App
     ~~~~~~~~~
@@ -134,15 +147,19 @@ def upload(identifier: str) -> str:
         # 403 - Forbidden
         return render_template('error.html', code=403, message='Forbidden')
     # 2. check digest
-    digest_salt = request.args.get('salt')
-    digest_value = request.args.get('md5')
+    enigma = request.args.get('enigma')     # leading 6 chars of hex(md5_secret)
+    digest_salt = request.args.get('salt')  # random bytes by client
+    digest_value = request.args.get('md5')  # md5(data + secret + salt)
     uid = ID.parse(identifier=identifier)
     if digest_salt is None or digest_value is None or uid is None:
         # 400 - Bad Request
         return render_template('error.html', code=400, message='Bad Request')
+    md5_secret = fetch_secret(secrets=shared.md5_secrets, enigma=enigma)
     digest_salt = hex_decode(string=digest_salt)
     digest_value = hex_decode(string=digest_value)
-    md5_secret = shared.md5_secret
+    if md5_secret is None or digest_salt is None:
+        # 403 - Forbidden
+        return render_template('error.html', code=403, message='Forbidden')
     # md5(data + secret + salt)
     if digest_value != md5(data=(data + md5_secret + digest_salt)):
         # 401 - Unauthorized
