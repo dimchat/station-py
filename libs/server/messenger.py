@@ -42,7 +42,6 @@ from dimples.server import MuteFilter as SuperMuteFilter
 from ..database import Database
 
 from .monitor import Monitor
-from .push import get_name
 
 
 class ServerMessenger(SuperMessenger):
@@ -70,11 +69,11 @@ class ServerMessenger(SuperMessenger):
             receiver = msg.receiver
             group = msg.group
             facebook = self.__facebook
-            nickname = get_name(identifier=receiver, facebook=facebook)
+            nickname = facebook.get_name(identifier=receiver)
             if group is None:
                 text = 'Message is blocked by %s' % nickname
             else:
-                grp_name = get_name(identifier=group, facebook=facebook)
+                grp_name = facebook.get_name(identifier=group)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
             res = TextContent.create(text=text)

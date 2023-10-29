@@ -46,16 +46,25 @@ class DocumentStorage(SuperStorage):
         path = template_replace(path, 'PUBLIC', self._public)
         return template_replace(path, 'ADDRESS', address)
 
-    def __doc_path_old(self, address: Union[ID, str]) -> str:
-        return self.__path(address=address, path=self.doc_path_old)
+    def __doc_path_old(self, identifier: ID) -> str:
+        path = self.public_path(self.doc_path_old)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
-    def __doc_path_new(self, address: Union[ID, str]) -> str:
-        return self.__path(address=address, path=self.doc_path_new)
+    def __doc_path_new(self, identifier: ID) -> str:
+        path = self.public_path(self.doc_path_new)
+        return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     # Override
-    def document(self, identifier: ID, doc_type: str = '*') -> Optional[Document]:
+    def get_document(self, identifier: ID) -> Optional[Document]:
         """ load document from file """
-        return load_document(address=str(identifier.address), pub=self._public)
+        path = self.__doc_path_new(identifier=identifier)
+        if not os.path.exists(path):
+            # load from old version
+            path = self.__doc_path_old(identifier=identifier)
+        self.info(msg='Loading document from: %s' % path)
+        info = self.read_json(path=path)
+        if info is not None:
+            return parse_document(dictionary=info, identifier=identifier)
 
     def scan_documents(self) -> List[Document]:
         """ Scan documents from local directory for IDs """

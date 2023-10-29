@@ -39,8 +39,6 @@ from .report import ReportCommandProcessor
 
 __all__ = [
 
-    'TextContentProcessor',
-
     'HandshakeCommandProcessor',
     'LoginCommandProcessor',
 

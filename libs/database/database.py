@@ -174,8 +174,8 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
             return self.__document_table.save_document(document=document)
 
     # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
-        return self.__document_table.document(identifier=identifier, doc_type=doc_type)
+    def documents(self, identifier: ID) -> List[Document]:
+        return self.__document_table.documents(identifier=identifier)
 
     def scan_documents(self) -> List[Document]:
         return self.__document_table.scan_documents()

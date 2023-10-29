@@ -23,12 +23,11 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, List
+from typing import List
 
 from dimples import DateTime
-from dimples import ID, Document
+from dimples import ID, Document, DocumentHelper
 
-from dimples.utils import is_before
 from dimples.utils import CacheManager
 from dimples import DocumentDBI
 
@@ -47,24 +46,10 @@ class DocumentTable(DocumentDBI):
         self.__dos = DocumentStorage(root=root, public=public, private=private)
         self.__redis = DocumentCache()
         man = CacheManager()
-        self.__doc_cache = man.get_pool(name='document')  # ID => Document
+        self.__docs_cache = man.get_pool(name='documents')  # ID => List[Document]
 
     def show_info(self):
         self.__dos.show_info()
-
-    def _is_expired(self, document: Document) -> bool:
-        """ check old record with document time """
-        new_time = document.time
-        if new_time is None or new_time <= 0:
-            return False
-        doc_type = document.type
-        if doc_type is None:
-            doc_type = '*'
-        # check old record
-        old = self.document(identifier=document.identifier, doc_type=doc_type)
-        if old is not None and is_before(old_time=old.time, new_time=new_time):
-            # cache expired, drop it
-            return True
 
     #
     #   Document DBI
@@ -73,44 +58,52 @@ class DocumentTable(DocumentDBI):
     # Override
     def save_document(self, document: Document) -> bool:
         assert document.valid, 'document invalid: %s' % document
-        # 0. check document time
-        if self._is_expired(document=document):
-            # document expired, drop it
-            return False
         identifier = document.identifier
+        doc_type = document.type
+        # 0. check old documents
+        all_documents = self.documents(identifier=identifier)
+        old = DocumentHelper.last_document(all_documents, doc_type)
+        if old is None and doc_type == Document.VISA:
+            old = DocumentHelper.last_document(all_documents, 'profile')
+        if old is not None:
+            if DocumentHelper.is_expired(document, old):
+                # self.warning(msg='drop expired document: %s' % identifier)
+                return False
+            all_documents.remove(old)
+        all_documents.append(document)
         # 1. store into memory cache
-        self.__doc_cache.update(key=identifier, value=document, life_span=self.CACHE_EXPIRES)
+        self.__docs_cache.update(key=identifier, value=all_documents, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_document(document=document)
+        self.__redis.save_documents(documents=all_documents, identifier=identifier)
         # 3. save into local storage
-        return self.__dos.save_document(document=document)
+        return self.__dos.save_documents(documents=all_documents, identifier=identifier)
 
     # Override
-    def document(self, identifier: ID, doc_type: Optional[str] = '*') -> Optional[Document]:
+    def documents(self, identifier: ID) -> List[Document]:
         now = DateTime.now()
         # 1. check memory cache
-        value, holder = self.__doc_cache.fetch(key=identifier, now=now)
+        value, holder = self.__docs_cache.fetch(key=identifier, now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # cache not load yet, wait to load
-                self.__doc_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
+                self.__docs_cache.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
             else:
                 if holder.is_alive(now=now):
                     # cache not exists
-                    return None
+                    return []
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.document(identifier=identifier, doc_type=doc_type)
+            value = self.__redis.documents(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.document(identifier=identifier, doc_type=doc_type)
+                value = self.__dos.documents(identifier=identifier)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_document(document=value)
+                    self.__redis.save_documents(documents=value, identifier=identifier)
             # update memory cache
-            self.__doc_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
+            self.__docs_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
@@ -118,12 +111,12 @@ class DocumentTable(DocumentDBI):
         """ Scan all documents from data directory """
         now = DateTime.now()
         # 1. check memory cache
-        value, holder = self.__doc_cache.fetch(key='all_documents', now=now)
+        value, holder = self.__docs_cache.fetch(key='all_documents', now=now)
         if value is None:
             # cache empty
             if holder is None:
                 # scan results not load yet, wait to load
-                self.__doc_cache.update(key='all_documents', life_span=600, now=now)
+                self.__docs_cache.update(key='all_documents', life_span=600, now=now)
             else:
                 if holder.is_alive(now=now):
                     # scan results not exists
@@ -132,5 +125,5 @@ class DocumentTable(DocumentDBI):
                 holder.renewal(duration=600, now=now)
             # 2. scan local storage
             value = self.__dos.scan_documents()
-            self.__doc_cache.update(key='all_documents', value=value, life_span=3600, now=now)
+            self.__docs_cache.update(key='all_documents', value=value, life_span=3600, now=now)
         return value

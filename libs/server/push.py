@@ -164,21 +164,9 @@ def build_message(sender: ID, receiver: ID, group: ID, msg_type: int,
     else:
         # unknown type
         return None, None
-    from_name = get_name(identifier=sender, facebook=facebook)
-    to_name = get_name(identifier=receiver, facebook=facebook)
+    from_name = facebook.get_name(identifier=sender)
+    to_name = facebook.get_name(identifier=receiver)
     text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
     if group is not None:
-        text += ' in group [%s]' % get_name(identifier=group, facebook=facebook)
+        text += ' in group [%s]' % facebook.get_name(identifier=group)
     return title, text
-
-
-def get_name(identifier: ID, facebook: CommonFacebook) -> str:
-    doc = facebook.document(identifier=identifier)
-    if doc is not None:
-        name = doc.name
-        if name is not None and len(name) > 0:
-            return name
-    name = identifier.name
-    if name is not None and len(name) > 0:
-        return name
-    return str(identifier.address)
