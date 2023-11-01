@@ -32,7 +32,7 @@
 
 from typing import List
 
-from dimples import TextContent
+from dimples import ReceiptCommand
 from dimples import ReliableMessage
 
 from dimples.server import ServerMessenger as SuperMessenger
@@ -68,7 +68,7 @@ class ServerMessenger(SuperMessenger):
             sender = msg.sender
             receiver = msg.receiver
             group = msg.group
-            facebook = self.__facebook
+            facebook = self.facebook
             nickname = facebook.get_name(identifier=receiver)
             if group is None:
                 text = 'Message is blocked by %s' % nickname
@@ -76,7 +76,7 @@ class ServerMessenger(SuperMessenger):
                 grp_name = facebook.get_name(identifier=group)
                 text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
             # response
-            res = TextContent.create(text=text)
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
             res.group = group
             self.send_content(sender=None, receiver=sender, content=res, priority=1)
             return True
