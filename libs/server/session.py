@@ -37,6 +37,7 @@
 
 from typing import Optional
 
+from dimples import DateTime
 from dimples import ID
 from dimples.server import ServerSession as SuperSession
 
@@ -79,11 +80,15 @@ class ServerSession(SuperSession):
             identifier = self.identifier
             self.info(msg='user active changed: %s, %s' % (identifier, active))
             if identifier is not None:
+                if when is None:
+                    when = DateTime.now()
+                else:
+                    when = DateTime.parse(when)
                 monitor = Monitor()
                 if active:
-                    monitor.user_online(sender=identifier, remote_address=self.remote_address)
+                    monitor.user_online(sender=identifier, remote_address=self.remote_address, when=when)
                 else:
-                    monitor.user_offline(sender=identifier, remote_address=self.remote_address)
+                    monitor.user_offline(sender=identifier, remote_address=self.remote_address, when=when)
             return True
 
 

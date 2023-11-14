@@ -32,6 +32,7 @@
 
 from typing import List
 
+from dimples import DateTime
 from dimples import ReceiptCommand
 from dimples import ReliableMessage
 
@@ -51,7 +52,7 @@ class ServerMessenger(SuperMessenger):
         # monitor
         session = self.session
         monitor = Monitor()
-        monitor.user_online(sender=session.identifier, remote_address=session.remote_address)
+        monitor.user_online(sender=session.identifier, remote_address=session.remote_address, when=DateTime.now())
         # process suspended messages
         super().handshake_success()
 

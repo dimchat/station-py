@@ -28,6 +28,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Union, Tuple, List, Dict
 
+from dimples import DateTime
 from dimples import ID, ReliableMessage
 from dimples import CustomizedContent
 from dimples.server import PushCenter
@@ -163,12 +164,12 @@ class Monitor(Runner, Logging):
     #   Events
     #
 
-    def user_online(self, sender: ID, remote_address: Tuple[str, int]):
-        event = ActiveEvent(sender=sender, remote_address=remote_address, online=True)
+    def user_online(self, sender: ID, remote_address: Tuple[str, int], when: DateTime):
+        event = ActiveEvent(sender=sender, remote_address=remote_address, online=True, when=when)
         self._append_event(event=event)
 
-    def user_offline(self, sender: ID, remote_address: Tuple[str, int]):
-        event = ActiveEvent(sender=sender, remote_address=remote_address, online=False)
+    def user_offline(self, sender: ID, remote_address: Tuple[str, int], when: DateTime):
+        event = ActiveEvent(sender=sender, remote_address=remote_address, online=False, when=when)
         self._append_event(event=event)
 
     def message_received(self, msg: ReliableMessage):
@@ -183,11 +184,12 @@ class Monitor(Runner, Logging):
 
 class ActiveEvent(Event, Logging):
 
-    def __init__(self, sender: ID, remote_address: Tuple[str, int], online: bool):
+    def __init__(self, sender: ID, remote_address: Tuple[str, int], online: bool, when: DateTime):
         super().__init__()
         self.__sender = sender
         self.__remote_address = remote_address
         self.__online = online
+        self.__when = when
 
     # Override
     def handle(self, recorder: Recorder):
@@ -197,7 +199,8 @@ class ActiveEvent(Event, Logging):
         recorder.add_user(identifier=sender, remote_address=remote)
         # TODO: temporary notification, remove after too many users online
         online = self.__online
-        _notice_master(sender=sender, online=online, remote_address=remote)
+        when = self.__when
+        _notice_master(sender=sender, online=online, remote_address=remote, when=when)
 
 
 class ActiveRecorder(Recorder):
@@ -289,15 +292,15 @@ class MessageRecorder(Recorder):
 
 
 # TODO: temporary function, remove it after too many users online
-def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
+def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
     # get sender's name
     name = _get_nickname(identifier=sender)
     if online:
-        title = 'Activity: Online'
+        title = 'Activity: Online (%s)' % when
         extra = _get_extra(identifier=sender)
         text = '%s is online, socket %s; %s' % (name, remote_address, extra)
     else:
-        title = 'Activity: Offline'
+        title = 'Activity: Offline (%s)' % when
         text = '%s is offline, socket %s' % (name, remote_address)
     # build notifications
     masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
