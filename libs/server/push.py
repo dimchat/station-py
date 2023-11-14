@@ -108,6 +108,8 @@ class DefaultPushService(PushService, Logging):
         receiver = msg.receiver
         sender = env.sender
         group = env.group
+        if group is None and 'GF' in env:
+            group = ID.parse(identifier='Hidden@anywhere')
         msg_type = env.type
         # 2. build title & content text
         title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)

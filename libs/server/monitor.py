@@ -294,7 +294,8 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int]):
     name = _get_nickname(identifier=sender)
     if online:
         title = 'Activity: Online'
-        text = '%s is online, socket %s' % (name, remote_address)
+        extra = _get_extra(identifier=sender)
+        text = '%s is online, socket %s; %s' % (name, remote_address, extra)
     else:
         title = 'Activity: Offline'
         text = '%s is offline, socket %s' % (name, remote_address)
@@ -346,6 +347,39 @@ def _get_nickname(identifier: ID) -> Optional[str]:
         return str(identifier)
     else:
         return '%s (%s)' % (identifier, name)
+
+
+def _get_extra(identifier: ID) -> Optional[str]:
+    emitter = _get_emitter()
+    if emitter is None:
+        Log.error(msg='emitter not found')
+        return None
+    facebook = emitter.facebook
+    if facebook is None:
+        Log.warning(msg='facebook not found')
+        return None
+    doc = facebook.document(identifier=identifier)
+    if doc is not None:
+        app = doc.get_property(key='app')
+        language = None if app is None else app.get('language')
+        sys = doc.get_property(key='sys')
+        locale = None if sys is None else sys.get('locale')
+        model = None if sys is None else sys.get('model')
+        os = None if sys is None else sys.get('os')
+        # check language
+        if language is None:
+            language = locale
+        elif locale is not None:
+            language = '%s(%s)' % (language, locale)
+        # check device info
+        if model is None:
+            device = os
+        elif os is None:
+            device = model
+        else:
+            device = '%s(%s)' % (model, os)
+        # OK
+        return '%s; %s' % (language, device)
 
 
 def _get_emitter() -> Optional[Emitter]:
