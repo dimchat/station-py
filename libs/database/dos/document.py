@@ -39,6 +39,7 @@ class DocumentStorage(SuperStorage):
     # compatible with v1.0
     doc_path_old = '{PUBLIC}/{ADDRESS}/profile.js'
     doc_path_new = '{PUBLIC}/{ADDRESS}/document.js'
+    doc_path_all = '{PUBLIC}/{ADDRESS}/documents.js'
 
     def __path(self, address: Union[ID, str], path: str) -> str:
         if isinstance(address, ID):
@@ -55,7 +56,7 @@ class DocumentStorage(SuperStorage):
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     # Override
-    def get_document(self, identifier: ID) -> Optional[Document]:
+    def load_document(self, identifier: ID) -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path_new(identifier=identifier)
         if not os.path.exists(path):
@@ -72,11 +73,33 @@ class DocumentStorage(SuperStorage):
         pub = self._public
         array = os.listdir(pub)
         for item in array:
-            doc = load_document(address=item, pub=pub)
-            if doc is not None:
-                documents.append(doc)
+            docs = load_documents(address=item, pub=pub)
+            if docs is None:  # or len(docs) == 0:
+                # try to load from old files
+                doc = load_document(address=item, pub=pub)
+                if doc is not None:
+                    documents.append(doc)
+            else:
+                for doc in docs:
+                    documents.append(doc)
         self.info(msg='Scanned %d documents(s) from %s' % (len(documents), pub))
         return documents
+
+
+def load_documents(address: str, pub: str) -> Optional[List[Document]]:
+    path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_all)
+    Log.info(msg='Loading document from: %s' % path)
+    array = DocumentStorage.read_json(path=path)
+    if array is None:
+        return None
+    documents = []
+    for info in array:
+        doc = parse_document(dictionary=info)
+        if doc is None:
+            Log.error(msg='document error: %s' % info)
+        else:
+            documents.append(doc)
+    return documents
 
 
 def load_document(address: str, pub: str) -> Optional[Document]:
