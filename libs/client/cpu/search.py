@@ -146,8 +146,12 @@ def search_users(keywords: str, start: int, limit: int,
     users = []
     all_documents = database.scan_documents()
     for doc in all_documents:
-        # get user info
+        # check duplicated
         identifier = doc.identifier
+        if identifier not in users:
+            # already exists
+            continue
+        # get user info
         name = doc.name
         if name is None:
             info = str(identifier)

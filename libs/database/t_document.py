@@ -61,22 +61,27 @@ class DocumentTable(DocumentDBI):
         identifier = document.identifier
         doc_type = document.type
         # 0. check old documents
-        all_documents = self.documents(identifier=identifier)
-        old = DocumentHelper.last_document(all_documents, doc_type)
+        my_documents = self.documents(identifier=identifier)
+        old = DocumentHelper.last_document(my_documents, doc_type)
         if old is None and doc_type == Document.VISA:
-            old = DocumentHelper.last_document(all_documents, 'profile')
+            old = DocumentHelper.last_document(my_documents, 'profile')
         if old is not None:
             if DocumentHelper.is_expired(document, old):
                 # self.warning(msg='drop expired document: %s' % identifier)
                 return False
-            all_documents.remove(old)
-        all_documents.append(document)
+            my_documents.remove(old)
+        my_documents.append(document)
+        # update cache for Search Engine
+        all_documents, _ = self.__docs_cache.fetch(key='all_documents')
+        if all_documents is not None:
+            assert isinstance(all_documents, List), 'all_documents error: %s' % all_documents
+            all_documents.append(document)
         # 1. store into memory cache
-        self.__docs_cache.update(key=identifier, value=all_documents, life_span=self.CACHE_EXPIRES)
+        self.__docs_cache.update(key=identifier, value=my_documents, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_documents(documents=all_documents, identifier=identifier)
+        self.__redis.save_documents(documents=my_documents, identifier=identifier)
         # 3. save into local storage
-        return self.__dos.save_documents(documents=all_documents, identifier=identifier)
+        return self.__dos.save_documents(documents=my_documents, identifier=identifier)
 
     # Override
     def documents(self, identifier: ID) -> List[Document]:
