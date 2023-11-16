@@ -363,12 +363,22 @@ def _get_extra(identifier: ID) -> Optional[str]:
         return None
     doc = facebook.document(identifier=identifier)
     if doc is not None:
+        # check app.language
         app = doc.get_property(key='app')
-        language = None if app is None else app.get('language')
+        if isinstance(app, Dict):
+            language = app.get('language')
+        else:
+            language = None
+        # check sys.*
         sys = doc.get_property(key='sys')
-        locale = None if sys is None else sys.get('locale')
-        model = None if sys is None else sys.get('model')
-        os = None if sys is None else sys.get('os')
+        if isinstance(sys, Dict):
+            locale = sys.get('locale')
+            model = sys.get('model')
+            os = sys.get('os')
+        else:
+            locale = None
+            model = None
+            os = None
         # check language
         if language is None:
             language = locale

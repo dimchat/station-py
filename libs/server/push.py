@@ -39,12 +39,14 @@ from dimples.server import PushService, BadgeKeeper
 from dimples.server import FilterManager
 
 from ..utils import Logging
+from ..utils.localizations import Translations, Locale
 from ..common import CommonFacebook
 from ..common import PushCommand, PushItem
 
 from .cpu import AnsCommandProcessor
 
 from .emitter import Emitter
+from .push_intl import PushTmpl
 
 
 class DefaultPushService(PushService, Logging):
@@ -135,40 +137,50 @@ class DefaultPushService(PushService, Logging):
 
     def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
         """ build title, content for notification """
+        # get title, body template
+        if msg_type == 0:
+            title = 'Message'
+            body = PushTmpl.recv_message if group is None else PushTmpl.grp_recv_message
+        elif msg_type == ContentType.TEXT:
+            title = 'Text Message'
+            body = PushTmpl.recv_text if group is None else PushTmpl.grp_recv_text
+        elif msg_type == ContentType.FILE:
+            title = 'File'
+            body = PushTmpl.recv_file if group is None else PushTmpl.grp_recv_file
+        elif msg_type == ContentType.IMAGE:
+            title = 'Image'
+            body = PushTmpl.recv_image if group is None else PushTmpl.grp_recv_image
+        elif msg_type == ContentType.AUDIO:
+            title = 'Voice'
+            body = PushTmpl.recv_voice if group is None else PushTmpl.grp_recv_voice
+        elif msg_type == ContentType.VIDEO:
+            title = 'Video'
+            body = PushTmpl.recv_video if group is None else PushTmpl.grp_recv_video
+        elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
+            title = 'Money'
+            body = PushTmpl.recv_money if group is None else PushTmpl.grp_recv_money
+        else:
+            # unknown type
+            return None, None
+        # get language
         facebook = self.__facebook
-        return build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type, facebook=facebook)
-
-
-def build_message(sender: ID, receiver: ID, group: ID, msg_type: int,
-                  facebook: CommonFacebook) -> Tuple[Optional[str], Optional[str]]:
-    """ PNs: build text message for msg """
-    if msg_type == 0:
-        title = 'Message'
-        something = 'a message'
-    elif msg_type == ContentType.TEXT:
-        title = 'Text Message'
-        something = 'a text message'
-    elif msg_type == ContentType.FILE:
-        title = 'File'
-        something = 'a file'
-    elif msg_type == ContentType.IMAGE:
-        title = 'Image'
-        something = 'an image'
-    elif msg_type == ContentType.AUDIO:
-        title = 'Voice'
-        something = 'a voice message'
-    elif msg_type == ContentType.VIDEO:
-        title = 'Video'
-        something = 'a video'
-    elif msg_type in [ContentType.MONEY, ContentType.TRANSFER]:
-        title = 'Money'
-        something = 'some money'
-    else:
-        # unknown type
-        return None, None
-    from_name = facebook.get_name(identifier=sender)
-    to_name = facebook.get_name(identifier=receiver)
-    text = 'Dear %s: %s sent you %s' % (to_name, from_name, something)
-    if group is not None:
-        text += ' in group [%s]' % facebook.get_name(identifier=group)
-    return title, text
+        visa = facebook.visa(identifier=receiver)
+        if visa is None:
+            language = 'en'
+        else:
+            language = Locale.from_visa(visa=visa)
+        translates = Translations.get(locale=language)
+        if translates is None:
+            assert language != 'en', 'failed to get translations for language: %s' % language
+            translates = Translations.get(locale='en')
+            assert translates is not None, 'default translation not set'
+        # do translate
+        from_name = facebook.get_name(identifier=sender)
+        to_name = facebook.get_name(identifier=receiver)
+        params = {
+            'sender': from_name,
+            'receiver': to_name,
+        }
+        if group is not None:
+            params['group'] = facebook.get_name(identifier=group)
+        return title, translates.translate(text=body, params=params)

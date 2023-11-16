@@ -148,7 +148,7 @@ def search_users(keywords: str, start: int, limit: int,
     for doc in all_documents:
         # check duplicated
         identifier = doc.identifier
-        if identifier not in users:
+        if identifier in users:
             # already exists
             continue
         # get user info
