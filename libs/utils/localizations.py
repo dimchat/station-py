@@ -104,7 +104,8 @@ class Translations:
             # not found, use the text directly
             result = text
         if params is not None:
-            for key, value in params:
+            for key in params:
+                value = params[key]
                 result = template_replace(template=result, key=key, value=value)
         return result
 

@@ -169,6 +169,8 @@ class DefaultPushService(PushService, Logging):
             language = 'en'
         else:
             language = Locale.from_visa(visa=visa)
+            if language is None:
+                language = 'en'
         translates = Translations.get(locale=language)
         if translates is None:
             assert language != 'en', 'failed to get translations for language: %s' % language
