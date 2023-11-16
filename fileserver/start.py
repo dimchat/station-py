@@ -41,6 +41,7 @@ Path.add(path=path)
 
 from fileserver.shared import GlobalVariable
 from fileserver.shared import create_config
+from fileserver.cleaner import FileCleaner
 from fileserver.handler import app
 
 
@@ -59,6 +60,9 @@ def main():
     # load config
     config = create_config(app_name='File Server', default_config=DEFAULT_CONFIG)
     shared.config = config
+    # start cleaner
+    cleaner = FileCleaner()
+    cleaner.start()
     # start server
     host = shared.server_host
     port = shared.server_port
