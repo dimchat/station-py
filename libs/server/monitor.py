@@ -31,6 +31,7 @@ from typing import Optional, Union, Tuple, List, Dict
 from dimples import DateTime
 from dimples import ID, ReliableMessage
 from dimples import CustomizedContent
+from dimples import SessionDBI
 from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
@@ -354,15 +355,7 @@ def _get_nickname(identifier: ID) -> Optional[str]:
 
 
 def _get_relay(identifier: ID) -> Optional[str]:
-    emitter = _get_emitter()
-    if emitter is None:
-        Log.error(msg='emitter not found')
-        return None
-    messenger = emitter.messenger
-    if messenger is None:
-        Log.warning(msg='messenger not found')
-        return None
-    db = messenger.session.database
+    db = _get_session_database()
     cmd, _ = db.login_command_message(user=identifier)
     if cmd is None:
         Log.warning(msg='login command not found: %s' % identifier)
@@ -422,3 +415,29 @@ def _get_extra(identifier: ID) -> Optional[str]:
 def _get_emitter() -> Optional[Emitter]:
     monitor = Monitor()
     return monitor.emitter
+
+
+def _get_session_database() -> Optional[SessionDBI]:
+    emitter = _get_emitter()
+    if emitter is not None:
+        messenger = emitter.messenger
+        if messenger is not None:
+            session = messenger.session
+            if session is not None:
+                db = session.database
+                if db is not None:
+                    return db
+                Log.warning(msg='session db not found')
+            Log.warning(msg='session not found')
+            db = messenger.database
+            if isinstance(db, SessionDBI):
+                return db
+        Log.warning(msg='messenger not found')
+        facebook = emitter.facebook
+        if facebook is not None:
+            db = facebook.database
+            if isinstance(db, SessionDBI):
+                return db
+        Log.warning(msg='facebook not found')
+    # FIXME: get from global variable?
+    Log.error(msg='emitter not found')
