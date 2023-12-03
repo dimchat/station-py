@@ -45,8 +45,8 @@ shared = GlobalVariable()
 
 class FileCleaner(Runner, Logging):
 
-    # clear files uploaded 7 days ago
-    EXPIRES = 3600 * 24 * 7
+    # clear files uploaded 49 days ago
+    EXPIRES = 3600 * 24 * 49
 
     def __init__(self):
         super().__init__(interval=600.0)

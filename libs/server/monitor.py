@@ -297,8 +297,9 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], wh
     name = _get_nickname(identifier=sender)
     if online:
         title = 'Activity: Online (%s)' % when
+        relay = _get_relay(identifier=sender)
         extra = _get_extra(identifier=sender)
-        text = '%s is online, socket %s; %s' % (name, remote_address, extra)
+        text = '%s is online, socket %s, relay %s; %s' % (name, remote_address, relay, extra)
     else:
         title = 'Activity: Offline (%s)' % when
         text = '%s is offline, socket %s' % (name, remote_address)
@@ -352,6 +353,27 @@ def _get_nickname(identifier: ID) -> Optional[str]:
         return '%s (%s)' % (identifier, name)
 
 
+def _get_relay(identifier: ID) -> Optional[str]:
+    emitter = _get_emitter()
+    if emitter is None:
+        Log.error(msg='emitter not found')
+        return None
+    messenger = emitter.messenger
+    if messenger is None:
+        Log.warning(msg='messenger not found')
+        return None
+    db = messenger.session.database
+    cmd, _ = db.login_command_message(user=identifier)
+    if cmd is None:
+        Log.warning(msg='login command not found: %s' % identifier)
+        return None
+    station = cmd.get('station')
+    if isinstance(station, Dict):
+        host = station.get('host')
+        port = station.get('port')
+        return '%s:%s' % (host, port)
+
+
 def _get_extra(identifier: ID) -> Optional[str]:
     emitter = _get_emitter()
     if emitter is None:
@@ -367,8 +389,10 @@ def _get_extra(identifier: ID) -> Optional[str]:
         app = doc.get_property(key='app')
         if isinstance(app, Dict):
             language = app.get('language')
+            version = app.get('version')
         else:
             language = None
+            version = None
         # check sys.*
         sys = doc.get_property(key='sys')
         if isinstance(sys, Dict):
@@ -392,7 +416,7 @@ def _get_extra(identifier: ID) -> Optional[str]:
         else:
             device = '%s(%s)' % (model, os)
         # OK
-        return '%s; %s' % (language, device)
+        return '%s; %s, %s' % (language, device, version)
 
 
 def _get_emitter() -> Optional[Emitter]:
