@@ -36,6 +36,7 @@ from libs.common import CommonFacebook
 from libs.common import Config
 from libs.database import Storage
 from libs.database import Database
+from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
 from libs.client import Terminal
 
@@ -70,7 +71,7 @@ def create_config(app_name: str, default_config: str) -> Config:
         else:
             show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
             sys.exit(0)
-    # check config filepath
+    # check config file path
     if ini_file is None:
         ini_file = default_config
     if not Storage.exists(path=ini_file):
@@ -115,7 +116,11 @@ def create_database(shared: GlobalVariable) -> Database:
 def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
     """ create facebook and set current user """
     # create facebook with account database
-    facebook = CommonFacebook(database=shared.adb)
+    facebook = ClientFacebook()
+    # create archivist for facebook
+    archivist = ClientArchivist(database=shared.adb)
+    archivist.facebook = facebook
+    facebook.archivist = archivist
     # set current user
     # make sure private key exists
     assert facebook.private_key_for_visa_signature(identifier=current_user) is not None, \

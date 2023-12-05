@@ -33,6 +33,7 @@ from dimples import ID
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
+from dimples.client import ClientArchivist, ClientFacebook
 
 from libs.utils import Singleton
 from libs.common import CommonFacebook
@@ -140,7 +141,11 @@ def create_database(config: Config) -> Database:
 
 def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook(database=database)
+    facebook = ClientFacebook()
+    # create archivist for facebook
+    archivist = ClientArchivist(database=database)
+    archivist.facebook = facebook
+    facebook.archivist = archivist
     # make sure private key exists
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
@@ -232,6 +237,7 @@ def start_bot(default_config: str, app_name: str, ans_name: str, processor_class
     port = config.station_port
     session = create_session(facebook=facebook, database=db, host=host, port=port)
     messenger = create_messenger(facebook=facebook, database=db, session=session, processor_class=processor_class)
+    facebook.archivist.messenger = messenger
     # create & start terminal
     terminal = Terminal(messenger=messenger)
     thread = threading.Thread(target=terminal.run, daemon=False)

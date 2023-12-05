@@ -69,7 +69,7 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
             users = online_users(start=content.start, limit=content.limit, facebook=facebook)
             self.info('Got %d recent online user(s)' % len(users))
         else:
-            db = facebook.database
+            db = facebook.archivist.database
             assert isinstance(db, Database), 'database error: %s' % db
             users = search_users(keywords=keywords, start=content.start, limit=content.limit,
                                  database=db, facebook=facebook)
@@ -99,7 +99,7 @@ def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
         # this is a request from another search bot in neighbor station
         end = start + 10240
     # check all users in session center
-    db = facebook.database
+    db = facebook.archivist.database
     assert isinstance(db, Database), 'database error: %s' % db
     active_users = db.active_users()
     index = -1

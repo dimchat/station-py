@@ -51,7 +51,7 @@ class BlockCommandProcessor(BaseCommandProcessor):
 
     @property
     def database(self) -> Database:
-        db = self.facebook.database
+        db = self.facebook.archivist.database
         assert isinstance(db, Database), 'database error: %s' % db
         return db
 

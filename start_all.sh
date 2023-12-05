@@ -37,13 +37,13 @@ title "DIM Station"
 stop "station/start.py"
 stop "station/start_ct.py"
 sleep 1
-start "dims" "station/start_ct.py"
-#start "dims" "station/start.py"
+#start "dims" "station/start_ct.py"
+start "dims" "station/start.py"
 
 sleep 2
 
-#title "DIM Station Bridge"
-#restart octopus "sbots/sbot_octopus.py"
+title "DIM Station Bridge"
+restart octopus "sbots/sbot_octopus.py"
 
 
 #

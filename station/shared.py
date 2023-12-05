@@ -36,6 +36,7 @@ from dimples.common import AddressNameServer
 from dimples.database import Storage
 from dimples.server import FilterManager
 from dimples.server import BroadcastRecipientManager
+from dimples.server import ServerArchivist
 
 from libs.utils import Singleton
 from libs.common import Config
@@ -134,7 +135,11 @@ def create_database(config: Config) -> Database:
 
 def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook(database=database)
+    facebook = CommonFacebook()
+    # create archivist for facebook
+    archivist = ServerArchivist(database=database)
+    archivist.facebook = facebook
+    facebook.archivist = archivist
     # make sure private keys exists
     sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
     msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
@@ -166,6 +171,8 @@ def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
 def create_emitter(shared: GlobalVariable) -> Emitter:
     """ Step 5. create emitter """
     messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=None)
+    archivist = shared.facebook.archivist
+    archivist.messenger = messenger
     emitter = Emitter(messenger=messenger)
     shared.emitter = emitter
     return emitter

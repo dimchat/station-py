@@ -52,6 +52,7 @@ from libs.utils import Runner
 from libs.database import Storage
 from libs.common import CommonFacebook
 from libs.client import Terminal, ClientMessenger
+from libs.client import ClientArchivist, ClientFacebook
 
 from tests.shared import GlobalVariable
 from tests.shared import create_config, create_database
@@ -202,8 +203,14 @@ class Sergeant(Logging):
         identifier = ID.generate(meta=meta, network=EntityType.BOT)
         print('\n    Net ID: %s\n' % identifier)
         # 4. save private key & meta
-        facebook = CommonFacebook(database=shared.adb)
-        facebook.save_private_key(key=pri_key, user=identifier)
+        database = shared.adb
+        facebook = ClientFacebook()
+        # create archivist for facebook
+        archivist = ClientArchivist(database=database)
+        archivist.facebook = facebook
+        facebook.archivist = archivist
+        # facebook = CommonFacebook(database=shared.adb)
+        database.save_private_key(key=pri_key, user=identifier)
         facebook.save_meta(meta=meta, identifier=identifier)
         # 5. create visa
         visa = Document.create(doc_type=Document.VISA, identifier=identifier)

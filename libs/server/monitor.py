@@ -435,7 +435,7 @@ def _get_session_database() -> Optional[SessionDBI]:
         Log.warning(msg='messenger not found')
         facebook = emitter.facebook
         if facebook is not None:
-            db = facebook.database
+            db = facebook.archivist.database
             if isinstance(db, SessionDBI):
                 return db
         Log.warning(msg='facebook not found')

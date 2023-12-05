@@ -30,12 +30,11 @@
     Common libs for Server or Client
 """
 
+from dimples import CommonFacebook
 from dimples import CommonMessenger
 from dimples.utils import Config
 
 from .protocol import *
-
-from .facebook import CommonFacebook
 
 
 __all__ = [

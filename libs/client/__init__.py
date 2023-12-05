@@ -52,6 +52,8 @@ __all__ = [
     #
     #   Client
     #
+    'ClientArchivist', 'ClientFacebook',
+
     'ClientSession', 'SessionState',
     'ClientContentProcessorCreator',
     'ClientMessenger',
