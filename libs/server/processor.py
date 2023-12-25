@@ -31,7 +31,8 @@
 from typing import Optional, Union
 
 from dimples import ContentType
-from dimples import ReportCommand
+from dimples import ReportCommand, ReceiptCommand
+from dimples import ReliableMessage
 
 from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
@@ -47,6 +48,26 @@ from .cpu import MuteCommandProcessor, BlockCommandProcessor
 
 
 class ServerProcessor(ServerMessageProcessor):
+
+    # Override
+    def is_blocked(self, msg: ReliableMessage) -> bool:
+        blocked = super().is_blocked(msg=msg)
+        if blocked:
+            sender = msg.sender
+            receiver = msg.receiver
+            group = msg.group
+            facebook = self.facebook
+            nickname = facebook.get_name(identifier=receiver)
+            if group is None:
+                text = 'Message is blocked by %s' % nickname
+            else:
+                grp_name = facebook.get_name(identifier=group)
+                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
+            # response
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
+            res.group = group
+            self.messenger.send_content(sender=None, receiver=sender, content=res, priority=1)
+            return True
 
     # Override
     def _create_creator(self) -> ContentProcessorCreator:

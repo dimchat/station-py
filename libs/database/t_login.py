@@ -62,7 +62,7 @@ class LoginTable(LoginDBI):
         old, _ = self.login_command_message(user=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
-            return False
+            return True
 
     #
     #   Login DBI
@@ -102,7 +102,7 @@ class LoginTable(LoginDBI):
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
             cmd, msg = self.__redis.load_login(user=user)
-            if msg is None and cmd is not None:
+            if msg is None:  # and cmd is not None:
                 # cmd is a placeholder here
                 # 3. check local storage
                 cmd, msg = self.__dos.login_command_message(user=user)
