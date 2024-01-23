@@ -347,6 +347,27 @@ _lang_ko_KR = {
 }
 
 
+_lang_tr_TR = {
+
+    PushTmpl.recv_message: 'Sevgili {receiver}: {sender} size bir mesaj gönderdi.',
+    PushTmpl.recv_text: 'Sevgili {receiver}: {sender} size bir metin mesajı gönderdi.',
+    PushTmpl.recv_file: 'Sevgili {receiver}: {sender} size bir dosya gönderdi.',
+    PushTmpl.recv_image: 'Sevgili {receiver}: {sender} size bir resim gönderdi.',
+    PushTmpl.recv_voice: 'Sevgili {receiver}: {sender} size bir sesli mesaj gönderdi.',
+    PushTmpl.recv_video: 'Sevgili {receiver}: {sender} size bir video gönderdi.',
+    PushTmpl.recv_money: 'Sevgili {receiver}: {sender} size bir miktar para gönderdi.',
+
+    PushTmpl.grp_recv_message: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir mesaj gönderdi.',
+    PushTmpl.grp_recv_text: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir metin mesajı gönderdi.',
+    PushTmpl.grp_recv_file: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir dosya gönderdi.',
+    PushTmpl.grp_recv_image: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir resim gönderdi.',
+    PushTmpl.grp_recv_voice: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir sesli mesaj gönderdi.',
+    PushTmpl.grp_recv_video: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir video gönderdi.',
+    PushTmpl.grp_recv_money: 'Sevgili {receiver}: {sender} "{group}" grubunda size bir miktar para gönderdi.',
+
+}
+
+
 _lang_ms_MY = {
 
     PushTmpl.recv_message: 'Hormat {receiver}: {sender} menghantar anda mesej.',
@@ -511,6 +532,9 @@ Translations.set_dictionary(dictionary=_lang_ja_JP, locale='ja_JP')  # Japanese-
 
 Translations.set_dictionary(dictionary=_lang_ko_KR, locale='ko')
 Translations.set_dictionary(dictionary=_lang_ko_KR, locale='ko_KR')  # Korean-Korea
+
+Translations.set_dictionary(dictionary=_lang_tr_TR, locale='tr')
+Translations.set_dictionary(dictionary=_lang_tr_TR, locale='tr_TR')  # Turkish-Turkey
 
 Translations.set_dictionary(dictionary=_lang_ms_MY, locale='ms')
 Translations.set_dictionary(dictionary=_lang_ms_MY, locale='ms_MY')  # Malaysian-Malaysia
