@@ -30,6 +30,7 @@
 
 from typing import Optional, Union
 
+from dimples import ID
 from dimples import ContentType
 from dimples import ReportCommand, ReceiptCommand
 from dimples import ReliableMessage
@@ -40,9 +41,11 @@ from dimples import BaseContentProcessor
 
 from dimples.server import ServerMessageProcessor
 from dimples.server import ServerContentProcessorCreator
+from dimples.server import Dispatcher
 
 from ..common import MuteCommand, BlockCommand
 
+from .cpu import AnsCommandProcessor
 from .cpu import ReportCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
 
@@ -68,6 +71,33 @@ class ServerProcessor(ServerMessageProcessor):
             res.group = group
             self.messenger.send_content(sender=None, receiver=sender, content=res, priority=1)
             return True
+
+    # Override
+    def _broadcast_message(self, msg: ReliableMessage, station: ID):
+        sender = msg.sender
+        receiver = msg.receiver
+        assert receiver.is_broadcast, 'broadcast message error: %s -> %s' % (sender, receiver)
+        if receiver.is_user:
+            # broadcast message (to station bots)
+            # e.g.: 'archivist@anywhere', 'announcer@anywhere', 'monitor@anywhere'
+            name = receiver.name
+            assert name is not None and name != 'station' and name != 'anyone', 'receiver error: %s' % receiver
+            bot = AnsCommandProcessor.ans_id(name=name)
+            if bot is None:
+                self.warning(msg='failed to get receiver: %s' % receiver)
+            elif bot == sender:
+                self.debug(msg='skip cycled message: %s -> %s' % (sender, receiver))
+            elif bot == station:
+                self.debug(msg='skip current station: %s -> %s' % (sender, receiver))
+            else:
+                self.info(msg='forward to bot: %s -> %s' % (name, bot))
+                dispatcher = Dispatcher()
+                dispatcher.deliver_message(msg=msg, receiver=bot)
+                return True
+            # ignore this receiver
+            return False
+        # broadcast group message to neighbor stations
+        return super()._broadcast_message(msg=msg, station=station)
 
     # Override
     def _create_creator(self) -> ContentProcessorCreator:

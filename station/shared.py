@@ -35,7 +35,6 @@ from dimples.common import ANSFactory
 from dimples.common import AddressNameServer
 from dimples.database import Storage
 from dimples.server import FilterManager
-from dimples.server import BroadcastRecipientManager
 from dimples.server import ServerArchivist
 
 from libs.utils import Singleton
@@ -201,14 +200,6 @@ def create_ans(config: Config) -> AddressNameServer:
     ans_records = config.ans_records
     if ans_records is not None:
         ans.fix(records=ans_records)
-    # set bots to receive message for 'everyone@everywhere'
-    bots = set()
-    se = ans.identifier(name='archivist')  # Search Engine
-    if se is not None:
-        bots.add(se)
-    if len(bots) > 0:
-        manager = BroadcastRecipientManager()
-        manager.station_bots = bots
     return ans
 
 
