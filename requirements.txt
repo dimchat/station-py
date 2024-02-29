@@ -3,6 +3,7 @@ apns2      # 0.4.1
 MarkupSafe # 1.0
 Jinja2     # 2.11.3
 Flask      # 1.1.2
+Flask-Cors # 4.0.0
 xmltodict  # 0.12.0
 jpush      # 3.3.8
 
@@ -18,9 +19,9 @@ gevent     # 21.8.0
 
 ipx==0.2.2
 
-startrek==1.0.0
-tcp==1.0.0
-udp==1.0.0
+startrek==1.0.3
+tcp==1.0.3
+udp==1.0.3
 stun==0.2.3
 dmtp==0.3.4
 
@@ -29,4 +30,4 @@ dkd==1.0.2
 dimp==1.0.3
 dimsdk==1.0.3
 dimplugins==1.0.2
-dimples==0.4.1
+dimples==0.4.3

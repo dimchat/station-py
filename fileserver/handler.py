@@ -35,6 +35,7 @@ from typing import Optional, Tuple, Set, List
 
 from werkzeug.utils import secure_filename
 from flask import Flask, request, send_from_directory, render_template
+from flask_cors import CORS
 
 from dimples import md5, hex_encode, hex_decode
 from dimples import ID
@@ -113,6 +114,8 @@ def fetch_secret(secrets: List[str], enigma: Optional[str]) -> Optional[bytes]:
 
 
 app = Flask(__name__)
+
+CORS(app, origins=['localhost:*'])
 
 
 @app.route('/test.html', methods=['GET'])
