@@ -60,10 +60,11 @@ class Server(dmtp.Server, DockerDelegate):
 
     def start(self):
         self.hub.bind(address=self.local_address)
-        self.gate.start()
+        # self.gate.start()
 
     def stop(self):
-        self.gate.stop()
+        # self.gate.stop()
+        pass
 
     def info(self, msg: str):
         Log.info('%s >\t%s' % (self.__class__.__name__, msg))

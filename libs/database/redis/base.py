@@ -23,10 +23,10 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Any, Dict, List, Tuple
 
 from redis import Redis
-
+from redis.client import PubSub
 
 g_db_0 = Redis(db=0)  # default
 g_db_1 = Redis(db=1)  # mkm.meta
@@ -181,3 +181,27 @@ class Cache:
     def zcard(self, name: str) -> int:
         """ Get length of the ordered set with name """
         return self.redis.zcard(name=name)
+
+    #
+    #   Producer / Consumer
+    #
+
+    def publish(self, channel: str, message: Any) -> int:
+        """
+        Publish message on channel.
+        Returns the number of subscribers the message was delivered to.
+        """
+        return self.redis.publish(channel, message)
+
+    def subscribe(self, channel: str) -> PubSub:
+        ps = self.pubsub()
+        ps.subscribe(channel)
+        return ps
+
+    def pubsub(self) -> PubSub:
+        """
+        Return a Publish/Subscribe object. With this object, you can
+        subscribe to channels and listen for messages that get published to
+        them.
+        """
+        return self.redis.pubsub()

@@ -294,16 +294,20 @@ class MessageRecorder(Recorder):
 
 # TODO: temporary function, remove it after too many users online
 def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
+    emitter = _get_emitter()
+    user = emitter.facebook.current_user
+    assert user is not None, 'failed to get current user'
+    srv = _get_nickname(identifier=user.identifier)
     # get sender's name
     name = _get_nickname(identifier=sender)
     if online:
         title = 'Activity: Online (%s)' % when
         relay = _get_relay(identifier=sender)
         extra = _get_extra(identifier=sender)
-        text = '%s is online, socket %s, relay %s; %s' % (name, remote_address, relay, extra)
+        text = '%s: %s is online, socket %s, relay %s; %s' % (srv, name, remote_address, relay, extra)
     else:
         title = 'Activity: Offline (%s)' % when
-        text = '%s is offline, socket %s' % (name, remote_address)
+        text = '%s: %s is offline, socket %s' % (srv, name, remote_address)
     # build notifications
     masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
     masters = _get_masters(value=masters)
@@ -322,7 +326,6 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], wh
         Log.error(msg='apns bot not found')
         return
     content = PushCommand(items=items)
-    emitter = _get_emitter()
     emitter.send_content(content=content, receiver=bot)
     Log.info(msg='push %d items to: %s' % (len(items), bot))
 
