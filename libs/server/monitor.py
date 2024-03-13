@@ -299,7 +299,7 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], wh
     assert user is not None, 'failed to get current user'
     srv = _get_nickname(identifier=user.identifier)
     # get sender's name
-    name = _get_nickname(identifier=sender)
+    name = _get_fullname(identifier=sender)
     if online:
         title = 'Activity: Online (%s)' % when
         relay = _get_relay(identifier=sender)
@@ -339,6 +339,25 @@ def _get_masters(value: str) -> List[ID]:
 
 
 def _get_nickname(identifier: ID) -> Optional[str]:
+    emitter = _get_emitter()
+    if emitter is None:
+        Log.error(msg='emitter not found')
+        return None
+    facebook = emitter.facebook
+    if facebook is None:
+        Log.warning(msg='facebook not found')
+        return None
+    name = None
+    doc = facebook.document(identifier=identifier)
+    if doc is not None:
+        name = doc.name
+    if name is None or len(name) == 0:
+        return str(identifier)
+    else:
+        return name
+
+
+def _get_fullname(identifier: ID) -> Optional[str]:
     emitter = _get_emitter()
     if emitter is None:
         Log.error(msg='emitter not found')
