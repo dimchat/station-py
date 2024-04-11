@@ -29,6 +29,9 @@
     Redis Client
 """
 
+from .base import RedisConnector
+from .base import Cache
+
 from .ans import AddressNameCache
 from .meta import MetaCache
 from .document import DocumentCache
@@ -43,6 +46,9 @@ from .station import StationCache
 
 
 __all__ = [
+
+    'RedisConnector',
+    'Cache',
 
     'AddressNameCache',
     'MetaCache',

@@ -373,7 +373,7 @@ def _get_fullname(identifier: ID) -> Optional[str]:
     if name is None or len(name) == 0:
         return str(identifier)
     else:
-        return '%s (%s)' % (identifier, name)
+        return '%s (%s)' % (name, identifier)
 
 
 def _get_relay(identifier: ID) -> Optional[str]:
