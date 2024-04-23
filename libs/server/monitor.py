@@ -35,7 +35,7 @@ from dimples import SessionDBI
 from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
-from ..utils import Runner
+from ..utils import Runner, Daemon
 from ..common import PushItem, PushCommand
 
 from .cpu import AnsCommandProcessor
@@ -71,6 +71,7 @@ class Monitor(Runner, Logging):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__events = []
         self.__lock = threading.Lock()
+        self.__daemon = Daemon(target=self)
         self.__next_time = 0
         # recorders
         self.__usr_recorder: Optional[Recorder] = None
@@ -112,8 +113,7 @@ class Monitor(Runner, Logging):
         self.__usr_recorder = ActiveRecorder()
         self.__msg_recorder = MessageRecorder()
         # start thread
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
+        self.__daemon.start()
 
     # Override
     def process(self) -> bool:

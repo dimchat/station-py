@@ -34,6 +34,7 @@
 """
 
 from startrek.fsm import Runnable, Runner
+from startrek.fsm import Daemon
 # from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
 from dimples.utils import utf8_encode, utf8_decode
@@ -66,6 +67,7 @@ __all__ = [
     'get_msg_sig',
 
     'Runnable', 'Runner',
+    'Daemon',
     # 'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'Log', 'Logging',

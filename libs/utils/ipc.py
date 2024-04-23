@@ -32,9 +32,9 @@ import threading
 from abc import ABC
 from typing import Optional, Tuple, Any
 
-from startrek.fsm import Runner
+from startrek.fsm import Runner, Daemon
 
-from ipx import SharedMemoryArrow
+from ipx import Arrow, SharedMemoryArrow
 # from ipx.shm.mmap import MmapSharedMemoryController as DefaultController
 # from ipx.shm.mp import MpSharedMemoryController as DefaultController
 from .sysv import SysvSharedMemoryController as DefaultController
@@ -49,10 +49,15 @@ class AutoArrow(Runner, ABC):
     def __init__(self, name: str):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         controller = DefaultController.new(size=self.SHM_SIZE, name=name)
-        self._arrow = SharedMemoryArrow(controller=controller)
+        self.__arrow = SharedMemoryArrow(controller=controller)
+        self.__daemon = Daemon(target=self)
+
+    @property  # protected
+    def arrow(self) -> Arrow:
+        return self.__arrow
 
     def start(self):
-        threading.Thread(target=self.run, daemon=True).start()
+        self.__daemon.start()
         return self
 
 
@@ -72,7 +77,7 @@ class IncomeArrow(AutoArrow):
     # Override
     def process(self) -> bool:
         # drive the arrow to receive objects
-        obj = self._arrow.receive()
+        obj = self.arrow.receive()
         if obj is None:
             return False
         with self.__lock:
@@ -91,7 +96,7 @@ class OutgoArrow(AutoArrow):
         """ return -1 on failed """
         with self.__lock:
             try:
-                cnt = self._arrow.send(obj=obj)
+                cnt = self.arrow.send(obj=obj)
                 if cnt < 0:
                     print('[IPC] waiting queue is full, dropped: %s' % obj)
                 return cnt
@@ -112,9 +117,10 @@ class Pipe(Runner):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__income_arrow = arrows[0]
         self.__outgo_arrow = arrows[1]
+        self.__daemon = Daemon(target=self)
 
     def start(self):
-        threading.Thread(target=self.run, daemon=True).start()
+        self.__daemon.start()
         return self
 
     def send(self, obj: Optional[Any]) -> int:

@@ -31,12 +31,11 @@
 """
 
 import os
-import threading
 import traceback
 
 from dimples import DateTime
 
-from libs.utils import Runner, Logging
+from libs.utils import Runner, Daemon, Logging
 
 from fileserver.shared import GlobalVariable
 
@@ -51,9 +50,10 @@ class FileCleaner(Runner, Logging):
     def __init__(self):
         super().__init__(interval=600.0)
         self.__next_time = 0
+        self.__daemon = Daemon(target=self)
 
     def start(self):
-        threading.Thread(target=self.run, daemon=True).start()
+        self.__daemon.start()
         return self
 
     # Override
