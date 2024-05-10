@@ -59,7 +59,7 @@ class StationTable(ProviderDBI, StationDBI):
     #
 
     # Override
-    def all_providers(self) -> List[ProviderInfo]:
+    async def all_providers(self) -> List[ProviderInfo]:
         """ get list of (SP_ID, chosen) """
         now = DateTime.now()
         # 1. check memory cache
@@ -76,38 +76,38 @@ class StationTable(ProviderDBI, StationDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.all_providers()
+            value = await self.__redis.all_providers()
             if value is None or len(value) == 0:
                 # 3. check local storage
-                value = self.__dos.all_providers()
+                value = await self.__dos.all_providers()
                 if value is None or len(value) == 0:
                     value = [ProviderInfo(identifier=ProviderInfo.GSP, chosen=0)]
                 # update redis server
-                self.__redis.save_providers(providers=value)
+                await self.__redis.save_providers(providers=value)
             # update memory cache
             self.__isp_cache.update(key='providers', value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+    async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
         self.__isp_cache.erase(key='providers')
-        self.__redis.add_provider(identifier=identifier, chosen=chosen)
-        self.__dos.add_provider(identifier=identifier, chosen=chosen)
+        await self.__redis.add_provider(identifier=identifier, chosen=chosen)
+        await self.__dos.add_provider(identifier=identifier, chosen=chosen)
         return True
 
     # Override
-    def update_provider(self, identifier: ID, chosen: int) -> bool:
+    async def update_provider(self, identifier: ID, chosen: int) -> bool:
         self.__isp_cache.erase(key='providers')
-        self.__redis.update_provider(identifier=identifier, chosen=chosen)
-        self.__dos.update_provider(identifier=identifier, chosen=chosen)
+        await self.__redis.update_provider(identifier=identifier, chosen=chosen)
+        await self.__dos.update_provider(identifier=identifier, chosen=chosen)
         return True
 
     # Override
-    def remove_provider(self, identifier: ID) -> bool:
+    async def remove_provider(self, identifier: ID) -> bool:
         self.__isp_cache.erase(key='providers')
-        self.__redis.remove_provider(identifier=identifier)
-        self.__dos.remove_provider(identifier=identifier)
+        await self.__redis.remove_provider(identifier=identifier)
+        await self.__dos.remove_provider(identifier=identifier)
         return True
 
     #
@@ -115,7 +115,7 @@ class StationTable(ProviderDBI, StationDBI):
     #
 
     # Override
-    def all_stations(self, provider: ID) -> List[StationInfo]:
+    async def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get list of (host, port, SP_ID, chosen) """
         now = DateTime.now()
         # 1. check memory cache
@@ -132,42 +132,44 @@ class StationTable(ProviderDBI, StationDBI):
                 # neighbors expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.all_stations(provider=provider)
+            value = await self.__redis.all_stations(provider=provider)
             if value is None or len(value) == 0:
                 # 3. check local storage
-                value = self.__dos.all_stations(provider=provider)
+                value = await self.__dos.all_stations(provider=provider)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_stations(stations=value, provider=provider)
+                    await self.__redis.save_stations(stations=value, provider=provider)
             # update memory cache
             self.__stations_cache.update(key=provider, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
+    async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                          chosen: int = 0) -> bool:
         self.__stations_cache.erase(key=provider)
-        self.__redis.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
-        self.__dos.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        await self.__redis.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        await self.__dos.add_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
         return True
 
     # Override
-    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
+    async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                             chosen: int = None) -> bool:
         self.__stations_cache.erase(key=provider)
-        self.__redis.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
-        self.__dos.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        await self.__redis.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
+        await self.__dos.update_station(identifier=identifier, host=host, port=port, provider=provider, chosen=chosen)
         return True
 
     # Override
-    def remove_station(self, host: str, port: int, provider: ID) -> bool:
+    async def remove_station(self, host: str, port: int, provider: ID) -> bool:
         self.__stations_cache.erase(key=provider)
-        self.__redis.remove_station(host=host, port=port, provider=provider)
-        self.__dos.remove_station(host=host, port=port, provider=provider)
+        await self.__redis.remove_station(host=host, port=port, provider=provider)
+        await self.__dos.remove_station(host=host, port=port, provider=provider)
         return True
 
     # Override
-    def remove_stations(self, provider: ID) -> bool:
+    async def remove_stations(self, provider: ID) -> bool:
         self.__stations_cache.erase(key=provider)
-        self.__redis.remove_stations(provider=provider)
-        self.__dos.remove_stations(provider=provider)
+        await self.__redis.remove_stations(provider=provider)
+        await self.__dos.remove_stations(provider=provider)
         return True

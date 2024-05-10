@@ -55,7 +55,7 @@ class LoginCache(Cache):
     def __login_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.login' % (self.db_name, self.tbl_name, identifier)
 
-    def save_login(self, user: ID, content: Optional[LoginCommand], msg: Optional[ReliableMessage]) -> bool:
+    async def save_login(self, user: ID, content: Optional[LoginCommand], msg: Optional[ReliableMessage]) -> bool:
         """ Save login command & message into Redis Server """
         if content is not None:
             content = content.dictionary
@@ -71,7 +71,7 @@ class LoginCache(Cache):
         self.set(name=key, value=value, expires=self.EXPIRES)
         return True
 
-    def load_login(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def load_login(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         """
         Get 'login' command message
 
@@ -102,26 +102,26 @@ class LoginCache(Cache):
     def __active_sockets_cache_name(self) -> str:
         return '%s.%s.active_sockets' % (self.db_name, self.tbl_name)
 
-    def clear_socket_addresses(self):
+    async def clear_socket_addresses(self):
         """ clear before station start """
         name = self.__active_sockets_cache_name()
         return self.delete(name)
 
-    def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
+    async def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
         name = self.__active_sockets_cache_name()
         value = serialize_socket_addresses(addresses=addresses)
         if value is None:
             return self.hdel(name=name, key=str(identifier))
         return self.hset(name=name, key=str(identifier), value=value)
 
-    def socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
+    async def get_socket_addresses(self, identifier: ID) -> Set[Tuple[str, int]]:
         name = self.__active_sockets_cache_name()
         value = self.hget(name=name, key=str(identifier))
         if is_empty(value=value):
             return set()
         return deserialize_socket_addresses(value=value)
 
-    def all_users(self) -> Set[ID]:
+    async def all_users(self) -> Set[ID]:
         name = self.__active_sockets_cache_name()
         all_keys = self.hkeys(name=name)
         users = set()
@@ -133,7 +133,7 @@ class LoginCache(Cache):
             users.add(identifier)
         return users
 
-    def active_users(self) -> Set[ID]:
+    async def get_active_users(self) -> Set[ID]:
         name = self.__active_sockets_cache_name()
         records = self.hgetall(name=name)  # ID => Set[socket_address]
         if records is None:

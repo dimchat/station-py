@@ -56,22 +56,22 @@ class ClientPacker(SuperPacker):
         return transceiver
 
     # Override
-    def serialize_message(self, msg: ReliableMessage) -> bytes:
+    async def serialize_message(self, msg: ReliableMessage) -> bytes:
         # attach_key_digest(msg=msg, messenger=self.messenger)
         if self.mtp_format == self.MTP_JSON:
             # JsON
-            return super().serialize_message(msg=msg)
+            return await super().serialize_message(msg=msg)
         else:
             # D-MTP
             return MTPUtils.serialize_message(msg=msg)
 
     # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
             return None
         if data.startswith(b'{'):
             # JsON
-            msg = super().deserialize_message(data=data)
+            msg = await super().deserialize_message(data=data)
         else:
             # D-MTP
             msg = MTPUtils.deserialize_message(data=data)
@@ -88,7 +88,7 @@ class ClientPacker(SuperPacker):
     #     receiver = msg.receiver
     #     if receiver.is_group:
     #         # reuse group message keys
-    #         key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
+    #         key = self.messenger.get_cipher_key(sender=msg.sender, receiver=receiver)
     #         key['reused'] = True
     #     # TODO: reuse personal message key?
     #     return s_msg

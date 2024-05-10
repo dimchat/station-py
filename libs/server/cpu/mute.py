@@ -33,7 +33,7 @@
 from typing import List
 
 from dimples import ReliableMessage
-from dimples import Content, Command, BaseCommand
+from dimples import Content, BaseCommand
 from dimples import BaseCommandProcessor
 
 from ...database import Database
@@ -56,13 +56,13 @@ class MuteCommandProcessor(BaseCommandProcessor):
         return db
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, MuteCommand), 'mute command error: %s' % content
         sender = r_msg.sender
         db = self.database
         if 'list' in content:
             # upload mute-list, save it
-            if db.save_mute_command(content=content, identifier=sender):
+            if await db.save_mute_command(content=content, identifier=sender):
                 text = 'Mute received.'
                 return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                     'template': 'Mute command received: ${ID}.',
@@ -80,7 +80,7 @@ class MuteCommandProcessor(BaseCommandProcessor):
                 })
         else:
             # query mute-list, load it
-            stored: Command = db.mute_command(identifier=sender)
+            stored = await db.get_mute_command(identifier=sender)
             if stored is not None:
                 # response the stored mute command directly
                 return [stored]

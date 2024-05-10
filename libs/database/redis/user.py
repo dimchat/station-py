@@ -56,7 +56,7 @@ class UserCache(Cache):
     def __contacts_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
+    async def save_contacts(self, contacts: List[ID], identifier: ID) -> bool:
         assert contacts is not None, 'contacts cannot be empty'
         contacts = ID.revert(array=contacts)
         text = '\n'.join(contacts)
@@ -65,7 +65,7 @@ class UserCache(Cache):
         self.set(name=key, value=text, expires=self.EXPIRES)
         return True
 
-    def contacts(self, identifier: ID) -> List[ID]:
+    async def get_contacts(self, identifier: ID) -> List[ID]:
         key = self.__contacts_cache_name(identifier=identifier)
         value = self.get(name=key)
         if value is None:
@@ -82,11 +82,11 @@ class UserCache(Cache):
     def __contacts_command_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.contacts' % (self.db_name, self.tbl_name, identifier)
 
-    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+    async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         key = self.__contacts_command_cache_name(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
+    async def get_contacts_command(self, identifier: ID) -> Optional[Command]:
         key = self.__contacts_command_cache_name(identifier=identifier)
         dictionary = self.__load_command(key=key)
         if dictionary is not None:
@@ -117,11 +117,11 @@ class UserCache(Cache):
     def __block_command_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.block' % (self.db_name, self.tbl_name, identifier)
 
-    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
+    async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         key = self.__block_command_cache_name(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def block_command(self, identifier: ID) -> Optional[BlockCommand]:
+    async def get_block_command(self, identifier: ID) -> Optional[BlockCommand]:
         key = self.__block_command_cache_name(identifier=identifier)
         dictionary = self.__load_command(key=key)
         if dictionary is not None:
@@ -136,11 +136,11 @@ class UserCache(Cache):
     def __mute_command_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.cmd.mute' % (self.db_name, self.tbl_name, identifier)
 
-    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
+    async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         key = self.__mute_command_cache_name(identifier=identifier)
         return self.__save_command(key=key, content=content)
 
-    def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
+    async def get_mute_command(self, identifier: ID) -> Optional[MuteCommand]:
         key = self.__mute_command_cache_name(identifier=identifier)
         dictionary = self.__load_command(key=key)
         if dictionary is not None:

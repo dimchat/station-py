@@ -54,7 +54,7 @@ class GroupKeysCache(Cache):
     def __cache_name(self, group: ID, sender: ID) -> str:
         return '%s.%s.%s.%s.encrypted-keys' % (self.db_name, self.tbl_name, group, sender)
 
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         name = self.__cache_name(group=group, sender=sender)
         value = self.get(name=name)
         if value is not None:
@@ -64,7 +64,7 @@ class GroupKeysCache(Cache):
             assert info is not None, 'document error: %s' % value
             return info
 
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+    async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         js = json_encode(obj=keys)
         value = utf8_encode(string=js)
         name = self.__cache_name(group=group, sender=sender)

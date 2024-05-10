@@ -41,6 +41,7 @@ from dimples import DateTime
 from dimples import ID
 from dimples.server import ServerSession as SuperSession
 
+from ..utils import Runner
 from ..database import Database
 
 from .monitor import Monitor
@@ -70,13 +71,15 @@ class ServerSession(SuperSession):
     def set_identifier(self, identifier: ID) -> bool:
         old = self.identifier
         if super().set_identifier(identifier=identifier):
-            session_change_id(session=self, new_id=identifier, old_id=old)
+            crt = session_change_id(session=self, new_id=identifier, old_id=old)
+            Runner.async_run(coroutine=crt)
             return True
 
     # Override
     def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
-            session_change_active(session=self, active=active)
+            crt = session_change_active(session=self, active=active)
+            Runner.async_run(coroutine=crt)
             identifier = self.identifier
             self.info(msg='user active changed: %s, %s' % (identifier, active))
             if identifier is not None:
@@ -92,19 +95,19 @@ class ServerSession(SuperSession):
             return True
 
 
-def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
+async def session_change_id(session: ServerSession, new_id: ID, old_id: Optional[ID]):
     remote = session.remote_address
     db = session.database
     assert isinstance(db, Database), 'database error: %s' % db
     if old_id is not None:
         # remove socket address for old user
-        db.remove_socket_address(identifier=old_id, address=remote)
+        await db.remove_socket_address(identifier=old_id, address=remote)
     if new_id is not None:  # and session.active:
         # store socket address for new user
-        return db.add_socket_address(identifier=new_id, address=remote)
+        return await db.add_socket_address(identifier=new_id, address=remote)
 
 
-def session_change_active(session: ServerSession, active: bool):
+async def session_change_active(session: ServerSession, active: bool):
     identifier = session.identifier
     if identifier is None:
         # user not login yet
@@ -114,7 +117,7 @@ def session_change_active(session: ServerSession, active: bool):
     assert isinstance(db, Database), 'database error: %s' % db
     if active:
         # store socket address for this user
-        return db.add_socket_address(identifier=identifier, address=remote)
+        return await db.add_socket_address(identifier=identifier, address=remote)
     else:
         # remove socket address for this user
-        return db.remove_socket_address(identifier=identifier, address=remote)
+        return await db.remove_socket_address(identifier=identifier, address=remote)

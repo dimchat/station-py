@@ -58,16 +58,16 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         return db
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, ReportCommand), 'report command error: %s' % content
         # report title
         title = content.title
         if title == 'apns':
-            return self.__process_apns(content=content, msg=r_msg)
+            return await self.__process_apns(content=content, msg=r_msg)
         # other reports
-        return super().process_content(content=content, r_msg=r_msg)
+        return await super().process_content(content=content, r_msg=r_msg)
 
-    def __process_apns(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
+    async def __process_apns(self, content: ReportCommand, msg: ReliableMessage) -> List[Content]:
         # submit device token for APNs
         info = content.dictionary
         token = info.get('device_token')
@@ -88,7 +88,7 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         device = DeviceInfo.from_json(info=info)
         assert device is not None, 'failed to parse device info: %s' % info
         db = self.database
-        db.add_device(device=device, identifier=sender)
+        await db.add_device(device=device, identifier=sender)
         text = 'Device token received.'
         return self._respond_receipt(text=text, content=content, envelope=msg.envelope, extra={
             'template': 'Device token received: ${ID}.',

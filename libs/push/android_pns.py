@@ -58,7 +58,7 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
     #
 
     # Override
-    def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
+    async def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
         # TODO: check whether receiver has signed-in via Android client
         alias = device.token
         if alias is None or len(alias) == 0:

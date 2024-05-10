@@ -54,21 +54,21 @@ class ServerPacker(SuperPacker):
         return transceiver
 
     # Override
-    def serialize_message(self, msg: ReliableMessage) -> bytes:
+    async def serialize_message(self, msg: ReliableMessage) -> bytes:
         if self.mtp_format == self.MTP_JSON:
             # JsON
-            return super().serialize_message(msg=msg)
+            return await super().serialize_message(msg=msg)
         else:
             # D-MTP
             return MTPUtils.serialize_message(msg=msg)
 
     # Override
-    def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
+    async def deserialize_message(self, data: bytes) -> Optional[ReliableMessage]:
         if data is None or len(data) < 2:
             return None
         if data.startswith(b'{'):
             # JsON
-            msg = super().deserialize_message(data=data)
+            msg = await super().deserialize_message(data=data)
         else:
             # D-MTP
             msg = MTPUtils.deserialize_message(data=data)
@@ -78,14 +78,14 @@ class ServerPacker(SuperPacker):
         return msg
 
     # # Override
-    # def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
+    # async def encrypt_message(self, msg: InstantMessage) -> Optional[SecureMessage]:
     #     # make sure visa.key exists before encrypting message
     #     # call super to encrypt message
-    #     s_msg = super().encrypt_message(msg=msg)
+    #     s_msg = await super().encrypt_message(msg=msg)
     #     receiver = msg.receiver
     #     if receiver.is_group:
     #         # reuse group message keys
-    #         key = self.messenger.cipher_key(sender=msg.sender, receiver=receiver)
+    #         key = self.messenger.get_cipher_key(sender=msg.sender, receiver=receiver)
     #         key['reused'] = True
     #     # TODO: reuse personal message key?
     #     return s_msg

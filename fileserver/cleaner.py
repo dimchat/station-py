@@ -35,14 +35,14 @@ import traceback
 
 from dimples import DateTime
 
-from libs.utils import Runner, Daemon, Logging
+from libs.utils import DaemonRunner, Logging
 
 from fileserver.shared import GlobalVariable
 
 shared = GlobalVariable()
 
 
-class FileCleaner(Runner, Logging):
+class FileCleaner(DaemonRunner, Logging):
 
     # clear files uploaded 49 days ago
     EXPIRES = 3600 * 24 * 49
@@ -50,14 +50,9 @@ class FileCleaner(Runner, Logging):
     def __init__(self):
         super().__init__(interval=600.0)
         self.__next_time = 0
-        self.__daemon = Daemon(target=self)
-
-    def start(self):
-        self.__daemon.start()
-        return self
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         now = DateTime.current_timestamp()
         if now < self.__next_time:
             # last cleaning not expired yet

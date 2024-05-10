@@ -31,7 +31,7 @@
     DIM network supporting service
 """
 
-from dimples.utils import Log
+from dimples.utils import Log, Runner
 from dimples.utils import Path
 
 path = Path.abs(path=__file__)
@@ -54,7 +54,7 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/ftp.ini'
 
 
-def main():
+async def main():
     # create global variable
     shared = GlobalVariable()
     # load config
@@ -62,7 +62,7 @@ def main():
     shared.config = config
     # start cleaner
     cleaner = FileCleaner()
-    cleaner.start()
+    await cleaner.start()
     # start server
     host = shared.server_host
     port = shared.server_port
@@ -71,4 +71,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    Runner.sync_run(main=main())

@@ -48,7 +48,7 @@ class AddressNameStorage(Storage):
         path = self.ans_path
         return template_replace(path, 'PRIVATE', self._private)
 
-    def load_records(self) -> Dict[str, ID]:
+    async def load_records(self) -> Dict[str, ID]:
         path = self.__ans_path()
         self.info('Loading ANS records from: %s' % path)
         records = {}
@@ -72,7 +72,7 @@ class AddressNameStorage(Storage):
         records['founder'] = FOUNDER  # 'Albert Moky'
         return records
 
-    def save_records(self, records: Dict[str, ID]) -> bool:
+    async def save_records(self, records: Dict[str, ID]) -> bool:
         dictionary = {}
         # revert ID
         for name in records:

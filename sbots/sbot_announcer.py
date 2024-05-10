@@ -30,6 +30,7 @@
 
     Bot as Push Center
 """
+
 import time
 from typing import Optional, Union, List
 
@@ -37,7 +38,7 @@ from dimples import ContentType, Content, ReliableMessage
 from dimples import ContentProcessor, ContentProcessorCreator
 from dimples import BaseCommandProcessor
 from dimples.client import ClientContentProcessorCreator
-from dimples.utils import Log
+from dimples.utils import Log, Runner
 from dimples.utils import Path
 
 path = Path.abs(path=__file__)
@@ -62,7 +63,7 @@ class PushCommandProcessor(BaseCommandProcessor, Logging):
     MESSAGE_EXPIRES = 256
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, PushCommand), 'push command error: %s' % content
         items = content.items
         # check expired
@@ -137,10 +138,17 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-if __name__ == '__main__':
-    start_bot(default_config=DEFAULT_CONFIG,
-              app_name='DIM Push Center',
-              ans_name='announcer',
-              processor_class=BotMessageProcessor)
+async def main():
+    client = await start_bot(default_config=DEFAULT_CONFIG,
+                             app_name='DIM Push Center',
+                             ans_name='announcer',
+                             processor_class=BotMessageProcessor)
     # create push services
     create_apns(shared=GlobalVariable())
+    # main run loop
+    while client.running:
+        await Runner.sleep(seconds=1.0)
+
+
+if __name__ == '__main__':
+    Runner.sync_run(main=main())

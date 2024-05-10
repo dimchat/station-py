@@ -54,7 +54,7 @@ class MetaCache(Cache):
     def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s' % (self.db_name, self.tbl_name, identifier)
 
-    def meta(self, identifier: ID) -> Optional[Meta]:
+    async def get_meta(self, identifier: ID) -> Optional[Meta]:
         key = self.__cache_name(identifier=identifier)
         value = self.get(name=key)
         if value is not None:
@@ -64,7 +64,7 @@ class MetaCache(Cache):
             assert info is not None, 'meta error: %s' % value
             return Meta.parse(meta=info)
 
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
+    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
         dictionary = meta.dictionary
         js = json_encode(obj=dictionary)
         value = utf8_encode(string=js)

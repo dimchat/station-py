@@ -88,7 +88,9 @@ from dimples import ContentType, Content
 from dimples import CustomizedContent
 from dimples import ContentProcessor, ContentProcessorCreator
 from dimples import CustomizedContentProcessor
-from dimples.utils import Path, Log, Logging
+from dimples.utils import Log, Logging
+from dimples.utils import Runner
+from dimples.utils import Path
 from dimples.client import ClientMessenger
 from dimples.client import ClientMessageProcessor
 from dimples.client import ClientContentProcessorCreator
@@ -153,14 +155,14 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
         return transceiver
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, CustomizedContent), 'stat content error: %s' % content
         app = content.application
         mod = content.module
         act = content.action
         sender = r_msg.sender
         self.debug(msg='received content from %s: %s, %s, %s' % (sender, app, mod, act))
-        return super().process_content(content=content, r_msg=r_msg)
+        return await super().process_content(content=content, r_msg=r_msg)
 
     # Override
     def _filter(self, app: str, content: CustomizedContent, msg: ReliableMessage) -> Optional[List[Content]]:
@@ -171,7 +173,8 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
         return super()._filter(app=app, content=content, msg=msg)
 
     # Override
-    def handle_action(self, act: str, sender: ID, content: CustomizedContent, msg: ReliableMessage) -> List[Content]:
+    async def handle_action(self, act: str, sender: ID,
+                            content: CustomizedContent, msg: ReliableMessage) -> List[Content]:
         if act != 'post':
             self.error(msg='content error: %s' % content)
             return []
@@ -198,7 +201,7 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
         if len(listeners) > 0:
             messenger = self.messenger
             for bot in listeners:
-                messenger.send_content(sender=uid, receiver=bot, content=content)
+                await messenger.send_content(sender=uid, receiver=bot, content=content)
         # respond nothing
         return []
 
@@ -230,8 +233,15 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
+async def main():
+    client = await start_bot(default_config=DEFAULT_CONFIG,
+                             app_name='ServiceBot: Monitor',
+                             ans_name='monitor',
+                             processor_class=BotMessageProcessor)
+    # main run loop
+    while client.running:
+        await Runner.sleep(seconds=1.0)
+
+
 if __name__ == '__main__':
-    start_bot(default_config=DEFAULT_CONFIG,
-              app_name='ServiceBot: Monitor',
-              ans_name='monitor',
-              processor_class=BotMessageProcessor)
+    Runner.sync_run(main=main())

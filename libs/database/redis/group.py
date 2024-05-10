@@ -54,7 +54,7 @@ class GroupCache(Cache):
     def __members_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.members' % (self.db_name, self.tbl_name, identifier)
 
-    def members(self, group: ID) -> Optional[List[ID]]:
+    async def get_members(self, group: ID) -> Optional[List[ID]]:
         key = self.__members_cache_name(identifier=group)
         value = self.get(name=key)
         if value is not None:
@@ -62,7 +62,7 @@ class GroupCache(Cache):
             assert text is not None, 'failed to decode string: %s' % value
             return ID.convert(array=text.splitlines())
 
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    async def save_members(self, members: List[ID], group: ID) -> bool:
         users = ID.revert(array=members)
         text = '\n'.join(users)
         value = utf8_encode(string=text)
@@ -79,7 +79,7 @@ class GroupCache(Cache):
     def __administrators_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.administrators' % (self.db_name, self.tbl_name, identifier)
 
-    def administrators(self, group: ID) -> Optional[List[ID]]:
+    async def get_administrators(self, group: ID) -> Optional[List[ID]]:
         key = self.__administrators_cache_name(identifier=group)
         value = self.get(name=key)
         if value is not None:
@@ -87,7 +87,7 @@ class GroupCache(Cache):
             assert text is not None, 'failed to decode string: %s' % value
             return ID.convert(array=text.splitlines())
 
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         users = ID.revert(array=administrators)
         text = '\n'.join(users)
         value = utf8_encode(string=text)
@@ -104,7 +104,7 @@ class GroupCache(Cache):
     def __assistants_cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.assistants' % (self.db_name, self.tbl_name, identifier)
 
-    def assistants(self, group: ID) -> Optional[List[ID]]:
+    async def get_assistants(self, group: ID) -> Optional[List[ID]]:
         key = self.__assistants_cache_name(identifier=group)
         value = self.get(name=key)
         if value is not None:
@@ -112,7 +112,7 @@ class GroupCache(Cache):
             assert text is not None, 'failed to decode string: %s' % value
             return ID.convert(array=text.splitlines())
 
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         bots = ID.revert(array=assistants)
         text = '\n'.join(bots)
         value = utf8_encode(string=text)

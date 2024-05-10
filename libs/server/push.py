@@ -69,7 +69,7 @@ class DefaultPushService(PushService, Logging):
         return receiver
 
     # Override
-    def process(self, messages: List[ReliableMessage]) -> bool:
+    async def process(self, messages: List[ReliableMessage]) -> bool:
         try:
             bot = self.bot
             if bot is None:
@@ -84,13 +84,13 @@ class DefaultPushService(PushService, Logging):
                     self.warning(msg='drop expired message: %s -> %s (group: %s) type: %d'
                                      % (env.sender, msg.receiver, env.group, env.type))
                     continue
-                if mute_filter.is_muted(msg=msg):
+                if await mute_filter.is_muted(msg=msg):
                     env = self._origin_envelope(msg=msg)
                     self.info(msg='muted sender: %s -> %s (group: %s) type: %d'
                                   % (env.sender, msg.receiver, env.group, env.type))
                     continue
                 # build push item for message
-                pi = self.__build_push_item(msg=msg)
+                pi = await self.__build_push_item(msg=msg)
                 if pi is not None:
                     items.append(pi)
             if len(items) > 0:
@@ -99,12 +99,12 @@ class DefaultPushService(PushService, Logging):
                 if bot is not None:
                     content = PushCommand(items=items)
                     emitter = self.__emitter
-                    emitter.send_content(content=content, receiver=bot)
+                    await emitter.send_content(content=content, receiver=bot)
         except Exception as error:
             self.error(msg='push %d messages error: %s' % (len(messages), error))
         return True
 
-    def __build_push_item(self, msg: ReliableMessage) -> Optional[PushItem]:
+    async def __build_push_item(self, msg: ReliableMessage) -> Optional[PushItem]:
         # 1. check original sender, group & msg type
         env = self._origin_envelope(msg=msg)
         receiver = msg.receiver
@@ -114,7 +114,7 @@ class DefaultPushService(PushService, Logging):
             group = ID.parse(identifier='Hidden@anywhere')
         msg_type = env.type
         # 2. build title & content text
-        title, text = self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
+        title, text = await self._build_message(sender=sender, receiver=receiver, group=group, msg_type=msg_type)
         if text is None:
             self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
             return None
@@ -135,7 +135,8 @@ class DefaultPushService(PushService, Logging):
             msg.pop('origin', None)
         return env
 
-    def _build_message(self, sender: ID, receiver: ID, group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
+    async def _build_message(self, sender: ID, receiver: ID,
+                             group: ID, msg_type: int) -> Tuple[Optional[str], Optional[str]]:
         """ build title, content for notification """
         # get title, body template
         if msg_type == 0:
@@ -164,7 +165,7 @@ class DefaultPushService(PushService, Logging):
             return None, None
         # get language
         facebook = self.__facebook
-        visa = facebook.visa(identifier=receiver)
+        visa = await facebook.get_visa(identifier=receiver)
         if visa is None:
             language = 'en'
         else:
@@ -177,12 +178,12 @@ class DefaultPushService(PushService, Logging):
             translates = Translations.get(locale='en')
             assert translates is not None, 'default translation not set'
         # do translate
-        from_name = facebook.get_name(identifier=sender)
-        to_name = facebook.get_name(identifier=receiver)
+        from_name = await facebook.get_name(identifier=sender)
+        to_name = await facebook.get_name(identifier=receiver)
         params = {
             'sender': from_name,
             'receiver': to_name,
         }
         if group is not None:
-            params['group'] = facebook.get_name(identifier=group)
+            params['group'] = await facebook.get_name(identifier=group)
         return title, translates.translate(text=body, params=params)

@@ -112,20 +112,20 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
-        return self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
+    async def save_private_key(self, key: PrivateKey, user: ID, key_type: str = 'M') -> bool:
+        return await self.__private_table.save_private_key(key=key, user=user, key_type=key_type)
 
     # Override
-    def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
-        return self.__private_table.private_keys_for_decryption(user=user)
+    async def private_keys_for_decryption(self, user: ID) -> List[DecryptKey]:
+        return await self.__private_table.private_keys_for_decryption(user=user)
 
     # Override
-    def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_signature(user=user)
+    async def private_key_for_signature(self, user: ID) -> Optional[SignKey]:
+        return await self.__private_table.private_key_for_signature(user=user)
 
     # Override
-    def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
-        return self.__private_table.private_key_for_visa_signature(user=user)
+    async def private_key_for_visa_signature(self, user: ID) -> Optional[SignKey]:
+        return await self.__private_table.private_key_for_visa_signature(user=user)
 
     """
         Meta file for entities
@@ -136,19 +136,19 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # noinspection PyMethodMayBeStatic
-    def _verify_meta(self, meta: Meta, identifier: ID) -> bool:
+    async def _verify_meta(self, meta: Meta, identifier: ID) -> bool:
         if meta.match_identifier(identifier=identifier):
             return True
         raise ValueError('meta not match ID: %s' % identifier)
 
     # Override
-    def save_meta(self, meta: Meta, identifier: ID) -> bool:
-        if self._verify_meta(meta=meta, identifier=identifier):
-            return self.__meta_table.save_meta(meta=meta, identifier=identifier)
+    async def save_meta(self, meta: Meta, identifier: ID) -> bool:
+        if await self._verify_meta(meta=meta, identifier=identifier):
+            return await self.__meta_table.save_meta(meta=meta, identifier=identifier)
 
     # Override
-    def meta(self, identifier: ID) -> Optional[Meta]:
-        return self.__meta_table.meta(identifier=identifier)
+    async def get_meta(self, identifier: ID) -> Optional[Meta]:
+        return await self.__meta_table.get_meta(identifier=identifier)
 
     """
         Document for Accounts
@@ -159,38 +159,38 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.docs.keys'
     """
 
-    def _verify_document(self, document: Document) -> bool:
+    async def _verify_document(self, document: Document) -> bool:
         if document.valid:
             return True
-        meta = self.meta(identifier=document.identifier)
+        meta = await self.get_meta(identifier=document.identifier)
         assert meta is not None, 'meta not exists: %s' % document.identifier
         if document.verify(public_key=meta.public_key):
             return True
         raise ValueError('document invalid: %s' % document.identifier)
 
     # Override
-    def save_document(self, document: Document) -> bool:
-        if self._verify_document(document=document):
-            return self.__document_table.save_document(document=document)
+    async def save_document(self, document: Document) -> bool:
+        if await self._verify_document(document=document):
+            return await self.__document_table.save_document(document=document)
 
     # Override
-    def documents(self, identifier: ID) -> List[Document]:
-        return self.__document_table.documents(identifier=identifier)
+    async def get_documents(self, identifier: ID) -> List[Document]:
+        return await self.__document_table.get_documents(identifier=identifier)
 
-    def scan_documents(self) -> List[Document]:
-        return self.__document_table.scan_documents()
+    async def scan_documents(self) -> List[Document]:
+        return await self.__document_table.scan_documents()
 
     #
     #   User DBI
     #
 
     # Override
-    def local_users(self) -> List[ID]:
-        return self.__user_table.local_users()
+    async def get_local_users(self) -> List[ID]:
+        return await self.__user_table.get_local_users()
 
     # Override
-    def save_local_users(self, users: List[ID]) -> bool:
-        return self.__user_table.save_local_users(users=users)
+    async def save_local_users(self, users: List[ID]) -> bool:
+        return await self.__user_table.save_local_users(users=users)
 
     """
         User contacts
@@ -201,12 +201,12 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def save_contacts(self, contacts: List[ID], user: ID) -> bool:
-        return self.__user_table.save_contacts(contacts=contacts, user=user)
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        return await self.__user_table.save_contacts(contacts=contacts, user=user)
 
     # Override
-    def contacts(self, user: ID) -> List[ID]:
-        return self.__user_table.contacts(user=user)
+    async def get_contacts(self, user: ID) -> List[ID]:
+        return await self.__user_table.get_contacts(user=user)
 
     """
         Stored Contacts for User
@@ -216,11 +216,11 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.contacts'
     """
 
-    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
-        return self.__user_table.save_contacts_command(content=content, identifier=identifier)
+    async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+        return await self.__user_table.save_contacts_command(content=content, identifier=identifier)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
-        return self.__user_table.contacts_command(identifier=identifier)
+    async def get_contacts_command(self, identifier: ID) -> Optional[Command]:
+        return await self.__user_table.get_contacts_command(identifier=identifier)
 
     """
         Block-list of User
@@ -230,14 +230,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.block'
     """
 
-    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
-        return self.__user_table.save_block_command(content=content, identifier=identifier)
+    async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
+        return await self.__user_table.save_block_command(content=content, identifier=identifier)
 
-    def block_command(self, identifier: ID) -> BlockCommand:
-        return self.__user_table.block_command(identifier=identifier)
+    async def get_block_command(self, identifier: ID) -> BlockCommand:
+        return await self.__user_table.get_block_command(identifier=identifier)
 
-    def is_blocked(self, receiver: ID, sender: ID, group: ID = None) -> bool:
-        cmd = self.block_command(identifier=receiver)
+    async def is_blocked(self, receiver: ID, sender: ID, group: ID = None) -> bool:
+        cmd = await self.get_block_command(identifier=receiver)
         if cmd is None:
             return False
         array = cmd.block_list
@@ -258,14 +258,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'mkm.user.{ID}.cmd.mute'
     """
 
-    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
-        return self.__user_table.save_mute_command(content=content, identifier=identifier)
+    async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
+        return await self.__user_table.save_mute_command(content=content, identifier=identifier)
 
-    def mute_command(self, identifier: ID) -> MuteCommand:
-        return self.__user_table.mute_command(identifier=identifier)
+    async def get_mute_command(self, identifier: ID) -> MuteCommand:
+        return await self.__user_table.get_mute_command(identifier=identifier)
 
-    def is_muted(self, receiver: ID, sender: ID, group: ID = None) -> bool:
-        cmd = self.mute_command(identifier=receiver)
+    async def is_muted(self, receiver: ID, sender: ID, group: ID = None) -> bool:
+        cmd = await self.get_mute_command(identifier=receiver)
         if cmd is None:
             return False
         array = cmd.mute_list
@@ -286,14 +286,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         redis key: 'dim.user.{ID}.devices'
     """
 
-    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
-        return self.__device_table.devices(identifier=identifier)
+    async def get_devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
+        return await self.__device_table.get_devices(identifier=identifier)
 
-    def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
-        return self.__device_table.save_devices(devices=devices, identifier=identifier)
+    async def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
+        return await self.__device_table.save_devices(devices=devices, identifier=identifier)
 
-    def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
-        return self.__device_table.add_device(device=device, identifier=identifier)
+    async def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
+        return await self.__device_table.add_device(device=device, identifier=identifier)
 
     """
         Group members
@@ -304,60 +304,60 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
-        return self.__group_table.founder(group=group)
+    async def get_founder(self, group: ID) -> Optional[ID]:
+        return await self.__group_table.get_founder(group=group)
 
     # Override
-    def owner(self, group: ID) -> Optional[ID]:
-        return self.__group_table.owner(group=group)
+    async def get_owner(self, group: ID) -> Optional[ID]:
+        return await self.__group_table.get_owner(group=group)
 
     # Override
-    def members(self, group: ID) -> List[ID]:
-        return self.__group_table.members(group=group)
+    async def get_members(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_members(group=group)
 
     # Override
-    def save_members(self, members: List[ID], group: ID) -> bool:
-        return self.__group_table.save_members(members=members, group=group)
+    async def save_members(self, members: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_members(members=members, group=group)
 
     # Override
-    def assistants(self, group: ID) -> List[ID]:
-        return self.__group_table.assistants(group=group)
+    async def get_assistants(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_assistants(group=group)
 
     # Override
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
-        return self.__group_table.save_assistants(assistants=assistants, group=group)
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_assistants(assistants=assistants, group=group)
 
     # Override
-    def administrators(self, group: ID) -> List[ID]:
-        return self.__group_table.administrators(group=group)
+    async def get_administrators(self, group: ID) -> List[ID]:
+        return await self.__group_table.get_administrators(group=group)
 
     # Override
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
-        return self.__group_table.save_administrators(administrators=administrators, group=group)
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+        return await self.__group_table.save_administrators(administrators=administrators, group=group)
 
     #
     #   Group History DBI
     #
 
     # Override
-    def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
-        return self.__history_table.save_group_history(group=group, content=content, message=message)
+    async def save_group_history(self, group: ID, content: GroupCommand, message: ReliableMessage) -> bool:
+        return await self.__history_table.save_group_history(group=group, content=content, message=message)
 
     # Override
-    def group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
-        return self.__history_table.group_histories(group=group)
+    async def get_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+        return await self.__history_table.get_group_histories(group=group)
 
     # Override
-    def reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
-        return self.__history_table.reset_command_message(group=group)
+    async def get_reset_command_message(self, group: ID) -> Tuple[Optional[ResetCommand], Optional[ReliableMessage]]:
+        return await self.__history_table.get_reset_command_message(group=group)
 
     # Override
-    def clear_group_member_histories(self, group: ID) -> bool:
-        return self.__history_table.clear_group_member_histories(group=group)
+    async def clear_group_member_histories(self, group: ID) -> bool:
+        return await self.__history_table.clear_group_member_histories(group=group)
 
     # Override
-    def clear_group_admin_histories(self, group: ID) -> bool:
-        return self.__history_table.clear_group_admin_histories(group=group)
+    async def clear_group_admin_histories(self, group: ID) -> bool:
+        return await self.__history_table.clear_group_admin_histories(group=group)
 
     """
         Reliable message for Receivers
@@ -368,16 +368,16 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
-        return self.__message_table.reliable_messages(receiver=receiver, limit=limit)
+    async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
+        return await self.__message_table.get_reliable_messages(receiver=receiver, limit=limit)
 
     # Override
-    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        return self.__message_table.cache_reliable_message(msg=msg, receiver=receiver)
+    async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+        return await self.__message_table.cache_reliable_message(msg=msg, receiver=receiver)
 
     # Override
-    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
-        return self.__message_table.remove_reliable_message(msg=msg, receiver=receiver)
+    async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+        return await self.__message_table.remove_reliable_message(msg=msg, receiver=receiver)
 
     """
         Message Keys
@@ -387,20 +387,20 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
-        return self.__cipherkey_table.cipher_key(sender=sender, receiver=receiver, generate=generate)
+    async def get_cipher_key(self, sender: ID, receiver: ID, generate: bool = False) -> Optional[SymmetricKey]:
+        return await self.__cipherkey_table.get_cipher_key(sender=sender, receiver=receiver, generate=generate)
 
     # Override
-    def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
-        return self.__cipherkey_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
+    async def cache_cipher_key(self, key: SymmetricKey, sender: ID, receiver: ID):
+        return await self.__cipherkey_table.cache_cipher_key(key=key, sender=sender, receiver=receiver)
 
     # Override
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
-        return self.__grp_keys_table.group_keys(group=group, sender=sender)
+    async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+        return await self.__grp_keys_table.get_group_keys(group=group, sender=sender)
 
     # Override
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
-        return self.__grp_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
+    async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+        return await self.__grp_keys_table.save_group_keys(group=group, sender=sender, keys=keys)
 
     # """
     #     Address Name Service
@@ -410,14 +410,14 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     #     redis key: 'dim.ans'
     # """
     #
-    # def ans_save_record(self, name: str, identifier: ID) -> bool:
-    #     return self.__ans_table.save_record(name=name, identifier=identifier)
+    # async def ans_save_record(self, name: str, identifier: ID) -> bool:
+    #     return await self.__ans_table.save_record(name=name, identifier=identifier)
     #
-    # def ans_record(self, name: str) -> ID:
-    #     return self.__ans_table.record(name=name)
+    # async def ans_record(self, name: str) -> ID:
+    #     return await self.__ans_table.get_record(name=name)
     #
-    # def ans_names(self, identifier: ID) -> Set[str]:
-    #     return self.__ans_table.names(identifier=identifier)
+    # async def ans_names(self, identifier: ID) -> Set[str]:
+    #     return await self.__ans_table.get_names(identifier=identifier)
 
     """
         Login Info
@@ -427,70 +427,72 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
     """
 
     # Override
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
-        return self.__login_table.login_command_message(user=user)
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+        return await self.__login_table.get_login_command_message(user=user)
 
     # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
-        return self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+        return await self.__login_table.save_login_command_message(user=user, content=content, msg=msg)
 
     #
     #   Active DBI
     #
 
-    def clear_socket_addresses(self):
+    async def clear_socket_addresses(self):
         """ clear before station start """
-        self.__active_table.clear_socket_addresses()
+        await self.__active_table.clear_socket_addresses()
 
-    def active_users(self) -> Set[ID]:
-        return self.__active_table.active_users()
+    async def get_active_users(self) -> Set[ID]:
+        return await self.__active_table.get_active_users()
 
-    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__active_table.add_socket_address(identifier=identifier, address=address)
+    async def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        return await self.__active_table.add_socket_address(identifier=identifier, address=address)
 
-    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
-        return self.__active_table.remove_socket_address(identifier=identifier, address=address)
+    async def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+        return await self.__active_table.remove_socket_address(identifier=identifier, address=address)
 
     #
     #   Provider DBI
     #
 
     # Override
-    def all_providers(self) -> List[ProviderInfo]:
+    async def all_providers(self) -> List[ProviderInfo]:
         """ get list of (SP_ID, chosen) """
-        return self.__station_table.all_providers()
+        return await self.__station_table.all_providers()
 
     # Override
-    def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
-        return self.__station_table.add_provider(identifier=identifier, chosen=chosen)
+    async def add_provider(self, identifier: ID, chosen: int = 0) -> bool:
+        return await self.__station_table.add_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def update_provider(self, identifier: ID, chosen: int) -> bool:
-        return self.__station_table.update_provider(identifier=identifier, chosen=chosen)
+    async def update_provider(self, identifier: ID, chosen: int) -> bool:
+        return await self.__station_table.update_provider(identifier=identifier, chosen=chosen)
 
     # Override
-    def remove_provider(self, identifier: ID) -> bool:
-        return self.__station_table.remove_provider(identifier=identifier)
+    async def remove_provider(self, identifier: ID) -> bool:
+        return await self.__station_table.remove_provider(identifier=identifier)
 
     # Override
-    def all_stations(self, provider: ID) -> List[StationInfo]:
+    async def all_stations(self, provider: ID) -> List[StationInfo]:
         """ get list of (host, port, SP_ID, chosen) """
-        return self.__station_table.all_stations(provider=provider)
+        return await self.__station_table.all_stations(provider=provider)
 
     # Override
-    def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = 0) -> bool:
-        return self.__station_table.add_station(identifier=identifier, host=host, port=port,
-                                                provider=provider, chosen=chosen)
+    async def add_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                          chosen: int = 0) -> bool:
+        return await self.__station_table.add_station(identifier=identifier, host=host, port=port,
+                                                      provider=provider, chosen=chosen)
 
     # Override
-    def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID, chosen: int = None) -> bool:
-        return self.__station_table.update_station(identifier=identifier, host=host, port=port,
-                                                   provider=provider, chosen=chosen)
+    async def update_station(self, identifier: Optional[ID], host: str, port: int, provider: ID,
+                             chosen: int = None) -> bool:
+        return await self.__station_table.update_station(identifier=identifier, host=host, port=port,
+                                                         provider=provider, chosen=chosen)
 
     # Override
-    def remove_station(self, host: str, port: int, provider: ID) -> bool:
-        return self.__station_table.remove_station(host=host, port=port, provider=provider)
+    async def remove_station(self, host: str, port: int, provider: ID) -> bool:
+        return await self.__station_table.remove_station(host=host, port=port, provider=provider)
 
     # Override
-    def remove_stations(self, provider: ID) -> bool:
-        return self.__station_table.remove_stations(provider=provider)
+    async def remove_stations(self, provider: ID) -> bool:
+        return await self.__station_table.remove_stations(provider=provider)

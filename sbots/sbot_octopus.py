@@ -33,6 +33,7 @@
 
 from dimples.utils import Log
 from dimples.utils import Path
+from dimples.utils import Runner
 from dimples.edge.octopus import Octopus
 from dimples.edge.shared import GlobalVariable
 from dimples.edge.shared import create_config
@@ -54,28 +55,30 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/edge.ini'
 
 
-def main():
+async def main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
     config = create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
     shared.config = config
     # Step 2: create database
-    db = create_database(config=config)
+    db = await create_database(config=config)
     shared.adb = db
     shared.mdb = db
     shared.sdb = db
     # Step 3: create facebook
     sid = config.station_id
     assert sid is not None, 'current station ID not set: %s' % config
-    facebook = create_facebook(database=db, current_user=sid)
+    facebook = await create_facebook(database=db, current_user=sid)
     shared.facebook = facebook
     # create & start octopus
     host = config.station_host
     port = config.station_port
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
-    octopus.start()
+    await octopus.start()
+    while octopus.running:
+        await Runner.sleep(seconds=1.0)
 
 
 if __name__ == '__main__':
-    main()
+    Runner.sync_run(main=main())

@@ -56,7 +56,7 @@ class StorageCommandProcessor(BaseCommandProcessor):
         return db
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, StorageCommand), 'command error: %s' % content
         sender = r_msg.sender
         title = content.title
@@ -64,7 +64,7 @@ class StorageCommandProcessor(BaseCommandProcessor):
             db = self.database
             if content.data is None and 'contacts' not in content:
                 # query contacts, load it
-                stored = db.contacts_command(identifier=sender)
+                stored = await db.get_contacts_command(identifier=sender)
                 # response
                 if stored is None:
                     text = 'Contacts not found.'
@@ -79,7 +79,7 @@ class StorageCommandProcessor(BaseCommandProcessor):
                     return [stored]
             else:
                 # upload contacts, save it
-                if db.save_contacts_command(content=content, identifier=sender):
+                if await db.save_contacts_command(content=content, identifier=sender):
                     text = 'Contacts received.'
                     return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                         'template': 'Contacts received: ${ID}.',

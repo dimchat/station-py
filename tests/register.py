@@ -37,7 +37,8 @@ import sys
 from dimples import ID
 
 from dimples.utils import Path
-from dimples.utils import Log
+from dimples.utils import Log, Config
+from dimples.utils import Runner
 from dimples.database import Storage
 from dimples.register.shared import generate
 from dimples.register.shared import modify
@@ -47,7 +48,7 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from tests.shared import Config, GlobalVariable
+from tests.shared import GlobalVariable
 from tests.shared import create_database
 
 
@@ -80,7 +81,7 @@ def show_help():
     print('')
 
 
-def main():
+async def main():
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
@@ -114,14 +115,14 @@ def main():
     create_database(shared=shared)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
-        generate(database=shared.adb)
+        await generate(database=shared.adb)
     elif len(args) == 2 and args[0] == 'modify':
         identifier = ID.parse(identifier=args[1])
         assert identifier is not None, 'ID error: %s' % args[1]
-        modify(identifier=identifier, database=shared.adb)
+        await modify(identifier=identifier, database=shared.adb)
     else:
         show_help()
 
 
 if __name__ == '__main__':
-    main()
+    Runner.sync_run(main=main())

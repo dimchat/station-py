@@ -36,7 +36,7 @@ from typing import Optional, Union
 from dimples import ContentType
 from dimples import ContentProcessor, ContentProcessorCreator
 from dimples.client import ClientContentProcessorCreator
-from dimples.utils import Log
+from dimples.utils import Log, Runner
 from dimples.utils import Path
 
 path = Path.abs(path=__file__)
@@ -85,8 +85,15 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
+async def main():
+    client = await start_bot(default_config=DEFAULT_CONFIG,
+                             app_name='DIM Search Engine',
+                             ans_name='archivist',
+                             processor_class=ArchivistMessageProcessor)
+    # main run loop
+    while client.running:
+        await Runner.sleep(seconds=1.0)
+
+
 if __name__ == '__main__':
-    start_bot(default_config=DEFAULT_CONFIG,
-              app_name='DIM Search Engine',
-              ans_name='archivist',
-              processor_class=ArchivistMessageProcessor)
+    Runner.sync_run(main=main())

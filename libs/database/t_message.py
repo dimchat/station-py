@@ -56,7 +56,7 @@ class MessageTable(ReliableMessageDBI):
     #
 
     # Override
-    def reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
+    async def get_reliable_messages(self, receiver: ID, limit: int = 1024) -> List[ReliableMessage]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=receiver, now=now)
@@ -72,24 +72,24 @@ class MessageTable(ReliableMessageDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.reliable_messages(receiver=receiver, limit=limit)
+            value = await self.__redis.get_reliable_messages(receiver=receiver, limit=limit)
             # 3. update memory cache
             self.__cache.update(key=receiver, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def cache_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         # 1. store into redis server
-        if self.__redis.save_reliable_message(msg=msg, receiver=receiver):
+        if await self.__redis.save_reliable_message(msg=msg, receiver=receiver):
             # 2. clear cache to reload
             self.__cache.erase(key=receiver)
             return True
 
     # Override
-    def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
+    async def remove_reliable_message(self, msg: ReliableMessage, receiver: ID) -> bool:
         # 1. remove from redis server
-        if self.__redis.remove_reliable_message(msg=msg, receiver=receiver):
+        if await self.__redis.remove_reliable_message(msg=msg, receiver=receiver):
             # 2. clear cache to reload
             self.__cache.erase(key=receiver)
             return True

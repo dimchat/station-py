@@ -50,12 +50,12 @@ class GroupKeysTable(GroupKeysDBI):
     def show_info(self):
         self.__dos.show_info()
 
-    def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
+    async def _merge_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> Dict[str, str]:
         if 'digest' not in keys:
             # FIXME: old version?
             return keys
         # 0. check old record
-        table = self.group_keys(group=group, sender=sender)
+        table = await self.get_group_keys(group=group, sender=sender)
         if table is None or 'digest' not in table:
             # new keys
             return keys
@@ -74,7 +74,7 @@ class GroupKeysTable(GroupKeysDBI):
     #
 
     # Override
-    def group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
+    async def get_group_keys(self, group: ID, sender: ID) -> Optional[Dict[str, str]]:
         now = DateTime.now()
         identifier = (group, sender)
         # 1. check memory cache
@@ -91,27 +91,27 @@ class GroupKeysTable(GroupKeysDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.group_keys(group=group, sender=sender)
+            value = await self.__redis.get_group_keys(group=group, sender=sender)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.group_keys(group=group, sender=sender)
+                value = await self.__dos.get_group_keys(group=group, sender=sender)
                 if value is None:
                     value = {}  # placeholder
                 # update redis server
-                self.__redis.save_group_keys(keys=value, sender=sender, group=group)
+                await self.__redis.save_group_keys(keys=value, sender=sender, group=group)
             # update memory cache
             self.__keys_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
+    async def save_group_keys(self, group: ID, sender: ID, keys: Dict[str, str]) -> bool:
         identifier = (group, sender)
         # 0. check old record
-        keys = self._merge_keys(group=group, sender=sender, keys=keys)
+        keys = await self._merge_keys(group=group, sender=sender, keys=keys)
         # 1. store into memory cache
         self.__keys_cache.update(key=identifier, value=keys, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_group_keys(keys=keys, sender=sender, group=group)
+        await self.__redis.save_group_keys(keys=keys, sender=sender, group=group)
         # 3. store into local storage
-        return self.__dos.save_group_keys(keys=keys, sender=sender, group=group)
+        return await self.__dos.save_group_keys(keys=keys, sender=sender, group=group)

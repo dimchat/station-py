@@ -33,7 +33,7 @@
 from typing import List
 
 from dimples import ReliableMessage
-from dimples import Content, Command, BaseCommand
+from dimples import Content, BaseCommand
 from dimples import BaseCommandProcessor
 
 from ...database import Database
@@ -56,13 +56,13 @@ class BlockCommandProcessor(BaseCommandProcessor):
         return db
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, BlockCommand), 'block command error: %s' % content
         sender = r_msg.sender
         db = self.database
         if 'list' in content:
             # upload block-list, save it
-            if db.save_block_command(content=content, identifier=sender):
+            if await db.save_block_command(content=content, identifier=sender):
                 text = 'Block received.'
                 return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={
                     'template': 'Block command received: ${ID}.',
@@ -80,7 +80,7 @@ class BlockCommandProcessor(BaseCommandProcessor):
                 })
         else:
             # query block-list, load it
-            stored: Command = db.block_command(identifier=sender)
+            stored = await db.get_block_command(identifier=sender)
             if stored is not None:
                 # response the stored block command directly
                 return [stored]

@@ -32,7 +32,7 @@ import threading
 from abc import ABC
 from typing import Optional, Tuple, Any
 
-from startrek.fsm import Runner, Daemon
+from startrek.fsm import Runner, DaemonRunner
 
 from ipx import Arrow, SharedMemoryArrow
 # from ipx.shm.mmap import MmapSharedMemoryController as DefaultController
@@ -41,7 +41,7 @@ from .sysv import SysvSharedMemoryController as DefaultController
 
 
 # noinspection PyAbstractClass
-class AutoArrow(Runner, ABC):
+class AutoArrow(DaemonRunner, ABC):
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16
@@ -50,15 +50,10 @@ class AutoArrow(Runner, ABC):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         controller = DefaultController.new(size=self.SHM_SIZE, name=name)
         self.__arrow = SharedMemoryArrow(controller=controller)
-        self.__daemon = Daemon(target=self)
 
     @property  # protected
     def arrow(self) -> Arrow:
         return self.__arrow
-
-    def start(self):
-        self.__daemon.start()
-        return self
 
 
 class IncomeArrow(AutoArrow):
@@ -75,7 +70,7 @@ class IncomeArrow(AutoArrow):
                 return self.__pool.pop(0)
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         # drive the arrow to receive objects
         obj = self.arrow.receive()
         if obj is None:
@@ -105,23 +100,18 @@ class OutgoArrow(AutoArrow):
                 return -1
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         # send None to drive the arrow to re-send delay objects
         self.send(obj=None)
         return False
 
 
-class Pipe(Runner):
+class Pipe(DaemonRunner):
 
     def __init__(self, arrows: Tuple[Optional[IncomeArrow], Optional[OutgoArrow]]):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__income_arrow = arrows[0]
         self.__outgo_arrow = arrows[1]
-        self.__daemon = Daemon(target=self)
-
-    def start(self):
-        self.__daemon.start()
-        return self
 
     def send(self, obj: Optional[Any]) -> int:
         return self.__outgo_arrow.send(obj=obj)
@@ -130,15 +120,15 @@ class Pipe(Runner):
         return self.__income_arrow.receive()
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         incoming = self.__income_arrow
         outgoing = self.__outgo_arrow
         # drive outgo arrow to re-send delay objects
         if outgoing is not None:
-            outgoing.process()
+            await outgoing.process()
         # drive income arrow to receive objects
         if incoming is not None:
-            return incoming.process()
+            return await incoming.process()
 
 
 class SHM:

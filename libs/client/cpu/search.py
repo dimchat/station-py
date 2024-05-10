@@ -54,11 +54,11 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
         return barrack
 
     # Override
-    def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
+    async def process_content(self, content: Content, r_msg: ReliableMessage) -> List[Content]:
         assert isinstance(content, SearchCommand), 'search command error: %s' % content
         if content.users is not None:
             # this is a response
-            return save_response(self.facebook, station=r_msg.sender, users=content.users)
+            return await save_response(self.facebook, station=r_msg.sender, users=content.users)
         # this is a request
         facebook = self.facebook
         keywords = content.keywords
@@ -66,13 +66,13 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
             text = 'Search command error.'
             return self._respond_receipt(text=text, content=content, envelope=r_msg.envelope, extra={})
         elif keywords == SearchCommand.ONLINE_USERS:
-            users = online_users(start=content.start, limit=content.limit, facebook=facebook)
+            users = await online_users(start=content.start, limit=content.limit, facebook=facebook)
             self.info('Got %d recent online user(s)' % len(users))
         else:
             db = facebook.archivist.database
             assert isinstance(db, Database), 'database error: %s' % db
-            users = search_users(keywords=keywords, start=content.start, limit=content.limit,
-                                 database=db, facebook=facebook)
+            users = await search_users(keywords=keywords, start=content.start, limit=content.limit,
+                                       database=db, facebook=facebook)
             self.info('Got %d account(s) matched %s' % (len(users), keywords))
         res = SearchCommand.respond(request=content, keywords=keywords, users=users)
         station = facebook.current_user
@@ -89,7 +89,7 @@ ActiveTable.CACHE_EXPIRES = 8
 g_search_cache = CacheManager().get_pool(name='search')
 
 
-def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
+async def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
     assert start >= 0, 'start position error: %d' % start
     if limit > 0:
         end = start + limit
@@ -101,7 +101,7 @@ def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
     # check all users in session center
     db = facebook.archivist.database
     assert isinstance(db, Database), 'database error: %s' % db
-    active_users = db.active_users()
+    active_users = await db.get_active_users()
     index = -1
     users = []
     for item in active_users:
@@ -117,8 +117,8 @@ def online_users(start: int, limit: int, facebook: CommonFacebook) -> List[ID]:
     return users
 
 
-def search_users(keywords: str, start: int, limit: int,
-                 database: Database, facebook: CommonFacebook) -> List[ID]:
+async def search_users(keywords: str, start: int, limit: int,
+                       database: Database, facebook: CommonFacebook) -> List[ID]:
     # 0. split keywords
     if keywords is None:
         kw_array = []
@@ -144,7 +144,7 @@ def search_users(keywords: str, start: int, limit: int,
     # 2. do searching
     index = -1
     users = []
-    all_documents = database.scan_documents()
+    all_documents = await database.scan_documents()
     for doc in all_documents:
         # check duplicated
         identifier = doc.identifier
@@ -167,7 +167,7 @@ def search_users(keywords: str, start: int, limit: int,
         if not match:
             continue
         # 2.2. check user meta
-        meta = facebook.meta(identifier=identifier)
+        meta = await facebook.get_meta(identifier=identifier)
         if meta is None:
             # user meta not found, skip
             continue
@@ -187,7 +187,7 @@ def search_users(keywords: str, start: int, limit: int,
 
 
 # noinspection PyUnusedLocal
-def save_response(facebook: CommonFacebook, station: ID, users: List[ID]) -> List[Content]:
+async def save_response(facebook: CommonFacebook, station: ID, users: List[ID]) -> List[Content]:
     # TODO: Save online users in a text file
     # # store in redis server
     # for item in users:

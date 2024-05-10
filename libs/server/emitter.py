@@ -54,29 +54,29 @@ class Emitter(Logging):
             self.__dispatcher = Dispatcher()
         return self.__dispatcher
 
-    def send_content(self, content: Content, receiver: ID) -> bool:
+    async def send_content(self, content: Content, receiver: ID) -> bool:
         facebook = self.facebook
         current = facebook.current_user
         sender = current.identifier
         assert sender is not None, 'current user error: %s' % current
         env = Envelope.create(sender=sender, receiver=receiver)
         i_msg = InstantMessage.create(head=env, body=content)
-        return self.send_instant_message(msg=i_msg)
+        return await self.send_instant_message(msg=i_msg)
 
-    def send_instant_message(self, msg: InstantMessage) -> bool:
+    async def send_instant_message(self, msg: InstantMessage) -> bool:
         messenger = self.messenger
-        s_msg = messenger.encrypt_message(msg=msg)
+        s_msg = await messenger.encrypt_message(msg=msg)
         if s_msg is None:
             self.error(msg='failed to encrypt message: %s -> %s' % (msg.sender, msg.receiver))
             return False
-        r_msg = messenger.sign_message(msg=s_msg)
+        r_msg = await messenger.sign_message(msg=s_msg)
         if r_msg is None:
             self.error(msg='failed to sign message: %s -> %s' % (msg.sender, msg.receiver))
             return False
         self.info(msg='sending message: %s -> %s' % (msg.sender, msg.receiver))
-        self.send_reliable_message(msg=r_msg)
+        await self.send_reliable_message(msg=r_msg)
         return True
 
-    def send_reliable_message(self, msg: ReliableMessage):
+    async def send_reliable_message(self, msg: ReliableMessage):
         dispatcher = self.dispatcher
-        dispatcher.deliver_message(msg=msg, receiver=msg.receiver)
+        return await dispatcher.deliver_message(msg=msg, receiver=msg.receiver)

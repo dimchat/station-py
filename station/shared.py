@@ -110,7 +110,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     return config
 
 
-def create_database(config: Config) -> Database:
+async def create_database(config: Config) -> Database:
     """ Step 2: create database """
     root = config.database_root
     public = config.database_public
@@ -118,14 +118,14 @@ def create_database(config: Config) -> Database:
     # create database
     db = Database(root=root, public=public, private=private)
     db.show_info()
-    db.clear_socket_addresses()  # clear before station start
+    await db.clear_socket_addresses()  # clear before station start
     # default provider
     provider = ProviderInfo.GSP
     # add neighbors
     neighbors = config.neighbors
     for node in neighbors:
         print('adding neighbor node: %s' % node)
-        db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+        await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     # config redis server
     redis_enable = config.get_boolean(section='redis', option='enable')
     if redis_enable:
@@ -150,7 +150,7 @@ def create_database(config: Config) -> Database:
     return db
 
 
-def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     """ Step 3: create facebook """
     facebook = CommonFacebook()
     # create archivist for facebook
@@ -158,20 +158,20 @@ def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
     archivist.facebook = facebook
     facebook.archivist = archivist
     # make sure private keys exists
-    sign_key = facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = facebook.private_keys_for_decryption(identifier=current_user)
+    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
     assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
     assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
     print('set current user: %s' % current_user)
-    user = facebook.user(identifier=current_user)
+    user = await facebook.get_user(identifier=current_user)
     assert user is not None, 'failed to get current user: %s' % current_user
-    visa = user.visa
+    visa = await user.visa
     if visa is not None:
         # refresh visa
         now = time.time()
         visa.set_property(key='time', value=now)
         visa.sign(private_key=sign_key)
-        facebook.save_document(document=visa)
+        await facebook.save_document(document=visa)
     facebook.current_user = user
     return facebook
 
@@ -231,24 +231,24 @@ def create_apns(shared: GlobalVariable) -> PushCenter:
     return center
 
 
-def create_monitor(shared: GlobalVariable) -> Monitor:
+async def create_monitor(shared: GlobalVariable) -> Monitor:
     """ Step 8: create monitor """
     emitter = shared.emitter
     assert emitter is not None, 'emitter not set'
     monitor = Monitor()
     monitor.emitter = emitter
-    monitor.start()
+    await monitor.start()
     return monitor
 
 
-def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
+async def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
     config = create_config(app_name=server_name, default_config=default_config)
     shared.config = config
     # Step 2: create database
-    db = create_database(config=config)
+    db = await create_database(config=config)
     shared.adb = db
     shared.mdb = db
     shared.sdb = db
@@ -256,7 +256,7 @@ def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
     # Step 3: create facebook
     sid = config.station_id
     assert sid is not None, 'current station ID not set: %s' % config
-    facebook = create_facebook(database=db, current_user=sid)
+    facebook = await create_facebook(database=db, current_user=sid)
     shared.facebook = facebook
     # Step 4: create dispatcher
     create_dispatcher(shared=shared)
@@ -267,6 +267,6 @@ def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
     # Step 7: create push center
     create_apns(shared=shared)
     # Step 8: create monitor
-    create_monitor(shared=shared)
+    await create_monitor(shared=shared)
     # OK
     return shared

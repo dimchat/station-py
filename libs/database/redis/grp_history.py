@@ -57,7 +57,7 @@ class GroupHistoryCache(Cache, Logging):
     def __cache_name(self, group: ID) -> str:
         return '%s.%s.%s.history' % (self.db_name, self.tbl_name, group)
 
-    def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
+    async def load_group_histories(self, group: ID) -> List[Tuple[GroupCommand, ReliableMessage]]:
         name = self.__cache_name(group=group)
         value = self.get(name=name)
         if value is None:
@@ -80,7 +80,7 @@ class GroupHistoryCache(Cache, Logging):
             histories.append(his)
         return histories
 
-    def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
+    async def save_group_histories(self, group: ID, histories: List[Tuple[GroupCommand, ReliableMessage]]) -> bool:
         array = []
         for his in histories:
             # assert len(his) == 2, 'group history error: %s' % his

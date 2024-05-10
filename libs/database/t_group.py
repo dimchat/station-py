@@ -58,15 +58,15 @@ class GroupTable(GroupDBI):
     #
 
     # Override
-    def founder(self, group: ID) -> Optional[ID]:
+    async def get_founder(self, group: ID) -> Optional[ID]:
         pass
 
     # Override
-    def owner(self, group: ID) -> Optional[ID]:
+    async def get_owner(self, group: ID) -> Optional[ID]:
         pass
 
     # Override
-    def members(self, group: ID) -> List[ID]:
+    async def get_members(self, group: ID) -> List[ID]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__members_cache.fetch(key=group, now=now)
@@ -82,28 +82,28 @@ class GroupTable(GroupDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.members(group=group)
+            value = await self.__redis.get_members(group=group)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.members(group=group)
+                value = await self.__dos.get_members(group=group)
                 # update redis server
-                self.__redis.save_members(members=value, group=group)
+                await self.__redis.save_members(members=value, group=group)
             # update memory cache
             self.__members_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_members(self, members: List[ID], group: ID) -> bool:
+    async def save_members(self, members: List[ID], group: ID) -> bool:
         # 1. store into memory cache
         self.__members_cache.update(key=group, value=members, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_members(members=members, group=group)
+        await self.__redis.save_members(members=members, group=group)
         # 3. store into local storage
-        return self.__dos.save_members(members=members, group=group)
+        return await self.__dos.save_members(members=members, group=group)
 
     # Override
-    def assistants(self, group: ID) -> List[ID]:
+    async def get_assistants(self, group: ID) -> List[ID]:
         """ get assistants of group """
         now = DateTime.now()
         # 1. check memory cache
@@ -120,28 +120,28 @@ class GroupTable(GroupDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.assistants(group=group)
+            value = await self.__redis.get_assistants(group=group)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.assistants(group=group)
+                value = await self.__dos.get_assistants(group=group)
                 # update redis server
-                self.__redis.save_assistants(assistants=value, group=group)
+                await self.__redis.save_assistants(assistants=value, group=group)
             # update memory cache
             self.__assistants_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_assistants(self, assistants: List[ID], group: ID) -> bool:
+    async def save_assistants(self, assistants: List[ID], group: ID) -> bool:
         # 1. store into memory cache
         self.__assistants_cache.update(key=group, value=assistants, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_assistants(assistants=assistants, group=group)
+        await self.__redis.save_assistants(assistants=assistants, group=group)
         # 3. store into local storage
-        return self.__dos.save_assistants(assistants=assistants, group=group)
+        return await self.__dos.save_assistants(assistants=assistants, group=group)
 
     # Override
-    def administrators(self, group: ID) -> List[ID]:
+    async def get_administrators(self, group: ID) -> List[ID]:
         """ get administrators of group """
         now = DateTime.now()
         # 1. check memory cache
@@ -158,22 +158,22 @@ class GroupTable(GroupDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.administrators(group=group)
+            value = await self.__redis.get_administrators(group=group)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.administrators(group=group)
+                value = await self.__dos.get_administrators(group=group)
                 # update redis server
-                self.__redis.save_administrators(administrators=value, group=group)
+                await self.__redis.save_administrators(administrators=value, group=group)
             # update memory cache
             self.__administrators_cache.update(key=group, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
     # Override
-    def save_administrators(self, administrators: List[ID], group: ID) -> bool:
+    async def save_administrators(self, administrators: List[ID], group: ID) -> bool:
         # 1. store into memory cache
         self.__administrators_cache.update(key=group, value=administrators, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_administrators(administrators=administrators, group=group)
+        await self.__redis.save_administrators(administrators=administrators, group=group)
         # 3. store into local storage
-        return self.__dos.save_administrators(administrators=administrators, group=group)
+        return await self.__dos.save_administrators(administrators=administrators, group=group)

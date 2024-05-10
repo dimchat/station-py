@@ -49,7 +49,7 @@ class AddressNameTable:
     def show_info(self):
         self.__dos.show_info()
 
-    def _load_records(self, now: float = None) -> Dict[str, ID]:
+    async def _load_records(self, now: float = None) -> Dict[str, ID]:
         # 1. check memory cache
         value, holder = self.__cache.fetch(key='all_records', now=now)
         if value is None:
@@ -64,28 +64,28 @@ class AddressNameTable:
                 # ANS records expired, wait to reload
                 holder.renewal(duration=128, now=now)
             # 2. load from local storage
-            value = self.__dos.load_records()
+            value = await self.__dos.load_records()
             self.__cache.update(key='all_records', value=value, life_span=300, now=now)
         return value
 
-    def _save_records(self, records: Dict[str, ID], now: float = None) -> bool:
+    async def _save_records(self, records: Dict[str, ID], now: float = None) -> bool:
         self.__cache.update(key='all_records', value=records, life_span=300, now=now)
-        return self.__dos.save_records(records=records)
+        return await self.__dos.save_records(records=records)
 
-    def save_record(self, name: str, identifier: ID) -> bool:
+    async def save_record(self, name: str, identifier: ID) -> bool:
         now = DateTime.now()
         # 1. update memory cache
         if identifier is not None:
             # remove: ID => Set[str]
             self.__cache.erase(key=identifier)
         # 2. update redis server
-        self.__redis.save_record(name=name, identifier=identifier)
+        await self.__redis.save_record(name=name, identifier=identifier)
         # 3. update local storage
-        all_records = self._load_records(now=now)
+        all_records = await self._load_records(now=now)
         all_records[name] = identifier
-        return self._save_records(records=all_records, now=now)
+        return await self._save_records(records=all_records, now=now)
 
-    def record(self, name: str) -> Optional[ID]:
+    async def get_record(self, name: str) -> Optional[ID]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=name, now=now)
@@ -101,21 +101,21 @@ class AddressNameTable:
                 # ANS record expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.record(name=name)
+            value = await self.__redis.get_record(name=name)
             if value is None:
                 # 3. check local storage
-                all_records = self._load_records(now=now)
+                all_records = await self._load_records(now=now)
                 if all_records is not None:
                     # update redis server
                     value = all_records.get(name)
                     if value is not None:
-                        self.__redis.save_record(name=name, identifier=value)
+                        await self.__redis.save_record(name=name, identifier=value)
             # update memory cache
             self.__cache.update(key=name, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
-    def names(self, identifier: ID) -> Set[str]:
+    async def get_names(self, identifier: ID) -> Set[str]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cache.fetch(key=identifier, now=now)
@@ -131,10 +131,10 @@ class AddressNameTable:
                 # ANS record expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.names(identifier=identifier)
+            value = await self.__redis.get_names(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                all_records = self._load_records(now=now)
+                all_records = await self._load_records(now=now)
                 if all_records is not None:
                     value = get_names(records=all_records, identifier=identifier)
             # update memory cache

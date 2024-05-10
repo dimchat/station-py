@@ -50,18 +50,18 @@ class AddressNameCache(Cache):
     def __cache_name(self) -> str:
         return '%s.%s' % (self.db_name, self.tbl_name)
 
-    def save_record(self, name: str, identifier: ID):
+    async def save_record(self, name: str, identifier: ID):
         value = utf8_encode(string=str(identifier))
         self.hset(name=self.__cache_name(), key=name, value=value)
         return True
 
-    def record(self, name: str) -> Optional[ID]:
+    async def get_record(self, name: str) -> Optional[ID]:
         value = self.hget(name=self.__cache_name(), key=name)
         if value is not None:
             identifier = utf8_decode(data=value)
             return ID.parse(identifier=identifier)
 
-    def names(self, identifier: ID) -> Set[str]:
+    async def get_names(self, identifier: ID) -> Set[str]:
         records = self.hgetall(name=self.__cache_name())
         if records is None:
             return set()

@@ -58,13 +58,13 @@ class UserStorage(SuperStorage):
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+    async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         assert content is not None, 'contacts command cannot be empty'
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Saving contacts command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
+    async def get_contacts_command(self, identifier: ID) -> Optional[Command]:
         path = self.__contacts_command_path(identifier=identifier)
         self.info('Loading stored contacts command from: %s' % path)
         dictionary = self.read_json(path=path)
@@ -84,13 +84,13 @@ class UserStorage(SuperStorage):
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
+    async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         assert content is not None, 'block command cannot be empty'
         path = self.__block_command_path(identifier=identifier)
         self.info('Saving block command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def block_command(self, identifier: ID) -> Optional[BlockCommand]:
+    async def get_block_command(self, identifier: ID) -> Optional[BlockCommand]:
         path = self.__block_command_path(identifier=identifier)
         self.info('Loading stored block command from: %s' % path)
         dictionary = self.read_json(path=path)
@@ -110,13 +110,13 @@ class UserStorage(SuperStorage):
         path = template_replace(path, 'PRIVATE', self._private)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
-    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
+    async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         assert content is not None, 'mute command cannot be empty'
         path = self.__mute_command_path(identifier=identifier)
         self.info('Saving mute command into: %s' % path)
         return self.write_json(container=content.dictionary, path=path)
 
-    def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
+    async def get_mute_command(self, identifier: ID) -> Optional[MuteCommand]:
         path = self.__mute_command_path(identifier=identifier)
         self.info('Loading stored mute command from: %s' % path)
         dictionary = self.read_json(path=path)

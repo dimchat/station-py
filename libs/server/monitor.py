@@ -25,6 +25,7 @@
 
 import threading
 import time
+import traceback
 from abc import ABC, abstractmethod
 from typing import Optional, Union, Tuple, List, Dict
 
@@ -35,7 +36,7 @@ from dimples import SessionDBI
 from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
-from ..utils import Runner, Daemon
+from ..utils import Runner, DaemonRunner
 from ..common import PushItem, PushCommand
 
 from .cpu import AnsCommandProcessor
@@ -57,13 +58,13 @@ class Recorder(ABC):
 class Event(ABC):
 
     @abstractmethod
-    def handle(self, recorder: Recorder):
+    async def handle(self, recorder: Recorder):
         """ handle the event """
         raise NotImplemented
 
 
 @Singleton
-class Monitor(Runner, Logging):
+class Monitor(DaemonRunner, Logging):
 
     INTERVAL = 60  # seconds
 
@@ -71,7 +72,6 @@ class Monitor(Runner, Logging):
         super().__init__(interval=Runner.INTERVAL_SLOW)
         self.__events = []
         self.__lock = threading.Lock()
-        self.__daemon = Daemon(target=self)
         self.__next_time = 0
         # recorders
         self.__usr_recorder: Optional[Recorder] = None
@@ -106,24 +106,24 @@ class Monitor(Runner, Logging):
             if len(self.__events) > 0:
                 return self.__events.pop(0)
 
-    def start(self):
+    # Override
+    async def start(self):
         # next time to flush
         self.__next_time = time.time() + self.INTERVAL
         # create recorders
         self.__usr_recorder = ActiveRecorder()
         self.__msg_recorder = MessageRecorder()
-        # start thread
-        self.__daemon.start()
+        await super().start()
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         # 1. check to flush data
         now = time.time()
         if now > self.__next_time:
             users = self.__usr_recorder.extract()
             stats = self.__msg_recorder.extract()
             try:
-                self.__send(users=users, stats=stats)
+                await self.__send(users=users, stats=stats)
             except Exception as e:
                 self.error(msg='failed to send data: %s' % e)
             # flush next time
@@ -134,20 +134,21 @@ class Monitor(Runner, Logging):
             # nothing to do now, return False to let the thread have a rest
             return False
         try:
-            self.__handle(event=event)
+            await self.__handle(event=event)
         except Exception as e:
             self.error(msg='handle event error: %s' % e)
+            traceback.print_exc()
         return True
 
-    def __handle(self, event: Event):
+    async def __handle(self, event: Event):
         if isinstance(event, ActiveEvent):
-            event.handle(recorder=self.__usr_recorder)
+            await event.handle(recorder=self.__usr_recorder)
         elif isinstance(event, MessageEvent):
-            event.handle(recorder=self.__msg_recorder)
+            await event.handle(recorder=self.__msg_recorder)
         else:
             self.error(msg='event error: %s' % event)
 
-    def __send(self, users: List, stats: List):
+    async def __send(self, users: List, stats: List):
         bot = self.bot
         assert bot is not None, 'monitor bot not set'
         emitter = self.__emitter
@@ -155,11 +156,11 @@ class Monitor(Runner, Logging):
         # send users data
         content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')
         content['users'] = users
-        emitter.send_content(content=content, receiver=bot)
+        await emitter.send_content(content=content, receiver=bot)
         # send stats data
         content = CustomizedContent.create(app='chat.dim.monitor', mod='stats', act='post')
         content['stats'] = stats
-        emitter.send_content(content=content, receiver=bot)
+        await emitter.send_content(content=content, receiver=bot)
 
     #
     #   Events
@@ -193,7 +194,7 @@ class ActiveEvent(Event, Logging):
         self.__when = when
 
     # Override
-    def handle(self, recorder: Recorder):
+    async def handle(self, recorder: Recorder):
         assert isinstance(recorder, ActiveRecorder), 'recorder error: %s' % recorder
         sender = self.__sender
         remote = self.__remote_address
@@ -201,7 +202,7 @@ class ActiveEvent(Event, Logging):
         # TODO: temporary notification, remove after too many users online
         online = self.__online
         when = self.__when
-        _notice_master(sender=sender, online=online, remote_address=remote, when=when)
+        await _notice_master(sender=sender, online=online, remote_address=remote, when=when)
 
 
 class ActiveRecorder(Recorder):
@@ -238,7 +239,7 @@ class MessageEvent(Event):
         self.msg = msg
 
     # Override
-    def handle(self, recorder: Recorder):
+    async def handle(self, recorder: Recorder):
         assert isinstance(recorder, MessageRecorder), 'recorder error: %s' % recorder
         sender = self.msg.sender
         msg_type = self.msg.type
@@ -293,17 +294,17 @@ class MessageRecorder(Recorder):
 
 
 # TODO: temporary function, remove it after too many users online
-def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
+async def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
     emitter = _get_emitter()
     user = emitter.facebook.current_user
     assert user is not None, 'failed to get current user'
-    srv = _get_nickname(identifier=user.identifier)
+    srv = await _get_nickname(identifier=user.identifier)
     # get sender's name
-    name = _get_fullname(identifier=sender)
+    name = await _get_fullname(identifier=sender)
     if online:
         title = 'Activity: Online (%s)' % when
-        relay = _get_relay(identifier=sender)
-        extra = _get_extra(identifier=sender)
+        relay = await _get_relay(identifier=sender)
+        extra = await _get_extra(identifier=sender)
         text = '%s: %s is online, socket %s, relay %s; %s' % (srv, name, remote_address, relay, extra)
     else:
         title = 'Activity: Offline (%s)' % when
@@ -326,7 +327,7 @@ def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], wh
         Log.error(msg='apns bot not found')
         return
     content = PushCommand(items=items)
-    emitter.send_content(content=content, receiver=bot)
+    await emitter.send_content(content=content, receiver=bot)
     Log.info(msg='push %d items to: %s' % (len(items), bot))
 
 
@@ -338,7 +339,7 @@ def _get_masters(value: str) -> List[ID]:
     return ID.convert(array=array)
 
 
-def _get_nickname(identifier: ID) -> Optional[str]:
+async def _get_nickname(identifier: ID) -> Optional[str]:
     emitter = _get_emitter()
     if emitter is None:
         Log.error(msg='emitter not found')
@@ -348,7 +349,7 @@ def _get_nickname(identifier: ID) -> Optional[str]:
         Log.warning(msg='facebook not found')
         return None
     name = None
-    doc = facebook.document(identifier=identifier)
+    doc = await facebook.get_document(identifier=identifier)
     if doc is not None:
         name = doc.name
     if name is None or len(name) == 0:
@@ -357,7 +358,7 @@ def _get_nickname(identifier: ID) -> Optional[str]:
         return name
 
 
-def _get_fullname(identifier: ID) -> Optional[str]:
+async def _get_fullname(identifier: ID) -> Optional[str]:
     emitter = _get_emitter()
     if emitter is None:
         Log.error(msg='emitter not found')
@@ -367,7 +368,7 @@ def _get_fullname(identifier: ID) -> Optional[str]:
         Log.warning(msg='facebook not found')
         return None
     name = None
-    doc = facebook.document(identifier=identifier)
+    doc = await facebook.get_document(identifier=identifier)
     if doc is not None:
         name = doc.name
     if name is None or len(name) == 0:
@@ -376,9 +377,9 @@ def _get_fullname(identifier: ID) -> Optional[str]:
         return '%s (%s)' % (name, identifier)
 
 
-def _get_relay(identifier: ID) -> Optional[str]:
+async def _get_relay(identifier: ID) -> Optional[str]:
     db = _get_session_database()
-    cmd, _ = db.login_command_message(user=identifier)
+    cmd, _ = await db.get_login_command_message(user=identifier)
     if cmd is None:
         Log.warning(msg='login command not found: %s' % identifier)
         return None
@@ -389,7 +390,7 @@ def _get_relay(identifier: ID) -> Optional[str]:
         return '%s:%s' % (host, port)
 
 
-def _get_extra(identifier: ID) -> Optional[str]:
+async def _get_extra(identifier: ID) -> Optional[str]:
     emitter = _get_emitter()
     if emitter is None:
         Log.error(msg='emitter not found')
@@ -398,7 +399,7 @@ def _get_extra(identifier: ID) -> Optional[str]:
     if facebook is None:
         Log.warning(msg='facebook not found')
         return None
-    doc = facebook.document(identifier=identifier)
+    doc = await facebook.get_document(identifier=identifier)
     if doc is not None:
         # check app.language
         app = doc.get_property(key='app')

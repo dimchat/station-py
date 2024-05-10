@@ -15,7 +15,7 @@ from typing import Optional, List
 from dimples import DateTime
 from dimples import ID
 
-from ..utils import Singleton, Logging, Runner, Daemon
+from ..utils import Singleton, Logging, Runner, DaemonRunner
 from ..common import PushInfo, PushItem
 from ..database import DeviceInfo
 
@@ -23,7 +23,7 @@ from ..database import DeviceInfo
 class PushNotificationService(ABC):
 
     @abstractmethod
-    def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
+    async def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
         raise NotImplemented
 
 
@@ -47,7 +47,7 @@ class PushTask:
 
 
 @Singleton
-class PushNotificationClient(Runner, Logging):
+class PushNotificationClient(DaemonRunner, Logging):
 
     class Delegate(ABC):
         """
@@ -56,7 +56,7 @@ class PushNotificationClient(Runner, Logging):
         """
 
         @abstractmethod
-        def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
+        async def get_devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
             """ get devices with token in hex format """
             pass
 
@@ -69,8 +69,8 @@ class PushNotificationClient(Runner, Logging):
         # push tasks
         self.__tasks: List[PushTask] = []
         self.__lock = threading.Lock()
-        self.__daemon = Daemon(target=self)
-        self.__daemon.start()
+        # auto run
+        Runner.async_run(coroutine=self.start())
 
     @property
     def apple_pns(self) -> Optional[PushNotificationService]:
@@ -107,11 +107,8 @@ class PushNotificationClient(Runner, Logging):
             if len(self.__tasks) > 0:
                 return self.__tasks.pop(0)
 
-    # def start(self):
-    #     self.__daemon.start()
-
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         task = self.__next_task()
         if task is None:
             # nothing to do now, return False to have a rest
@@ -123,13 +120,13 @@ class PushNotificationClient(Runner, Logging):
         # push items
         for item in array:
             try:
-                self.__push(aps=item.info, receiver=item.receiver)
+                await self.__push(aps=item.info, receiver=item.receiver)
             except Exception as error:
                 self.error(msg='push error: %s, item: %s' % (error, item))
         return True
 
-    def __push(self, aps: PushInfo, receiver: ID) -> bool:
-        devices = self.delegate.devices(identifier=receiver)
+    async def __push(self, aps: PushInfo, receiver: ID) -> bool:
+        devices = await self.delegate.get_devices(identifier=receiver)
         if devices is None or len(devices) == 0:
             self.warning('cannot get device token for user %s' % receiver)
             return False
@@ -148,7 +145,7 @@ class PushNotificationClient(Runner, Logging):
                 continue
             if pns is None:
                 self.error(msg='push notification service not found: %s' % platform)
-            elif pns.push_notification(aps=aps, device=item, receiver=receiver):
+            elif await pns.push_notification(aps=aps, device=item, receiver=receiver):
                 self.info(msg='push notification success: %s' % receiver)
                 return True
             else:

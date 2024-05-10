@@ -38,7 +38,7 @@ from typing import List
 from dimples import PrivateKey
 from dimples import MetaType, Meta, Document
 from dimples import EntityType, ID
-from dimples import User, Station
+from dimples import Station
 
 from dimples.utils import Path
 
@@ -48,12 +48,12 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils import Log, Logging
-from libs.utils import Runner
+from libs.utils import Runnable, Runner
 from libs.database import Storage
-from libs.common import CommonFacebook
-from libs.client import Terminal, ClientMessenger
+from libs.client import Terminal
 from libs.client import ClientArchivist, ClientFacebook
 
+from tests.runner import Runner as ThreadRunner
 from tests.shared import GlobalVariable
 from tests.shared import create_config, create_database
 from tests.shared import create_facebook, create_messenger
@@ -75,26 +75,12 @@ shared.config = config
 create_database(shared=shared)
 
 
-class Soldier(Runner, Logging):
+class Soldier(Logging, Runnable):
 
     def __init__(self, client_id: ID):
-        super().__init__(interval=1.0)
-        self.__terminal = None
-        self.__messenger = None
-        self.__facebook = None
-        self.__user = None
+        super().__init__()
+        self.__user = client_id
         self.__server = None
-        self.__time_to_retreat = 0
-        self.__initialize(client_id=client_id)
-
-    def __initialize(self, client_id: ID):
-        facebook = create_facebook(shared=shared, current_user=client_id)
-        user = facebook.user(identifier=client_id)
-        assert user is not None, 'failed to get user: %s' % user
-        facebook.current_user = user
-        self.__facebook = facebook
-        self.__user = user
-        self.__time_to_retreat = time.time() + 32
 
     def __del__(self):
         self.warning(msg='soldier down: %s' % self.user)
@@ -102,63 +88,46 @@ class Soldier(Runner, Logging):
     def __str__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__
-        return '<%s>%s%s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
+        return '<%s>%s -> %s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     def __repr__(self) -> str:
         mod = self.__module__
         cname = self.__class__.__name__
-        return '<%s>%s%s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
+        return '<%s>%s -> %s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     @property
-    def terminal(self) -> Terminal:
-        return self.__terminal
-
-    @property
-    def messenger(self) -> ClientMessenger:
-        return self.__messenger
-
-    @property
-    def facebook(self) -> CommonFacebook:
-        return self.__facebook
-
-    @property
-    def user(self) -> User:
+    def user(self) -> ID:
         return self.__user
 
     @property
     def server(self) -> Station:
         return self.__server
 
-    @property  # Override
-    def running(self) -> bool:
-        if super().running:
-            return time.time() < self.__time_to_retreat
-
     # Override
-    def setup(self):
-        super().setup()
-        self.info(msg='setup client: %s' % self)
-
-    # Override
-    def finish(self):
-        terminal = self.terminal
-        terminal.stop()
-        self.info(msg='finish client: %s' % self)
-        super().finish()
-
-    # Override
-    def process(self) -> bool:
-        return False
-
-    def attack(self) -> threading.Thread:
-        messenger = create_messenger(shared=shared, facebook=self.facebook)
-        terminal = Terminal(messenger=messenger)
-        self.__terminal = terminal
-        self.__messenger = messenger
+    async def run(self):
+        client_id = self.user
+        time_to_retreat = time.time() + 32
+        # 1. preparing facebook
+        facebook = await create_facebook(shared=shared, current_user=client_id)
+        user = await facebook.get_user(identifier=client_id)
+        assert user is not None, 'failed to get user: %s' % client_id
+        facebook.current_user = user
+        # 2. preparing messenger
+        messenger = create_messenger(shared=shared, facebook=facebook)
+        session = messenger.session
+        server = session.station
+        assert server is not None, 'failed to get station: %s' % session
         self.__server = messenger.session.station
-        thread = threading.Thread(target=terminal.run, daemon=True)
-        thread.start()
-        return thread
+        # 3. launch terminal
+        terminal = Terminal(messenger=messenger)
+        await terminal.start()
+        while terminal.running and time.time() < time_to_retreat:
+            await Runner.sleep(seconds=1.0)
+        # done
+        await terminal.stop()
+
+    def attack(self):
+        Runner.sync_run(main=self.run())
 
 
 class Sergeant(Logging):
@@ -178,7 +147,8 @@ class Sergeant(Logging):
         for i in range(self.UNITS):
             self.warning(msg='**** thread starts (%d + %d): %s' % (self.__offset, i, cid))
             soldier = Soldier(client_id=cid)
-            thr = soldier.attack()
+            thr = threading.Thread(target=soldier.attack(), daemon=True)
+            thr.start()
             threads.append(thr)
             self.__offset += self.UNITS
         for thr in threads:
@@ -221,7 +191,7 @@ class Sergeant(Logging):
         return identifier
 
 
-class Colonel(Runner, Logging):
+class Colonel(ThreadRunner, Logging):
 
     TROOPS = 16  # progresses count
 

@@ -35,67 +35,53 @@ from socketserver import StreamRequestHandler
 
 from libs.utils import Logging, Runner
 from libs.server import ServerSession, SessionCenter
-from libs.server import ServerMessenger
 
-from station.shared import create_messenger
 from station.shared import GlobalVariable
+from station.shared import create_messenger
 
 
 class RequestHandler(StreamRequestHandler, Logging):
 
-    def __init__(self, request, client_address, server):
-        shared = GlobalVariable()
-        session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
-        self.__messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
-        # call 'setup()', 'handle()', 'finish()'
-        super().__init__(request=request, client_address=client_address, server=server)
+    """
+        DIM Request Handler
+    """
 
-    @property
-    def messenger(self) -> ServerMessenger:
-        return self.__messenger
+    def __del__(self):
+        self.info(msg='request removed: %s' % str(self.client_address))
 
     # Override
     def setup(self):
         super().setup()
-        try:
-            session = self.messenger.session
-            center = SessionCenter()
-            center.add_session(session=session)
-            self.info(msg='client connected: %s' % session)
-            assert isinstance(session, Runner), 'session error: %s' % session
-            session.setup()
-        except Exception as error:
-            self.error(msg='setup request handler error: %s' % error)
-            traceback.print_exc()
+        self.info(msg='request setup: %s' % str(self.client_address))
 
     # Override
     def finish(self):
-        try:
-            session = self.messenger.session
-            self.info(msg='client disconnected: %s' % session)
-            center = SessionCenter()
-            center.remove_session(session=session)
-            assert isinstance(session, Runner), 'session error: %s' % session
-            session.finish()
-            self.__messenger = None
-        except Exception as error:
-            self.error(msg='finish request handler error: %s' % error)
-            traceback.print_exc()
         super().finish()
-
-    """
-        DIM Request Handler
-    """
+        self.info(msg='request finished: %s' % str(self.client_address))
 
     # Override
     def handle(self):
         super().handle()
         try:
             self.info(msg='session started: %s' % str(self.client_address))
-            session = self.messenger.session
-            assert isinstance(session, Runner), 'session error: %s' % session
-            session.handle()
+            Runner.sync_run(main=start_session(client_address=self.client_address, request=self.request))
             self.info(msg='session finished: %s' % str(self.client_address))
         except Exception as error:
             self.error(msg='request handler error: %s' % error)
             traceback.print_exc()
+
+
+async def start_session(client_address, request):
+    shared = GlobalVariable()
+    session = ServerSession(remote=client_address, sock=request, database=shared.sdb)
+    messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=session)
+    center = SessionCenter()
+    # setup
+    center.add_session(session=session)
+    try:
+        # handle
+        await session.start()
+    finally:
+        # finish
+        center.remove_session(session=session)
+    return messenger

@@ -56,12 +56,12 @@ class DocumentTable(DocumentDBI):
     #
 
     # Override
-    def save_document(self, document: Document) -> bool:
+    async def save_document(self, document: Document) -> bool:
         assert document.valid, 'document invalid: %s' % document
         identifier = document.identifier
         doc_type = document.type
         # 0. check old documents
-        my_documents = self.documents(identifier=identifier)
+        my_documents = await self.get_documents(identifier=identifier)
         old = DocumentHelper.last_document(my_documents, doc_type)
         if old is None and doc_type == Document.VISA:
             old = DocumentHelper.last_document(my_documents, 'profile')
@@ -79,12 +79,12 @@ class DocumentTable(DocumentDBI):
         # 1. store into memory cache
         self.__docs_cache.update(key=identifier, value=my_documents, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_documents(documents=my_documents, identifier=identifier)
+        await self.__redis.save_documents(documents=my_documents, identifier=identifier)
         # 3. save into local storage
-        return self.__dos.save_documents(documents=my_documents, identifier=identifier)
+        return await self.__dos.save_documents(documents=my_documents, identifier=identifier)
 
     # Override
-    def documents(self, identifier: ID) -> List[Document]:
+    async def get_documents(self, identifier: ID) -> List[Document]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__docs_cache.fetch(key=identifier, now=now)
@@ -100,19 +100,19 @@ class DocumentTable(DocumentDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.documents(identifier=identifier)
+            value = await self.__redis.get_documents(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.documents(identifier=identifier)
+                value = await self.__dos.get_documents(identifier=identifier)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_documents(documents=value, identifier=identifier)
+                    await self.__redis.save_documents(documents=value, identifier=identifier)
             # update memory cache
             self.__docs_cache.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
-    def scan_documents(self) -> List[Document]:
+    async def scan_documents(self) -> List[Document]:
         """ Scan all documents from data directory """
         now = DateTime.now()
         # 1. check memory cache
@@ -129,6 +129,6 @@ class DocumentTable(DocumentDBI):
                 # scan results expired, wait to reload
                 holder.renewal(duration=600, now=now)
             # 2. scan local storage
-            value = self.__dos.scan_documents()
+            value = await self.__dos.scan_documents()
             self.__docs_cache.update(key='all_documents', value=value, life_span=3600, now=now)
         return value

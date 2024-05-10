@@ -58,8 +58,8 @@ class Server(dmtp.Server, DockerDelegate):
     def identifier(self, uid: str):
         self.__db.identifier = uid
 
-    def start(self):
-        self.hub.bind(address=self.local_address)
+    async def start(self):
+        await self.hub.bind(address=self.local_address)
         # self.gate.start()
 
     def stop(self):

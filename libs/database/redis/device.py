@@ -57,7 +57,7 @@ class DeviceCache(Cache):
     def __cache_name(self, identifier: ID) -> str:
         return '%s.%s.%s.devices' % (self.db_name, self.tbl_name, identifier)
 
-    def devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
+    async def get_devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         name = self.__cache_name(identifier=identifier)
         value = self.get(name=name)
         if value is not None:
@@ -67,7 +67,7 @@ class DeviceCache(Cache):
             assert isinstance(array, List), 'devices error: %s' % value
             return DeviceInfo.convert(array=array)
 
-    def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
+    async def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
         array = DeviceInfo.revert(array=devices)
         js = json_encode(obj=array)
         value = utf8_encode(string=js)
@@ -75,13 +75,13 @@ class DeviceCache(Cache):
         self.set(name=name, value=value, expires=self.EXPIRES)
         return True
 
-    def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
+    async def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
         # get all devices info with ID
-        array = self.devices(identifier=identifier)
+        array = await self.get_devices(identifier=identifier)
         if array is None:
             array = [device]
         else:
             array = insert_device(info=device, devices=array)
             if array is None:
                 return False
-        return self.save_devices(devices=array, identifier=identifier)
+        return await self.save_devices(devices=array, identifier=identifier)

@@ -123,7 +123,7 @@ class ApplePushNotificationService(PushNotificationService, Logging):
     #
 
     # Override
-    def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
+    async def push_notification(self, aps: PushInfo, device: DeviceInfo, receiver: ID) -> bool:
         # 1. check parameters
         title = aps.title
         content = aps.content

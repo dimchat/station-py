@@ -35,6 +35,7 @@ from socketserver import ThreadingTCPServer
 
 from dimples.utils import Log
 from dimples.utils import Path
+from dimples.utils import Runner
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
@@ -56,8 +57,8 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
-def main():
-    shared = prepare_server(server_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+async def main():
+    shared = await prepare_server(server_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     config = shared.config
     # check bind host & port
     host = config.station_host
@@ -68,7 +69,7 @@ def main():
     # start UDP Server
     Log.info('>>> UDP server %s starting ...' % str(server_address))
     g_udp_server = UDPServer(host=server_address[0], port=server_address[1])
-    g_udp_server.start()
+    await g_udp_server.start()
 
     # start TCP server
     try:
@@ -89,4 +90,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    Runner.sync_run(main=main())

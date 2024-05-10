@@ -47,19 +47,19 @@ from .monitor import Monitor
 class ServerMessenger(SuperMessenger):
 
     # Override
-    def handshake_success(self):
+    async def handshake_success(self):
         # monitor
         session = self.session
         monitor = Monitor()
         monitor.user_online(sender=session.identifier, remote_address=session.remote_address, when=DateTime.now())
         # process suspended messages
-        super().handshake_success()
+        await super().handshake_success()
 
     # Override
-    def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
+    async def process_reliable_message(self, msg: ReliableMessage) -> List[ReliableMessage]:
         monitor = Monitor()
         monitor.message_received(msg=msg)
-        return super().process_reliable_message(msg=msg)
+        return await super().process_reliable_message(msg=msg)
 
 
 class BlockFilter(SuperBlockFilter):
@@ -69,8 +69,8 @@ class BlockFilter(SuperBlockFilter):
         self.__database = database
 
     # Override
-    def is_blocked(self, msg: ReliableMessage) -> bool:
-        blocked = super().is_blocked(msg=msg)
+    async def is_blocked(self, msg: ReliableMessage) -> bool:
+        blocked = await super().is_blocked(msg=msg)
         if blocked:
             return True
         sender = msg.sender
@@ -78,7 +78,7 @@ class BlockFilter(SuperBlockFilter):
         group = msg.group
         # check block-list
         db = self.__database
-        return db.is_blocked(sender=sender, receiver=receiver, group=group)
+        return await db.is_blocked(sender=sender, receiver=receiver, group=group)
 
 
 class MuteFilter(SuperMuteFilter):
@@ -88,8 +88,8 @@ class MuteFilter(SuperMuteFilter):
         self.__database = database
 
     # Override
-    def is_muted(self, msg: ReliableMessage) -> bool:
-        muted = super().is_muted(msg=msg)
+    async def is_muted(self, msg: ReliableMessage) -> bool:
+        muted = await super().is_muted(msg=msg)
         if muted:
             return True
         sender = msg.sender
@@ -97,4 +97,4 @@ class MuteFilter(SuperMuteFilter):
         group = msg.group
         # check block-list
         db = self.__database
-        return db.is_muted(sender=sender, receiver=receiver, group=group)
+        return await db.is_muted(sender=sender, receiver=receiver, group=group)

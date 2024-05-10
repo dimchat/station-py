@@ -113,7 +113,7 @@ def create_database(shared: GlobalVariable) -> Database:
     return db
 
 
-def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
+async def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
     """ create facebook and set current user """
     # create facebook with account database
     facebook = ClientFacebook()
@@ -123,10 +123,10 @@ def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
     facebook.archivist = archivist
     # set current user
     # make sure private key exists
-    assert facebook.private_key_for_visa_signature(identifier=current_user) is not None, \
+    assert await facebook.private_key_for_visa_signature(identifier=current_user) is not None, \
         'failed to get sign key for current user: %s' % current_user
     print('set current user: %s' % current_user)
-    facebook.current_user = facebook.user(identifier=current_user)
+    facebook.current_user = await facebook.get_user(identifier=current_user)
     return facebook
 
 
@@ -153,12 +153,12 @@ def create_messenger(shared: GlobalVariable, facebook: CommonFacebook) -> Client
     return messenger
 
 
-def create_terminal(shared: GlobalVariable, identifier: ID) -> Terminal:
+async def create_terminal(shared: GlobalVariable, identifier: ID) -> Terminal:
     # create facebook and set current user
-    facebook = create_facebook(shared=shared, current_user=identifier)
+    facebook = await create_facebook(shared=shared, current_user=identifier)
     # create messenger and connect to station (host:port)
     messenger = create_messenger(shared=shared, facebook=facebook)
     # create and start terminal
     terminal = Terminal(messenger=messenger)
-    terminal.start()
+    await terminal.start()
     return terminal

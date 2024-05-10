@@ -33,7 +33,8 @@ import time
 from typing import Optional
 
 from udp.ba import ByteArray
-from udp import Hub, ConnectionState
+from udp import Hub
+from startrek.net.state import StateOrder
 
 from dmtp import Field
 from dmtp import TimestampValue, BinaryValue
@@ -240,4 +241,4 @@ class Contact:
         conn = hub.connect(remote=address, local=None)
         if conn is None:
             return True
-        return conn.state == ConnectionState.ERROR
+        return conn.state == StateOrder.ERROR

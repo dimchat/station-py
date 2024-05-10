@@ -50,11 +50,11 @@ class ActiveTable:
     def show_info(self):
         print('!!!    active users in memory only !!!')
 
-    def clear_socket_addresses(self):
+    async def clear_socket_addresses(self):
         """ clear before station start """
-        self.__redis.clear_socket_addresses()
+        await self.__redis.clear_socket_addresses()
 
-    def active_users(self) -> Set[ID]:
+    async def get_active_users(self) -> Set[ID]:
         """ read by archivist bot """
         now = DateTime.now()
         # 1. check memory cache
@@ -71,13 +71,13 @@ class ActiveTable:
                 # active_users expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.active_users()
+            value = await self.__redis.get_active_users()
             # 3. update memory cache
             self.__active_cache.update(key='active_users', value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
         return value
 
-    def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+    async def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         """ wrote by station only """
         # 1. add into local cache
         sockets = self.__cache.get(identifier)
@@ -86,10 +86,10 @@ class ActiveTable:
             self.__cache[identifier] = sockets
         sockets.add(address)
         # 2. store into Redis Server
-        self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+        await self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
         return sockets
 
-    def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
+    async def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         """ wrote by station only """
         # 1. remove from local cache
         sockets = self.__cache.get(identifier)
@@ -98,5 +98,5 @@ class ActiveTable:
             if len(sockets) == 0:
                 self.__cache.pop(identifier, None)
         # 2. store into Redis Server
-        self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+        await self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
         return sockets

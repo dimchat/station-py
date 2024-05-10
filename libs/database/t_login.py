@@ -53,13 +53,13 @@ class LoginTable(LoginDBI):
     def show_info(self):
         self.__dos.show_info()
 
-    def _is_expired(self, user: ID, content: LoginCommand) -> bool:
+    async def _is_expired(self, user: ID, content: LoginCommand) -> bool:
         """ check old record with command time """
         new_time = content.time
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = self.login_command_message(user=user)
+        old, _ = await self.get_login_command_message(user=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return True
@@ -69,23 +69,23 @@ class LoginTable(LoginDBI):
     #
 
     # Override
-    def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
+    async def save_login_command_message(self, user: ID, content: LoginCommand, msg: ReliableMessage) -> bool:
         assert user == msg.sender, 'msg sender not match: %s => %s' % (user, msg.sender)
         assert user == content.identifier, 'cmd ID not match: %s => %s' % (user, content.identifier)
         # 0. check command time
-        if self._is_expired(user=user, content=content):
+        if await self._is_expired(user=user, content=content):
             # command expired, drop it
             return False
         value = (content, msg)
         # 1. store into memory cache
         self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES)
         # 2. store into redis server
-        self.__redis.save_login(user=user, content=content, msg=msg)
+        await self.__redis.save_login(user=user, content=content, msg=msg)
         # 3. save into local storage
-        return self.__dos.save_login_command_message(user=user, content=content, msg=msg)
+        return await self.__dos.save_login_command_message(user=user, content=content, msg=msg)
 
     # Override
-    def login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
+    async def get_login_command_message(self, user: ID) -> Tuple[Optional[LoginCommand], Optional[ReliableMessage]]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__login_cache.fetch(key=user, now=now)
@@ -101,13 +101,13 @@ class LoginTable(LoginDBI):
                 # cache expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            cmd, msg = self.__redis.load_login(user=user)
+            cmd, msg = await self.__redis.load_login(user=user)
             if msg is None:  # and cmd is not None:
                 # cmd is a placeholder here
                 # 3. check local storage
-                cmd, msg = self.__dos.login_command_message(user=user)
+                cmd, msg = await self.__dos.get_login_command_message(user=user)
                 # update redis server
-                self.__redis.save_login(user=user, content=cmd, msg=msg)
+                await self.__redis.save_login(user=user, content=cmd, msg=msg)
             value = (cmd, msg)
             # update memory cache
             self.__login_cache.update(key=user, value=value, life_span=self.CACHE_EXPIRES, now=now)

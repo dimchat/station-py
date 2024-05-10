@@ -60,30 +60,30 @@ class UserTable(SuperTable):
     #   Contacts
     #
 
-    def _is_contacts_expired(self, user: ID, content: Command) -> bool:
+    async def _is_contacts_expired(self, user: ID, content: Command) -> bool:
         """ check old record with command time """
         new_time = content.time
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old, _ = self.contacts_command(identifier=user)
+        old, _ = await self.get_contacts_command(identifier=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
-    def save_contacts_command(self, content: Command, identifier: ID) -> bool:
+    async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
         # 0. check old record with time
-        if self._is_contacts_expired(user=identifier, content=content):
+        if await self._is_contacts_expired(user=identifier, content=content):
             # command expired, drop it
             return False
         # 1. store into memory cache
         self.__cmd_contacts.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
-        self.__redis.save_contacts_command(content=content, identifier=identifier)
+        await self.__redis.save_contacts_command(content=content, identifier=identifier)
         # 3. save to local storage
-        return self.__dos.save_contacts_command(content=content, identifier=identifier)
+        return await self.__dos.save_contacts_command(content=content, identifier=identifier)
 
-    def contacts_command(self, identifier: ID) -> Optional[Command]:
+    async def get_contacts_command(self, identifier: ID) -> Optional[Command]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_contacts.fetch(key=identifier, now=now)
@@ -99,13 +99,13 @@ class UserTable(SuperTable):
                 # storage command expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.contacts_command(identifier=identifier)
+            value = await self.__redis.get_contacts_command(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.contacts_command(identifier=identifier)
+                value = await self.__dos.get_contacts_command(identifier=identifier)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_contacts_command(content=value, identifier=identifier)
+                    await self.__redis.save_contacts_command(content=value, identifier=identifier)
             # update memory cache
             self.__cmd_contacts.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
@@ -115,30 +115,30 @@ class UserTable(SuperTable):
     #   Block List
     #
 
-    def _is_blocked_expired(self, user: ID, content: BlockCommand) -> bool:
+    async def _is_blocked_expired(self, user: ID, content: BlockCommand) -> bool:
         """ check old record with command time """
         new_time = content.time
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old = self.block_command(identifier=user)
+        old = await self.get_block_command(identifier=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
-    def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
+    async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
         # 0. check old record with time
-        if self._is_blocked_expired(user=identifier, content=content):
+        if await self._is_blocked_expired(user=identifier, content=content):
             # command expired, drop it
             return False
         # 1. store into memory cache
         self.__cmd_block.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
-        self.__redis.save_block_command(content=content, identifier=identifier)
+        await self.__redis.save_block_command(content=content, identifier=identifier)
         # 3. save to local storage
-        return self.__dos.save_block_command(content=content, identifier=identifier)
+        return await self.__dos.save_block_command(content=content, identifier=identifier)
 
-    def block_command(self, identifier: ID) -> Optional[BlockCommand]:
+    async def get_block_command(self, identifier: ID) -> Optional[BlockCommand]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_block.fetch(key=identifier, now=now)
@@ -154,13 +154,13 @@ class UserTable(SuperTable):
                 # block command expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.block_command(identifier=identifier)
+            value = await self.__redis.get_block_command(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.block_command(identifier=identifier)
+                value = await self.__dos.get_block_command(identifier=identifier)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_block_command(content=value, identifier=identifier)
+                    await self.__redis.save_block_command(content=value, identifier=identifier)
             # update memory cache
             self.__cmd_block.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
@@ -170,30 +170,30 @@ class UserTable(SuperTable):
     #   Mute List
     #
 
-    def _is_muted_expired(self, user: ID, content: MuteCommand) -> bool:
+    async def _is_muted_expired(self, user: ID, content: MuteCommand) -> bool:
         """ check old record with command time """
         new_time = content.time
         if new_time is None or new_time <= 0:
             return False
         # check old record
-        old = self.mute_command(identifier=user)
+        old = await self.get_mute_command(identifier=user)
         if old is not None and is_before(old_time=old.time, new_time=new_time):
             # command expired
             return False
 
-    def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
+    async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
         # 0. check old record with time
-        if self._is_muted_expired(user=identifier, content=content):
+        if await self._is_muted_expired(user=identifier, content=content):
             # command expired, drop it
             return False
         # 1. store into memory cache
         self.__cmd_mute.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
         # 2. save to redis server
-        self.__redis.save_mute_command(content=content, identifier=identifier)
+        await self.__redis.save_mute_command(content=content, identifier=identifier)
         # 3. save to local storage
-        return self.__dos.save_mute_command(content=content, identifier=identifier)
+        return await self.__dos.save_mute_command(content=content, identifier=identifier)
 
-    def mute_command(self, identifier: ID) -> Optional[MuteCommand]:
+    async def get_mute_command(self, identifier: ID) -> Optional[MuteCommand]:
         now = DateTime.now()
         # 1. check memory cache
         value, holder = self.__cmd_mute.fetch(key=identifier, now=now)
@@ -209,13 +209,13 @@ class UserTable(SuperTable):
                 # mute command expired, wait to reload
                 holder.renewal(duration=self.CACHE_REFRESHING, now=now)
             # 2. check redis server
-            value = self.__redis.mute_command(identifier=identifier)
+            value = await self.__redis.get_mute_command(identifier=identifier)
             if value is None:
                 # 3. check local storage
-                value = self.__dos.mute_command(identifier=identifier)
+                value = await self.__dos.get_mute_command(identifier=identifier)
                 if value is not None:
                     # update redis server
-                    self.__redis.save_mute_command(content=value, identifier=identifier)
+                    await self.__redis.save_mute_command(content=value, identifier=identifier)
             # update memory cache
             self.__cmd_mute.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
         # OK, return cached value
