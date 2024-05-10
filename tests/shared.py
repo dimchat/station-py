@@ -38,7 +38,6 @@ from libs.database import Storage
 from libs.database import Database
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
-from libs.client import Terminal
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -151,14 +150,3 @@ def create_messenger(shared: GlobalVariable, facebook: CommonFacebook) -> Client
     # 5. set weak reference to messenger
     session.messenger = messenger
     return messenger
-
-
-async def create_terminal(shared: GlobalVariable, identifier: ID) -> Terminal:
-    # create facebook and set current user
-    facebook = await create_facebook(shared=shared, current_user=identifier)
-    # create messenger and connect to station (host:port)
-    messenger = create_messenger(shared=shared, facebook=facebook)
-    # create and start terminal
-    terminal = Terminal(messenger=messenger)
-    await terminal.start()
-    return terminal

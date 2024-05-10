@@ -35,7 +35,6 @@ from dimples.common import ProviderInfo
 from dimples.client import ClientArchivist, ClientFacebook
 
 from libs.utils import Singleton
-from libs.utils import Runner
 from libs.common import CommonFacebook
 from libs.common import Config
 from libs.database.redis import Cache as RedisCache
@@ -209,10 +208,10 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     return messenger
 
 
-def create_terminal(messenger: ClientMessenger) -> Terminal:
+async def create_terminal(messenger: ClientMessenger) -> Terminal:
     terminal = Terminal(messenger=messenger)
     messenger.terminal = terminal
-    Runner.async_run(coroutine=terminal.start())
+    await terminal.start()
     return terminal
 
 
@@ -263,4 +262,4 @@ async def start_bot(default_config: str, app_name: str, ans_name: str, processor
     messenger = create_messenger(facebook=facebook, database=db, session=session, processor_class=processor_class)
     facebook.archivist.messenger = messenger
     # create & start terminal
-    return create_terminal(messenger=messenger)
+    return await create_terminal(messenger=messenger)

@@ -91,8 +91,11 @@ async def main():
                              ans_name='archivist',
                              processor_class=ArchivistMessageProcessor)
     # main run loop
-    while client.running:
+    while True:
         await Runner.sleep(seconds=1.0)
+        if not client.running:
+            break
+    Log.warning(msg='bot stopped: %s' % client)
 
 
 if __name__ == '__main__':
