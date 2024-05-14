@@ -33,10 +33,10 @@ from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
 from dimples.common import ANSFactory
 from dimples.common import AddressNameServer
-from dimples.database import Storage
 from dimples.server import FilterManager
 from dimples.server import ServerArchivist
 
+from libs.utils import Path
 from libs.utils import Singleton
 from libs.common import Config
 from libs.common import CommonFacebook
@@ -98,7 +98,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config file path
     if ini_file is None:
         ini_file = default_config
-    if not Storage.exists(path=ini_file):
+    if not Path.exists(path=ini_file):
         show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)

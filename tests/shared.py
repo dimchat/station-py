@@ -31,10 +31,10 @@ from dimples import ID
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
 
+from libs.utils import Path
 from libs.utils import Singleton
 from libs.common import CommonFacebook
 from libs.common import Config
-from libs.database import Storage
 from libs.database import Database
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
@@ -73,7 +73,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config file path
     if ini_file is None:
         ini_file = default_config
-    if not Storage.exists(path=ini_file):
+    if not Path.exists(path=ini_file):
         show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
