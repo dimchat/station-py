@@ -118,7 +118,6 @@ async def create_database(config: Config) -> Database:
     # create database
     db = Database(root=root, public=public, private=private)
     db.show_info()
-    await db.clear_socket_addresses()  # clear before station start
     # default provider
     provider = ProviderInfo.GSP
     # add neighbors
@@ -143,6 +142,8 @@ async def create_database(config: Config) -> Database:
             RedisCache.set_redis_password(password=password)
         # enable redis
         RedisCache.set_redis_enable(enable=True)
+    # clear before station start
+    await db.clear_socket_addresses()
     # filters
     man = FilterManager()
     man.block_filter = BlockFilter(database=db)

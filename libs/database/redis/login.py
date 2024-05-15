@@ -105,6 +105,9 @@ class LoginCache(Cache):
     async def clear_socket_addresses(self):
         """ clear before station start """
         name = self.__active_sockets_cache_name()
+        all_keys = self.hkeys(name=name)
+        for key in all_keys:
+            self.hdel(name=name, key=key)
         return self.delete(name)
 
     async def save_socket_addresses(self, identifier: ID, addresses: Set[Tuple[str, int]]) -> bool:
