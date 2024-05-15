@@ -33,8 +33,8 @@ from dimples.common import AccountDBI, MessageDBI, SessionDBI
 
 from libs.utils import Path
 from libs.utils import Singleton
+from libs.utils import Config
 from libs.common import CommonFacebook
-from libs.common import Config
 from libs.database import Database
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker

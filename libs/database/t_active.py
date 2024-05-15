@@ -52,6 +52,7 @@ class ActiveTable:
 
     async def clear_socket_addresses(self):
         """ clear before station start """
+        self.__active_cache.erase(key='active_users')
         await self.__redis.clear_socket_addresses()
 
     async def get_active_users(self) -> Set[ID]:

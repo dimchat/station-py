@@ -36,8 +36,8 @@ from dimples.client import ClientArchivist, ClientFacebook
 
 from libs.utils import Path
 from libs.utils import Singleton
+from libs.utils import Config
 from libs.common import CommonFacebook
-from libs.common import Config
 from libs.database.redis import Cache as RedisCache
 from libs.database import Database
 from libs.client import ClientSession, ClientMessenger

@@ -41,7 +41,7 @@ from dimples import DateTime
 from dimples import ID
 from dimples.server import ServerSession as SuperSession
 
-from ..utils import Runner
+from ..utils import Runner, Log
 from ..database import Database
 
 from .monitor import Monitor
@@ -104,6 +104,7 @@ async def session_change_id(session: ServerSession, new_id: ID, old_id: Optional
         await db.remove_socket_address(identifier=old_id, address=remote)
     if new_id is not None:  # and session.active:
         # store socket address for new user
+        Log.info(msg='store socket address for new user: %s, %s' % (new_id, remote))
         return await db.add_socket_address(identifier=new_id, address=remote)
 
 
@@ -117,6 +118,7 @@ async def session_change_active(session: ServerSession, active: bool):
     assert isinstance(db, Database), 'database error: %s' % db
     if active:
         # store socket address for this user
+        Log.info(msg='store socket address for this user: %s, %s' % (identifier, remote))
         return await db.add_socket_address(identifier=identifier, address=remote)
     else:
         # remove socket address for this user

@@ -29,7 +29,7 @@ from typing import Optional, Set, List
 
 from libs.utils import Path
 from libs.utils import Singleton
-from libs.common import Config
+from libs.utils import Config
 
 
 @Singleton

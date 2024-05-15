@@ -37,13 +37,15 @@ from startrek.fsm import Runnable, Runner
 from startrek.fsm import Daemon, DaemonRunner
 # from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
-from dimples.utils import utf8_encode, utf8_decode
-from dimples.utils import json_encode, json_decode
-
+from dimples.utils import Singleton
 from dimples.utils import Path
 from dimples.utils import File, TextFile, JSONFile
-from dimples.utils import Singleton
+
 from dimples.utils import Log, Logging
+from dimples.utils import Config
+
+from dimples.utils import utf8_encode, utf8_decode
+from dimples.utils import json_encode, json_decode
 
 from dimples.utils import get_msg_sig
 
@@ -64,18 +66,20 @@ from dimples.utils import get_msg_sig
 
 __all__ = [
 
-    'get_msg_sig',
-
     'Runnable', 'Runner',
     'Daemon', 'DaemonRunner',
     # 'Notification', 'NotificationObserver', 'NotificationCenter',
 
-    'Log', 'Logging',
     'Singleton',
+    'Path',
+    'File', 'TextFile', 'JSONFile',
+
+    'Log', 'Logging',
+    'Config',
 
     'utf8_encode', 'utf8_decode',
     'json_encode', 'json_decode',
 
-    'Path',
-    'File', 'TextFile', 'JSONFile',
+    'get_msg_sig',
+
 ]
