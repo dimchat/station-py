@@ -70,7 +70,8 @@ class PushNotificationClient(DaemonRunner, Logging):
         self.__tasks: List[PushTask] = []
         self.__lock = threading.Lock()
         # auto run
-        Runner.async_run(coroutine=self.start())
+        # Runner.async_run(coroutine=self.start())
+        Runner.thread_run(self)
 
     @property
     def apple_pns(self) -> Optional[PushNotificationService]:
