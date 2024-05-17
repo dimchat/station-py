@@ -239,10 +239,9 @@ async def main():
                              ans_name='monitor',
                              processor_class=BotMessageProcessor)
     # main run loop
-    while True:
-        await Runner.sleep(seconds=1.0)
-        if not client.running:
-            break
+    await client.start()
+    await client.run()
+    # await client.stop()
     Log.warning(msg='bot stopped: %s' % client)
 
 

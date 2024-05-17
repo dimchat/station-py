@@ -15,7 +15,7 @@ from typing import Optional, List
 from dimples import DateTime
 from dimples import ID
 
-from ..utils import Singleton, Logging, Runner, DaemonRunner
+from ..utils import Singleton, Logging, Runner
 from ..common import PushInfo, PushItem
 from ..database import DeviceInfo
 
@@ -47,7 +47,7 @@ class PushTask:
 
 
 @Singleton
-class PushNotificationClient(DaemonRunner, Logging):
+class PushNotificationClient(Runner, Logging):
 
     class Delegate(ABC):
         """
@@ -71,7 +71,7 @@ class PushNotificationClient(DaemonRunner, Logging):
         self.__lock = threading.Lock()
         # auto run
         # Runner.async_run(coroutine=self.start())
-        Runner.thread_run(self)
+        Runner.thread_run(runner=self)
 
     @property
     def apple_pns(self) -> Optional[PushNotificationService]:
@@ -107,6 +107,14 @@ class PushNotificationClient(DaemonRunner, Logging):
         with self.__lock:
             if len(self.__tasks) > 0:
                 return self.__tasks.pop(0)
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:

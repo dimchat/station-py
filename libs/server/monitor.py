@@ -36,7 +36,7 @@ from dimples import SessionDBI
 from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
-from ..utils import Runner, DaemonRunner
+from ..utils import Runner
 from ..common import PushItem, PushCommand
 
 from .cpu import AnsCommandProcessor
@@ -64,7 +64,7 @@ class Event(ABC):
 
 
 @Singleton
-class Monitor(DaemonRunner, Logging):
+class Monitor(Runner, Logging):
 
     INTERVAL = 60  # seconds
 
@@ -80,6 +80,7 @@ class Monitor(DaemonRunner, Logging):
         self.__bot: Optional[ID] = None
         # emitter to send message
         self.__emitter: Optional[Emitter] = None
+        Runner.thread_run(runner=self)
 
     @property
     def bot(self) -> Optional[ID]:
@@ -116,7 +117,19 @@ class Monitor(DaemonRunner, Logging):
         await super().start()
 
     # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
+
+    # Override
     async def process(self) -> bool:
+        emitter = self.emitter
+        if emitter is None:
+            self.warning(msg='emitter not ready yet')
+            return False
         # 1. check to flush data
         now = time.time()
         if now > self.__next_time:
@@ -151,7 +164,7 @@ class Monitor(DaemonRunner, Logging):
     async def __send(self, users: List, stats: List):
         bot = self.bot
         assert bot is not None, 'monitor bot not set'
-        emitter = self.__emitter
+        emitter = self.emitter
         assert emitter is not None, 'emitter not set'
         # send users data
         content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')

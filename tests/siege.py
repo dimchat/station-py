@@ -121,8 +121,13 @@ class Soldier(Logging, Runnable):
         # 3. launch terminal
         terminal = Terminal(messenger=messenger)
         await terminal.start()
-        while terminal.running and time.time() < time_to_retreat:
+        Runner.async_run(coroutine=terminal.run())
+        while True:
             await Runner.sleep(seconds=1.0)
+            if not terminal.running:
+                break
+            elif time.time() > time_to_retreat:
+                break
         # done
         await terminal.stop()
 

@@ -62,7 +62,7 @@ async def main():
     shared.config = config
     # start cleaner
     cleaner = FileCleaner()
-    await cleaner.start()
+    cleaner.root = shared.upload_directory
     # start server
     host = shared.server_host
     port = shared.server_port

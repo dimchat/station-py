@@ -33,8 +33,8 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from startrek.fsm import Runnable, Runner
-from startrek.fsm import Daemon, DaemonRunner
+from startrek.skywalker import Runnable, Runner
+from startrek.skywalker import Daemon
 # from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
 from dimples.utils import Singleton
@@ -67,7 +67,7 @@ from dimples.utils import get_msg_sig
 __all__ = [
 
     'Runnable', 'Runner',
-    'Daemon', 'DaemonRunner',
+    'Daemon',
     # 'Notification', 'NotificationObserver', 'NotificationCenter',
 
     'Singleton',

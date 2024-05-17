@@ -32,7 +32,7 @@ import threading
 from abc import ABC
 from typing import Optional, Tuple, Any
 
-from startrek.fsm import Runner, DaemonRunner
+from startrek.skywalker import Runner
 
 from ipx import Arrow, SharedMemoryArrow
 # from ipx.shm.mmap import MmapSharedMemoryController as DefaultController
@@ -41,7 +41,7 @@ from .sysv import SysvSharedMemoryController as DefaultController
 
 
 # noinspection PyAbstractClass
-class AutoArrow(DaemonRunner, ABC):
+class AutoArrow(Runner, ABC):
 
     # Memory cache size: 64KB
     SHM_SIZE = 1 << 16
@@ -54,6 +54,14 @@ class AutoArrow(DaemonRunner, ABC):
     @property  # protected
     def arrow(self) -> Arrow:
         return self.__arrow
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
 
 class IncomeArrow(AutoArrow):
@@ -106,7 +114,7 @@ class OutgoArrow(AutoArrow):
         return False
 
 
-class Pipe(DaemonRunner):
+class Pipe(Runner):
 
     def __init__(self, arrows: Tuple[Optional[IncomeArrow], Optional[OutgoArrow]]):
         super().__init__(interval=Runner.INTERVAL_SLOW)
@@ -118,6 +126,14 @@ class Pipe(DaemonRunner):
 
     def receive(self) -> Optional[Any]:
         return self.__income_arrow.receive()
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:

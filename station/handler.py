@@ -81,6 +81,8 @@ async def start_session(client_address, request):
     try:
         # handle
         await session.start()
+        await session.run()
+        # await session.stop()
     finally:
         # finish
         center.remove_session(session=session)

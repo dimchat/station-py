@@ -32,17 +32,16 @@
 
 import os
 import traceback
+from typing import Optional
 
 from dimples import DateTime
 
-from libs.utils import DaemonRunner, Logging
-
-from fileserver.shared import GlobalVariable
-
-shared = GlobalVariable()
+from libs.utils import Singleton
+from libs.utils import Runner, Logging
 
 
-class FileCleaner(DaemonRunner, Logging):
+@Singleton
+class FileCleaner(Runner, Logging):
 
     # clear files uploaded 49 days ago
     EXPIRES = 3600 * 24 * 49
@@ -50,6 +49,24 @@ class FileCleaner(DaemonRunner, Logging):
     def __init__(self):
         super().__init__(interval=600.0)
         self.__next_time = 0
+        self.__root = None
+        Runner.thread_run(runner=self)
+
+    @property
+    def root(self) -> Optional[str]:
+        return self.__root
+
+    @root.setter
+    def root(self, path: str):
+        self.__root = path
+
+    # Override
+    async def setup(self):
+        pass
+
+    # Override
+    async def finish(self):
+        pass
 
     # Override
     async def process(self) -> bool:
@@ -60,7 +77,7 @@ class FileCleaner(DaemonRunner, Logging):
         else:
             self.__next_time = now + 3600
         # get upload directory
-        root = shared.upload_directory
+        root = self.root
         if root is None or len(root) < 8:
             self.error(msg='upload directory error: %s' % root)
             return False

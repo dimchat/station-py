@@ -239,13 +239,12 @@ def create_apns(shared: GlobalVariable) -> PushCenter:
     return center
 
 
-async def create_monitor(shared: GlobalVariable) -> Monitor:
+def create_monitor(shared: GlobalVariable) -> Monitor:
     """ Step 8: create monitor """
     emitter = shared.emitter
     assert emitter is not None, 'emitter not set'
     monitor = Monitor()
     monitor.emitter = emitter
-    await monitor.start()
     return monitor
 
 
@@ -275,6 +274,6 @@ async def prepare_server(server_name: str, default_config: str) -> GlobalVariabl
     # Step 7: create push center
     create_apns(shared=shared)
     # Step 8: create monitor
-    await create_monitor(shared=shared)
+    create_monitor(shared=shared)
     # OK
     return shared

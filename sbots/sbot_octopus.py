@@ -76,11 +76,8 @@ async def main():
     port = config.station_port
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
     await octopus.start()
-    # main run loop
-    while True:
-        await Runner.sleep(seconds=1.0)
-        if not octopus.running:
-            break
+    await octopus.run()
+    # await octopus.stop()
     Log.warning(msg='bot stopped: %s' % octopus)
 
 
