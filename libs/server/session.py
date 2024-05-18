@@ -71,15 +71,15 @@ class ServerSession(SuperSession):
     def set_identifier(self, identifier: ID) -> bool:
         old = self.identifier
         if super().set_identifier(identifier=identifier):
-            crt = session_change_id(session=self, new_id=identifier, old_id=old)
-            Runner.async_run(coroutine=crt)
+            coro = session_change_id(session=self, new_id=identifier, old_id=old)
+            Runner.async_task(coro=coro)
             return True
 
     # Override
     def set_active(self, active: bool, when: float = None) -> bool:
         if super().set_active(active=active, when=when):
-            crt = session_change_active(session=self, active=active)
-            Runner.async_run(coroutine=crt)
+            coro = session_change_active(session=self, active=active)
+            Runner.async_task(coro=coro)
             identifier = self.identifier
             self.info(msg='user active changed: %s, %s' % (identifier, active))
             if identifier is not None:

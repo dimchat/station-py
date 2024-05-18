@@ -33,11 +33,10 @@
                                              -- Albert Moky @ Jan. 23, 2019
 """
 
-from startrek.skywalker import Runnable, Runner
-from startrek.skywalker import Daemon
+from startrek.skywalker import Runnable, Daemon
 # from ipx import Notification, NotificationObserver, NotificationCenter as DefaultNotificationCenter
 
-from dimples.utils import Singleton
+from dimples.utils import Singleton, Runner
 from dimples.utils import Path
 from dimples.utils import File, TextFile, JSONFile
 

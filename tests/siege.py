@@ -121,7 +121,7 @@ class Soldier(Logging, Runnable):
         # 3. launch terminal
         terminal = Terminal(messenger=messenger)
         await terminal.start()
-        Runner.async_run(coroutine=terminal.run())
+        Runner.async_task(coro=terminal.run())
         while True:
             await Runner.sleep(seconds=1.0)
             if not terminal.running:
