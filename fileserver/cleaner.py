@@ -61,14 +61,6 @@ class FileCleaner(Runner, Logging):
         self.__root = path
 
     # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
-
-    # Override
     async def process(self) -> bool:
         now = DateTime.current_timestamp()
         if now < self.__next_time:

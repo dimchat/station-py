@@ -117,14 +117,6 @@ class Monitor(Runner, Logging):
         await super().start()
 
     # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
-
-    # Override
     async def process(self) -> bool:
         emitter = self.emitter
         if emitter is None:

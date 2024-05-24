@@ -70,7 +70,7 @@ class PushNotificationClient(Runner, Logging):
         self.__tasks: List[PushTask] = []
         self.__lock = threading.Lock()
         # auto run
-        # Runner.async_run(coroutine=self.start())
+        # Runner.async_task(coro=self.start())
         Runner.thread_run(runner=self)
 
     @property
@@ -107,14 +107,6 @@ class PushNotificationClient(Runner, Logging):
         with self.__lock:
             if len(self.__tasks) > 0:
                 return self.__tasks.pop(0)
-
-    # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
 
     # Override
     async def process(self) -> bool:

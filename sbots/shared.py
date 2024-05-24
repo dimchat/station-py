@@ -155,7 +155,7 @@ async def create_database(config: Config) -> Database:
     provider = ProviderInfo.GSP
     neighbors = config.neighbors
     if len(neighbors) > 0:
-        await db.remove_stations(provider=provider)
+        # await db.remove_stations(provider=provider)
         for node in neighbors:
             print('adding neighbor node: %s -> %s' % (node, provider))
             await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
@@ -215,13 +215,6 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     return messenger
 
 
-async def create_terminal(messenger: ClientMessenger) -> Terminal:
-    terminal = Terminal(messenger=messenger)
-    messenger.terminal = terminal
-    await terminal.start()
-    return terminal
-
-
 #
 #   DIM Bot
 #
@@ -268,5 +261,5 @@ async def start_bot(default_config: str, app_name: str, ans_name: str, processor
     session = create_session(facebook=facebook, database=db, host=host, port=port)
     messenger = create_messenger(facebook=facebook, database=db, session=session, processor_class=processor_class)
     facebook.archivist.messenger = messenger
-    # create & start terminal
-    return await create_terminal(messenger=messenger)
+    # create terminal
+    return Terminal(messenger=messenger)

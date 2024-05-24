@@ -55,14 +55,6 @@ class AutoArrow(Runner, ABC):
     def arrow(self) -> Arrow:
         return self.__arrow
 
-    # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
-
 
 class IncomeArrow(AutoArrow):
     """ auto receiving """
@@ -126,14 +118,6 @@ class Pipe(Runner):
 
     def receive(self) -> Optional[Any]:
         return self.__income_arrow.receive()
-
-    # Override
-    async def setup(self):
-        pass
-
-    # Override
-    async def finish(self):
-        pass
 
     # Override
     async def process(self) -> bool:
