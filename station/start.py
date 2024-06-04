@@ -57,7 +57,7 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
-async def main():
+async def async_main():
     shared = await prepare_server(server_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     config = shared.config
     # check bind host & port
@@ -89,5 +89,9 @@ async def main():
         Log.info(msg='======== station shutdown!')
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

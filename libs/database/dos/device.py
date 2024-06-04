@@ -142,7 +142,7 @@ class DeviceStorage(Storage):
 
     async def get_devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:
         path = self.__devices_path(identifier=identifier)
-        array = self.read_json(path=path)
+        array = await self.read_json(path=path)
         if not isinstance(array, List):
             self.error(msg='devices not exists: %s' % path)
             return None
@@ -152,7 +152,7 @@ class DeviceStorage(Storage):
     async def save_devices(self, devices: List[DeviceInfo], identifier: ID) -> bool:
         path = self.__devices_path(identifier=identifier)
         self.info('saving %d device(s) into: %s' % (len(devices), path))
-        return self.write_json(container=DeviceInfo.revert(array=devices), path=path)
+        return await self.write_json(container=DeviceInfo.revert(array=devices), path=path)
 
     async def add_device(self, device: DeviceInfo, identifier: ID) -> bool:
         # get all devices info with ID

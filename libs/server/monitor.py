@@ -158,6 +158,7 @@ class Monitor(Runner, Logging):
         assert bot is not None, 'monitor bot not set'
         emitter = self.emitter
         assert emitter is not None, 'emitter not set'
+        self.info(msg='sending monitor reports: %s' % bot)
         # send users data
         content = CustomizedContent.create(app='chat.dim.monitor', mod='users', act='post')
         content['users'] = users

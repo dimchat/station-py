@@ -52,7 +52,7 @@ class AddressNameStorage(Storage):
         path = self.__ans_path()
         self.info('Loading ANS records from: %s' % path)
         records = {}
-        dictionary = self.read_json(path=path)
+        dictionary = await self.read_json(path=path)
         if dictionary is not None:
             for name in dictionary:
                 value = dictionary[name]
@@ -81,4 +81,4 @@ class AddressNameStorage(Storage):
                 dictionary[name] = str(uid)
         path = self.__ans_path()
         self.info('Saving %d ANS records into: %s' % (len(records), path))
-        return self.write_json(container=dictionary, path=path)
+        return await self.write_json(container=dictionary, path=path)

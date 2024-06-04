@@ -54,11 +54,11 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/ftp.ini'
 
 
-async def main():
+async def async_main():
     # create global variable
     shared = GlobalVariable()
     # load config
-    config = create_config(app_name='File Server', default_config=DEFAULT_CONFIG)
+    config = await create_config(app_name='File Server', default_config=DEFAULT_CONFIG)
     shared.config = config
     # start cleaner
     cleaner = FileCleaner()
@@ -70,5 +70,9 @@ async def main():
     app.run(host=host, port=port)
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

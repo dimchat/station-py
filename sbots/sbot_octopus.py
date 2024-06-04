@@ -55,11 +55,11 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/edge.ini'
 
 
-async def main():
+async def async_main():
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
-    config = create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
+    config = await create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
     shared.config = config
     # Step 2: create database
     db = await create_database(config=config)
@@ -81,5 +81,9 @@ async def main():
     Log.warning(msg='bot stopped: %s' % octopus)
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

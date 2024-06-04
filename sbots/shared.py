@@ -72,7 +72,7 @@ def show_help(cmd: str, app_name: str, default_config: str):
     print('')
 
 
-def create_config(app_name: str, default_config: str) -> Config:
+async def create_config(app_name: str, default_config: str) -> Config:
     """ Step 1: load config """
     cmd = sys.argv[0]
     try:
@@ -93,7 +93,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config filepath
     if ini_file is None:
         ini_file = default_config
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
@@ -241,7 +241,7 @@ async def start_bot(default_config: str, app_name: str, ans_name: str, processor
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
-    config = create_config(app_name=app_name, default_config=default_config)
+    config = await create_config(app_name=app_name, default_config=default_config)
     shared.config = config
     if not check_bot_id(config=config, ans_name=ans_name):
         raise LookupError('Failed to get Bot ID: %s' % config)

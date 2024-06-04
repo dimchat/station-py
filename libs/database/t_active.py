@@ -98,6 +98,7 @@ class ActiveTable:
             sockets.discard(address)
             if len(sockets) == 0:
                 self.__cache.pop(identifier, None)
+                sockets = None
         # 2. store into Redis Server
         await self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
         return sockets

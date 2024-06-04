@@ -150,7 +150,7 @@ def show_help(cmd: str, app_name: str, default_config: str):
     print('')
 
 
-def create_config(app_name: str, default_config: str) -> Config:
+async def create_config(app_name: str, default_config: str) -> Config:
     """ Step 1: load config """
     cmd = sys.argv[0]
     try:
@@ -171,7 +171,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config filepath
     if ini_file is None:
         ini_file = default_config
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)

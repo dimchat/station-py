@@ -28,7 +28,7 @@ from typing import Optional, Union, List
 
 from dimples import ID, Document
 
-from dimples.utils import Log
+from dimples.utils import Log, Path
 from dimples.database.dos.base import template_replace
 from dimples.database.dos.document import parse_document
 from dimples.database import DocumentStorage as SuperStorage
@@ -59,11 +59,11 @@ class DocumentStorage(SuperStorage):
     async def load_document(self, identifier: ID) -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path_new(identifier=identifier)
-        if not os.path.exists(path):
+        if not await Path.exists(path=path):
             # load from old version
             path = self.__doc_path_old(identifier=identifier)
         self.info(msg='Loading document from: %s' % path)
-        info = self.read_json(path=path)
+        info = await self.read_json(path=path)
         if info is not None:
             return parse_document(dictionary=info, identifier=identifier)
 
@@ -89,7 +89,7 @@ class DocumentStorage(SuperStorage):
 async def load_documents(address: str, pub: str) -> Optional[List[Document]]:
     path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_all)
     Log.info(msg='Loading document from: %s' % path)
-    array = DocumentStorage.read_json(path=path)
+    array = await DocumentStorage.read_json(path=path)
     if array is None:
         return None
     documents = []
@@ -104,11 +104,11 @@ async def load_documents(address: str, pub: str) -> Optional[List[Document]]:
 
 async def load_document(address: str, pub: str) -> Optional[Document]:
     path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_new)
-    if not os.path.exists(path):
+    if not not Path.exists(path=path):
         # load from old version
         path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_old)
     Log.info(msg='Loading document from: %s' % path)
-    info = DocumentStorage.read_json(path=path)
+    info = await DocumentStorage.read_json(path=path)
     if info is not None:
         return parse_document(dictionary=info)
 

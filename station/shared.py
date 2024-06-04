@@ -77,7 +77,7 @@ def show_help(cmd: str, app_name: str, default_config: str):
     print('')
 
 
-def create_config(app_name: str, default_config: str) -> Config:
+async def create_config(app_name: str, default_config: str) -> Config:
     """ Step 1: load config """
     cmd = sys.argv[0]
     try:
@@ -98,7 +98,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config file path
     if ini_file is None:
         ini_file = default_config
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help(cmd=cmd, app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
@@ -252,7 +252,7 @@ async def prepare_server(server_name: str, default_config: str) -> GlobalVariabl
     # create global variable
     shared = GlobalVariable()
     # Step 1: load config
-    config = create_config(app_name=server_name, default_config=default_config)
+    config = await create_config(app_name=server_name, default_config=default_config)
     shared.config = config
     # Step 2: create database
     db = await create_database(config=config)

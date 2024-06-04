@@ -138,7 +138,7 @@ Log.LEVEL = Log.DEVELOP
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
-async def main():
+async def async_main():
     client = await start_bot(default_config=DEFAULT_CONFIG,
                              app_name='DIM Push Center',
                              ans_name='announcer',
@@ -152,5 +152,9 @@ async def main():
     Log.warning(msg='bot stopped: %s' % client)
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()
