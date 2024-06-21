@@ -35,6 +35,7 @@ from socketserver import StreamRequestHandler
 
 from libs.utils import Logging, Runner
 from libs.server import ServerSession, SessionCenter
+from libs.server.cpu.text import RequestHandlerMarker
 
 from station.shared import GlobalVariable
 from station.shared import create_messenger
@@ -48,11 +49,18 @@ class RequestHandler(StreamRequestHandler, Logging):
 
     def __del__(self):
         self.info(msg='request removed: %s' % str(self.client_address))
+        marker = RequestHandlerMarker()
+        tag = getattr(self, '_cli_req_tag', 0)
+        if tag > 0:
+            marker.del_tag(tag=tag)
 
     # Override
     def setup(self):
         super().setup()
         self.info(msg='request setup: %s' % str(self.client_address))
+        marker = RequestHandlerMarker()
+        tag = marker.get_tag(self.client_address)
+        setattr(self, '_cli_req_tag', tag)
 
     # Override
     def finish(self):

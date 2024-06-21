@@ -104,7 +104,7 @@ async def load_documents(address: str, pub: str) -> Optional[List[Document]]:
 
 async def load_document(address: str, pub: str) -> Optional[Document]:
     path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_new)
-    if not not Path.exists(path=path):
+    if not await Path.exists(path=path):
         # load from old version
         path = get_path(address=address, pub=pub, path=DocumentStorage.doc_path_old)
     Log.info(msg='Loading document from: %s' % path)

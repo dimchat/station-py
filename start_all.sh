@@ -34,11 +34,7 @@ function title() {
 #
 
 title "DIM Station"
-stop "station/start.py"
-stop "station/start_ct.py"
-sleep 1
-#start "dims" "station/start_ct.py"
-start "dims" "station/start.py"
+restart "dims" "station/start.py"
 
 sleep 2
 
@@ -50,21 +46,21 @@ restart octopus "sbots/sbot_octopus.py"
 #   Service Bots
 #
 
-title "DIM Push Center"
-restart apns "sbots/sbot_announcer.py"
-
-title "DIM Search Engine"
-restart search "sbots/sbot_archivist.py"
-
-title "DIM Monitor"
-restart monitor "sbots/sbot_monitor.py"
+#title "DIM Search Engine"
+#restart search "sbots/sbot_archivist.py"
+#
+#title "DIM Push Center"
+#restart apns "sbots/sbot_announcer.py"
+#
+#title "DIM Monitor"
+#restart monitor "sbots/sbot_monitor.py"
 
 #
 #   File Server
 #
 
-title "DIM File Server"
-restart ftp "fileserver/start.py"
+#title "DIM File Server"
+#restart ftp "fileserver/start.py"
 
 echo ""
 echo "    >>> Done <<<"

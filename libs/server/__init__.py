@@ -57,6 +57,7 @@ __all__ = [
     'DocumentCommandProcessor',
 
     'MuteCommandProcessor', 'BlockCommandProcessor',
+    'TextContentProcessor',
 
     # Session
     'ServerSession', 'SessionCenter',  # 'SessionPool',

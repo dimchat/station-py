@@ -35,6 +35,8 @@ from dimples.server.cpu import *
 from .mute import MuteCommandProcessor
 from .block import BlockCommandProcessor
 
+from .text import TextContentProcessor
+
 
 __all__ = [
 
@@ -46,4 +48,7 @@ __all__ = [
 
     'MuteCommandProcessor',
     'BlockCommandProcessor',
+
+    'TextContentProcessor',
+
 ]

@@ -43,6 +43,7 @@ from dimples.server import ServerContentProcessorCreator
 
 from ..common import MuteCommand, BlockCommand
 
+from .cpu import TextContentProcessor
 from .cpu import ReportCommandProcessor
 from .cpu import MuteCommandProcessor, BlockCommandProcessor
 
@@ -78,6 +79,9 @@ class ServerProcessorCreator(ServerContentProcessorCreator):
 
     # Override
     def create_content_processor(self, msg_type: Union[int, ContentType]) -> Optional[ContentProcessor]:
+        # text
+        if msg_type == ContentType.TEXT:
+            return TextContentProcessor(facebook=self.facebook, messenger=self.messenger)
         # default
         if msg_type == 0:
             return BaseContentProcessor(facebook=self.facebook, messenger=self.messenger)
