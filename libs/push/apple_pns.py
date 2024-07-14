@@ -112,7 +112,7 @@ class ApplePushNotificationService(PushNotificationService, Logging):
                                      priority=priority, expiration=expiration, collapse_id=collapse_id)
             return 200  # OK
         except IOError as error:
-            self.error('connection lost: %s' % error)
+            self.error('connection lost: %s, sandbox: %s' % (error, sandbox))
             return -408  # Request Timeout
         except APNsException as error:
             self.error('failed to push notification: %s, error %s' % (notification, error))

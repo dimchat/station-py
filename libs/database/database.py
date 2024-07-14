@@ -37,50 +37,51 @@ from dimples import ReliableMessage
 from dimples import Command, LoginCommand, GroupCommand, ResetCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples import ProviderInfo, StationInfo
+from dimples.database import DbInfo
 from dimples.database import PrivateKeyTable
 from dimples.database import CipherKeyTable
+from dimples.database import MetaTable
+from dimples.database import LoginTable
+from dimples.database import GroupTable
+from dimples.database import GroupHistoryTable
+from dimples.database import GroupKeysTable
+from dimples.database import ReliableMessageTable
+from dimples.database import StationTable
 
 from ..common import BlockCommand, MuteCommand
 
 from .dos import DeviceInfo
 
 # from .t_ans import AddressNameTable
-from .t_meta import MetaTable
 from .t_document import DocumentTable
 from .t_device import DeviceTable
 from .t_user import UserTable
-from .t_login import LoginTable
 from .t_active import ActiveTable
-from .t_group import GroupTable
-from .t_grp_history import GroupHistoryTable
-from .t_grp_keys import GroupKeysTable
-from .t_message import MessageTable
-from .t_station import StationTable
 
 
 class Database(AccountDBI, MessageDBI, SessionDBI):
 
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
         # Entity
-        self.__private_table = PrivateKeyTable(root=root, public=public, private=private)
-        self.__meta_table = MetaTable(root=root, public=public, private=private)
-        self.__document_table = DocumentTable(root=root, public=public, private=private)
-        self.__device_table = DeviceTable(root=root, public=public, private=private)
-        self.__user_table = UserTable(root=root, public=public, private=private)
-        self.__group_table = GroupTable(root=root, public=public, private=private)
-        self.__history_table = GroupHistoryTable(root=root, public=public, private=private)
+        self.__private_table = PrivateKeyTable(info=info)
+        self.__meta_table = MetaTable(info=info)
+        self.__document_table = DocumentTable(info=info)
+        self.__device_table = DeviceTable(info=info)
+        self.__user_table = UserTable(info=info)
+        self.__group_table = GroupTable(info=info)
+        self.__history_table = GroupHistoryTable(info=info)
         # Message
-        self.__grp_keys_table = GroupKeysTable(root=root, public=public, private=private)
-        self.__cipherkey_table = CipherKeyTable(root=root, public=public, private=private)
-        self.__message_table = MessageTable(root=root, public=public, private=private)
+        self.__grp_keys_table = GroupKeysTable(info=info)
+        self.__cipherkey_table = CipherKeyTable(info=info)
+        self.__message_table = ReliableMessageTable(info=info)
         # # ANS
-        # self.__ans_table = AddressNameTable(root=root, public=public, private=private)
+        # self.__ans_table = AddressNameTable(info=info))
         # Login info
-        self.__login_table = LoginTable(root=root, public=public, private=private)
-        self.__active_table = ActiveTable(root=root, public=public, private=private)
+        self.__login_table = LoginTable(info=info)
+        self.__active_table = ActiveTable(info=info)
         # ISP
-        self.__station_table = StationTable(root=root, public=public, private=private)
+        self.__station_table = StationTable(info=info)
 
     def show_info(self):
         # Entity

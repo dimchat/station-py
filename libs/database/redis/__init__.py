@@ -29,33 +29,25 @@
     Redis Client
 """
 
-from .base import RedisConnector
-from .base import Cache
+from dimples.database.redis import *
+from dimples.database.redis import RedisCache
 
 from .ans import AddressNameCache
-from .meta import MetaCache
-from .document import DocumentCache
 from .device import DeviceCache
 from .user import UserCache
-from .login import LoginCache
-from .group import GroupCache
-from .grp_history import GroupHistoryCache
-from .grp_keys import GroupKeysCache
-from .message import MessageCache
-from .station import StationCache
 
 
 __all__ = [
 
-    'RedisConnector',
-    'Cache',
+    'RedisConnector', 'RedisCache',
 
-    'AddressNameCache',
-    'MetaCache',
-    'DocumentCache', 'DeviceCache',
+    'MetaCache', 'DocumentCache',
     'UserCache', 'LoginCache',
-    'GroupCache', 'GroupHistoryCache',
-    'GroupKeysCache',
+    'GroupCache', 'GroupHistoryCache', 'GroupKeysCache',
     'MessageCache',
     'StationCache',
+
+    'AddressNameCache',
+    'DeviceCache',
+    'UserCache',
 ]

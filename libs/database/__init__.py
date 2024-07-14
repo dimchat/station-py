@@ -34,6 +34,7 @@ from dimples.common.dbi import *
 from .dos import *
 from .redis import *
 
+from .database import DbInfo
 from .database import Database
 
 
@@ -81,5 +82,6 @@ __all__ = [
     #
     #   Database
     #
+    'DbInfo',
     'Database',
 ]

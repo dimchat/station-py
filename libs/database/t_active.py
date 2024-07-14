@@ -23,82 +23,110 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Dict, Set, Tuple
+import threading
+from typing import Dict, Set, Tuple, Optional
 
-from dimples import DateTime
+from aiou.mem import CachePool
+
 from dimples import ID
-
-from dimples.utils import CacheManager
+from dimples.utils import SharedCacheManager
+from dimples.database import DbInfo, DbTask
 
 from .redis import LoginCache
 
 
+class ActTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 60  # seconds
+    MEM_CACHE_REFRESH = 8   # seconds
+
+    def __init__(self,
+                 cache_pool: CachePool, redis: LoginCache,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._redis = redis
+
+    # Override
+    def cache_key(self) -> str:
+        return 'active_users'
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[Set[ID]]:
+        users = await self._redis.get_active_users()
+        if users is None or len(users) == 0:
+            return None
+        else:
+            return users
+
+    # Override
+    async def _save_redis_cache(self, value: Set[ID]) -> bool:
+        pass
+
+    # Override
+    async def _load_local_storage(self) -> Optional[Set[ID]]:
+        pass
+
+    # Override
+    async def _save_local_storage(self, value: Set[ID]) -> bool:
+        pass
+
+
 class ActiveTable:
 
-    CACHE_EXPIRES = 60    # seconds
-    CACHE_REFRESHING = 8  # seconds
-
-    # noinspection PyUnusedLocal
-    def __init__(self, root: str = None, public: str = None, private: str = None):
+    def __init__(self, info: DbInfo):
         super().__init__()
-        self.__redis = LoginCache()
-        self.__cache: Dict[ID, Set[Tuple[str, int]]] = {}  # ID => set(socket_address)
-        man = CacheManager()
-        self.__active_cache = man.get_pool(name='session')  # 'active_users' => Set(ID)
+        self._socket_address: Dict[ID, Set[Tuple[str, int]]] = {}  # ID => set(socket_address)
+        man = SharedCacheManager()
+        self._cache = man.get_pool(name='session')  # 'active_users' => Set(ID)
+        self._redis = LoginCache(connector=info.redis_connector)
+        self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
     def show_info(self):
         print('!!!    active users in memory only !!!')
 
+    def _new_task(self) -> ActTask:
+        return ActTask(cache_pool=self._cache, redis=self._redis,
+                       mutex_lock=self._lock)
+
     async def clear_socket_addresses(self):
         """ clear before station start """
-        self.__active_cache.erase(key='active_users')
-        await self.__redis.clear_socket_addresses()
+        with self._lock:
+            self._cache.erase(key='active_users')
+            await self._redis.clear_socket_addresses()
 
     async def get_active_users(self) -> Set[ID]:
         """ read by archivist bot """
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__active_cache.fetch(key='active_users', now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # active_users not load yet, wait to load
-                self.__active_cache.update(key='active_users', life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # active_users not exists
-                    return set()
-                # active_users expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check redis server
-            value = await self.__redis.get_active_users()
-            # 3. update memory cache
-            self.__active_cache.update(key='active_users', value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_task()
+        users = await task.load()
+        return set() if users is None else users
 
     async def add_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         """ wrote by station only """
-        # 1. add into local cache
-        sockets = self.__cache.get(identifier)
-        if sockets is None:
-            sockets = set()
-            self.__cache[identifier] = sockets
-        sockets.add(address)
-        # 2. store into Redis Server
-        await self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
-        return sockets
+        with self._lock:
+            # 1. add into local cache
+            sockets = self._socket_address.get(identifier)
+            if sockets is None:
+                sockets = set()
+                self._socket_address[identifier] = sockets
+            sockets.add(address)
+            # 2. store into Redis Server
+            await self._redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+            return sockets
 
     async def remove_socket_address(self, identifier: ID, address: Tuple[str, int]) -> Set[Tuple[str, int]]:
         """ wrote by station only """
-        # 1. remove from local cache
-        sockets = self.__cache.get(identifier)
-        if sockets is not None:
-            sockets.discard(address)
-            if len(sockets) == 0:
-                self.__cache.pop(identifier, None)
-                sockets = None
-        # 2. store into Redis Server
-        await self.__redis.save_socket_addresses(identifier=identifier, addresses=sockets)
-        return sockets
+        with self._lock:
+            # 1. remove from local cache
+            sockets = self._socket_address.get(identifier)
+            if sockets is not None:
+                sockets.discard(address)
+                if len(sockets) == 0:
+                    self._socket_address.pop(identifier, None)
+                    sockets = None
+            # 2. store into Redis Server
+            await self._redis.save_socket_addresses(identifier=identifier, addresses=sockets)
+            return sockets

@@ -27,11 +27,10 @@ from typing import Optional, Set, Dict
 
 from dimples import utf8_encode, utf8_decode
 from dimples import ID
+from dimples.database.redis import RedisCache
 
-from .base import Cache
 
-
-class AddressNameCache(Cache):
+class AddressNameCache(RedisCache):
 
     @property  # Override
     def db_name(self) -> Optional[str]:
@@ -52,17 +51,16 @@ class AddressNameCache(Cache):
 
     async def save_record(self, name: str, identifier: ID):
         value = utf8_encode(string=str(identifier))
-        self.hset(name=self.__cache_name(), key=name, value=value)
-        return True
+        return await self.hset(name=self.__cache_name(), key=name, value=value)
 
     async def get_record(self, name: str) -> Optional[ID]:
-        value = self.hget(name=self.__cache_name(), key=name)
+        value = await self.hget(name=self.__cache_name(), key=name)
         if value is not None:
             identifier = utf8_decode(data=value)
             return ID.parse(identifier=identifier)
 
     async def get_names(self, identifier: ID) -> Set[str]:
-        records = self.hgetall(name=self.__cache_name())
+        records = await self.hgetall(name=self.__cache_name())
         if records is None:
             return set()
         else:

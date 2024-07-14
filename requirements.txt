@@ -7,21 +7,23 @@ Flask-Cors # 4.0.0
 xmltodict  # 0.12.0
 jpush      # 3.3.8
 
+itsdangerous  # 0.24
 cryptography  # 2.6.1
 pycryptodome  # 3.14.1
 base58        # 1.0.3
 ecdsa         # 0.16.1
 
-redis      # 3.5.3
+# redis      # 3.5.3
 greenlet   # 1.1.2
 gevent     # 21.8.0
 # sysv-ipc   # 1.1.0
 
 # ipx==0.2.2
+aiou==0.3.0
 
-startrek==2.1.1
-tcp==2.1.1
-udp==2.1.1
+startrek==2.1.2
+tcp==2.1.2
+udp==2.1.2
 stun==0.2.3
 dmtp==0.3.4
 
@@ -30,4 +32,4 @@ dkd==2.0.0
 dimp==2.0.0
 dimsdk==2.0.0
 dimplugins==2.0.0
-dimples==1.2.3
+dimples==1.2.5

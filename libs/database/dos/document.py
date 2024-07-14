@@ -56,6 +56,15 @@ class DocumentStorage(SuperStorage):
         return template_replace(path, key='ADDRESS', value=str(identifier.address))
 
     # Override
+    async def get_documents(self, identifier: ID) -> List[Document]:
+        """ load documents from file """
+        all_documents = await self.load_documents(identifier=identifier)
+        if all_documents is not None:
+            return all_documents
+        # try old file
+        doc = await self.load_document(identifier=identifier)
+        return [] if doc is None else [doc]
+
     async def load_document(self, identifier: ID) -> Optional[Document]:
         """ load document from file """
         path = self.__doc_path_new(identifier=identifier)

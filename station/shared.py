@@ -40,7 +40,8 @@ from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
 from libs.common import CommonFacebook
-from libs.database.redis import Cache as RedisCache
+from libs.database.redis import RedisConnector
+from libs.database import DbInfo
 from libs.database import Database
 from libs.server import ServerMessenger, ServerPacker, ServerProcessor
 from libs.server import ServerSession
@@ -110,24 +111,19 @@ async def create_config(app_name: str, default_config: str) -> Config:
     return config
 
 
-def _config_redis(config: Config) -> bool:
+def create_redis_connector(config: Config) -> Optional[RedisConnector]:
     redis_enable = config.get_boolean(section='redis', option='enable')
     if redis_enable:
-        # redis host
+        # create redis connector
         host = config.get_string(section='redis', option='host')
-        if host is not None and len(host) > 0:
-            RedisCache.set_redis_host(host=host)
-        # redis port
+        if host is None:
+            host = 'localhost'
         port = config.get_integer(section='redis', option='port')
-        if port is not None and port > 0:
-            RedisCache.set_redis_port(port=port)
-        # redis password
+        if port is None or port <= 0:
+            port = 6379
+        username = config.get_string(section='redis', option='username')
         password = config.get_string(section='redis', option='password')
-        if password is not None and len(password) > 0:
-            RedisCache.set_redis_password(password=password)
-        # enable redis
-        RedisCache.set_redis_enable(enable=True)
-    return redis_enable
+        return RedisConnector(host=host, port=port, username=username, password=password)
 
 
 async def create_database(config: Config) -> Database:
@@ -135,11 +131,11 @@ async def create_database(config: Config) -> Database:
     root = config.database_root
     public = config.database_public
     private = config.database_private
+    redis_conn = create_redis_connector(config=config)
+    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
     # create database
-    db = Database(root=root, public=public, private=private)
+    db = Database(info=info)
     db.show_info()
-    # config redis before updating database
-    _config_redis(config=config)
     # update neighbor stations (default provider)
     provider = ProviderInfo.GSP
     neighbors = config.neighbors

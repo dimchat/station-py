@@ -23,14 +23,16 @@
 # SOFTWARE.
 # ==============================================================================
 
-from typing import Optional
+import threading
+from typing import Optional, List
 
-from dimples import DateTime
+from aiou.mem import CachePool
+
 from dimples import ID, Command
-
-from dimples.utils import CacheManager
 from dimples.utils import is_before
-from dimples.database import UserTable as SuperTable
+from dimples.utils import SharedCacheManager
+from dimples.database import UserDBI, ContactDBI
+from dimples.database import DbInfo, DbTask
 
 from ..common import BlockCommand, MuteCommand
 
@@ -38,23 +40,155 @@ from .redis import UserCache
 from .dos import UserStorage
 
 
-class UserTable(SuperTable):
+class UsrTask(DbTask):
+
+    MEM_CACHE_EXPIRES = 300  # seconds
+    MEM_CACHE_REFRESH = 32   # seconds
+
+    def __init__(self, user: ID,
+                 cache_pool: CachePool, redis: UserCache, storage: UserStorage,
+                 mutex_lock: threading.Lock):
+        super().__init__(cache_pool=cache_pool,
+                         cache_expires=self.MEM_CACHE_EXPIRES,
+                         cache_refresh=self.MEM_CACHE_REFRESH,
+                         mutex_lock=mutex_lock)
+        self._user = user
+        self._redis = redis
+        self._dos = storage
+
+    # Override
+    def cache_key(self) -> ID:
+        return self._user
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[List[ID]]:
+        return await self._redis.get_contacts(identifier=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: List[ID]) -> bool:
+        return await self._redis.save_contacts(contacts=value, identifier=self._user)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[List[ID]]:
+        return await self._dos.get_contacts(user=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: List[ID]) -> bool:
+        return await self._dos.save_contacts(contacts=value, user=self._user)
+
+
+class ConTask(UsrTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[Command]:
+        return await self._redis.get_contacts_command(identifier=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: Command) -> bool:
+        return await self._redis.save_contacts_command(content=value, identifier=self._user)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[Command]:
+        return await self._dos.get_contacts_command(identifier=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: Command) -> bool:
+        return await self._dos.save_contacts_command(content=value, identifier=self._user)
+
+
+class BloTask(UsrTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[BlockCommand]:
+        return await self._redis.get_block_command(identifier=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: BlockCommand) -> bool:
+        return await self._redis.save_block_command(content=value, identifier=self._user)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[BlockCommand]:
+        return await self._dos.get_block_command(identifier=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: BlockCommand) -> bool:
+        return await self._dos.save_block_command(content=value, identifier=self._user)
+
+
+class MutTask(UsrTask):
+
+    # Override
+    async def _load_redis_cache(self) -> Optional[MuteCommand]:
+        return await self._redis.get_mute_command(identifier=self._user)
+
+    # Override
+    async def _save_redis_cache(self, value: MuteCommand) -> bool:
+        return await self._redis.save_mute_command(content=value, identifier=self._user)
+
+    # Override
+    async def _load_local_storage(self) -> Optional[MuteCommand]:
+        return await self._dos.get_mute_command(identifier=self._user)
+
+    # Override
+    async def _save_local_storage(self, value: MuteCommand) -> bool:
+        return await self._dos.save_mute_command(content=value, identifier=self._user)
+
+
+class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
-    CACHE_EXPIRES = 300    # seconds
-    CACHE_REFRESHING = 32  # seconds
-
-    def __init__(self, root: str = None, public: str = None, private: str = None):
-        super().__init__(root=root, public=public, private=private)
-        self.__dos = UserStorage(root=root, public=public, private=private)
-        self.__redis = UserCache()
-        man = CacheManager()
-        self.__cmd_contacts = man.get_pool(name='cmd.contacts')  # ID => StorageCommand
-        self.__cmd_block = man.get_pool(name='cmd.block')        # ID => BlockCommand
-        self.__cmd_mute = man.get_pool(name='cmd.mute')          # ID => MuteCommand
+    def __init__(self, info: DbInfo):
+        super().__init__()
+        man = SharedCacheManager()
+        self._cmd_contacts = man.get_pool(name='cmd.contacts')  # ID => StorageCommand
+        self._cmd_block = man.get_pool(name='cmd.block')        # ID => BlockCommand
+        self._cmd_mute = man.get_pool(name='cmd.mute')          # ID => MuteCommand
+        self._cache = man.get_pool(name='contacts')             # ID => List[ID]
+        self._redis = UserCache(connector=info.redis_connector)
+        self._dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._lock = threading.Lock()
 
     def show_info(self):
-        self.__dos.show_info()
+        self._dos.show_info()
+
+    def _new_task(self, user: ID) -> UsrTask:
+        return UsrTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+
+    def _new_con_task(self, user: ID) -> ConTask:
+        return ConTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+
+    def _new_blo_task(self, user: ID) -> BloTask:
+        return BloTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+
+    def _new_mut_task(self, user: ID) -> MutTask:
+        return MutTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+
+    #
+    #   User DBI
+    #
+
+    # Override
+    async def get_local_users(self) -> List[ID]:
+        return []
+
+    # Override
+    async def save_local_users(self, users: List[ID]) -> bool:
+        pass
+
+    #
+    #   Contact DBI
+    #
+
+    # Override
+    async def get_contacts(self, user: ID) -> List[ID]:
+        task = self._new_task(user=user)
+        contacts = await task.load()
+        return [] if contacts is None else contacts
+
+    # Override
+    async def save_contacts(self, contacts: List[ID], user: ID) -> bool:
+        task = self._new_task(user=user)
+        return await task.save(value=contacts)
 
     #
     #   Contacts
@@ -72,44 +206,16 @@ class UserTable(SuperTable):
             return False
 
     async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
-        # 0. check old record with time
+        # check old record with time
         if await self._is_contacts_expired(user=identifier, content=content):
             # command expired, drop it
             return False
-        # 1. store into memory cache
-        self.__cmd_contacts.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
-        # 2. save to redis server
-        await self.__redis.save_contacts_command(content=content, identifier=identifier)
-        # 3. save to local storage
-        return await self.__dos.save_contacts_command(content=content, identifier=identifier)
+        task = self._new_con_task(user=identifier)
+        return await task.save(value=content)
 
     async def get_contacts_command(self, identifier: ID) -> Optional[Command]:
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__cmd_contacts.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # storage command not load yet, wait to load
-                self.__cmd_contacts.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # storage command not exists
-                    return None
-                # storage command expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check redis server
-            value = await self.__redis.get_contacts_command(identifier=identifier)
-            if value is None:
-                # 3. check local storage
-                value = await self.__dos.get_contacts_command(identifier=identifier)
-                if value is not None:
-                    # update redis server
-                    await self.__redis.save_contacts_command(content=value, identifier=identifier)
-            # update memory cache
-            self.__cmd_contacts.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_con_task(user=identifier)
+        return await task.load()
 
     #
     #   Block List
@@ -127,44 +233,16 @@ class UserTable(SuperTable):
             return False
 
     async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
-        # 0. check old record with time
+        # check old record with time
         if await self._is_blocked_expired(user=identifier, content=content):
             # command expired, drop it
             return False
-        # 1. store into memory cache
-        self.__cmd_block.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
-        # 2. save to redis server
-        await self.__redis.save_block_command(content=content, identifier=identifier)
-        # 3. save to local storage
-        return await self.__dos.save_block_command(content=content, identifier=identifier)
+        task = self._new_blo_task(user=identifier)
+        return await task.save(value=content)
 
     async def get_block_command(self, identifier: ID) -> Optional[BlockCommand]:
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__cmd_block.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # block command not load yet, wait to load
-                self.__cmd_block.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # block command not exists
-                    return None
-                # block command expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check redis server
-            value = await self.__redis.get_block_command(identifier=identifier)
-            if value is None:
-                # 3. check local storage
-                value = await self.__dos.get_block_command(identifier=identifier)
-                if value is not None:
-                    # update redis server
-                    await self.__redis.save_block_command(content=value, identifier=identifier)
-            # update memory cache
-            self.__cmd_block.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_blo_task(user=identifier)
+        return await task.load()
 
     #
     #   Mute List
@@ -182,41 +260,13 @@ class UserTable(SuperTable):
             return False
 
     async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:
-        # 0. check old record with time
+        # check old record with time
         if await self._is_muted_expired(user=identifier, content=content):
             # command expired, drop it
             return False
-        # 1. store into memory cache
-        self.__cmd_mute.update(key=identifier, value=content, life_span=self.CACHE_EXPIRES)
-        # 2. save to redis server
-        await self.__redis.save_mute_command(content=content, identifier=identifier)
-        # 3. save to local storage
-        return await self.__dos.save_mute_command(content=content, identifier=identifier)
+        task = self._new_mut_task(user=identifier)
+        return await task.save(value=content)
 
     async def get_mute_command(self, identifier: ID) -> Optional[MuteCommand]:
-        now = DateTime.now()
-        # 1. check memory cache
-        value, holder = self.__cmd_mute.fetch(key=identifier, now=now)
-        if value is None:
-            # cache empty
-            if holder is None:
-                # mute command not load yet, wait to load
-                self.__cmd_mute.update(key=identifier, life_span=self.CACHE_REFRESHING, now=now)
-            else:
-                if holder.is_alive(now=now):
-                    # mute command not exists
-                    return None
-                # mute command expired, wait to reload
-                holder.renewal(duration=self.CACHE_REFRESHING, now=now)
-            # 2. check redis server
-            value = await self.__redis.get_mute_command(identifier=identifier)
-            if value is None:
-                # 3. check local storage
-                value = await self.__dos.get_mute_command(identifier=identifier)
-                if value is not None:
-                    # update redis server
-                    await self.__redis.save_mute_command(content=value, identifier=identifier)
-            # update memory cache
-            self.__cmd_mute.update(key=identifier, value=value, life_span=self.CACHE_EXPIRES, now=now)
-        # OK, return cached value
-        return value
+        task = self._new_mut_task(user=identifier)
+        return await task.load()
