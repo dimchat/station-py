@@ -152,16 +152,20 @@ class UserTable(UserDBI, ContactDBI):
         self._dos.show_info()
 
     def _new_task(self, user: ID) -> UsrTask:
-        return UsrTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+        return UsrTask(user=user, cache_pool=self._cache,
+                       redis=self._redis, storage=self._dos, mutex_lock=self._lock)
 
     def _new_con_task(self, user: ID) -> ConTask:
-        return ConTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+        return ConTask(user=user, cache_pool=self._cmd_contacts,
+                       redis=self._redis, storage=self._dos, mutex_lock=self._lock)
 
     def _new_blo_task(self, user: ID) -> BloTask:
-        return BloTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+        return BloTask(user=user, cache_pool=self._cmd_block,
+                       redis=self._redis, storage=self._dos, mutex_lock=self._lock)
 
     def _new_mut_task(self, user: ID) -> MutTask:
-        return MutTask(user=user, cache_pool=self._cache, redis=self._redis, storage=self._dos, mutex_lock=self._lock)
+        return MutTask(user=user, cache_pool=self._cmd_mute,
+                       redis=self._redis, storage=self._dos, mutex_lock=self._lock)
 
     #
     #   User DBI

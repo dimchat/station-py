@@ -37,7 +37,7 @@ from dimples import Content
 
 from dimples import BaseCommandProcessor
 from dimples.common import CommonFacebook
-from dimples.utils import CacheManager
+from dimples.utils import SharedCacheManager
 
 from ...utils import Logging
 from ...database import Database
@@ -121,7 +121,7 @@ async def search_users(keywords: str, start: int, limit: int,
                        database: Database, facebook: CommonFacebook) -> List[ID]:
     global g_search_cache
     if g_search_cache is None:
-        g_search_cache = CacheManager().get_pool(name='search')
+        g_search_cache = SharedCacheManager().get_pool(name='search')
     # 0. split keywords
     if keywords is None:
         kw_array = []
