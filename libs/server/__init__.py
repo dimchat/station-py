@@ -31,7 +31,7 @@
 
 from dimples.server import SessionCenter
 from dimples.server import PushService, PushCenter
-# from dimples.server import Roamer, MessageDeliver, DeliverWorker
+from dimples.server import Roamer, MessageDeliver
 from dimples.server import Dispatcher
 from dimples.server import FilterManager
 
@@ -67,7 +67,7 @@ __all__ = [
     'DefaultPushService',
 
     # Dispatcher
-    # 'Roamer', 'MessageDeliver', 'DeliverWorker',
+    'Roamer', 'MessageDeliver',
     'Dispatcher',
     'BlockFilter', 'MuteFilter', 'FilterManager',
 

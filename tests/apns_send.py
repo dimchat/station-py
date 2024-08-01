@@ -40,7 +40,7 @@ from apns2.client import APNsClient
 from apns2.payload import Payload
 
 from dimples import *
-from dimples.utils import Path, Log
+from dimples.utils import Path, Log, Runner
 from dimples.database.dos import Storage
 
 path = Path.abs(path=__file__)
@@ -76,8 +76,8 @@ class DeviceLoader:
         return base_dir + '/private/' + str(address) + '/devices.js'
 
     @property
-    def devices(self) -> List[DeviceInfo]:
-        array = Storage.read_json(path=self.path)
+    async def devices(self) -> List[DeviceInfo]:
+        array = await Storage.read_json(path=self.path)
         if not isinstance(array, List):
             array = []
         Log.info('loaded %d device(s) from: %s' % (len(array), path))
@@ -115,12 +115,12 @@ class SMS:
             self.__client_test = client
         return client
 
-    def send(self, identifier: str, text: str) -> int:
+    async def send(self, identifier: str, text: str) -> int:
         identifier = ID.parse(identifier=identifier)
         payload = Payload(alert=text)
         # get devices
         loader = DeviceLoader(identifier)
-        devices = loader.devices
+        devices = await loader.devices
         if devices is None or len(devices) == 0:
             print('Device token not found, failed to push message: %s' % payload.alert)
             return 0
@@ -144,17 +144,26 @@ class SMS:
         return count
 
 
-def send(text: str, identifier: str) -> bool:
+async def send(text: str, identifier: str) -> bool:
     msg = SMS()
-    count = msg.send(identifier=identifier, text=text)
+    count = await msg.send(identifier=identifier, text=text)
     return count > 0
 
 
-if __name__ == '__main__':
+async def async_main():
     # check arguments
     if len(sys.argv) == 3:
-        send(text=sys.argv[2], identifier=sys.argv[1])
+        coro = send(text=sys.argv[2], identifier=sys.argv[1])
+        Runner.sync_run(main=coro)
     else:
         print('Usage:')
         print('    %s "ID" "text"' % sys.argv[0])
         print('')
+
+
+def main():
+    Runner.sync_run(main=async_main())
+
+
+if __name__ == '__main__':
+    main()

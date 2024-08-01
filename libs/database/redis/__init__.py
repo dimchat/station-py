@@ -30,11 +30,10 @@
 """
 
 from dimples.database.redis import *
-from dimples.database.redis import RedisCache
 
-from .ans import AddressNameCache
-from .device import DeviceCache
 from .user import UserCache
+from .device import DeviceCache
+from .ans import AddressNameCache
 
 
 __all__ = [
@@ -42,12 +41,13 @@ __all__ = [
     'RedisConnector', 'RedisCache',
 
     'MetaCache', 'DocumentCache',
-    'UserCache', 'LoginCache',
+    'LoginCache',
     'GroupCache', 'GroupHistoryCache', 'GroupKeysCache',
     'MessageCache',
     'StationCache',
 
-    'AddressNameCache',
-    'DeviceCache',
     'UserCache',
+    'DeviceCache',
+    'AddressNameCache',
+
 ]

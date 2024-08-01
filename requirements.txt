@@ -21,9 +21,9 @@ gevent     # 21.8.0
 # ipx==0.2.2
 aiou==0.3.0
 
-startrek==2.1.2
-tcp==2.1.2
-udp==2.1.2
+startrek==2.2.0
+tcp==2.2.0
+udp==2.2.0
 stun==0.2.3
 dmtp==0.3.4
 
@@ -32,4 +32,4 @@ dkd==2.0.0
 dimp==2.0.0
 dimsdk==2.0.0
 dimplugins==2.0.0
-dimples==1.2.5
+dimples==1.2.6

@@ -80,7 +80,7 @@ def show_help():
     print('')
 
 
-async def main():
+async def async_main():
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
@@ -99,7 +99,7 @@ async def main():
     # check config filepath
     if ini_file is None:
         ini_file = DEFAULT_CONFIG
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help()
         print('')
         print('!!! config file not exists: %s' % ini_file)
@@ -109,9 +109,14 @@ async def main():
     config = Config.load(file=ini_file)
     # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
+    db = await create_database(config=config)
+    # OK
     shared = GlobalVariable()
     shared.config = config
-    create_database(shared=shared)
+    shared.adb = db
+    shared.mdb = db
+    shared.sdb = db
+    shared.database = db
     # check actions
     if len(args) == 1 and args[0] == 'generate':
         await generate(database=shared.adb)
@@ -123,5 +128,9 @@ async def main():
         show_help()
 
 
+def main():
+    Runner.sync_run(main=async_main())
+
+
 if __name__ == '__main__':
-    Runner.sync_run(main=main())
+    main()

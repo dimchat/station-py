@@ -69,11 +69,6 @@ soldiers_path = '/tmp/soldiers.txt'
 
 DEFAULT_CONFIG = '/etc/dim/config.ini'
 
-config = create_config(app_name='Siege', default_config=DEFAULT_CONFIG)
-shared = GlobalVariable()
-shared.config = config
-create_database(shared=shared)
-
 
 class Soldier(Logging, Runnable):
 
@@ -108,6 +103,7 @@ class Soldier(Logging, Runnable):
         client_id = self.user
         time_to_retreat = time.time() + 32
         # 1. preparing facebook
+        shared = GlobalVariable()
         facebook = await create_facebook(shared=shared, current_user=client_id)
         user = await facebook.get_user(identifier=client_id)
         assert user is not None, 'failed to get user: %s' % client_id
@@ -178,6 +174,7 @@ class Sergeant(Logging):
         identifier = ID.generate(meta=meta, network=EntityType.BOT)
         print('\n    Net ID: %s\n' % identifier)
         # 4. save private key & meta
+        shared = GlobalVariable()
         database = shared.adb
         facebook = ClientFacebook()
         # create archivist for facebook
@@ -212,7 +209,7 @@ class Colonel(ThreadRunner, Logging):
     def setup(self):
         super().setup()
         # load soldiers
-        text = Storage.read_text(path=soldiers_path)
+        text = await Storage.read_text(path=soldiers_path)
         if text is not None:
             array = text.splitlines()
             for item in array:
@@ -232,7 +229,7 @@ class Colonel(ThreadRunner, Logging):
                 self.__soldiers.append(cid)
                 # save to '.dim/soldiers.txt'
                 line = '%s\n' % cid
-                Storage.append_text(text=line, path=soldiers_path)
+                await Storage.append_text(text=line, path=soldiers_path)
 
     # Override
     def process(self) -> bool:
@@ -290,7 +287,16 @@ test_ip = test_station[0]
 test_id = test_station[1]
 
 
-if __name__ == '__main__':
+async def async_main():
+    config = await create_config(app_name='Siege', default_config=DEFAULT_CONFIG)
+    db = await create_database(config=config)
+    # OK
+    shared = GlobalVariable()
+    shared.config = config
+    shared.adb = db
+    shared.mdb = db
+    shared.sdb = db
+    shared.database = db
     # update config
     station = config.get('station')
     # assert isinstance(station, dict), 'config error: %s' % config
@@ -298,3 +304,11 @@ if __name__ == '__main__':
     # station['id'] = test_id
     print('**** Start testing %s ...' % station)
     Colonel().attack()
+
+
+def main():
+    Runner.sync_run(main=async_main())
+
+
+if __name__ == '__main__':
+    main()

@@ -35,9 +35,23 @@ from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
 from libs.common import CommonFacebook
+from libs.database.redis import RedisConnector
+from libs.database import DbInfo
 from libs.database import Database
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
+
+
+@Singleton
+class GlobalVariable:
+
+    def __init__(self):
+        super().__init__()
+        self.config: Optional[Config] = None
+        self.adb: Optional[AccountDBI] = None
+        self.mdb: Optional[MessageDBI] = None
+        self.sdb: Optional[SessionDBI] = None
+        self.database: Optional[Database] = None
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -54,7 +68,7 @@ def show_help(cmd: str, app_name: str, default_config: str):
     print('')
 
 
-def create_config(app_name: str, default_config: str) -> Config:
+async def create_config(app_name: str, default_config: str) -> Config:
     try:
         opts, args = getopt.getopt(args=sys.argv[1:],
                                    shortopts='hf:',
@@ -73,7 +87,7 @@ def create_config(app_name: str, default_config: str) -> Config:
     # check config file path
     if ini_file is None:
         ini_file = default_config
-    if not Path.exists(path=ini_file):
+    if not await Path.exists(path=ini_file):
         show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
         print('')
         print('!!! config file not exists: %s' % ini_file)
@@ -84,31 +98,31 @@ def create_config(app_name: str, default_config: str) -> Config:
     return Config.load(file=ini_file)
 
 
-@Singleton
-class GlobalVariable:
+def create_redis_connector(config: Config) -> Optional[RedisConnector]:
+    redis_enable = config.get_boolean(section='redis', option='enable')
+    if redis_enable:
+        # create redis connector
+        host = config.get_string(section='redis', option='host')
+        if host is None:
+            host = 'localhost'
+        port = config.get_integer(section='redis', option='port')
+        if port is None or port <= 0:
+            port = 6379
+        username = config.get_string(section='redis', option='username')
+        password = config.get_string(section='redis', option='password')
+        return RedisConnector(host=host, port=port, username=username, password=password)
 
-    def __init__(self):
-        super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.database: Optional[Database] = None
 
-
-def create_database(shared: GlobalVariable) -> Database:
+async def create_database(config: Config) -> Database:
     """ create database with directories """
-    config = shared.config
     root = config.database_root
     public = config.database_public
     private = config.database_private
+    redis_conn = create_redis_connector(config=config)
+    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
     # create database
-    db = Database(root=root, public=public, private=private)
+    db = Database(info=info)
     db.show_info()
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
     return db
 
 

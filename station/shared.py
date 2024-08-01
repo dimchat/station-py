@@ -39,6 +39,7 @@ from dimples.server import ServerArchivist
 from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
+from libs.utils import Runner
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
 from libs.database import DbInfo
@@ -46,6 +47,7 @@ from libs.database import Database
 from libs.server import ServerMessenger, ServerPacker, ServerProcessor
 from libs.server import ServerSession
 from libs.server import PushCenter, DefaultPushService
+from libs.server import MessageDeliver, Roamer
 from libs.server import Dispatcher, BlockFilter, MuteFilter
 from libs.server import Emitter, Monitor
 
@@ -182,10 +184,19 @@ async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFaceb
 
 def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
     """ Step 4: create dispatcher """
+    mdb = shared.mdb
+    sdb = shared.sdb
+    facebook = shared.facebook
+    deliver = MessageDeliver(database=sdb, facebook=facebook)
+    roamer = Roamer(database=mdb, deliver=deliver)
+    Runner.thread_run(runner=roamer)
+    # Runner.async_task(coro=roamer.start())
     dispatcher = Dispatcher()
-    dispatcher.mdb = shared.mdb
-    dispatcher.sdb = shared.sdb
-    dispatcher.facebook = shared.facebook
+    dispatcher.mdb = mdb
+    dispatcher.sdb = sdb
+    dispatcher.facebook = facebook
+    dispatcher.deliver = deliver
+    dispatcher.roamer = roamer
     return dispatcher
 
 
