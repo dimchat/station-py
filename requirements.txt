@@ -32,4 +32,4 @@ dkd==2.0.0
 dimp==2.0.0
 dimsdk==2.0.0
 dimplugins==2.0.0
-dimples==1.2.6
+dimples==1.2.7

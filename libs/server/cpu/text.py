@@ -31,12 +31,16 @@
 """
 
 import random
-from typing import List, Dict
+import threading
+import weakref
+from socketserver import StreamRequestHandler
+from typing import Optional, Tuple, List
 
+from dimples import ID
 from dimples import ReliableMessage
 from dimples import Content, TextContent
 from dimples import BaseContentProcessor
-from dimples.server import SessionCenter
+from dimples.server import SessionCenter, ServerSession
 
 from ...utils import Singleton, Logging
 
@@ -107,33 +111,95 @@ def _active_users() -> List[Content]:
 
 def _request_handlers() -> List[Content]:
     marker = RequestHandlerMarker()
-    all_tags = marker.all_tags()
-    text = '%d handlers\n' % len(all_tags)
+    all_handlers = marker.all_handlers
+    text = 'Totally %d handlers\n' % len(all_handlers)
     text += '\n'
-    text += '| Tag | Sockets |\n'
-    text += '|-----|---------|\n'
-    for tag in all_tags:
-        client_address = all_tags.get(tag, None)
-        text += '| %d | _%s_ |\n' % (tag, client_address)
+    text += '| Tag | Sockets | ID |\n'
+    text += '|-----|---------|----|\n'
+    for info in all_handlers:
+        text += '| %d | _%s_ | %s |\n' % (info.tag, info.client_address, info.identifier)
+    text += '\n'
+    text += '%d request handlers.' % len(all_handlers)
     content = TextContent.create(text=text)
     content['format'] = 'markdown'
     return [content]
 
 
+class RequestHandlerInfo:
+
+    def __init__(self, tag: int, client_address: Tuple[str, int], identifier: ID):
+        super().__init__()
+        self.__tag = tag
+        self.__client_address = client_address
+        self.__identifier = identifier
+
+    @property
+    def tag(self) -> int:
+        return self.__tag
+
+    @property
+    def client_address(self) -> Tuple[str, int]:
+        return self.__client_address
+
+    @property
+    def identifier(self) -> ID:
+        return self.__identifier
+
+
 @Singleton
-class RequestHandlerMarker:
+class RequestHandlerMarker(Logging):
 
     def __init__(self):
         super().__init__()
-        self.__pool: Dict[int, str] = {}
+        self.__handlers = set()
+        self.__lock = threading.Lock()
 
-    def all_tags(self) -> Dict[int, str]:
-        return self.__pool.copy()
+    @property
+    def all_handlers(self) -> List[RequestHandlerInfo]:
+        with self.__lock:
+            handlers = []
+            array = self.__handlers.copy()
+            for ref in array:
+                item: StreamRequestHandler = ref()
+                if item is None:
+                    self.__handlers.remove(ref)
+                    continue
+                tag = getattr(item, '_cli_req_tag', 0)
+                client_address = item.client_address
+                identifier = _get_session_id(handler=item)
+                info = RequestHandlerInfo(tag=tag, client_address=client_address, identifier=identifier)
+                handlers.append(info)
+            return handlers
 
-    def get_tag(self, client_address) -> int:
-        tag = random.randint(2**30, 2**32 - 1)
-        self.__pool[tag] = str(client_address)
-        return tag
+    def setup_handler(self, handler: StreamRequestHandler):
+        with self.__lock:
+            tag = random.randint(2**30, 2**32 - 1)
+            setattr(handler, '_cli_req_tag', tag)
+            ref = weakref.ref(handler)
+            self.__handlers.add(ref)
 
-    def del_tag(self, tag: int):
-        self.__pool.pop(tag, None)
+    def remove_handler(self, handler: StreamRequestHandler):
+        with self.__lock:
+            array = self.__handlers.copy()
+            for ref in array:
+                item = ref()
+                if item is None:
+                    self.__handlers.remove(ref)
+                elif item == handler:
+                    self.__handlers.remove(ref)
+
+    # noinspection PyMethodMayBeStatic
+    def link_session(self, session: ServerSession, handler: StreamRequestHandler):
+        ref = weakref.ref(session)
+        setattr(handler, '_session_ref', ref)
+
+
+def _get_session_id(handler) -> Optional[ID]:
+    ref = getattr(handler, '_session_ref')
+    if ref is None:
+        return None
+    session: ServerSession = ref()
+    if session is None:
+        return None
+    else:
+        return session.identifier
