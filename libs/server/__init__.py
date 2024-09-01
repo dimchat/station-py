@@ -53,8 +53,13 @@ __all__ = [
     #
     #   CPU
     #
-    'HandshakeCommandProcessor', 'LoginCommandProcessor',
+    'LoginCommandProcessor',
+    'ReportCommandProcessor',
+    'AnsCommandProcessor',
     'DocumentCommandProcessor',
+
+    # 'HandshakeCommandProcessor',
+    'ServerHandshakeProcessor',
 
     'MuteCommandProcessor', 'BlockCommandProcessor',
     'TextContentProcessor',
