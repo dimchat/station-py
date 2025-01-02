@@ -79,13 +79,13 @@ class Locale:
     @classmethod
     def from_visa(cls, visa: Visa):  # -> Optional[Locale]:
         # get from 'app.language'
-        app = visa.get_property(key='app')
+        app = visa.get_property(name='app')
         if isinstance(app, Dict):
             language = app.get('language')
             if language is not None and len(language) > 0:
                 return Locale.parse(locale=language)
         # get from 'sys.locale'
-        sys = visa.get_property(key='sys')
+        sys = visa.get_property(name='sys')
         if isinstance(sys, Dict):
             locale = sys.get('locale')
             if locale is not None and len(locale) > 0:

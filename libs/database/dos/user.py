@@ -26,12 +26,10 @@
 from typing import Optional
 
 from dimples import ID, Content, Command
+from dimples import MuteCommand, BlockCommand
 
 from dimples.database.dos.base import template_replace
 from dimples.database import UserStorage as SuperStorage
-
-from ...common import MuteCommand
-from ...common import BlockCommand
 
 
 class UserStorage(SuperStorage):

@@ -23,39 +23,38 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimples import Command, CommandFactoryBuilder
-from dimples import HandshakeCommand, HandshakeState
-from dimples import ReceiptCommand, ReportCommand, LoginCommand
+from dimples.common.protocol import *
 
-from ...common import BlockCommand, MuteCommand
+from ...common.protocol import *
 
 from .storage import StorageCommand
 from .search import SearchCommand
 
 
-def register_ext_factories():
-
-    # Storage (contacts, private_key)
-    factory = CommandFactoryBuilder(command_class=StorageCommand)
-    Command.register(cmd=StorageCommand.STORAGE, factory=factory)
-    Command.register(cmd=StorageCommand.CONTACTS, factory=factory)
-    Command.register(cmd=StorageCommand.PRIVATE_KEY, factory=factory)
-
-    # Search (users)
-    factory = CommandFactoryBuilder(command_class=SearchCommand)
-    Command.register(cmd=SearchCommand.SEARCH, factory=factory)
-    Command.register(cmd=SearchCommand.ONLINE_USERS, factory=factory)
-
-
-register_ext_factories()
-
-
 __all__ = [
 
     'HandshakeCommand', 'HandshakeState',
-    'ReceiptCommand', 'LoginCommand', 'ReportCommand',
+    'LoginCommand', 'ReportCommand',
     'BlockCommand', 'MuteCommand',
+
+    ####################################
+    #
+    #   Common
+    #
+    ####################################
+
+    'ReportCommand',
+
+    'PushCommand',
+    'PushAlert', 'PushInfo', 'PushItem',
+
+    ####################################
+    #
+    #   client
+    #
+    ####################################
 
     'StorageCommand',
     'SearchCommand',
+
 ]

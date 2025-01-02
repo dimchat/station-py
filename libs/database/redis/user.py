@@ -27,9 +27,9 @@ from typing import Optional
 
 from dimples import utf8_encode, utf8_decode, json_encode, json_decode
 from dimples import ID, Content, Command
-from dimples.database.redis import UserCache as SuperCache
+from dimples import MuteCommand, BlockCommand
 
-from ...common import BlockCommand, MuteCommand
+from dimples.database.redis import UserCache as SuperCache
 
 
 class UserCache(SuperCache):

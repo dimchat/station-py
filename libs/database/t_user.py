@@ -29,12 +29,11 @@ from typing import Optional, List
 from aiou.mem import CachePool
 
 from dimples import ID, Command
+from dimples import BlockCommand, MuteCommand
 from dimples.utils import is_before
 from dimples.utils import SharedCacheManager
 from dimples.database import UserDBI, ContactDBI
 from dimples.database import DbInfo, DbTask
-
-from ..common import BlockCommand, MuteCommand
 
 from .redis import UserCache
 from .dos import UserStorage

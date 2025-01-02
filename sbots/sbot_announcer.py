@@ -37,7 +37,8 @@ from typing import Optional, Union, List
 from dimples import ContentType, Content, ReliableMessage
 from dimples import ContentProcessor, ContentProcessorCreator
 from dimples import BaseCommandProcessor
-from dimples.client import ClientContentProcessorCreator
+from dimples import Facebook, Messenger
+from dimples.client.cpu import ClientContentProcessorCreator
 from dimples.utils import Log, Runner
 from dimples.utils import Path
 
@@ -47,7 +48,7 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils import Logging
-from libs.common import ReportCommand, PushCommand
+from libs.common.protocol import ReportCommand, PushCommand
 from libs.client.cpu import ReportCommandProcessor
 from libs.client import ClientProcessor
 from libs.push import PushNotificationClient
@@ -98,7 +99,7 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
 class BotMessageProcessor(ClientProcessor):
 
     # Override
-    def _create_creator(self) -> ContentProcessorCreator:
+    def _create_creator(self, facebook: Facebook, messenger: Messenger) -> ContentProcessorCreator:
         return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
@@ -139,16 +140,13 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
-    client = await start_bot(default_config=DEFAULT_CONFIG,
-                             app_name='DIM Push Center',
-                             ans_name='announcer',
-                             processor_class=BotMessageProcessor)
+    # create global variable
+    shared = GlobalVariable()
+    await shared.prepare(app_name='DIM Push Center', default_config=DEFAULT_CONFIG)
     # create push services
     create_apns(shared=GlobalVariable())
-    # main run loop
-    await client.start()
-    await client.run()
-    # await client.stop()
+    # create & start the bot
+    client = await start_bot(ans_name='announcer', processor_class=BotMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 
 

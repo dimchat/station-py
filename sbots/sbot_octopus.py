@@ -36,14 +36,11 @@ from dimples.utils import Path
 from dimples.utils import Runner
 from dimples.edge.octopus import Octopus
 from dimples.edge.shared import GlobalVariable
-from dimples.edge.shared import create_config
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
-
-from sbots.shared import create_database, create_facebook
 
 
 #
@@ -58,27 +55,18 @@ DEFAULT_CONFIG = '/etc/dim/edge.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    # Step 1: load config
-    config = await create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
-    shared.config = config
-    # Step 2: create database
-    db = await create_database(config=config)
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    # Step 3: create facebook
+    await shared.prepare(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
+    config = shared.config
+    # login
     sid = config.station_id
-    assert sid is not None, 'current station ID not set: %s' % config
-    facebook = await create_facebook(database=db, current_user=sid)
-    shared.facebook = facebook
+    await shared.login(current_user=sid)
     # create & start octopus
     host = config.station_host
     port = config.station_port
+    assert host is not None and port > 0, 'station config error: %s' % config
     octopus = Octopus(shared=shared, local_host=host, local_port=port)
-    await octopus.start()
     await octopus.run()
-    # await octopus.stop()
-    Log.warning(msg='bot stopped: %s' % octopus)
+    Log.warning(msg='octopus stopped: %s' % octopus)
 
 
 def main():

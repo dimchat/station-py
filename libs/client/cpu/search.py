@@ -75,7 +75,7 @@ class SearchCommandProcessor(BaseCommandProcessor, Logging):
                                        database=db, facebook=facebook)
             self.info('Got %d account(s) matched %s' % (len(users), keywords))
         res = SearchCommand.respond(request=content, keywords=keywords, users=users)
-        station = facebook.current_user
+        station = await facebook.current_user
         res.station = station.identifier
         return [res]
 

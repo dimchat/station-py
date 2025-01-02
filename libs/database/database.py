@@ -35,8 +35,10 @@ from dimples import SymmetricKey, PrivateKey, SignKey, DecryptKey
 from dimples import ID, Meta, Document
 from dimples import ReliableMessage
 from dimples import Command, LoginCommand, GroupCommand, ResetCommand
+from dimples import BlockCommand, MuteCommand
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples import ProviderInfo, StationInfo
+from dimples import MetaUtils
 from dimples.database import DbInfo
 from dimples.database import PrivateKeyTable
 from dimples.database import CipherKeyTable
@@ -47,8 +49,6 @@ from dimples.database import GroupHistoryTable
 from dimples.database import GroupKeysTable
 from dimples.database import ReliableMessageTable
 from dimples.database import StationTable
-
-from ..common import BlockCommand, MuteCommand
 
 from .dos import DeviceInfo
 
@@ -76,7 +76,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
         self.__cipherkey_table = CipherKeyTable(info=info)
         self.__message_table = ReliableMessageTable(info=info)
         # # ANS
-        # self.__ans_table = AddressNameTable(info=info))
+        # self.__ans_table = AddressNameTable(info=info)
         # Login info
         self.__login_table = LoginTable(info=info)
         self.__active_table = ActiveTable(info=info)
@@ -138,7 +138,7 @@ class Database(AccountDBI, MessageDBI, SessionDBI):
 
     # noinspection PyMethodMayBeStatic
     async def _verify_meta(self, meta: Meta, identifier: ID) -> bool:
-        if meta.match_identifier(identifier=identifier):
+        if MetaUtils.match_identifier(identifier=identifier, meta=meta):
             return True
         raise ValueError('meta not match ID: %s' % identifier)
 

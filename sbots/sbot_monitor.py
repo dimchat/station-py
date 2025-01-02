@@ -87,13 +87,14 @@ from dimples import ID, ReliableMessage
 from dimples import ContentType, Content
 from dimples import CustomizedContent
 from dimples import ContentProcessor, ContentProcessorCreator
-from dimples import CustomizedContentProcessor
+from dimples import Facebook, Messenger
 from dimples.utils import Log, Logging
 from dimples.utils import Runner
 from dimples.utils import Path
 from dimples.client import ClientMessenger
 from dimples.client import ClientMessageProcessor
-from dimples.client import ClientContentProcessorCreator
+from dimples.client.cpu import ClientContentProcessorCreator
+from dimples.client.cpu import CustomizedContentProcessor
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
@@ -193,7 +194,7 @@ class StatContentProcessor(CustomizedContentProcessor, Logging):
             self.error(msg='unknown module: %s, action: %s' % (mod, act))
             return []
         self.info(msg='redirecting content "%s" to %s ...' % (mod, listeners))
-        current = self.messenger.facebook.current_user
+        current = await self.messenger.facebook.current_user
         assert current is not None, 'current user not found'
         uid = current.identifier
         assert uid not in listeners, 'should not happen: %s, %s' % (uid, listeners)
@@ -220,7 +221,7 @@ class BotContentProcessorCreator(ClientContentProcessorCreator):
 class BotMessageProcessor(ClientMessageProcessor):
 
     # Override
-    def _create_creator(self) -> ContentProcessorCreator:
+    def _create_creator(self, facebook: Facebook, messenger: Messenger) -> ContentProcessorCreator:
         return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
@@ -234,14 +235,11 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
-    client = await start_bot(default_config=DEFAULT_CONFIG,
-                             app_name='ServiceBot: Monitor',
-                             ans_name='monitor',
-                             processor_class=BotMessageProcessor)
-    # main run loop
-    await client.start()
-    await client.run()
-    # await client.stop()
+    # create global variable
+    shared = GlobalVariable()
+    await shared.prepare(app_name='ServiceBot: Monitor', default_config=DEFAULT_CONFIG)
+    # create & start the bot
+    client = await start_bot(ans_name='monitor', processor_class=BotMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 
 

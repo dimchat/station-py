@@ -23,17 +23,27 @@
 # SOFTWARE.
 # ==============================================================================
 
-from dimples.common.protocol import ReportCommand
+from dimples.common.compat import CommonLoader
 
-from .apns import PushCommand
-from .apns import PushAlert, PushInfo, PushItem
+from .protocol import *
 
 
-__all__ = [
+class ClientLoader(CommonLoader):
 
-    'ReportCommand',
+    # Override
+    def _register_command_factories(self):
+        super()._register_command_factories()
+        # APNs
+        self._set_command_factory(cmd=PushCommand.PUSH, command_class=PushCommand)
+        # Report extra
+        self._set_command_factory(cmd='broadcast', command_class=ReportCommand)
+        self._set_command_factory(cmd=ReportCommand.ONLINE, command_class=ReportCommand)
+        self._set_command_factory(cmd=ReportCommand.OFFLINE, command_class=ReportCommand)
 
-    'PushCommand',
-    'PushAlert', 'PushInfo', 'PushItem',
-
-]
+        # Storage (contacts, private_key)
+        self._set_command_factory(cmd=StorageCommand.STORAGE, command_class=StorageCommand)
+        self._set_command_factory(cmd=StorageCommand.CONTACTS, command_class=StorageCommand)
+        self._set_command_factory(cmd=StorageCommand.PRIVATE_KEY, command_class=StorageCommand)
+        # Search (users)
+        self._set_command_factory(cmd=SearchCommand.SEARCH, command_class=SearchCommand)
+        self._set_command_factory(cmd=SearchCommand.ONLINE_USERS, command_class=SearchCommand)

@@ -28,7 +28,7 @@ from typing import Optional, List
 
 from aiou.mem import CachePool
 
-from dimples import ID, Document, DocumentHelper
+from dimples import ID, Document, DocumentUtils
 from dimples import DocumentDBI
 from dimples.utils import SharedCacheManager
 from dimples.database import DbInfo, DbTask
@@ -155,11 +155,11 @@ class DocumentTable(DocumentDBI):
         #  check old documents
         #
         my_documents = await self.get_documents(identifier=identifier)
-        old = DocumentHelper.last_document(my_documents, doc_type)
+        old = DocumentUtils.last_document(my_documents, doc_type)
         if old is None and doc_type == Document.VISA:
-            old = DocumentHelper.last_document(my_documents, 'profile')
+            old = DocumentUtils.last_document(my_documents, 'profile')
         if old is not None:
-            if DocumentHelper.is_expired(document, old):
+            if DocumentUtils.is_expired(document, old):
                 # self.warning(msg='drop expired document: %s' % identifier)
                 return False
             my_documents.remove(old)

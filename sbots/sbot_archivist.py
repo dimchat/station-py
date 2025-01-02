@@ -35,7 +35,8 @@ from typing import Optional, Union
 
 from dimples import ContentType
 from dimples import ContentProcessor, ContentProcessorCreator
-from dimples.client import ClientContentProcessorCreator
+from dimples import Facebook, Messenger
+from dimples.client.cpu import ClientContentProcessorCreator
 from dimples.utils import Log, Runner
 from dimples.utils import Path
 
@@ -48,6 +49,7 @@ from libs.client.protocol import SearchCommand, StorageCommand
 from libs.client.cpu import SearchCommandProcessor, StorageCommandProcessor
 from libs.client import ClientProcessor
 
+from sbots.shared import GlobalVariable
 from sbots.shared import start_bot
 
 
@@ -72,7 +74,7 @@ class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
 class ArchivistMessageProcessor(ClientProcessor):
 
     # Override
-    def _create_creator(self) -> ContentProcessorCreator:
+    def _create_creator(self, facebook: Facebook, messenger: Messenger) -> ContentProcessorCreator:
         return ArchivistContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
@@ -86,14 +88,11 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 
 
 async def async_main():
-    client = await start_bot(default_config=DEFAULT_CONFIG,
-                             app_name='DIM Search Engine',
-                             ans_name='archivist',
-                             processor_class=ArchivistMessageProcessor)
-    # main run loop
-    await client.start()
-    await client.run()
-    # await client.stop()
+    # create global variable
+    shared = GlobalVariable()
+    await shared.prepare(app_name='DIM Search Engine', default_config=DEFAULT_CONFIG)
+    # create & start the bot
+    client = await start_bot(ans_name='archivist', processor_class=ArchivistMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 
 

@@ -25,14 +25,15 @@
 
 import getopt
 import sys
-import time
 from typing import Optional
 
 from dimples import ID
+from dimples import Document
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
-from dimples.client import ClientArchivist, ClientFacebook
+from dimples.group import SharedGroupManager
+from dimples.client import ClientChecker
 
 from libs.utils import Path
 from libs.utils import Singleton
@@ -41,6 +42,8 @@ from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
 from libs.database import DbInfo
 from libs.database import Database
+from libs.client import ClientLoader
+from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger
 from libs.client import ClientProcessor, ClientPacker
 from libs.client import Terminal
@@ -51,12 +54,87 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.database: Optional[Database] = None
-        self.facebook: Optional[CommonFacebook] = None
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+        self.__mdb: Optional[MessageDBI] = None
+        self.__sdb: Optional[SessionDBI] = None
+        self.__database: Optional[Database] = None
+        self.__facebook: Optional[ClientFacebook] = None
+        self.__messenger: Optional[ClientMessenger] = None
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
+
+    @property
+    def mdb(self) -> MessageDBI:
+        return self.__mdb
+
+    @property
+    def sdb(self) -> SessionDBI:
+        return self.__sdb
+
+    @property
+    def database(self) -> Database:
+        return self.__database
+
+    @property
+    def facebook(self) -> ClientFacebook:
+        return self.__facebook
+
+    @property
+    def messenger(self) -> ClientMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ClientMessenger):
+        self.__messenger = transceiver
+        # set for entity checker
+        checker = self.facebook.checker
+        assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
+        checker.messenger = transceiver
+
+    async def prepare(self, app_name: str, default_config: str):
+        #
+        #  Step 1: load config
+        #
+        config = await create_config(app_name=app_name, default_config=default_config)
+        self.__config = config
+        #
+        #  Step 2: create database
+        #
+        database = await create_database(config=config)
+        self.__adb = database
+        self.__mdb = database
+        self.__sdb = database
+        self.__database = database
+        #
+        #  Step 3: create facebook
+        #
+        facebook = await create_facebook(database=database)
+        self.__facebook = facebook
+
+    async def login(self, current_user: ID):
+        facebook = self.facebook
+        # make sure private keys exists
+        sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+        msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
+        assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+        assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+        print('set current user: %s' % current_user)
+        user = await facebook.get_user(identifier=current_user)
+        assert user is not None, 'failed to get current user: %s' % current_user
+        visa = await user.visa
+        if visa is not None:
+            # refresh visa
+            visa = Document.parse(document=visa.copy_dictionary())
+            visa.sign(private_key=sign_key)
+            await facebook.save_document(document=visa)
+        facebook.set_current_user(user=user)
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -100,6 +178,8 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
+    # load extensions
+    ClientLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
@@ -152,6 +232,18 @@ async def create_database(config: Config) -> Database:
     neighbors = config.neighbors
     if len(neighbors) > 0:
         # await db.remove_stations(provider=provider)
+        # 1. remove vanished neighbors
+        old_stations = await db.all_stations(provider=provider)
+        for old in old_stations:
+            found = False
+            for item in neighbors:
+                if item.port == old.port and item.host == old.host:
+                    found = True
+                    break
+            if not found:
+                print('removing neighbor station: %s' % old)
+                await db.remove_station(host=old.host, port=old.port, provider=provider)
+        # 2. add new neighbors
         for node in neighbors:
             print('adding neighbor node: %s -> %s' % (node, provider))
             await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
@@ -159,29 +251,14 @@ async def create_database(config: Config) -> Database:
     return db
 
 
-async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+async def create_facebook(database: AccountDBI) -> CommonFacebook:
     """ Step 3: create facebook """
-    facebook = ClientFacebook()
-    # create archivist for facebook
-    archivist = ClientArchivist(database=database)
-    archivist.facebook = facebook
-    facebook.archivist = archivist
-    # make sure private key exists
-    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
-    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
-    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-    print('set current user: %s' % current_user)
-    user = await facebook.get_user(identifier=current_user)
-    assert user is not None, 'failed to get current user: %s' % current_user
-    visa = await user.visa
-    if visa is not None:
-        # refresh visa
-        now = time.time()
-        visa.set_property(key='time', value=now)
-        visa.sign(private_key=sign_key)
-        await facebook.save_document(document=visa)
-    facebook.current_user = user
+    facebook = ClientFacebook(database=database)
+    facebook.archivist = ClientArchivist(facebook=facebook, database=database)
+    facebook.checker = ClientChecker(facebook=facebook, database=database)
+    # set for group manager
+    man = SharedGroupManager()
+    man.facebook = facebook
     return facebook
 
 
@@ -192,7 +269,7 @@ def create_session(facebook: CommonFacebook, database: SessionDBI, host: str, po
     # 2. create session with SessionDB
     session = ClientSession(station=station, database=database)
     # 3. set current user
-    user = facebook.current_user
+    user = await facebook.current_user
     session.set_identifier(identifier=user.identifier)
     return session
 
@@ -233,29 +310,36 @@ def check_bot_id(config: Config, ans_name: str) -> bool:
     return True
 
 
-async def start_bot(default_config: str, app_name: str, ans_name: str, processor_class) -> Terminal:
-    # create global variable
+async def start_bot(ans_name: str, processor_class) -> Terminal:
     shared = GlobalVariable()
-    # Step 1: load config
-    config = await create_config(app_name=app_name, default_config=default_config)
-    shared.config = config
+    config = shared.config
     if not check_bot_id(config=config, ans_name=ans_name):
         raise LookupError('Failed to get Bot ID: %s' % config)
-    # Step 2: create database
-    db = await create_database(config=config)
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
-    # Step 3: create facebook
-    bid = config.get_identifier(section='bot', option='id')
-    facebook = await create_facebook(database=db, current_user=bid)
-    shared.facebook = facebook
-    # create session for messenger
+    bot_id = config.get_identifier(section='bot', option='id')
+    await shared.login(current_user=bot_id)
+    # create terminal
     host = config.station_host
     port = config.station_port
-    session = create_session(facebook=facebook, database=db, host=host, port=port)
-    messenger = create_messenger(facebook=facebook, database=db, session=session, processor_class=processor_class)
-    facebook.archivist.messenger = messenger
-    # create terminal
-    return Terminal(messenger=messenger)
+    assert host is not None and port > 0, 'station config error: %s' % config
+    client = BotClient(facebook=shared.facebook, database=shared.da, processor_class=processor_class)
+    await client.connect(host=host, port=port)
+    await client.run()
+    return client
+
+
+class BotClient(Terminal):
+
+    def __init__(self, facebook: ClientFacebook, database: SessionDBI, processor_class):
+        super().__init__(facebook=facebook, database=database)
+        self.__processor_class = processor_class
+
+    # Override
+    def _create_processor(self, facebook: ClientFacebook, messenger: ClientMessenger):
+        return self.__processor_class(facebook, messenger)
+
+    # Override
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession) -> ClientMessenger:
+        shared = GlobalVariable()
+        messenger = ClientMessenger(session=session, facebook=facebook, database=shared.mdb)
+        shared.messenger = messenger
+        return messenger

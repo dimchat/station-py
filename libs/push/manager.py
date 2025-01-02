@@ -70,8 +70,7 @@ class PushNotificationClient(Runner, Logging):
         self.__tasks: List[PushTask] = []
         self.__lock = threading.Lock()
         # auto run
-        # Runner.async_task(coro=self.start())
-        Runner.thread_run(runner=self)
+        self.start()
 
     @property
     def apple_pns(self) -> Optional[PushNotificationService]:
@@ -107,6 +106,10 @@ class PushNotificationClient(Runner, Logging):
         with self.__lock:
             if len(self.__tasks) > 0:
                 return self.__tasks.pop(0)
+
+    def start(self):
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
 
     # Override
     async def process(self) -> bool:
