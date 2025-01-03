@@ -45,6 +45,7 @@ Path.add(path=path)
 from libs.utils.mtp import Server as UDPServer
 
 from station.shared import GlobalVariable
+from station.shared import create_config
 from station.handler import RequestHandler
 
 
@@ -60,23 +61,29 @@ DEFAULT_CONFIG = '/etc/dim/station.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
-    config = shared.config
-    # login
+    config = await create_config(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Login
+    #
     sid = config.station_id
     await shared.login(current_user=sid)
-    # check bind host & port
+    #
+    #  Station host & port
+    #
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
     server_address = (host, port)
-
-    # start UDP Server
+    #
+    #  Start UDP Server
+    #
     Log.info('>>> UDP server %s starting ...' % str(server_address))
     g_udp_server = UDPServer(host=server_address[0], port=server_address[1])
     await g_udp_server.start()
-
-    # start TCP server
+    #
+    #  Start TCP server
+    #
     try:
         # ThreadingTCPServer.allow_reuse_address = True
         server = ThreadingTCPServer(server_address=server_address,

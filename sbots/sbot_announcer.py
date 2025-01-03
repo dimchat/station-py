@@ -48,15 +48,19 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils import Logging
+from libs.utils import Config
 from libs.common.protocol import ReportCommand, PushCommand
+from libs.database import Database
+
 from libs.client.cpu import ReportCommandProcessor
 from libs.client import ClientProcessor
+
 from libs.push import PushNotificationClient
 from libs.push import ApplePushNotificationService
 from libs.push import AndroidPushNotificationService
 
 from sbots.shared import GlobalVariable
-from sbots.shared import start_bot
+from sbots.shared import create_config, start_bot
 
 
 class PushCommandProcessor(BaseCommandProcessor, Logging):
@@ -103,10 +107,9 @@ class BotMessageProcessor(ClientProcessor):
         return BotContentProcessorCreator(facebook=self.facebook, messenger=self.messenger)
 
 
-def create_apns(shared: GlobalVariable):
+def create_apns(config: Config, database: Database):
     pnc = PushNotificationClient()
-    pnc.delegate = shared.database
-    config = shared.config
+    pnc.delegate = database
     # 1. add push service: APNs
     credentials = config.get_string(section='announcer', option='apns_credentials')
     use_sandbox = config.get_boolean(section='announcer', option='apns_use_sandbox')
@@ -142,10 +145,15 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Push Center', default_config=DEFAULT_CONFIG)
-    # create push services
-    create_apns(shared=GlobalVariable())
-    # create & start the bot
+    config = await create_config(app_name='DIM Push Center', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Create push services
+    #
+    create_apns(config=shared.config, database=shared.database)
+    #
+    #  Create & start the bot
+    #
     client = await start_bot(ans_name='announcer', processor_class=BotMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 

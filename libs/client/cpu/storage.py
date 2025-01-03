@@ -36,9 +36,9 @@ from dimples import ReliableMessage
 from dimples import Content
 from dimples import BaseCommandProcessor
 
+from ...common.protocol import StorageCommand
 from ...common import CommonFacebook
 from ...database import Database
-from ..protocol import StorageCommand
 
 
 class StorageCommandProcessor(BaseCommandProcessor):

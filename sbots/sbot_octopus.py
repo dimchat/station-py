@@ -34,13 +34,69 @@
 from dimples.utils import Log
 from dimples.utils import Path
 from dimples.utils import Runner
-from dimples.edge.octopus import Octopus
-from dimples.edge.shared import GlobalVariable
+
+from dimples.client import ClientFacebook
+from dimples.client import ClientSession
+from dimples.client import Terminal
+
+from dimples.edge import Octopus
+from dimples.edge import InnerMessenger, OuterMessenger
 
 path = Path.abs(path=__file__)
 path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
+
+from sbots.shared import GlobalVariable
+from sbots.shared import create_config
+
+
+class InnerClient(Terminal):
+
+    # Override
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
+        shared = GlobalVariable()
+        messenger = InnerMessenger(session=session, facebook=facebook, database=shared.mdb)
+        messenger.terminal = self  # Weak Reference
+        shared.messenger = messenger
+        return messenger
+
+
+class OuterClient(Terminal):
+
+    # Override
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession):
+        shared = GlobalVariable()
+        messenger = OuterMessenger(session=session, facebook=facebook, database=shared.mdb)
+        messenger.terminal = self
+        return messenger
+
+
+class OctopusClient(Octopus):
+
+    # Override
+    async def create_inner_terminal(self, host: str, port: int) -> Terminal:
+        shared = GlobalVariable()
+        terminal = InnerClient(facebook=shared.facebook, database=shared.sdb)
+        messenger = await terminal.connect(host=host, port=port)
+        # set octopus
+        assert isinstance(messenger, InnerMessenger)
+        messenger.octopus = self
+        # start an async task in background
+        terminal.start()
+        return terminal
+
+    # Override
+    async def create_outer_terminal(self, host: str, port: int) -> Terminal:
+        shared = GlobalVariable()
+        terminal = OuterClient(facebook=shared.facebook, database=shared.sdb)
+        messenger = await terminal.connect(host=host, port=port)
+        # set octopus
+        assert isinstance(messenger, OuterMessenger)
+        messenger.octopus = self
+        # start an async task in background
+        terminal.start()
+        return terminal
 
 
 #
@@ -55,16 +111,23 @@ DEFAULT_CONFIG = '/etc/dim/edge.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
-    config = shared.config
-    # login
+    config = await create_config(app_name='DIM Network Edge', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Login
+    #
     sid = config.station_id
     await shared.login(current_user=sid)
-    # create & start octopus
+    #
+    #  Station host & port
+    #
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
-    octopus = Octopus(shared=shared, local_host=host, local_port=port)
+    #
+    #  Start Octopus Client
+    #
+    octopus = OctopusClient(database=shared.sdb, local_host=host, local_port=port)
     await octopus.run()
     Log.warning(msg='octopus stopped: %s' % octopus)
 

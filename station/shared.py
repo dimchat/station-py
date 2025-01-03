@@ -99,19 +99,26 @@ class GlobalVariable:
     @messenger.setter
     def messenger(self, transceiver: ServerMessenger):
         self.__messenger = transceiver
+        # set for group manager
+        man = SharedGroupManager()
+        man.messenger = transceiver
         # set for entity checker
         checker = self.facebook.checker
-        if isinstance(checker, ServerChecker):
-            checker.messenger = transceiver
+        assert isinstance(checker, ServerChecker), 'entity checker error: %s' % checker
+        checker.messenger = transceiver
 
-    async def prepare(self, app_name: str, default_config: str):
+    async def prepare(self, config: Config):
         #
-        #  Step 1: load config
+        #  Step 0: load config
         #
-        config = await create_config(app_name=app_name, default_config=default_config)
+        ExtensionLoader().run()
+        ans_records = config.ans_records
+        if ans_records is not None:
+            # load ANS records from 'config.ini'
+            CommonFacebook.ans.fix(records=ans_records)
         self.__config = config
         #
-        #  Step 2: create database
+        #  Step 1: create database
         #
         database = await create_database(config=config)
         self.__adb = database
@@ -119,12 +126,12 @@ class GlobalVariable:
         self.__sdb = database
         self.__database = database
         #
-        #  Step 3: create facebook
+        #  Step 2: create facebook
         #
         facebook = await create_facebook(database=database)
         self.__facebook = facebook
         #
-        #  Step 4: prepare dispatcher
+        #  Step 3: prepare dispatcher
         #
         deliver = MessageDeliver(database=database, facebook=facebook)
         roamer = Roamer(database=database, deliver=deliver)
@@ -135,20 +142,20 @@ class GlobalVariable:
         dispatcher.deliver = deliver
         dispatcher.roamer = roamer
         #
-        #  Step 5. create emitter
+        #  Step 4. create emitter
         #
         messenger = create_messenger(facebook=facebook, database=database, session=None)
         # this messenger is only for encryption, so don't need a session
         emitter = ServerEmitter(messenger=messenger)
         self.__emitter = emitter
         #
-        #  Step 6: prepare push center
+        #  Step 5: prepare push center
         #
         center = PushCenter()
         keeper = center.badge_keeper
         center.service = DefaultPushService(badge_keeper=keeper, facebook=facebook, emitter=emitter)
         #
-        #  Step 7: prepare monitor
+        #  Step 6: prepare monitor
         #
         monitor = Monitor()
         monitor.emitter = emitter
@@ -172,59 +179,6 @@ class GlobalVariable:
         facebook.set_current_user(user=user)
 
 
-def show_help(cmd: str, app_name: str, default_config: str):
-    print('')
-    print('    %s' % app_name)
-    print('')
-    print('usages:')
-    print('    %s [--config=<FILE>]' % cmd)
-    print('    %s [-h|--help]' % cmd)
-    print('')
-    print('optional arguments:')
-    print('    --config        config file path (default: "%s")' % default_config)
-    print('    --help, -h      show this help message and exit')
-    print('')
-
-
-async def create_config(app_name: str, default_config: str) -> Config:
-    """ Step 1: load config """
-    cmd = sys.argv[0]
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        sys.exit(1)
-    # check options
-    ini_file = None
-    for opt, arg in opts:
-        if opt == '--config':
-            ini_file = arg
-        else:
-            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-            sys.exit(0)
-    # check config file path
-    if ini_file is None:
-        ini_file = default_config
-    if not await Path.exists(path=ini_file):
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        print('')
-        print('!!! config file not exists: %s' % ini_file)
-        print('')
-        sys.exit(0)
-    # load extensions
-    ExtensionLoader().run()
-    # load config from file
-    config = Config.load(file=ini_file)
-    print('>>> config loaded: %s => %s' % (ini_file, config))
-    # load ANS records from 'config.ini'
-    ans_records = config.ans_records
-    if ans_records is not None:
-        CommonFacebook.ans.fix(records=ans_records)
-    return config
-
-
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
     redis_enable = config.get_boolean(section='redis', option='enable')
     if redis_enable:
@@ -241,7 +195,7 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 
 async def create_database(config: Config) -> Database:
-    """ Step 2: create database """
+    """ create database with directories """
     root = config.database_root
     public = config.database_public
     private = config.database_private
@@ -269,7 +223,7 @@ async def create_database(config: Config) -> Database:
 
 
 async def create_facebook(database: AccountDBI) -> ServerFacebook:
-    """ Step 3: create facebook """
+    """ create facebook """
     facebook = ServerFacebook(database=database)
     facebook.archivist = ServerArchivist(facebook=facebook, database=database)
     facebook.checker = ServerChecker(facebook=facebook, database=database)
@@ -291,3 +245,50 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     if session is not None:
         session.messenger = messenger
     return messenger
+
+
+def show_help(app_name: str, default_config: str):
+    cmd = sys.argv[0]
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+async def create_config(app_name: str, default_config: str) -> Config:
+    """ load config """
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config file path
+    if ini_file is None:
+        ini_file = default_config
+    if not await Path.exists(path=ini_file):
+        show_help(app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    return config

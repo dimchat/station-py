@@ -29,7 +29,6 @@ from typing import Optional
 
 from dimples import ID
 from dimples import Document
-from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
 from dimples.group import SharedGroupManager
@@ -46,7 +45,6 @@ from libs.database import Database
 
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger
-from libs.client import ClientProcessor, ClientPacker
 from libs.client import Terminal
 
 
@@ -94,16 +92,23 @@ class GlobalVariable:
     @messenger.setter
     def messenger(self, transceiver: ClientMessenger):
         self.__messenger = transceiver
+        # set for group manager
+        man = SharedGroupManager()
+        man.messenger = transceiver
         # set for entity checker
         checker = self.facebook.checker
         assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
         checker.messenger = transceiver
 
-    async def prepare(self, app_name: str, default_config: str):
+    async def prepare(self, config: Config):
         #
         #  Step 1: load config
         #
-        config = await create_config(app_name=app_name, default_config=default_config)
+        ExtensionLoader().run()
+        ans_records = config.ans_records
+        if ans_records is not None:
+            # load ANS records from 'config.ini'
+            CommonFacebook.ans.fix(records=ans_records)
         self.__config = config
         #
         #  Step 2: create database
@@ -138,71 +143,6 @@ class GlobalVariable:
         facebook.set_current_user(user=user)
 
 
-def show_help(cmd: str, app_name: str, default_config: str):
-    print('')
-    print('    %s' % app_name)
-    print('')
-    print('usages:')
-    print('    %s [--config=<FILE>] [BID]' % cmd)
-    print('    %s [-h|--help]' % cmd)
-    print('')
-    print('optional arguments:')
-    print('    --config        config file path (default: "%s")' % default_config)
-    print('    --help, -h      show this help message and exit')
-    print('')
-
-
-async def create_config(app_name: str, default_config: str) -> Config:
-    """ Step 1: load config """
-    cmd = sys.argv[0]
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        sys.exit(1)
-    # check options
-    ini_file = None
-    for opt, arg in opts:
-        if opt == '--config':
-            ini_file = arg
-        else:
-            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-            sys.exit(0)
-    # check config filepath
-    if ini_file is None:
-        ini_file = default_config
-    if not await Path.exists(path=ini_file):
-        show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-        print('')
-        print('!!! config file not exists: %s' % ini_file)
-        print('')
-        sys.exit(0)
-    # load extensions
-    ExtensionLoader().run()
-    # load config from file
-    config = Config.load(file=ini_file)
-    print('>>> config loaded: %s => %s' % (ini_file, config))
-    # check arguments for Bot ID
-    if len(args) == 1:
-        identifier = ID.parse(identifier=args[0])
-        if identifier is None:
-            show_help(cmd=cmd, app_name=app_name, default_config=default_config)
-            print('')
-            print('!!! Bot ID error: %s' % args[0])
-            print('')
-            sys.exit(0)
-        # set bot ID into config['bot']['id']
-        bot = config.get('bot')
-        if bot is None:
-            bot = {}
-            config['bot'] = bot
-        bot['id'] = str(identifier)
-    # OK
-    return config
-
-
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
     redis_enable = config.get_boolean(section='redis', option='enable')
     if redis_enable:
@@ -219,7 +159,7 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 
 async def create_database(config: Config) -> Database:
-    """ Step 2: create database """
+    """ create database with directories """
     root = config.database_root
     public = config.database_public
     private = config.database_private
@@ -228,7 +168,9 @@ async def create_database(config: Config) -> Database:
     # create database
     db = Database(info=info)
     db.show_info()
-    # update neighbor stations (default provider)
+    #
+    #  Update neighbor stations (default provider)
+    #
     provider = ProviderInfo.GSP
     neighbors = config.neighbors
     if len(neighbors) > 0:
@@ -242,18 +184,24 @@ async def create_database(config: Config) -> Database:
                     found = True
                     break
             if not found:
-                print('removing neighbor station: %s' % old)
+                print('removing neighbor station: %s, %s' % (old, provider))
                 await db.remove_station(host=old.host, port=old.port, provider=provider)
         # 2. add new neighbors
         for node in neighbors:
-            print('adding neighbor node: %s -> %s' % (node, provider))
-            await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+            found = False
+            for old in old_stations:
+                if old.port == node.port and old.host == node.host:
+                    found = True
+                    break
+            if not found:
+                print('adding neighbor node: %s -> %s' % (node, provider))
+                await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     # OK
     return db
 
 
 async def create_facebook(database: AccountDBI) -> ClientFacebook:
-    """ Step 3: create facebook """
+    """ create facebook """
     facebook = ClientFacebook(database=database)
     facebook.archivist = ClientArchivist(facebook=facebook, database=database)
     facebook.checker = ClientChecker(facebook=facebook, database=database)
@@ -263,30 +211,67 @@ async def create_facebook(database: AccountDBI) -> ClientFacebook:
     return facebook
 
 
-def create_session(facebook: CommonFacebook, database: SessionDBI, host: str, port: int) -> ClientSession:
-    # 1. create station with remote host & port
-    station = Station(host=host, port=port)
-    station.data_source = facebook
-    # 2. create session with SessionDB
-    session = ClientSession(station=station, database=database)
-    # 3. set current user
-    user = await facebook.current_user
-    session.set_identifier(identifier=user.identifier)
-    return session
+def show_help(app_name: str, default_config: str):
+    cmd = sys.argv[0]
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>] [BID]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
 
 
-def create_messenger(facebook: CommonFacebook, database: MessageDBI,
-                     session: ClientSession, processor_class) -> ClientMessenger:
-    assert issubclass(processor_class, ClientProcessor), 'processor class error: %s' % processor_class
-    # 1. create messenger with session and MessageDB
-    messenger = ClientMessenger(session=session, facebook=facebook, database=database)
-    # 2. create packer, processor for messenger
-    #    they have weak references to facebook & messenger
-    messenger.packer = ClientPacker(facebook=facebook, messenger=messenger)
-    messenger.processor = processor_class(facebook=facebook, messenger=messenger)
-    # 3. set weak reference to messenger
-    session.messenger = messenger
-    return messenger
+async def create_config(app_name: str, default_config: str) -> Config:
+    """ load config """
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not await Path.exists(path=ini_file):
+        show_help(app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    # check arguments for Bot ID
+    if len(args) == 1:
+        identifier = ID.parse(identifier=args[0])
+        if identifier is None:
+            show_help(app_name=app_name, default_config=default_config)
+            print('')
+            print('!!! Bot ID error: %s' % args[0])
+            print('')
+            sys.exit(0)
+        # set bot ID into config['bot']['id']
+        bot = config.get('bot')
+        if bot is None:
+            bot = {}
+            config['bot'] = bot
+        bot['id'] = str(identifier)
+    # OK
+    return config
 
 
 #
@@ -322,7 +307,7 @@ async def start_bot(ans_name: str, processor_class) -> Terminal:
     host = config.station_host
     port = config.station_port
     assert host is not None and port > 0, 'station config error: %s' % config
-    client = BotClient(facebook=shared.facebook, database=shared.da, processor_class=processor_class)
+    client = BotClient(facebook=shared.facebook, database=shared.sdb, processor_class=processor_class)
     await client.connect(host=host, port=port)
     await client.run()
     return client

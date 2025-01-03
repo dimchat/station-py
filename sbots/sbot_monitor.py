@@ -102,7 +102,7 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from sbots.shared import GlobalVariable
-from sbots.shared import start_bot
+from sbots.shared import create_config, start_bot
 
 
 def _get_listeners(name: str) -> List[ID]:
@@ -237,8 +237,11 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='ServiceBot: Monitor', default_config=DEFAULT_CONFIG)
-    # create & start the bot
+    config = await create_config(app_name='ServiceBot: Monitor', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Create & start the bot
+    #
     client = await start_bot(ans_name='monitor', processor_class=BotMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 

@@ -40,9 +40,9 @@ from dimples.common import CommonFacebook
 from dimples.utils import SharedCacheManager
 
 from ...utils import Logging
+from ...common.protocol import SearchCommand
 from ...database import Database
 from ...database.t_active import ActiveTable
-from ..protocol import SearchCommand
 
 
 class SearchCommandProcessor(BaseCommandProcessor, Logging):

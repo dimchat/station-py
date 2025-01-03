@@ -45,12 +45,12 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
-from libs.client.protocol import SearchCommand, StorageCommand
+from libs.common.protocol import SearchCommand, StorageCommand
 from libs.client.cpu import SearchCommandProcessor, StorageCommandProcessor
 from libs.client import ClientProcessor
 
 from sbots.shared import GlobalVariable
-from sbots.shared import start_bot
+from sbots.shared import create_config, start_bot
 
 
 class ArchivistContentProcessorCreator(ClientContentProcessorCreator):
@@ -90,8 +90,11 @@ DEFAULT_CONFIG = '/etc/dim/config.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    await shared.prepare(app_name='DIM Search Engine', default_config=DEFAULT_CONFIG)
-    # create & start the bot
+    config = await create_config(app_name='DIM Search Engine', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Create & start the bot
+    #
     client = await start_bot(ans_name='archivist', processor_class=ArchivistMessageProcessor)
     Log.warning(msg='bot stopped: %s' % client)
 
