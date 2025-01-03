@@ -89,7 +89,6 @@ async def _start_session(handler: RequestHandler):
     center.add_session(session=session)
     try:
         # handle
-        await session.start()
         await session.run()
         # await session.stop()
     finally:

@@ -33,11 +33,11 @@
 from typing import List
 
 from dimples import ReliableMessage
-from dimples import Content, BaseCommand
+from dimples import Content
+from dimples import BaseCommand, BlockCommand
 from dimples import BaseCommandProcessor
 
 from ...database import Database
-from ...common import BlockCommand
 from ...common import CommonFacebook
 
 

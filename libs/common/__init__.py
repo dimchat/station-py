@@ -36,6 +36,8 @@ from dimples import CommonMessenger
 
 from .protocol import PushAlert, PushInfo, PushItem
 
+from .loader import ExtensionLoader
+
 
 __all__ = [
 
@@ -46,5 +48,7 @@ __all__ = [
 
     # push
     'PushAlert', 'PushInfo', 'PushItem',
+
+    'ExtensionLoader',
 
 ]

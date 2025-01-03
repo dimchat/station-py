@@ -41,11 +41,11 @@ from dimples.server import FilterManager
 from ..utils import Logging
 from ..utils.localizations import Translations, Locale
 from ..common import CommonFacebook
-from ..common import PushCommand, PushItem
+from ..common.protocol import PushCommand, PushItem
 
 from .cpu import AnsCommandProcessor
 
-from .emitter import Emitter
+from .emitter import ServerEmitter
 from .push_intl import PushTmpl
 
 
@@ -53,7 +53,7 @@ class DefaultPushService(PushService, Logging):
 
     MESSAGE_EXPIRES = 128
 
-    def __init__(self, badge_keeper: BadgeKeeper, facebook: CommonFacebook, emitter: Emitter):
+    def __init__(self, badge_keeper: BadgeKeeper, facebook: CommonFacebook, emitter: ServerEmitter):
         super().__init__()
         self.__keeper = badge_keeper
         self.__facebook = facebook
@@ -165,7 +165,7 @@ class DefaultPushService(PushService, Logging):
             return None, None
         # get language
         facebook = self.__facebook
-        visa = await facebook.get_visa(identifier=receiver)
+        visa = await facebook.get_visa(user=receiver)
         if visa is None:
             language = 'en'
         else:

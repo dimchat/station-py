@@ -28,7 +28,7 @@ from dimples.common.compat import CommonLoader
 from .protocol import *
 
 
-class ClientLoader(CommonLoader):
+class ExtensionLoader(CommonLoader):
 
     # Override
     def _register_command_factories(self):

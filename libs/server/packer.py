@@ -30,7 +30,7 @@
 from typing import Optional
 
 from dimples import ReliableMessage
-
+from dimples import ReceiptCommand
 from dimples import CommonFacebook, CommonMessenger
 from dimples.server import ServerMessagePacker as SuperPacker
 
@@ -52,6 +52,26 @@ class ServerPacker(SuperPacker):
         transceiver = super().messenger
         assert isinstance(transceiver, CommonMessenger), 'messenger error: %s' % transceiver
         return transceiver
+
+    # Override
+    async def _is_blocked(self, msg: ReliableMessage) -> bool:
+        blocked = await super()._is_blocked(msg=msg)
+        if blocked:
+            sender = msg.sender
+            receiver = msg.receiver
+            group = msg.group
+            facebook = self.facebook
+            nickname = await facebook.get_name(identifier=receiver)
+            if group is None:
+                text = 'Message is blocked by %s' % nickname
+            else:
+                grp_name = await facebook.get_name(identifier=group)
+                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
+            # response
+            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
+            res.group = group
+            await self.messenger.send_content(sender=None, receiver=sender, content=res, priority=1)
+            return True
 
     # Override
     async def serialize_message(self, msg: ReliableMessage) -> bytes:

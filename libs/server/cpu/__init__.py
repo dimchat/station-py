@@ -30,7 +30,8 @@
     Processors for commands
 """
 
-from dimples.server.cpu import *
+from dimples.server.cpu import AnsCommandProcessor
+from dimples.server.cpu import ReportCommandProcessor
 
 from .handshake import ServerHandshakeProcessor
 
@@ -42,10 +43,8 @@ from .text import TextContentProcessor
 
 __all__ = [
 
-    'LoginCommandProcessor',
-    'ReportCommandProcessor',
     'AnsCommandProcessor',
-    'DocumentCommandProcessor',
+    'ReportCommandProcessor',
 
     # 'HandshakeCommandProcessor',
     'ServerHandshakeProcessor',

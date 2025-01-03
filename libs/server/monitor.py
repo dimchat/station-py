@@ -37,11 +37,11 @@ from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Runner
-from ..common import PushItem, PushCommand
+from ..common.protocol import PushItem, PushCommand
 
 from .cpu import AnsCommandProcessor
 
-from .emitter import Emitter
+from .emitter import ServerEmitter
 
 
 #
@@ -79,8 +79,9 @@ class Monitor(Runner, Logging):
         # service bot
         self.__bot: Optional[ID] = None
         # emitter to send message
-        self.__emitter: Optional[Emitter] = None
-        Runner.thread_run(runner=self)
+        self.__emitter: Optional[ServerEmitter] = None
+        # auto start
+        self.start()
 
     @property
     def bot(self) -> Optional[ID]:
@@ -91,11 +92,11 @@ class Monitor(Runner, Logging):
         return receiver
 
     @property
-    def emitter(self) -> Emitter:
+    def emitter(self) -> ServerEmitter:
         return self.__emitter
 
     @emitter.setter
-    def emitter(self, delegate: Emitter):
+    def emitter(self, delegate: ServerEmitter):
         self.__emitter = delegate
 
     def _append_event(self, event: Event):
@@ -107,14 +108,15 @@ class Monitor(Runner, Logging):
             if len(self.__events) > 0:
                 return self.__events.pop(0)
 
-    # Override
-    async def start(self):
+    def start(self):
         # next time to flush
         self.__next_time = time.time() + self.INTERVAL
         # create recorders
         self.__usr_recorder = ActiveRecorder()
         self.__msg_recorder = MessageRecorder()
-        await super().start()
+        # start a background thread
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
 
     # Override
     async def process(self) -> bool:
@@ -302,7 +304,7 @@ class MessageRecorder(Recorder):
 # TODO: temporary function, remove it after too many users online
 async def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
     emitter = _get_emitter()
-    user = emitter.facebook.current_user
+    user = await emitter.facebook.current_user
     assert user is not None, 'failed to get current user'
     srv = await _get_nickname(identifier=user.identifier)
     # get sender's name
@@ -408,7 +410,7 @@ async def _get_extra(identifier: ID) -> Optional[str]:
     doc = await facebook.get_document(identifier=identifier)
     if doc is not None:
         # check app.language
-        app = doc.get_property(key='app')
+        app = doc.get_property(name='app')
         if isinstance(app, Dict):
             language = app.get('language')
             version = app.get('version')
@@ -416,7 +418,7 @@ async def _get_extra(identifier: ID) -> Optional[str]:
             language = None
             version = None
         # check sys.*
-        sys = doc.get_property(key='sys')
+        sys = doc.get_property(name='sys')
         if isinstance(sys, Dict):
             locale = sys.get('locale')
             model = sys.get('model')
@@ -441,7 +443,7 @@ async def _get_extra(identifier: ID) -> Optional[str]:
         return '%s; %s, %s' % (language, device, version)
 
 
-def _get_emitter() -> Optional[Emitter]:
+def _get_emitter() -> Optional[ServerEmitter]:
     monitor = Monitor()
     return monitor.emitter
 

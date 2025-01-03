@@ -25,31 +25,33 @@
 
 import getopt
 import sys
-import time
 from typing import Optional
 
 from dimples import ID
+from dimples import Document
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
-from dimples.common import ANSFactory
-from dimples.common import AddressNameServer
+from dimples.group import SharedGroupManager
 from dimples.server import FilterManager
-from dimples.server import ServerArchivist
 
 from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
-from libs.utils import Runner
+from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
 from libs.database import DbInfo
 from libs.database import Database
+
+from libs.server import ServerArchivist
+from libs.server import ServerChecker
+from libs.server import ServerFacebook
 from libs.server import ServerMessenger, ServerPacker, ServerProcessor
 from libs.server import ServerSession
 from libs.server import PushCenter, DefaultPushService
 from libs.server import MessageDeliver, Roamer
 from libs.server import Dispatcher, BlockFilter, MuteFilter
-from libs.server import Emitter, Monitor
+from libs.server import ServerEmitter, Monitor
 
 
 @Singleton
@@ -57,13 +59,117 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.database: Optional[Database] = None
-        self.facebook: Optional[CommonFacebook] = None
-        self.emitter: Optional[Emitter] = None
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+        self.__mdb: Optional[MessageDBI] = None
+        self.__sdb: Optional[SessionDBI] = None
+        self.__database: Optional[Database] = None
+        self.__facebook: Optional[ServerFacebook] = None
+        self.__messenger: Optional[ServerMessenger] = None  # only for entity checker
+        self.__emitter: Optional[ServerEmitter] = None
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
+
+    @property
+    def mdb(self) -> MessageDBI:
+        return self.__mdb
+
+    @property
+    def sdb(self) -> SessionDBI:
+        return self.__sdb
+
+    @property
+    def database(self) -> Database:
+        return self.__database
+
+    @property
+    def facebook(self) -> ServerFacebook:
+        return self.__facebook
+
+    @property
+    def messenger(self) -> ServerMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ServerMessenger):
+        self.__messenger = transceiver
+        # set for entity checker
+        checker = self.facebook.checker
+        if isinstance(checker, ServerChecker):
+            checker.messenger = transceiver
+
+    async def prepare(self, app_name: str, default_config: str):
+        #
+        #  Step 1: load config
+        #
+        config = await create_config(app_name=app_name, default_config=default_config)
+        self.__config = config
+        #
+        #  Step 2: create database
+        #
+        database = await create_database(config=config)
+        self.__adb = database
+        self.__mdb = database
+        self.__sdb = database
+        self.__database = database
+        #
+        #  Step 3: create facebook
+        #
+        facebook = await create_facebook(database=database)
+        self.__facebook = facebook
+        #
+        #  Step 4: prepare dispatcher
+        #
+        deliver = MessageDeliver(database=database, facebook=facebook)
+        roamer = Roamer(database=database, deliver=deliver)
+        dispatcher = Dispatcher()
+        dispatcher.mdb = database
+        dispatcher.sdb = database
+        dispatcher.facebook = facebook
+        dispatcher.deliver = deliver
+        dispatcher.roamer = roamer
+        #
+        #  Step 5. create emitter
+        #
+        messenger = create_messenger(facebook=facebook, database=database, session=None)
+        # this messenger is only for encryption, so don't need a session
+        emitter = ServerEmitter(messenger=messenger)
+        self.__emitter = emitter
+        #
+        #  Step 6: prepare push center
+        #
+        center = PushCenter()
+        keeper = center.badge_keeper
+        center.service = DefaultPushService(badge_keeper=keeper, facebook=facebook, emitter=emitter)
+        #
+        #  Step 7: prepare monitor
+        #
+        monitor = Monitor()
+        monitor.emitter = emitter
+
+    async def login(self, current_user: ID):
+        facebook = self.facebook
+        # make sure private keys exists
+        sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+        msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
+        assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+        assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+        print('set current user: %s' % current_user)
+        user = await facebook.get_user(identifier=current_user)
+        assert user is not None, 'failed to get current user: %s' % current_user
+        visa = await user.visa
+        if visa is not None:
+            # refresh visa
+            visa = Document.parse(document=visa.copy_dictionary())
+            visa.sign(private_key=sign_key)
+            await facebook.save_document(document=visa)
+        facebook.set_current_user(user=user)
 
 
 def show_help(cmd: str, app_name: str, default_config: str):
@@ -107,9 +213,15 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
+    # load extensions
+    ExtensionLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
+    # load ANS records from 'config.ini'
+    ans_records = config.ans_records
+    if ans_records is not None:
+        CommonFacebook.ans.fix(records=ans_records)
     return config
 
 
@@ -156,58 +268,15 @@ async def create_database(config: Config) -> Database:
     return db
 
 
-async def create_facebook(database: AccountDBI, current_user: ID) -> CommonFacebook:
+async def create_facebook(database: AccountDBI) -> ServerFacebook:
     """ Step 3: create facebook """
-    facebook = CommonFacebook()
-    # create archivist for facebook
-    archivist = ServerArchivist(database=database)
-    archivist.facebook = facebook
-    facebook.archivist = archivist
-    # make sure private keys exists
-    sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
-    msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
-    assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
-    assert msg_keys is not None and len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-    print('set current user: %s' % current_user)
-    user = await facebook.get_user(identifier=current_user)
-    assert user is not None, 'failed to get current user: %s' % current_user
-    visa = await user.visa
-    if visa is not None:
-        # refresh visa
-        now = time.time()
-        visa.set_property(key='time', value=now)
-        visa.sign(private_key=sign_key)
-        await facebook.save_document(document=visa)
-    facebook.current_user = user
+    facebook = ServerFacebook(database=database)
+    facebook.archivist = ServerArchivist(facebook=facebook, database=database)
+    facebook.checker = ServerChecker(facebook=facebook, database=database)
+    # set for group manager
+    man = SharedGroupManager()
+    man.facebook = facebook
     return facebook
-
-
-def create_dispatcher(shared: GlobalVariable) -> Dispatcher:
-    """ Step 4: create dispatcher """
-    mdb = shared.mdb
-    sdb = shared.sdb
-    facebook = shared.facebook
-    deliver = MessageDeliver(database=sdb, facebook=facebook)
-    roamer = Roamer(database=mdb, deliver=deliver)
-    Runner.thread_run(runner=roamer)
-    # Runner.async_task(coro=roamer.start())
-    dispatcher = Dispatcher()
-    dispatcher.mdb = mdb
-    dispatcher.sdb = sdb
-    dispatcher.facebook = facebook
-    dispatcher.deliver = deliver
-    dispatcher.roamer = roamer
-    return dispatcher
-
-
-def create_emitter(shared: GlobalVariable) -> Emitter:
-    """ Step 5. create emitter """
-    messenger = create_messenger(facebook=shared.facebook, database=shared.mdb, session=None)
-    archivist = shared.facebook.archivist
-    archivist.messenger = messenger
-    emitter = Emitter(messenger=messenger)
-    shared.emitter = emitter
-    return emitter
 
 
 def create_messenger(facebook: CommonFacebook, database: MessageDBI,
@@ -222,65 +291,3 @@ def create_messenger(facebook: CommonFacebook, database: MessageDBI,
     if session is not None:
         session.messenger = messenger
     return messenger
-
-
-def create_ans(config: Config) -> AddressNameServer:
-    """ Step 6: create ANS """
-    ans = AddressNameServer()
-    factory = ID.factory()
-    ID.register(factory=ANSFactory(factory=factory, ans=ans))
-    # load ANS records from 'config.ini'
-    ans_records = config.ans_records
-    if ans_records is not None:
-        ans.fix(records=ans_records)
-    return ans
-
-
-def create_apns(shared: GlobalVariable) -> PushCenter:
-    """ Step 7: create push center """
-    facebook = shared.facebook
-    emitter = shared.emitter
-    center = PushCenter()
-    keeper = center.badge_keeper
-    center.service = DefaultPushService(badge_keeper=keeper, facebook=facebook, emitter=emitter)
-    return center
-
-
-def create_monitor(shared: GlobalVariable) -> Monitor:
-    """ Step 8: create monitor """
-    emitter = shared.emitter
-    assert emitter is not None, 'emitter not set'
-    monitor = Monitor()
-    monitor.emitter = emitter
-    return monitor
-
-
-async def prepare_server(server_name: str, default_config: str) -> GlobalVariable:
-    # create global variable
-    shared = GlobalVariable()
-    # Step 1: load config
-    config = await create_config(app_name=server_name, default_config=default_config)
-    shared.config = config
-    # Step 2: create database
-    db = await create_database(config=config)
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
-    # Step 3: create facebook
-    sid = config.station_id
-    assert sid is not None, 'current station ID not set: %s' % config
-    facebook = await create_facebook(database=db, current_user=sid)
-    shared.facebook = facebook
-    # Step 4: create dispatcher
-    create_dispatcher(shared=shared)
-    # Step 5. create emitter
-    create_emitter(shared=shared)
-    # Step 6: create ANS
-    create_ans(config=config)
-    # Step 7: create push center
-    create_apns(shared=shared)
-    # Step 8: create monitor
-    create_monitor(shared=shared)
-    # OK
-    return shared

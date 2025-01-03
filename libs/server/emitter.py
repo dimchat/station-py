@@ -33,7 +33,7 @@ from dimples.server import Dispatcher
 from ..utils import Logging
 
 
-class Emitter(Logging):
+class ServerEmitter(Logging):
 
     def __init__(self, messenger: CommonMessenger):
         super().__init__()
@@ -56,7 +56,7 @@ class Emitter(Logging):
 
     async def send_content(self, content: Content, receiver: ID) -> bool:
         facebook = self.facebook
-        current = facebook.current_user
+        current = await facebook.current_user
         sender = current.identifier
         assert sender is not None, 'current user error: %s' % current
         env = Envelope.create(sender=sender, receiver=receiver)

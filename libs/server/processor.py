@@ -30,19 +30,19 @@
 
 from typing import Optional, Union
 
-from dimples import ReliableMessage
 from dimples import ContentType
-from dimples import ReportCommand, ReceiptCommand
+from dimples import ReportCommand
 from dimples import HandshakeCommand
+from dimples import MuteCommand, BlockCommand
 
 from dimples import ContentProcessor
 from dimples import ContentProcessorCreator
 from dimples import BaseContentProcessor
 
-from dimples.server import ServerMessageProcessor
-from dimples.server import ServerContentProcessorCreator
+from dimples import Facebook, Messenger
 
-from ..common import MuteCommand, BlockCommand
+from dimples.server import ServerMessageProcessor
+from dimples.server.cpu import ServerContentProcessorCreator
 
 from .cpu import ServerHandshakeProcessor
 from .cpu import ReportCommandProcessor
@@ -53,28 +53,8 @@ from .cpu import TextContentProcessor
 class ServerProcessor(ServerMessageProcessor):
 
     # Override
-    async def is_blocked(self, msg: ReliableMessage) -> bool:
-        blocked = await super().is_blocked(msg=msg)
-        if blocked:
-            sender = msg.sender
-            receiver = msg.receiver
-            group = msg.group
-            facebook = self.facebook
-            nickname = await facebook.get_name(identifier=receiver)
-            if group is None:
-                text = 'Message is blocked by %s' % nickname
-            else:
-                grp_name = await facebook.get_name(identifier=group)
-                text = 'Message is blocked by %s in group %s' % (nickname, grp_name)
-            # response
-            res = ReceiptCommand.create(text=text, envelope=msg.envelope)
-            res.group = group
-            await self.messenger.send_content(sender=None, receiver=sender, content=res, priority=1)
-            return True
-
-    # Override
-    def _create_creator(self) -> ContentProcessorCreator:
-        return ServerProcessorCreator(facebook=self.facebook, messenger=self.messenger)
+    def _create_creator(self, facebook: Facebook, messenger: Messenger) -> ContentProcessorCreator:
+        return ServerProcessorCreator(facebook=facebook, messenger=messenger)
 
 
 class ServerProcessorCreator(ServerContentProcessorCreator):

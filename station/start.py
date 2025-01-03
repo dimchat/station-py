@@ -44,7 +44,7 @@ Path.add(path=path)
 
 from libs.utils.mtp import Server as UDPServer
 
-from station.shared import prepare_server
+from station.shared import GlobalVariable
 from station.handler import RequestHandler
 
 
@@ -58,8 +58,13 @@ DEFAULT_CONFIG = '/etc/dim/station.ini'
 
 
 async def async_main():
-    shared = await prepare_server(server_name='DIM Network Station', default_config=DEFAULT_CONFIG)
+    # create global variable
+    shared = GlobalVariable()
+    await shared.prepare(app_name='DIM Network Station', default_config=DEFAULT_CONFIG)
     config = shared.config
+    # login
+    sid = config.station_id
+    await shared.login(current_user=sid)
     # check bind host & port
     host = config.station_host
     port = config.station_port

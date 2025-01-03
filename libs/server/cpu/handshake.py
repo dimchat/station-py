@@ -51,6 +51,9 @@ class ServerHandshakeProcessor(HandshakeCommandProcessor):
             res = HandshakeCommand(title=self.TEST_SPEED_RESPOND)
             res['remote_address'] = session.remote_address
             return [res]
+        elif title == self.TEST_SPEED_RESPOND:
+            # just ignore it
+            return []
         else:
             # error
             text = 'Command error.'

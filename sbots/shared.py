@@ -38,11 +38,12 @@ from dimples.client import ClientChecker
 from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
+from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
 from libs.database import DbInfo
 from libs.database import Database
-from libs.client import ClientLoader
+
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger
 from libs.client import ClientProcessor, ClientPacker
@@ -179,7 +180,7 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load extensions
-    ClientLoader().run()
+    ExtensionLoader().run()
     # load config from file
     config = Config.load(file=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
@@ -251,7 +252,7 @@ async def create_database(config: Config) -> Database:
     return db
 
 
-async def create_facebook(database: AccountDBI) -> CommonFacebook:
+async def create_facebook(database: AccountDBI) -> ClientFacebook:
     """ Step 3: create facebook """
     facebook = ClientFacebook(database=database)
     facebook.archivist = ClientArchivist(facebook=facebook, database=database)

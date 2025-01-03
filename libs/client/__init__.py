@@ -39,8 +39,6 @@ from ..common import CommonArchivist as ClientArchivist
 
 from .packer import ClientPacker
 
-from .loader import ClientLoader
-
 
 __all__ = [
 
@@ -54,7 +52,5 @@ __all__ = [
     'ClientPacker',
 
     'Terminal',
-
-    'ClientLoader',
 
 ]
