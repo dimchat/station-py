@@ -140,7 +140,7 @@ class GlobalVariable:
             visa = Document.parse(document=visa.copy_dictionary())
             visa.sign(private_key=sign_key)
             await facebook.save_document(document=visa)
-        facebook.set_current_user(user=user)
+        await facebook.set_current_user(user=user)
 
 
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:

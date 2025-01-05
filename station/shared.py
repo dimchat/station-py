@@ -148,6 +148,10 @@ class GlobalVariable:
         # this messenger is only for encryption, so don't need a session
         emitter = ServerEmitter(messenger=messenger)
         self.__emitter = emitter
+        # server check don't need a session to send message too
+        checker = facebook.checker
+        assert isinstance(checker, ServerChecker), 'entity checker error: %s' % checker
+        checker.messenger = messenger
         #
         #  Step 5: prepare push center
         #
@@ -176,7 +180,7 @@ class GlobalVariable:
             visa = Document.parse(document=visa.copy_dictionary())
             visa.sign(private_key=sign_key)
             await facebook.save_document(document=visa)
-        facebook.set_current_user(user=user)
+        await facebook.set_current_user(user=user)
 
 
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
