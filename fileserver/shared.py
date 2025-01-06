@@ -30,6 +30,8 @@ from typing import Optional, Set, List
 from libs.utils import Path
 from libs.utils import Singleton
 from libs.utils import Config
+from libs.common import ExtensionLoader
+from libs.common import CommonFacebook
 
 
 @Singleton
@@ -37,12 +39,27 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
+        self.__config: Optional[Config] = None
         # cached values
         self.__image_types: Optional[Set[str]] = None
         self.__allowed_types: Optional[Set[str]] = None
         self.__allowed_size = None  # default is 16 MB
         self.__secrets: Optional[List[str]] = None
+
+    @property
+    def config(self) -> Config:
+        return self.__config
+
+    async def prepare(self, config: Config):
+        #
+        #  Step 0: load config
+        #
+        ExtensionLoader().run()
+        ans_records = config.ans_records
+        if ans_records is not None:
+            # load ANS records from 'config.ini'
+            CommonFacebook.ans.fix(records=ans_records)
+        self.__config = config
 
     @property
     def server_host(self) -> str:

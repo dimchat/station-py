@@ -57,13 +57,16 @@ DEFAULT_CONFIG = '/etc/dim/ftp.ini'
 async def async_main():
     # create global variable
     shared = GlobalVariable()
-    # load config
     config = await create_config(app_name='File Server', default_config=DEFAULT_CONFIG)
-    shared.config = config
-    # start cleaner
+    await shared.prepare(config=config)
+    #
+    #  Start cleaner
+    #
     cleaner = FileCleaner()
     cleaner.root = shared.upload_directory
-    # start server
+    #
+    #  Start server
+    #
     host = shared.server_host
     port = shared.server_port
     # app.run(host=host, port=port, debug=True)

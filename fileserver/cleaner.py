@@ -50,7 +50,8 @@ class FileCleaner(Runner, Logging):
         super().__init__(interval=600.0)
         self.__next_time = 0
         self.__root = None
-        Runner.thread_run(runner=self)
+        # auto start
+        self.start()
 
     @property
     def root(self) -> Optional[str]:
@@ -59,6 +60,10 @@ class FileCleaner(Runner, Logging):
     @root.setter
     def root(self, path: str):
         self.__root = path
+
+    def start(self):
+        thr = Runner.async_thread(coro=self.run())
+        thr.start()
 
     # Override
     async def process(self) -> bool:
