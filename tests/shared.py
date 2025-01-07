@@ -23,17 +23,18 @@
 # SOFTWARE.
 # ==============================================================================
 
-import getopt
-import sys
 from typing import Optional
 
 from dimples import ID
+from dimples import Document
 from dimples import Station
 from dimples.common import AccountDBI, MessageDBI, SessionDBI
+from dimples.group import SharedGroupManager
+from dimples.client import ClientChecker
 
-from libs.utils import Path
-from libs.utils import Singleton
+from libs.utils import Singleton, Log
 from libs.utils import Config
+from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
 from libs.database import DbInfo
@@ -47,55 +48,90 @@ class GlobalVariable:
 
     def __init__(self):
         super().__init__()
-        self.config: Optional[Config] = None
-        self.adb: Optional[AccountDBI] = None
-        self.mdb: Optional[MessageDBI] = None
-        self.sdb: Optional[SessionDBI] = None
-        self.database: Optional[Database] = None
+        self.__config: Optional[Config] = None
+        self.__adb: Optional[AccountDBI] = None
+        self.__mdb: Optional[MessageDBI] = None
+        self.__sdb: Optional[SessionDBI] = None
+        self.__database: Optional[Database] = None
+        self.__facebook: Optional[ClientFacebook] = None
+        self.__messenger: Optional[ClientMessenger] = None
 
+    @property
+    def config(self) -> Config:
+        return self.__config
 
-def show_help(cmd: str, app_name: str, default_config: str):
-    print('')
-    print('    %s' % app_name)
-    print('')
-    print('usages:')
-    print('    %s [--config=<FILE>]' % cmd)
-    print('    %s [-h|--help]' % cmd)
-    print('')
-    print('optional arguments:')
-    print('    --config        config file path (default: "%s")' % default_config)
-    print('    --help, -h      show this help message and exit')
-    print('')
+    @property
+    def adb(self) -> AccountDBI:
+        return self.__adb
 
+    @property
+    def mdb(self) -> MessageDBI:
+        return self.__mdb
 
-async def create_config(app_name: str, default_config: str) -> Config:
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
-        sys.exit(1)
-    # check options
-    ini_file = None
-    for opt, arg in opts:
-        if opt == '--config':
-            ini_file = arg
-        else:
-            show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
-            sys.exit(0)
-    # check config file path
-    if ini_file is None:
-        ini_file = default_config
-    if not await Path.exists(path=ini_file):
-        show_help(cmd=sys.argv[0], app_name=app_name, default_config=default_config)
-        print('')
-        print('!!! config file not exists: %s' % ini_file)
-        print('')
-        sys.exit(0)
-    # load config
-    print('>>> loading config file: %s' % ini_file)
-    return Config.load(file=ini_file)
+    @property
+    def sdb(self) -> SessionDBI:
+        return self.__sdb
+
+    @property
+    def database(self) -> Database:
+        return self.__database
+
+    @property
+    def facebook(self) -> ClientFacebook:
+        return self.__facebook
+
+    @property
+    def messenger(self) -> ClientMessenger:
+        return self.__messenger
+
+    @messenger.setter
+    def messenger(self, transceiver: ClientMessenger):
+        self.__messenger = transceiver
+        # set for group manager
+        man = SharedGroupManager()
+        man.messenger = transceiver
+        # set for entity checker
+        checker = self.facebook.checker
+        assert isinstance(checker, ClientChecker), 'entity checker error: %s' % checker
+        checker.messenger = transceiver
+
+    async def prepare(self, config: Config):
+        #
+        #  Step 0: load extensions
+        #
+        ExtensionLoader().run()
+        self.__config = config
+        #
+        #  Step 1: create database
+        #
+        database = await create_database(config=config)
+        self.__adb = database
+        self.__mdb = database
+        self.__sdb = database
+        self.__database = database
+        #
+        #  Step 2: create facebook
+        #
+        facebook = await create_facebook(database=database)
+        self.__facebook = facebook
+
+    async def login(self, current_user: ID):
+        facebook = self.facebook
+        # make sure private keys exists
+        sign_key = await facebook.private_key_for_visa_signature(identifier=current_user)
+        msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
+        assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
+        assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
+        Log.info(msg='set current user: %s' % current_user)
+        user = await facebook.get_user(identifier=current_user)
+        assert user is not None, 'failed to get current user: %s' % current_user
+        visa = await user.visa
+        if visa is not None:
+            # refresh visa
+            visa = Document.parse(document=visa.copy_dictionary())
+            visa.sign(private_key=sign_key)
+            await facebook.save_document(document=visa)
+        await facebook.set_current_user(user=user)
 
 
 def create_redis_connector(config: Config) -> Optional[RedisConnector]:
@@ -126,29 +162,23 @@ async def create_database(config: Config) -> Database:
     return db
 
 
-async def create_facebook(shared: GlobalVariable, current_user: ID) -> CommonFacebook:
-    """ create facebook and set current user """
-    # create facebook with account database
-    facebook = ClientFacebook()
-    # create archivist for facebook
-    archivist = ClientArchivist(database=shared.adb)
-    archivist.facebook = facebook
-    facebook.archivist = archivist
-    # set current user
-    # make sure private key exists
-    assert await facebook.private_key_for_visa_signature(identifier=current_user) is not None, \
-        'failed to get sign key for current user: %s' % current_user
-    print('set current user: %s' % current_user)
-    facebook.current_user = await facebook.get_user(identifier=current_user)
+async def create_facebook(database: AccountDBI) -> ClientFacebook:
+    """ create facebook """
+    facebook = ClientFacebook(database=database)
+    facebook.archivist = ClientArchivist(facebook=facebook, database=database)
+    facebook.checker = ClientChecker(facebook=facebook, database=database)
+    # set for group manager
+    man = SharedGroupManager()
+    man.facebook = facebook
     return facebook
 
 
-def create_messenger(shared: GlobalVariable, facebook: CommonFacebook) -> ClientMessenger:
+async def create_messenger(shared: GlobalVariable, facebook: CommonFacebook) -> ClientMessenger:
     """ create messenger and connect to station (host:port) """
     config = shared.config
     host = config.station_host
     port = config.station_port
-    user = facebook.current_user
+    user = await facebook.current_user
     # 1. create station with remote host & port
     station = Station(host=host, port=port)
     station.data_source = facebook

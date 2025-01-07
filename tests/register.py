@@ -37,8 +37,9 @@ import sys
 from dimples import ID
 
 from dimples.utils import Path
-from dimples.utils import Log, Config
+from dimples.utils import Log
 from dimples.utils import Runner
+
 from dimples.register.shared import generate
 from dimples.register.shared import modify
 
@@ -47,8 +48,9 @@ path = Path.dir(path=path)
 path = Path.dir(path=path)
 Path.add(path=path)
 
+from libs.utils import Config
+
 from tests.shared import GlobalVariable
-from tests.shared import create_database
 
 
 #
@@ -80,14 +82,7 @@ def show_help():
     print('')
 
 
-async def async_main():
-    try:
-        opts, args = getopt.getopt(args=sys.argv[1:],
-                                   shortopts='hf:',
-                                   longopts=['help', 'config='])
-    except getopt.GetoptError:
-        show_help()
-        sys.exit(1)
+async def create_config(opts) -> Config:
     # check options
     ini_file = None
     for opt, arg in opts:
@@ -96,7 +91,7 @@ async def async_main():
         else:
             show_help()
             sys.exit(0)
-    # check config filepath
+    # check config file path
     if ini_file is None:
         ini_file = DEFAULT_CONFIG
     if not await Path.exists(path=ini_file):
@@ -105,18 +100,24 @@ async def async_main():
         print('!!! config file not exists: %s' % ini_file)
         print('')
         sys.exit(0)
-    # load config
+    # loading config
     config = Config.load(file=ini_file)
-    # initializing
     print('[DB] init with config: %s => %s' % (ini_file, config))
-    db = await create_database(config=config)
-    # OK
+    return config
+
+
+async def async_main():
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help()
+        sys.exit(1)
+    # create global variable
     shared = GlobalVariable()
-    shared.config = config
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
+    config = await create_config(opts=opts)
+    await shared.prepare(config=config)
     # check actions
     if len(args) == 1 and args[0] == 'generate':
         await generate(database=shared.adb)

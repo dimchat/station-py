@@ -34,7 +34,7 @@ from dimples.common import ProviderInfo
 from dimples.group import SharedGroupManager
 from dimples.client import ClientChecker
 
-from libs.utils import Path
+from libs.utils import Path, Log
 from libs.utils import Singleton
 from libs.utils import Config
 from libs.common import ExtensionLoader
@@ -131,7 +131,7 @@ class GlobalVariable:
         msg_keys = await facebook.private_keys_for_decryption(identifier=current_user)
         assert sign_key is not None, 'failed to get sign key for current user: %s' % current_user
         assert len(msg_keys) > 0, 'failed to get msg keys: %s' % current_user
-        print('set current user: %s' % current_user)
+        Log.info(msg='set current user: %s' % current_user)
         user = await facebook.get_user(identifier=current_user)
         assert user is not None, 'failed to get current user: %s' % current_user
         visa = await user.visa
@@ -184,7 +184,7 @@ async def create_database(config: Config) -> Database:
                     found = True
                     break
             if not found:
-                print('removing neighbor station: %s, %s' % (old, provider))
+                Log.info(msg='removing neighbor station: %s, %s' % (old, provider))
                 await db.remove_station(host=old.host, port=old.port, provider=provider)
         # 2. add new neighbors
         for node in neighbors:
@@ -194,7 +194,7 @@ async def create_database(config: Config) -> Database:
                     found = True
                     break
             if not found:
-                print('adding neighbor node: %s -> %s' % (node, provider))
+                Log.info(msg='adding neighbor node: %s -> %s' % (node, provider))
                 await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     # OK
     return db

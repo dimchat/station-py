@@ -30,15 +30,17 @@
 
 """
 
+import getopt
 import multiprocessing
-import threading
+import sys
 import time
-from typing import List
+from typing import Optional, List
 
 from dimples import PrivateKey
-from dimples import MetaType, Meta, Document
+from dimples import Meta, Document
 from dimples import EntityType, ID
 from dimples import Station
+from dimples.common import SessionDBI
 
 from dimples.utils import Path
 
@@ -48,34 +50,23 @@ path = Path.dir(path=path)
 Path.add(path=path)
 
 from libs.utils import Log, Logging
-from libs.utils import Runnable, Runner
+from libs.utils import Runner
+from libs.utils import Config
 from libs.database import Storage
 from libs.client import Terminal
-from libs.client import ClientArchivist, ClientFacebook
+from libs.client import ClientFacebook
+from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
 
-from tests.runner import Runner as ThreadRunner
 from tests.shared import GlobalVariable
-from tests.shared import create_config, create_database
-from tests.shared import create_facebook, create_messenger
 
 
-#
-# show logs
-#
-Log.LEVEL = Log.DEVELOP
+class Soldier(Terminal, Logging):
 
-soldiers_path = '/tmp/soldiers.txt'
+    ATTACK_DURATION = 32
 
-
-DEFAULT_CONFIG = '/etc/dim/config.ini'
-
-
-class Soldier(Logging, Runnable):
-
-    def __init__(self, client_id: ID):
-        super().__init__()
-        self.__user = client_id
-        self.__server = None
+    def __init__(self, facebook: ClientFacebook, database: SessionDBI):
+        super().__init__(facebook=facebook, database=database)
+        self.__user: Optional[ID] = None
 
     def __del__(self):
         self.warning(msg='soldier down: %s' % self.user)
@@ -91,69 +82,97 @@ class Soldier(Logging, Runnable):
         return '<%s>%s -> %s</%s module="%s">' % (cname, self.user, self.server, cname, mod)
 
     @property
-    def user(self) -> ID:
+    def user(self) -> Optional[ID]:
         return self.__user
 
+    @user.setter
+    def user(self, identifier: ID):
+        self.__user = identifier
+
     @property
-    def server(self) -> Station:
-        return self.__server
+    def server(self) -> Optional[Station]:
+        session = self.session
+        if session is not None:
+            return session.station
 
     # Override
-    async def run(self):
-        client_id = self.user
-        time_to_retreat = time.time() + 32
-        # 1. preparing facebook
+    def _create_packer(self, facebook: ClientFacebook, messenger: ClientMessenger) -> ClientPacker:
+        return ClientPacker(facebook=facebook, messenger=messenger)
+
+    # Override
+    def _create_processor(self, facebook: ClientFacebook, messenger: ClientMessenger) -> ClientProcessor:
+        return ClientProcessor(facebook=facebook, messenger=messenger)
+
+    # Override
+    def _create_messenger(self, facebook: ClientFacebook, session: ClientSession) -> ClientMessenger:
         shared = GlobalVariable()
-        facebook = await create_facebook(shared=shared, current_user=client_id)
-        user = await facebook.get_user(identifier=client_id)
-        assert user is not None, 'failed to get user: %s' % client_id
-        facebook.current_user = user
-        # 2. preparing messenger
-        messenger = create_messenger(shared=shared, facebook=facebook)
-        session = messenger.session
-        server = session.station
-        assert server is not None, 'failed to get station: %s' % session
-        self.__server = messenger.session.station
-        # 3. launch terminal
-        terminal = Terminal(messenger=messenger)
-        await terminal.start()
-        Runner.async_task(coro=terminal.run())
+        messenger = ClientMessenger(session=session, facebook=facebook, database=shared.mdb)
+        shared.messenger = messenger
+        return messenger
+
+    async def attack(self, host: str, port: int):
+        user = self.user
+        shared = GlobalVariable()
+        await shared.login(current_user=user)
+        #
+        #  connect
+        #
+        await self.connect(host=host, port=port)
+        #
+        #  login
+        #
+        session = self.session
+        if session is None:
+            assert False, 'session not found'
+        else:
+            self.info(msg='setting session ID: %s' % user)
+            session.set_identifier(identifier=user)
+        #
+        #  waiting to retreat
+        #
+        time_to_retreat = time.time() + self.ATTACK_DURATION
+        Runner.async_task(coro=self.run())
         while True:
             await Runner.sleep(seconds=1.0)
-            if not terminal.running:
+            if not self.running:
                 break
             elif time.time() > time_to_retreat:
                 break
         # done
-        await terminal.stop()
-
-    def attack(self):
-        Runner.sync_run(main=self.run())
+        await self.stop()
 
 
 class Sergeant(Logging):
 
     LANDING_POINT = 'normandy'
 
+    HOST = '127.0.0.1'
+    PORT = 9394
+
     UNITS = 10  # threads count
 
     def __init__(self, client_id: ID, offset: int):
         super().__init__()
-        self.__cid = str(client_id)
+        self.__cid = client_id
         self.__offset = offset
 
     def run(self):
-        cid = ID.parse(identifier=self.__cid)
+        cid = self.__cid
+        shared = GlobalVariable()
         threads = []
         for i in range(self.UNITS):
             self.warning(msg='**** thread starts (%d + %d): %s' % (self.__offset, i, cid))
-            soldier = Soldier(client_id=cid)
-            thr = threading.Thread(target=soldier.attack(), daemon=True)
+            soldier = Soldier(facebook=shared.facebook, database=shared.sdb)
+            soldier.user = cid
+            thr = Runner.async_thread(coro=soldier.attack(host=self.HOST, port=self.PORT))
             thr.start()
             threads.append(thr)
             self.__offset += self.UNITS
         for thr in threads:
-            thr.join()
+            try:
+                thr.join()
+            except KeyboardInterrupt as error:
+                self.error(msg='thread error: %s, %s' % (cid, error))
             self.warning(msg='**** thread stopped: %s' % thr)
 
     def attack(self) -> multiprocessing.Process:
@@ -163,37 +182,32 @@ class Sergeant(Logging):
         return proc
 
     @classmethod
-    def training(cls, sn: int) -> ID:
+    async def training(cls, sn: int) -> ID:
         """ create new bot """
         seed = 'soldier%03d' % sn
         # 1. generate private key
         pri_key = PrivateKey.generate(algorithm=PrivateKey.RSA)
         # 2. generate meta
-        meta = Meta.generate(version=MetaType.DEFAULT, private_key=pri_key, seed=seed)
+        meta = Meta.generate(version=Meta.MKM, private_key=pri_key, seed=seed)
         # 3. generate ID
         identifier = ID.generate(meta=meta, network=EntityType.BOT)
-        print('\n    Net ID: %s\n' % identifier)
+        Log.info(msg='NewID: %s\n' % identifier)
         # 4. save private key & meta
         shared = GlobalVariable()
         database = shared.adb
-        facebook = ClientFacebook()
-        # create archivist for facebook
-        archivist = ClientArchivist(database=database)
-        archivist.facebook = facebook
-        facebook.archivist = archivist
-        # facebook = CommonFacebook(database=shared.adb)
-        database.save_private_key(key=pri_key, user=identifier)
-        facebook.save_meta(meta=meta, identifier=identifier)
+        facebook = shared.facebook
+        await database.save_private_key(key=pri_key, user=identifier)
+        await facebook.save_meta(meta=meta, identifier=identifier)
         # 5. create visa
         visa = Document.create(doc_type=Document.VISA, identifier=identifier)
         visa.name = 'Soldier %03d @%s' % (sn, cls.LANDING_POINT)
         # 6. sign and save visa
         visa.sign(private_key=pri_key)
-        facebook.save_document(document=visa)
+        await facebook.save_document(document=visa)
         return identifier
 
 
-class Colonel(ThreadRunner, Logging):
+class Colonel(Runner, Logging):
 
     TROOPS = 16  # progresses count
 
@@ -202,12 +216,9 @@ class Colonel(ThreadRunner, Logging):
         self.__soldiers: List[ID] = []
         self.__offset = 0
 
-    def attack(self):
-        self.run()
-
     # Override
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
         # load soldiers
         text = await Storage.read_text(path=soldiers_path)
         if text is not None:
@@ -224,7 +235,7 @@ class Colonel(ThreadRunner, Logging):
         if count < self.TROOPS:
             # more soldiers
             for i in range(count, self.TROOPS):
-                cid = Sergeant.training(sn=i)
+                cid = await Sergeant.training(sn=i)
                 assert cid is not None, 'failed to train new soldier'
                 self.__soldiers.append(cid)
                 # save to '.dim/soldiers.txt'
@@ -232,7 +243,7 @@ class Colonel(ThreadRunner, Logging):
                 await Storage.append_text(text=line, path=soldiers_path)
 
     # Override
-    def process(self) -> bool:
+    async def process(self) -> bool:
         processes = []
         for i in range(self.TROOPS):
             soldier = self.__soldiers[i]
@@ -243,29 +254,87 @@ class Colonel(ThreadRunner, Logging):
             time.sleep(1)
             self.__offset += Sergeant.UNITS
         for proc in processes:
-            proc.join()
+            try:
+                proc.join()
+            except KeyboardInterrupt as error:
+                self.error(msg='process error: %s' % error)
             self.warning(msg='**** process stopped: %s' % proc)
         # return False to have a rest
         return False
 
     # Override
-    def _idle(self):
+    async def _idle(self):
         print('====================================================')
         print('== All soldiers retreated, retry after 16 seconds...')
         print('====================================================')
         print('sleeping ...')
         for z in range(16):
             print('%d ..zzZZ' % z)
-            time.sleep(1)
+            await Runner.sleep(seconds=1.0)
         print('wake up.')
         print('====================================================')
         print('== Attack !!!')
         print('====================================================')
 
 
-# Log.LEVEL = Log.DEBUG
-# Log.LEVEL = Log.DEVELOP
+def show_help(app_name: str, default_config: str):
+    cmd = sys.argv[0]
+    print('')
+    print('    %s' % app_name)
+    print('')
+    print('usages:')
+    print('    %s [--config=<FILE>]' % cmd)
+    print('    %s [-h|--help]' % cmd)
+    print('')
+    print('optional arguments:')
+    print('    --config        config file path (default: "%s")' % default_config)
+    print('    --help, -h      show this help message and exit')
+    print('')
+
+
+async def create_config(app_name: str, default_config: str) -> Config:
+    """ load config """
+    try:
+        opts, args = getopt.getopt(args=sys.argv[1:],
+                                   shortopts='hf:',
+                                   longopts=['help', 'config='])
+    except getopt.GetoptError:
+        show_help(app_name=app_name, default_config=default_config)
+        sys.exit(1)
+    # check options
+    ini_file = None
+    for opt, arg in opts:
+        if opt == '--config':
+            ini_file = arg
+        else:
+            show_help(app_name=app_name, default_config=default_config)
+            sys.exit(0)
+    # check config filepath
+    if ini_file is None:
+        ini_file = default_config
+    if not await Path.exists(path=ini_file):
+        show_help(app_name=app_name, default_config=default_config)
+        print('')
+        print('!!! config file not exists: %s' % ini_file)
+        print('')
+        sys.exit(0)
+    # load config from file
+    config = Config.load(file=ini_file)
+    print('>>> config loaded: %s => %s' % (ini_file, config))
+    return config
+
+
+#
+# show logs
+#
+Log.LEVEL = Log.DEVELOP
 Log.LEVEL = Log.RELEASE
+
+
+DEFAULT_CONFIG = '/etc/dim/config.ini'
+
+soldiers_path = '/tmp/soldiers.txt'
+
 
 Sergeant.LANDING_POINT = 'normandy'
 Sergeant.UNITS = 10
@@ -283,27 +352,24 @@ all_stations = [
     ('', ''),
 ]
 test_station = all_stations[4]
-test_ip = test_station[0]
-test_id = test_station[1]
+
+Sergeant.HOST = test_station[0]
+Sergeant.PORT = 9394
 
 
 async def async_main():
-    config = await create_config(app_name='Siege', default_config=DEFAULT_CONFIG)
-    db = await create_database(config=config)
-    # OK
+    # create global variable
     shared = GlobalVariable()
-    shared.config = config
-    shared.adb = db
-    shared.mdb = db
-    shared.sdb = db
-    shared.database = db
-    # update config
+    config = await create_config(app_name='Siege', default_config=DEFAULT_CONFIG)
+    await shared.prepare(config=config)
+    #
+    #  Update config
+    #
     station = config.get('station')
-    # assert isinstance(station, dict), 'config error: %s' % config
-    # station['host'] = test_ip
-    # station['id'] = test_id
-    print('**** Start testing %s ...' % station)
-    Colonel().attack()
+    Log.info(msg='**** Start testing %s ...' % station)
+    client = Colonel()
+    await client.run()
+    Log.warning(msg='Mission accomplished')
 
 
 def main():
