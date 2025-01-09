@@ -54,7 +54,7 @@ def get_extension(filename: str) -> Optional[str]:
 
 def get_filename(data: bytes, ext: str) -> str:
     """ :return: {MD5(data)}.ext """
-    return '%s.%s' % (hex_encode(md5(data)), ext)
+    return '%s.%s' % (hex_encode(data=md5(data=data)), ext)
 
 
 def get_avatar_directory(identifier: ID) -> str:
@@ -116,6 +116,8 @@ def fetch_secret(secrets: List[str], enigma: Optional[str]) -> Optional[bytes]:
 app = Flask(__name__)
 
 CORS(app, origins=['localhost:*'])
+# CORS(app, resources={r"/download/*": {"origins": "*"}})
+# CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST"], "headers": "Content-Type"}})
 
 
 @app.route('/test.html', methods=['GET'])
@@ -178,6 +180,131 @@ def upload(identifier: str) -> str:
         file_types = shared.image_file_types
         directory = get_avatar_directory(identifier=uid)
         url = shared.avatar_url
+    # filename = secure_filename(filename=filename)
+    code, msg, name = save_file(data=data, filename=filename, file_types=file_types, directory=directory)
+    if code != 200:
+        return render_template('error.html', code=code, message=msg)
+    # OK!
+    url = url.replace('{ID}', identifier)
+    url = url.replace('{FILENAME}', name)
+    return render_template('success.html', code=code, message=msg, filename=name, url=url)
+
+
+#
+#   New Upload API
+#
+
+
+def _get_file(files) -> Tuple[Optional[str], Optional[bytes], Optional[str]]:
+    """ get file name & data """
+    form_file = files.get('file')
+    if form_file is not None:
+        data = form_file.read()
+        filename = form_file.filename
+    else:
+        data = None
+        filename = None
+    data_size = 0 if data is None else len(data)
+    # check values
+    if filename is None or len(filename) == 0:
+        # 400 - Bad Request
+        error = render_template('error.html', code=400, message='Bad Request')
+    elif data_size == 0:
+        # 204 - No Content
+        error = render_template('error.html', code=204, message='No Content')
+    elif data_size > shared.allowed_file_size:
+        # 403 - Forbidden
+        error = render_template('error.html', code=403, message='Forbidden')
+    else:
+        error = None
+    # OK
+    return filename, data, error
+
+
+def _check_digest(data: bytes, args) -> Optional[str]:
+    """ check digest: md5(md5(data) + secret + salt) """
+    enigma = args.get('enigma')     # leading 6 chars of hex(md5_secret)
+    digest_salt = args.get('salt')  # random bytes by client
+    digest_value = args.get('md5')  # md5(md5(data) + secret + salt)
+    if digest_salt is None or digest_value is None:
+        # 400 - Bad Request
+        return render_template('error.html', code=400, message='Bad Request')
+    md5_secret = fetch_secret(secrets=shared.md5_secrets, enigma=enigma)
+    digest_salt = hex_decode(string=digest_salt)
+    digest_value = hex_decode(string=digest_value)
+    if md5_secret is None or digest_salt is None:
+        # 403 - Forbidden
+        return render_template('error.html', code=403, message='Forbidden')
+    #
+    #  algorithm:
+    #       concat = md5(data) + secret + salt
+    #       digest = md5(concat)
+    #
+    concat = md5(data=data) + md5_secret + digest_salt
+    if digest_value != md5(data=concat):
+        # 401 - Unauthorized
+        return render_template('error.html', code=401, message='Unauthorized')
+
+
+def _check_upload(identifier: str, files, args) -> Tuple[Optional[ID], Optional[str], Optional[bytes], Optional[str]]:
+    """ check upload info """
+    # check user id
+    uid = ID.parse(identifier=identifier)
+    if uid is None:
+        # 400 - Bad Request
+        return None, None, None, render_template('error.html', code=400, message='Bad Request')
+    # get file data
+    filename, data, error = _get_file(files=files)
+    if error is None:
+        assert len(filename) > 0 and len(data) > 0, 'should not happen'
+        # check digest
+        error = _check_digest(data=data, args=args)
+    # OK
+    return uid, filename, data, error
+
+
+@app.route('/<string:identifier>/upload/avatar', methods=['POST'])
+def upload_avatar(identifier: str) -> str:
+    """ upload avatar image file """
+    #
+    #  check upload info
+    #
+    uid, filename, data, error = _check_upload(identifier=identifier, files=request.files, args=request.args)
+    if error is not None:
+        return error
+    assert uid is not None and len(filename) > 0 and len(data) > 0, 'should not happen'
+    #
+    #  save avatar image file
+    #
+    file_types = shared.image_file_types
+    directory = get_avatar_directory(identifier=uid)
+    url = shared.avatar_url
+    # filename = secure_filename(filename=filename)
+    code, msg, name = save_file(data=data, filename=filename, file_types=file_types, directory=directory)
+    if code != 200:
+        return render_template('error.html', code=code, message=msg)
+    # OK!
+    url = url.replace('{ID}', identifier)
+    url = url.replace('{FILENAME}', name)
+    return render_template('success.html', code=code, message=msg, filename=name, url=url)
+
+
+@app.route('/<string:identifier>/upload/file', methods=['POST'])
+def upload_file(identifier: str) -> str:
+    """ upload avatar image file """
+    #
+    #  check upload info
+    #
+    uid, filename, data, error = _check_upload(identifier=identifier, files=request.files, args=request.args)
+    if error is not None:
+        return error
+    assert uid is not None and len(filename) > 0 and len(data) > 0, 'should not happen'
+    #
+    #  save encrypted data file
+    #
+    file_types = shared.allowed_file_types
+    directory = get_upload_directory(identifier=uid)
+    url = shared.download_url
     # filename = secure_filename(filename=filename)
     code, msg, name = save_file(data=data, filename=filename, file_types=file_types, directory=directory)
     if code != 200:
