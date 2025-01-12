@@ -59,7 +59,7 @@ class DocTask(DbTask):
 
     # Override
     async def _load_redis_cache(self) -> Optional[List[Document]]:
-        docs = await self._redis.get_documents(identifier=self._identifier)
+        docs = await self._redis.load_documents(identifier=self._identifier)
         if docs is None or len(docs) == 0:
             return None
         else:
@@ -71,7 +71,7 @@ class DocTask(DbTask):
 
     # Override
     async def _load_local_storage(self) -> Optional[List[Document]]:
-        docs = await self._dos.get_documents(identifier=self._identifier)
+        docs = await self._dos.load_documents(identifier=self._identifier)
         if docs is None or len(docs) == 0:
             return None
         else:

@@ -19,7 +19,7 @@ gevent     # 21.8.0
 # sysv-ipc   # 1.1.0
 
 # ipx==0.2.2
-aiou==0.3.0
+aiou==1.0.0
 
 startrek==2.2.2
 tcp==2.2.2
@@ -33,4 +33,4 @@ dimp==2.2.2
 dimsdk==2.2.2
 dimplugins==2.2.2
 
-dimples==1.3.4
+dimples==1.3.5
