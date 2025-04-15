@@ -8,8 +8,6 @@
     A service for pushing notification to offline device
 """
 
-from typing import Optional
-
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import messaging
@@ -45,25 +43,30 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
         self.__ready = True
         return True
 
-    def send_notification(self, notification, token: str):
+    def send_notification(self, notification: messaging.AndroidNotification, token: str):
         try:
             if not self._check_ready():
                 self.error(msg='FCM client not ready')
                 return None
             message = messaging.Message(
-                notification=notification,
+                android=messaging.AndroidConfig(
+                    notification=notification,
+                ),
                 token=token,
             )
             return messaging.send(message)
         except Exception as e:
             self.error(msg='failed to push notification: %s' % e)
 
-    def send_message(self, title: str, body: str, image: Optional[str], token: str):
-        responses = self.send_notification(notification=messaging.Notification(
+    def send_message(self, title: str, body: str, image: str, badge: int, sound: str, token: str):
+        notification = messaging.AndroidNotification(
             title=title,
             body=body,
-            image=image
-        ), token=token)
+            sound=sound,
+            image=image,
+            notification_count=badge,
+        )
+        responses = self.send_notification(notification=notification, token=token)
         self.info(msg='message "%s" sent, respond: %s' % (title, responses))
         return responses
 
@@ -77,6 +80,8 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
         title = aps.title
         content = aps.content
         image = aps.image
+        badge = aps.badge
+        sound = aps.sound
         # 2. check channel
         channel = device.channel
         platform = device.platform
@@ -87,5 +92,5 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
             self.warning(msg='C2DM channel not support yet: %s, %s' % (channel, receiver))
             return False
         token = device.token
-        res = self.send_message(title=title, body=content, image=image, token=token)
+        res = self.send_message(title=title, body=content, image=image, badge=badge, sound=sound, token=token)
         return res is not None

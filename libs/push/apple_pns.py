@@ -29,8 +29,9 @@
 # ==============================================================================
 
 """
-    Apple Push Notification service (APNs)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Apple Push Notification service
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    APNs
 
     A service for pushing notification to offline device
 """
@@ -137,7 +138,7 @@ class ApplePushNotificationService(PushNotificationService, Logging):
         # check for iOS platform
         platform = device.platform
         if platform is not None and platform.lower() != 'ios':
-            self.warning(msg='it is not an iOS device, skip it: %s' % device.platform)
+            self.warning(msg='It is not an iOS device, skip it: %s' % platform)
             return False
         token = device.token
         topic = device.topic

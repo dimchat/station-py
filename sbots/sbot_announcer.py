@@ -121,15 +121,11 @@ def create_apns(config: Config, database: Database):
         if topic is not None and len(topic) > 0:
             apple.topic = topic
         pnc.apple_pns = apple
-    # 2. add push service: JPush
-    app_key = config.get_string(section='announcer', option='app_key')
-    master_secret = config.get_string(section='announcer', option='master_secret')
-    production = config.get_boolean(section='announcer', option='apns_production')
-    print('APNs: app_key=%s, master_secret=%s, production=%s' % (app_key, master_secret, production))
-    if app_key is not None and len(app_key) > 0 and master_secret is not None and len(master_secret) > 0:
-        android = AndroidPushNotificationService(app_key=app_key,
-                                                 master_secret=master_secret,
-                                                 apns_production=production)
+    # 2. add push service: FCM
+    credentials = config.get_string(section='announcer', option='fcm_credentials')
+    print('APNs: credentials=%s' % credentials)
+    if credentials is not None and len(credentials) > 0:
+        android = AndroidPushNotificationService(cert=credentials)
         pnc.android_pns = android
 
 
