@@ -68,6 +68,22 @@ class DefaultPushService(PushService, Logging):
             self.__bot = receiver
         return receiver
 
+    async def _get_image(self, identifier: ID) -> Optional[str]:
+        if identifier.is_group:
+            # TODO: build group image
+            return None
+        facebook = self.__facebook
+        visa = await facebook.get_visa(user=identifier)
+        if visa is None:
+            return None
+        avatar = visa.avatar
+        if avatar is None:
+            return None
+        url = avatar.url
+        if url is None or url.find('://') < 0:
+            return None
+        return url
+
     # Override
     async def process(self, messages: List[ReliableMessage]) -> bool:
         try:
@@ -121,7 +137,10 @@ class DefaultPushService(PushService, Logging):
         # 3. increase badge
         keeper = self.__keeper
         badge = keeper.increase_badge(identifier=receiver)
-        return PushItem.create(receiver=receiver, title=title, content=text, badge=badge)
+        # 4. get avatar
+        avatar = await self._get_image(identifier=sender)
+        # OK
+        return PushItem.create(receiver=receiver, title=title, content=text, image=avatar, badge=badge)
 
     # noinspection PyMethodMayBeStatic
     def _origin_envelope(self, msg: ReliableMessage) -> Envelope:

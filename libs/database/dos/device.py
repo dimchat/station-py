@@ -44,6 +44,10 @@ class DeviceInfo:
         value = self.__info.get('token')
         if value is None:
             value = self.__info.get('device_token')
+            if value is None:
+                device = self.__info.get('device')
+                if isinstance(device, Dict):
+                    value = device.get('token')
         return value
 
     @property
@@ -71,6 +75,10 @@ class DeviceInfo:
     @property
     def system(self) -> Optional[str]:    # 'iPadOS 16.3'
         return self.__info.get('system')
+
+    @property
+    def channel(self) -> Optional[str]:   # 'Firebase'
+        return self.__info.get('channel')
 
     def __str__(self) -> str:
         clazz = self.__class__.__name__

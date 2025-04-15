@@ -64,6 +64,8 @@ class ReportCommandProcessor(BaseCommandProcessor, Logging):
         title = content.title
         if title == 'apns':
             return await self.__process_apns(content=content, msg=r_msg)
+        if title == 'c2dm':
+            return await self.__process_apns(content=content, msg=r_msg)
         # other reports
         return await super().process_content(content=content, r_msg=r_msg)
 
