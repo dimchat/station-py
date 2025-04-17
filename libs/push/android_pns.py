@@ -12,6 +12,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import messaging
 
+from dimples import DateTime
 from dimples import ID
 
 from ..utils import Logging
@@ -48,12 +49,28 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
             if not self._check_ready():
                 self.error(msg='FCM client not ready')
                 return None
+            # badge count
+            badge = notification.notification_count
+            if badge is None:
+                badge = '0'
+            elif not isinstance(badge, str):
+                badge = str(badge)
+            # build message
+            now = DateTime.current_timestamp()
             message = messaging.Message(
                 android=messaging.AndroidConfig(
                     notification=notification,
+                    data={
+                        'badge_count': badge,
+                    },
                 ),
+                data={
+                    'badge': badge,
+                    'time': now,
+                },
                 token=token,
             )
+            # send message
             return messaging.send(message)
         except Exception as e:
             self.error(msg='failed to push notification: %s' % e)
