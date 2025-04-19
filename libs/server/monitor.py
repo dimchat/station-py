@@ -33,7 +33,6 @@ from dimples import DateTime
 from dimples import ID, ReliableMessage
 from dimples import CustomizedContent
 from dimples import SessionDBI
-from dimples.server import PushCenter
 
 from ..utils import Singleton, Log, Logging
 from ..utils import Runner
@@ -210,7 +209,7 @@ class ActiveEvent(Event, Logging):
         # TODO: temporary notification, remove after too many users online
         online = self.__online
         when = self.__when
-        await _notice_master(sender=sender, online=online, remote_address=remote, when=when)
+        await _notify_masters(sender=sender, online=online, remote_address=remote, when=when)
 
 
 class ActiveRecorder(Recorder):
@@ -302,32 +301,34 @@ class MessageRecorder(Recorder):
 
 
 # TODO: temporary function, remove it after too many users online
-async def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
+async def _notify_masters(sender: ID, online: bool, remote_address: Tuple[str, int], when: DateTime):
     emitter = _get_emitter()
     user = await emitter.facebook.current_user
     assert user is not None, 'failed to get current user'
     srv = await _get_nickname(identifier=user.identifier)
     # get sender's name
-    name = await _get_fullname(identifier=sender)
+    name = await _get_nickname(identifier=sender)
     if online:
         title = 'Activity: Online (%s)' % when
         relay = await _get_relay(identifier=sender)
         extra = await _get_extra(identifier=sender)
-        text = '%s: %s is online, socket %s, relay %s; %s' % (srv, name, remote_address, relay, extra)
+        text = '%s: "%s" is online, socket %s, relay %s; %s' % (srv, name, remote_address, relay, extra)
     else:
         title = 'Activity: Offline (%s)' % when
-        text = '%s: %s is offline, socket %s' % (srv, name, remote_address)
-    # build notifications
-    masters = '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8'
-    masters = _get_masters(value=masters)
-    Log.warning(msg='notice masters %s: %s' % (masters, text))
+        text = '%s: "%s" is offline, socket %s' % (srv, name, remote_address)
+    # TODO: get masters from config.ini ?
+    masters = ID.convert(array=[
+        '0x952718A18C6b21abb593D84203282fe1c21773D6',
+        '0x9527cFD9b6a0736d8417354088A4fC6e345E31F8',
+    ])
+    Log.warning(msg='notify masters %s: %s' % (masters, text))
     if len(masters) == 0:
         return False
-    center = PushCenter()
-    keeper = center.badge_keeper
+    # center = PushCenter()
+    # keeper = center.badge_keeper
     items = []
     for receiver in masters:
-        badge = keeper.increase_badge(identifier=receiver)
+        badge = -1  # keeper.increase_badge(identifier=receiver)
         items.append(PushItem.create(receiver=receiver, title=title, content=text, badge=badge))
     # send to apns bot
     bot = AnsCommandProcessor.ans_id(name='announcer')
@@ -337,14 +338,6 @@ async def _notice_master(sender: ID, online: bool, remote_address: Tuple[str, in
     content = PushCommand(items=items)
     await emitter.send_content(content=content, receiver=bot)
     Log.info(msg='push %d items to: %s' % (len(items), bot))
-
-
-def _get_masters(value: str) -> List[ID]:
-    text = value.replace(' ', '')
-    if len(text) == 0:
-        return []
-    array = text.split(',')
-    return ID.convert(array=array)
 
 
 async def _get_nickname(identifier: ID) -> Optional[str]:
@@ -364,25 +357,6 @@ async def _get_nickname(identifier: ID) -> Optional[str]:
         return str(identifier)
     else:
         return name
-
-
-async def _get_fullname(identifier: ID) -> Optional[str]:
-    emitter = _get_emitter()
-    if emitter is None:
-        Log.error(msg='emitter not found')
-        return None
-    facebook = emitter.facebook
-    if facebook is None:
-        Log.warning(msg='facebook not found')
-        return None
-    name = None
-    doc = await facebook.get_document(identifier=identifier)
-    if doc is not None:
-        name = doc.name
-    if name is None or len(name) == 0:
-        return str(identifier)
-    else:
-        return '%s (%s)' % (name, identifier)
 
 
 async def _get_relay(identifier: ID) -> Optional[str]:

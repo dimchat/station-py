@@ -192,7 +192,7 @@ class PushInfo(Dictionary):
         }
         if sound is not None:
             info['sound'] = sound
-        if badge > 0:
+        if badge is not None:
             info['badge'] = badge
         if category is not None:
             info['category'] = category

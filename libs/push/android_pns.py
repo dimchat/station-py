@@ -66,7 +66,7 @@ class AndroidPushNotificationService(PushNotificationService, Logging):
                 ),
                 data={
                     'badge': badge,
-                    'time': now,
+                    'time': str(now),
                 },
                 token=token,
             )
