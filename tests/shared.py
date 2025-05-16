@@ -37,7 +37,6 @@ from libs.utils import Config
 from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
-from libs.database import DbInfo
 from libs.database import Database
 from libs.client import ClientArchivist, ClientFacebook
 from libs.client import ClientSession, ClientMessenger, ClientProcessor, ClientPacker
@@ -55,6 +54,8 @@ class GlobalVariable:
         self.__database: Optional[Database] = None
         self.__facebook: Optional[ClientFacebook] = None
         self.__messenger: Optional[ClientMessenger] = None
+        # load extensions
+        ExtensionLoader().run()
 
     @property
     def config(self) -> Config:
@@ -96,10 +97,6 @@ class GlobalVariable:
         checker.messenger = transceiver
 
     async def prepare(self, config: Config):
-        #
-        #  Step 0: load extensions
-        #
-        ExtensionLoader().run()
         self.__config = config
         #
         #  Step 1: create database
@@ -151,13 +148,7 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 async def create_database(config: Config) -> Database:
     """ create database with directories """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    db = Database(info=info)
+    db = Database(config=config)
     db.show_info()
     return db
 

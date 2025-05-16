@@ -319,7 +319,8 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load config from file
-    config = Config.load(file=ini_file)
+    config = Config()
+    await config.load(path=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
     return config
 
@@ -365,7 +366,7 @@ async def async_main():
     #
     #  Update config
     #
-    station = config.get('station')
+    station = config.get_section(section='station')
     Log.info(msg='**** Start testing %s ...' % station)
     client = Colonel()
     await client.run()

@@ -27,7 +27,6 @@ from typing import Dict
 
 from dimples import ID, ANYONE, EVERYONE, FOUNDER
 
-from dimples.database.dos.base import template_replace
 from dimples.database.dos import Storage
 
 
@@ -36,17 +35,16 @@ class AddressNameStorage(Storage):
         Address Name Service
         ~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/ans.js'
+        file path: '.dim/protected/ans.js'
     """
-    ans_path = '{PRIVATE}/ans.js'
+    ans_path = '{PROTECTED}/ans.js'
 
     def show_info(self):
-        path = template_replace(self.ans_path, 'PRIVATE', self._private)
+        path = self.protected_path(self.ans_path)
         print('!!!            ans path: %s' % path)
 
     def __ans_path(self) -> str:
-        path = self.ans_path
-        return template_replace(path, 'PRIVATE', self._private)
+        return self.protected_path(self.ans_path)
 
     async def load_records(self) -> Dict[str, ID]:
         path = self.__ans_path()

@@ -30,7 +30,8 @@ from aiou.mem import CachePool
 
 from dimples import ID
 from dimples.utils import SharedCacheManager
-from dimples.database import DbInfo, DbTask
+from dimples.utils import Config
+from dimples.database import DbTask
 
 from .redis import DeviceCache
 from .dos import DeviceStorage, DeviceInfo
@@ -84,12 +85,12 @@ class DevTask(DbTask):
 
 class DeviceTable:
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='devices')  # ID => DeviceInfo
-        self._redis = DeviceCache(connector=info.redis_connector)
-        self._dos = DeviceStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = DeviceCache(connector=config.redis_connector)
+        self._dos = DeviceStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

@@ -30,7 +30,8 @@ from aiou.mem import CachePool
 
 from dimples import ID
 from dimples.utils import SharedCacheManager
-from dimples.database import DbInfo, DbTask
+from dimples.utils import Config
+from dimples.database import DbTask
 
 from .redis import LoginCache
 
@@ -76,12 +77,12 @@ class ActTask(DbTask):
 
 class ActiveTable:
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         self._socket_address: Dict[ID, Set[Tuple[str, int]]] = {}  # ID => set(socket_address)
         man = SharedCacheManager()
         self._cache = man.get_pool(name='session')  # 'active_users' => Set(ID)
-        self._redis = LoginCache(connector=info.redis_connector)
+        self._redis = LoginCache(connector=config.redis_connector)
         self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic

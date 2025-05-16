@@ -33,7 +33,8 @@ from dimples import BlockCommand, MuteCommand
 from dimples.utils import is_before
 from dimples.utils import SharedCacheManager
 from dimples.database import UserDBI, ContactDBI
-from dimples.database import DbInfo, DbTask
+from dimples.utils import Config
+from dimples.database import DbTask
 
 from .redis import UserCache
 from .dos import UserStorage
@@ -136,15 +137,15 @@ class MutTask(UsrTask):
 class UserTable(UserDBI, ContactDBI):
     """ Implementations of UserDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cmd_contacts = man.get_pool(name='cmd.contacts')  # ID => StorageCommand
         self._cmd_block = man.get_pool(name='cmd.block')        # ID => BlockCommand
         self._cmd_mute = man.get_pool(name='cmd.mute')          # ID => MuteCommand
         self._cache = man.get_pool(name='contacts')             # ID => List[ID]
-        self._redis = UserCache(connector=info.redis_connector)
-        self._dos = UserStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = UserCache(connector=config.redis_connector)
+        self._dos = UserStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

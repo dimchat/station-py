@@ -40,7 +40,6 @@ from libs.utils import Config
 from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
-from libs.database import DbInfo
 from libs.database import Database
 
 from libs.client import ClientArchivist, ClientFacebook
@@ -60,6 +59,8 @@ class GlobalVariable:
         self.__database: Optional[Database] = None
         self.__facebook: Optional[ClientFacebook] = None
         self.__messenger: Optional[ClientMessenger] = None
+        # load extensions
+        ExtensionLoader().run()
 
     @property
     def config(self) -> Config:
@@ -102,24 +103,24 @@ class GlobalVariable:
 
     async def prepare(self, config: Config):
         #
-        #  Step 1: load config
+        #  Step 0: load ANS
         #
-        ExtensionLoader().run()
         ans_records = config.ans_records
         if ans_records is not None:
             # load ANS records from 'config.ini'
             CommonFacebook.ans.fix(records=ans_records)
         self.__config = config
         #
-        #  Step 2: create database
+        #  Step 1: create database
         #
         database = await create_database(config=config)
         self.__adb = database
         self.__mdb = database
         self.__sdb = database
         self.__database = database
+        await refresh_neighbors(config=config, database=database)
         #
-        #  Step 3: create facebook
+        #  Step 2: create facebook
         #
         facebook = await create_facebook(database=database)
         self.__facebook = facebook
@@ -160,43 +161,8 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 async def create_database(config: Config) -> Database:
     """ create database with directories """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    db = Database(info=info)
+    db = Database(config=config)
     db.show_info()
-    #
-    #  Update neighbor stations (default provider)
-    #
-    provider = ProviderInfo.GSP
-    neighbors = config.neighbors
-    if len(neighbors) > 0:
-        # await db.remove_stations(provider=provider)
-        # 1. remove vanished neighbors
-        old_stations = await db.all_stations(provider=provider)
-        for old in old_stations:
-            found = False
-            for item in neighbors:
-                if item.port == old.port and item.host == old.host:
-                    found = True
-                    break
-            if not found:
-                Log.info(msg='removing neighbor station: %s, %s' % (old, provider))
-                await db.remove_station(host=old.host, port=old.port, provider=provider)
-        # 2. add new neighbors
-        for node in neighbors:
-            found = False
-            for old in old_stations:
-                if old.port == node.port and old.host == node.host:
-                    found = True
-                    break
-            if not found:
-                Log.info(msg='adding neighbor node: %s -> %s' % (node, provider))
-                await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
-    # OK
     return db
 
 
@@ -217,7 +183,7 @@ def show_help(app_name: str, default_config: str):
     print('    %s' % app_name)
     print('')
     print('usages:')
-    print('    %s [--config=<FILE>] [BID]' % cmd)
+    print('    %s [--config=<FILE>]' % cmd)
     print('    %s [-h|--help]' % cmd)
     print('')
     print('optional arguments:')
@@ -253,25 +219,44 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load config from file
-    config = Config.load(file=ini_file)
+    config = Config()
+    await config.load(path=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
-    # check arguments for Bot ID
-    if len(args) == 1:
-        identifier = ID.parse(identifier=args[0])
-        if identifier is None:
-            show_help(app_name=app_name, default_config=default_config)
-            print('')
-            print('!!! Bot ID error: %s' % args[0])
-            print('')
-            sys.exit(0)
-        # set bot ID into config['bot']['id']
-        bot = config.get('bot')
-        if bot is None:
-            bot = {}
-            config['bot'] = bot
-        bot['id'] = str(identifier)
-    # OK
     return config
+
+
+async def refresh_neighbors(config: Config, database: SessionDBI):
+    """ Update neighbor stations (default provider) """
+    provider = ProviderInfo.GSP
+    neighbors = config.neighbors
+    if len(neighbors) > 0:
+        Log.info(msg='[DB] checking %d neighbor(s): %s' % (len(neighbors), provider))
+        # await sdb.remove_stations(provider=provider)
+        # 1. remove vanished neighbors
+        old_stations = await database.all_stations(provider=provider)
+        for old in old_stations:
+            found = False
+            for item in neighbors:
+                if item.port == old.port and item.host == old.host:
+                    found = True
+                    break
+            if not found:
+                Log.warning(msg='[DB] removing neighbor station: %s' % old)
+                await database.remove_station(host=old.host, port=old.port, provider=provider)
+        # 2. add new neighbors
+        for node in neighbors:
+            found = False
+            for old in old_stations:
+                if old.port == node.port and old.host == node.host:
+                    found = True
+                    break
+            if found:
+                Log.info(msg='[DB] neighbor node exists: %s' % node)
+            else:
+                Log.info(msg='[DB] adding neighbor node: %s' % node)
+                await database.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    # OK
+    return neighbors
 
 
 #
@@ -279,29 +264,12 @@ async def create_config(app_name: str, default_config: str) -> Config:
 #
 
 
-def check_bot_id(config: Config, ans_name: str) -> bool:
-    identifier = config.get_identifier(section='bot', option='id')
-    if identifier is not None:
-        # got it
-        return True
-    identifier = config.get_identifier(section='ans', option=ans_name)
-    if identifier is None:
-        # failed to get Bot ID
-        return False
-    bot_sec = config.get('bot')
-    if bot_sec is None:
-        bot_sec = {}
-        config['bot'] = bot_sec
-    bot_sec['id'] = str(identifier)
-    return True
-
-
 async def start_bot(ans_name: str, processor_class) -> Terminal:
     shared = GlobalVariable()
     config = shared.config
-    if not check_bot_id(config=config, ans_name=ans_name):
-        raise LookupError('Failed to get Bot ID: %s' % config)
-    bot_id = config.get_identifier(section='bot', option='id')
+    bot_id = config.get_identifier(section='ans', option=ans_name)
+    bot_id = ID.parse(bot_id)
+    assert bot_id is not None, 'Failed to get Bot ID: %s' % config
     await shared.login(current_user=bot_id)
     # create terminal
     host = config.station_host

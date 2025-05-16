@@ -24,7 +24,7 @@
 # ==============================================================================
 
 import os
-from typing import Optional, Union, List
+from typing import Optional, List
 
 from dimples import ID, Document
 
@@ -41,11 +41,11 @@ class DocumentStorage(SuperStorage):
     doc_path_new = '{PUBLIC}/{ADDRESS}/document.js'
     doc_path_all = '{PUBLIC}/{ADDRESS}/documents.js'
 
-    def __path(self, address: Union[ID, str], path: str) -> str:
-        if isinstance(address, ID):
-            address = str(address.address)
-        path = template_replace(path, 'PUBLIC', self._public)
-        return template_replace(path, 'ADDRESS', address)
+    # def __path(self, address: Union[ID, str], path: str) -> str:
+    #     if isinstance(address, ID):
+    #         address = str(address.address)
+    #     path = self.public_path(path)
+    #     return template_replace(path, 'ADDRESS', address)
 
     def __doc_path_old(self, identifier: ID) -> str:
         path = self.public_path(self.doc_path_old)
@@ -79,7 +79,7 @@ class DocumentStorage(SuperStorage):
     async def scan_documents(self) -> List[Document]:
         """ Scan documents from local directory for IDs """
         documents = []
-        pub = self._public
+        pub = self.public_dir
         array = os.listdir(pub)
         for item in array:
             docs = await load_documents(address=item, pub=pub)

@@ -34,6 +34,9 @@
 from dimples.utils import Log
 from dimples.utils import Path
 from dimples.utils import Runner
+from dimples.utils import DateTime
+
+from dimples.database import SessionDBI
 
 from dimples.client import ClientFacebook
 from dimples.client import ClientSession
@@ -49,6 +52,7 @@ Path.add(path=path)
 
 from sbots.shared import GlobalVariable
 from sbots.shared import create_config
+from sbots.shared import refresh_neighbors
 
 
 class InnerClient(Terminal):
@@ -73,6 +77,25 @@ class OuterClient(Terminal):
 
 
 class OctopusClient(Octopus):
+
+    REFRESH_NEIGHBORS_INTERVAL = 600
+
+    def __init__(self, database: SessionDBI, local_host: str = '127.0.0.1', local_port: int = 9394):
+        super().__init__(database=database, local_host=local_host, local_port=local_port)
+        now = DateTime.current_timestamp()
+        self.__next_refresh_time = now + self.REFRESH_NEIGHBORS_INTERVAL
+
+    # Override
+    async def process(self) -> bool:
+        now = DateTime.current_timestamp()
+        if now > self.__next_refresh_time:
+            self.__next_refresh_time = now + self.REFRESH_NEIGHBORS_INTERVAL
+            # refresh neighbor stations
+            shared = GlobalVariable()
+            config = shared.config
+            await config.load()
+            await refresh_neighbors(config=config, database=shared.sdb)
+        return await super().process()
 
     # Override
     async def create_inner_terminal(self, host: str, port: int) -> Terminal:

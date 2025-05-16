@@ -135,17 +135,16 @@ class DeviceStorage(Storage):
         Device Tokens for APNS
         ~~~~~~~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/devices.js'
+        file path: '.dim/protected/{ADDRESS}/devices.js'
     """
-    devices_path = '{PRIVATE}/{ADDRESS}/devices.js'
+    devices_path = '{PROTECTED}/{ADDRESS}/devices.js'
 
     def show_info(self):
-        path = template_replace(self.devices_path, 'PRIVATE', self._private)
+        path = self.protected_path(self.devices_path)
         print('!!!        devices path: %s' % path)
 
     def __devices_path(self, identifier: ID) -> str:
-        path = self.devices_path
-        path = template_replace(path, 'PRIVATE', self._private)
+        path = self.protected_path(self.devices_path)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     async def get_devices(self, identifier: ID) -> Optional[List[DeviceInfo]]:

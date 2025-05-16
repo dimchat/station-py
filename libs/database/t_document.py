@@ -31,7 +31,8 @@ from aiou.mem import CachePool
 from dimples import ID, Document, DocumentUtils
 from dimples import DocumentDBI
 from dimples.utils import SharedCacheManager
-from dimples.database import DbInfo, DbTask
+from dimples.utils import Config
+from dimples.database import DbTask
 
 from .redis import DocumentCache
 from .dos import DocumentStorage
@@ -122,12 +123,12 @@ class ScanTask(DbTask):
 class DocumentTable(DocumentDBI):
     """ Implementations of DocumentDBI """
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='documents')  # ID => List[Document]
-        self._redis = DocumentCache(connector=info.redis_connector)
-        self._dos = DocumentStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = DocumentCache(connector=config.redis_connector)
+        self._dos = DocumentStorage(config=config)
         self._lock = threading.Lock()
 
     def show_info(self):

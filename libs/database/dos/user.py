@@ -38,22 +38,21 @@ class UserStorage(SuperStorage):
         Contacts Command
         ~~~~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/contacts_stored.js'
+        file path: '.dim/protected/{ADDRESS}/contacts_stored.js'
     """
-    contacts_command_path = '{PRIVATE}/{ADDRESS}/contacts_stored.js'
+    contacts_command_path = '{PROTECTED}/{ADDRESS}/contacts_stored.js'
 
     def show_info(self):
         super().show_info()
-        path3 = template_replace(self.contacts_command_path, 'PRIVATE', self._private)
-        path4 = template_replace(self.block_command_path, 'PRIVATE', self._private)
-        path5 = template_replace(self.mute_command_path, 'PRIVATE', self._private)
+        path3 = self.protected_path(self.contacts_command_path)
+        path4 = self.protected_path(self.block_command_path)
+        path5 = self.protected_path(self.mute_command_path)
         print('!!!       contacts path: %s' % path3)
         print('!!!      block cmd path: %s' % path4)
         print('!!!       mute cmd path: %s' % path5)
 
     def __contacts_command_path(self, identifier: ID) -> str:
-        path = self.contacts_command_path
-        path = template_replace(path, 'PRIVATE', self._private)
+        path = self.protected_path(self.contacts_command_path)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     async def save_contacts_command(self, content: Command, identifier: ID) -> bool:
@@ -73,13 +72,12 @@ class UserStorage(SuperStorage):
         Block Command
         ~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/block_stored.js'
+        file path: '.dim/protected/{ADDRESS}/block_stored.js'
     """
-    block_command_path = '{PRIVATE}/{ADDRESS}/block_stored.js'
+    block_command_path = '{PROTECTED}/{ADDRESS}/block_stored.js'
 
     def __block_command_path(self, identifier: ID) -> str:
-        path = self.block_command_path
-        path = template_replace(path, 'PRIVATE', self._private)
+        path = self.protected_path(self.block_command_path)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     async def save_block_command(self, content: BlockCommand, identifier: ID) -> bool:
@@ -99,13 +97,12 @@ class UserStorage(SuperStorage):
         Mute Command
         ~~~~~~~~~~~~~
 
-        file path: '.dim/private/{ADDRESS}/mute_stored.js'
+        file path: '.dim/protected/{ADDRESS}/mute_stored.js'
     """
-    mute_command_path = '{PRIVATE}/{ADDRESS}/mute_stored.js'
+    mute_command_path = '{PROTECTED}/{ADDRESS}/mute_stored.js'
 
     def __mute_command_path(self, identifier: ID) -> str:
-        path = self.mute_command_path
-        path = template_replace(path, 'PRIVATE', self._private)
+        path = self.protected_path(self.mute_command_path)
         return template_replace(path, 'ADDRESS', str(identifier.address))
 
     async def save_mute_command(self, content: MuteCommand, identifier: ID) -> bool:

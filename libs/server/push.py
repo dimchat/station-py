@@ -36,7 +36,6 @@ from typing import Optional, Tuple, List
 
 from dimples import ID, ContentType, Envelope, ReliableMessage
 from dimples.server import PushService, BadgeKeeper
-from dimples.server import FilterManager
 
 from ..utils import Logging
 from ..utils.localizations import Translations, Locale
@@ -45,6 +44,7 @@ from ..common.protocol import PushCommand, PushItem
 
 from .cpu import AnsCommandProcessor
 
+from .messenger import FilterManager
 from .emitter import ServerEmitter
 from .push_intl import PushTmpl
 
@@ -53,9 +53,8 @@ class DefaultPushService(PushService, Logging):
 
     MESSAGE_EXPIRES = 128
 
-    def __init__(self, badge_keeper: BadgeKeeper, facebook: CommonFacebook, emitter: ServerEmitter):
+    def __init__(self, facebook: CommonFacebook, emitter: ServerEmitter):
         super().__init__()
-        self.__keeper = badge_keeper
         self.__facebook = facebook
         self.__emitter = emitter
         self.__bot: Optional[ID] = None
@@ -85,7 +84,7 @@ class DefaultPushService(PushService, Logging):
         return url
 
     # Override
-    async def process(self, messages: List[ReliableMessage]) -> bool:
+    async def process(self, messages: List[ReliableMessage], badge_keeper: BadgeKeeper) -> bool:
         try:
             bot = self.bot
             if bot is None:
@@ -106,7 +105,7 @@ class DefaultPushService(PushService, Logging):
                                   % (env.sender, msg.receiver, env.group, env.type))
                     continue
                 # build push item for message
-                pi = await self.__build_push_item(msg=msg)
+                pi = await self.__build_push_item(msg=msg, badge_keeper=badge_keeper)
                 if pi is not None:
                     items.append(pi)
             if len(items) > 0:
@@ -120,7 +119,7 @@ class DefaultPushService(PushService, Logging):
             self.error(msg='push %d messages error: %s' % (len(messages), error))
         return True
 
-    async def __build_push_item(self, msg: ReliableMessage) -> Optional[PushItem]:
+    async def __build_push_item(self, msg: ReliableMessage, badge_keeper: BadgeKeeper) -> Optional[PushItem]:
         # 1. check original sender, group & msg type
         env = self._origin_envelope(msg=msg)
         receiver = msg.receiver
@@ -135,8 +134,7 @@ class DefaultPushService(PushService, Logging):
             self.info(msg='ignore msg type: %s -> %s (group: %s) type: %d' % (sender, receiver, group, msg_type))
             return None
         # 3. increase badge
-        keeper = self.__keeper
-        badge = keeper.increase_badge(identifier=receiver)
+        badge = badge_keeper.increase_badge(identifier=receiver)
         # 4. get avatar
         avatar = await self._get_image(identifier=sender)
         # OK

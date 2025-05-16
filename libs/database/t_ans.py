@@ -32,7 +32,8 @@ from aiou.mem.cache import V
 from dimples import DateTime
 from dimples import ID
 from dimples.utils import SharedCacheManager
-from dimples.database import DbInfo, DbTask
+from dimples.utils import Config
+from dimples.database import DbTask
 
 from .redis import AddressNameCache
 from .dos import AddressNameStorage
@@ -120,12 +121,12 @@ class NameTask(AnsTask):
 
 class AddressNameTable:
 
-    def __init__(self, info: DbInfo):
+    def __init__(self, config: Config):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='ans')  # str => ID
-        self._redis = AddressNameCache(connector=info.redis_connector)
-        self._dos = AddressNameStorage(root=info.root_dir, public=info.public_dir, private=info.private_dir)
+        self._redis = AddressNameCache(connector=config.redis_connector)
+        self._dos = AddressNameStorage(config=config)
         self._lock = threading.RLock()
 
     def show_info(self):

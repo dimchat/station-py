@@ -32,7 +32,6 @@ from dimples import Document
 from dimples import AccountDBI, MessageDBI, SessionDBI
 from dimples.common import ProviderInfo
 from dimples.group import SharedGroupManager
-from dimples.server import FilterManager
 
 from libs.utils import Path, Log
 from libs.utils import Singleton
@@ -40,13 +39,13 @@ from libs.utils import Config
 from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
 from libs.database.redis import RedisConnector
-from libs.database import DbInfo
 from libs.database import Database
 
 from libs.server import ServerArchivist
 from libs.server import ServerChecker
 from libs.server import ServerFacebook
 from libs.server import ServerMessenger, ServerPacker, ServerProcessor
+from libs.server import FilterManager
 from libs.server import ServerSession
 from libs.server import PushCenter, DefaultPushService
 from libs.server import MessageDeliver, Roamer
@@ -67,6 +66,8 @@ class GlobalVariable:
         self.__facebook: Optional[ServerFacebook] = None
         self.__messenger: Optional[ServerMessenger] = None  # only for entity checker
         self.__emitter: Optional[ServerEmitter] = None
+        # load extensions
+        ExtensionLoader().run()
 
     @property
     def config(self) -> Config:
@@ -109,9 +110,8 @@ class GlobalVariable:
 
     async def prepare(self, config: Config):
         #
-        #  Step 0: load config
+        #  Step 0: load ANS
         #
-        ExtensionLoader().run()
         ans_records = config.ans_records
         if ans_records is not None:
             # load ANS records from 'config.ini'
@@ -125,6 +125,7 @@ class GlobalVariable:
         self.__mdb = database
         self.__sdb = database
         self.__database = database
+        await refresh_neighbors(config=config, database=database)
         #
         #  Step 2: create facebook
         #
@@ -156,8 +157,7 @@ class GlobalVariable:
         #  Step 5: prepare push center
         #
         center = PushCenter()
-        keeper = center.badge_keeper
-        center.service = DefaultPushService(badge_keeper=keeper, facebook=facebook, emitter=emitter)
+        center.service = DefaultPushService(facebook=facebook, emitter=emitter)
         #
         #  Step 6: prepare monitor
         #
@@ -200,22 +200,8 @@ def create_redis_connector(config: Config) -> Optional[RedisConnector]:
 
 async def create_database(config: Config) -> Database:
     """ create database with directories """
-    root = config.database_root
-    public = config.database_public
-    private = config.database_private
-    redis_conn = create_redis_connector(config=config)
-    info = DbInfo(redis_connector=redis_conn, root_dir=root, public_dir=public, private_dir=private)
-    # create database
-    db = Database(info=info)
+    db = Database(config=config)
     db.show_info()
-    # update neighbor stations (default provider)
-    provider = ProviderInfo.GSP
-    neighbors = config.neighbors
-    if len(neighbors) > 0:
-        await db.remove_stations(provider=provider)
-        for node in neighbors:
-            Log.info(msg='adding neighbor node: %s' % node)
-            await db.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
     # clear before station start
     await db.clear_socket_addresses()
     # filters
@@ -293,6 +279,41 @@ async def create_config(app_name: str, default_config: str) -> Config:
         print('')
         sys.exit(0)
     # load config from file
-    config = Config.load(file=ini_file)
+    config = Config()
+    await config.load(path=ini_file)
     print('>>> config loaded: %s => %s' % (ini_file, config))
     return config
+
+
+async def refresh_neighbors(config: Config, database: SessionDBI):
+    """ Update neighbor stations (default provider) """
+    provider = ProviderInfo.GSP
+    neighbors = config.neighbors
+    if len(neighbors) > 0:
+        Log.info(msg='[DB] checking %d neighbor(s): %s' % (len(neighbors), provider))
+        # await sdb.remove_stations(provider=provider)
+        # 1. remove vanished neighbors
+        old_stations = await database.all_stations(provider=provider)
+        for old in old_stations:
+            found = False
+            for item in neighbors:
+                if item.port == old.port and item.host == old.host:
+                    found = True
+                    break
+            if not found:
+                Log.warning(msg='[DB] removing neighbor station: %s' % old)
+                await database.remove_station(host=old.host, port=old.port, provider=provider)
+        # 2. add new neighbors
+        for node in neighbors:
+            found = False
+            for old in old_stations:
+                if old.port == node.port and old.host == node.host:
+                    found = True
+                    break
+            if found:
+                Log.info(msg='[DB] neighbor node exists: %s' % node)
+            else:
+                Log.info(msg='[DB] adding neighbor node: %s' % node)
+                await database.add_station(identifier=None, host=node.host, port=node.port, provider=provider)
+    # OK
+    return neighbors

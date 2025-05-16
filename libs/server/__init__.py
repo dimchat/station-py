@@ -33,14 +33,14 @@ from dimples.server import SessionCenter
 from dimples.server import PushService, PushCenter
 from dimples.server import Roamer, MessageDeliver
 from dimples.server import Dispatcher
-from dimples.server import FilterManager
 from dimples.server import ServerFacebook
 from dimples.server import ServerChecker
 
 from ..common import CommonArchivist as ServerArchivist
 
 from .session import ServerSession
-from .messenger import ServerMessenger, BlockFilter, MuteFilter
+from .messenger import ServerMessenger
+from .messenger import FilterManager, BlockFilter, MuteFilter
 from .packer import ServerPacker
 from .processor import ServerProcessor
 from .processor import ServerProcessorCreator
