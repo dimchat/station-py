@@ -6,8 +6,8 @@ logs=/tmp
 time=$(date +%Y%m%d-%H%M%S)
 
 function start() {
-    # res=$(pgrep -f "${exec} .*$2")
-    res=$(pgrep -f "$2")
+    res=$(pgrep -f "${exec} .*$2")
+    #res=$(pgrep -f "$2")
     if [[ "${res}" == "" ]]
     then
         log=${logs}/$1-${time}.log

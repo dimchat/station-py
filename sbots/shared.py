@@ -39,7 +39,6 @@ from libs.utils import Singleton
 from libs.utils import Config
 from libs.common import ExtensionLoader
 from libs.common import CommonFacebook
-from libs.database.redis import RedisConnector
 from libs.database import Database
 
 from libs.client import ClientArchivist, ClientFacebook
@@ -142,21 +141,6 @@ class GlobalVariable:
             visa.sign(private_key=sign_key)
             await facebook.save_document(document=visa)
         await facebook.set_current_user(user=user)
-
-
-def create_redis_connector(config: Config) -> Optional[RedisConnector]:
-    redis_enable = config.get_boolean(section='redis', option='enable')
-    if redis_enable:
-        # create redis connector
-        host = config.get_string(section='redis', option='host')
-        if host is None:
-            host = 'localhost'
-        port = config.get_integer(section='redis', option='port')
-        if port is None or port <= 0:
-            port = 6379
-        username = config.get_string(section='redis', option='username')
-        password = config.get_string(section='redis', option='password')
-        return RedisConnector(host=host, port=port, username=username, password=password)
 
 
 async def create_database(config: Config) -> Database:
