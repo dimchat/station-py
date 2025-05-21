@@ -89,7 +89,7 @@ class DeviceTable:
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='devices')  # ID => DeviceInfo
-        self._redis = DeviceCache(connector=config.redis_connector)
+        self._redis = DeviceCache(config=config)
         self._dos = DeviceStorage(config=config)
         self._lock = threading.Lock()
 

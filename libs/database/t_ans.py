@@ -125,7 +125,7 @@ class AddressNameTable:
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='ans')  # str => ID
-        self._redis = AddressNameCache(connector=config.redis_connector)
+        self._redis = AddressNameCache(config=config)
         self._dos = AddressNameStorage(config=config)
         self._lock = threading.RLock()
 

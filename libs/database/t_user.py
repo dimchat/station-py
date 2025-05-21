@@ -144,7 +144,7 @@ class UserTable(UserDBI, ContactDBI):
         self._cmd_block = man.get_pool(name='cmd.block')        # ID => BlockCommand
         self._cmd_mute = man.get_pool(name='cmd.mute')          # ID => MuteCommand
         self._cache = man.get_pool(name='contacts')             # ID => List[ID]
-        self._redis = UserCache(connector=config.redis_connector)
+        self._redis = UserCache(config=config)
         self._dos = UserStorage(config=config)
         self._lock = threading.Lock()
 

@@ -127,7 +127,7 @@ class DocumentTable(DocumentDBI):
         super().__init__()
         man = SharedCacheManager()
         self._cache = man.get_pool(name='documents')  # ID => List[Document]
-        self._redis = DocumentCache(connector=config.redis_connector)
+        self._redis = DocumentCache(config=config)
         self._dos = DocumentStorage(config=config)
         self._lock = threading.Lock()
 

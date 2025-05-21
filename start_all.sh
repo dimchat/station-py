@@ -29,17 +29,31 @@ function title() {
 }
 
 
+if [[ "$*" == "restart" ]]
+then
+    launch="restart"
+    echo "========================"
+    echo "    Restarting ..."
+    echo "========================"
+else
+    launch="start"
+    echo "========================"
+    echo "    Starting ..."
+    echo "========================"
+fi
+
+
 #
 #   Station & Bridges
 #
 
 title "DIM Station"
-restart "dims" "station/start.py"
+${launch} "dims" "station/start.py"
 
 sleep 2
 
 title "DIM Station Bridge"
-restart octopus "sbots/sbot_octopus.py"
+${launch} octopus "sbots/sbot_octopus.py"
 
 
 #
@@ -47,20 +61,13 @@ restart octopus "sbots/sbot_octopus.py"
 #
 
 #title "DIM Search Engine"
-#restart search "sbots/sbot_archivist.py"
+#${launch} search "sbots/sbot_archivist.py"
 #
 #title "DIM Push Center"
-#restart apns "sbots/sbot_announcer.py"
+#${launch} apns "sbots/sbot_announcer.py"
 #
 #title "DIM Monitor"
-#restart monitor "sbots/sbot_monitor.py"
-
-#
-#   File Server
-#
-
-#title "DIM File Server"
-#restart ftp "fileserver/start.py"
+#${launch} monitor "sbots/sbot_monitor.py"
 
 echo ""
 echo "    >>> Done <<<"

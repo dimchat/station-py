@@ -82,7 +82,7 @@ class ActiveTable:
         self._socket_address: Dict[ID, Set[Tuple[str, int]]] = {}  # ID => set(socket_address)
         man = SharedCacheManager()
         self._cache = man.get_pool(name='session')  # 'active_users' => Set(ID)
-        self._redis = LoginCache(connector=config.redis_connector)
+        self._redis = LoginCache(config=config)
         self._lock = threading.Lock()
 
     # noinspection PyMethodMayBeStatic
