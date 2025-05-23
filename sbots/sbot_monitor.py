@@ -75,7 +75,7 @@
         'T' - message Type
 
     Sender type:
-        https://github.com/dimchat/mkm-py/blob/master/mkm/protocol/network.py
+        https://github.com/dimchat/mkm-py/blob/master/mkm/protocol/entity.py
 
     Message type:
         https://github.com/dimchat/dkd-py/blob/master/dkd/protocol/types.py

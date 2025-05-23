@@ -1,96 +1,251 @@
 # Decentralized Instant Messaging Station (Python)
 
-Demo project for [pypi/dimp](https://pypi.org/project/dimp/) packages.
+[![License](https://img.shields.io/github/license/dimpart/station-py)](https://github.com/dimpart/station-py/blob/master/LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/dimpart/station-py/pulls)
+[![Platform](https://img.shields.io/badge/Platform-Python%203-brightgreen.svg)](https://github.com/dimpart/station-py/wiki)
+[![Issues](https://img.shields.io/github/issues/dimpart/station-py)](https://github.com/dimpart/station-py/issues)
+[![Repo Size](https://img.shields.io/github/repo-size/dimpart/station-py)](https://github.com/dimpart/station-py/archive/refs/heads/main.zip)
+[![Tags](https://img.shields.io/github/tag/dimpart/station-py)](https://github.com/dimpart/station-py/tags)
 
-Source codes:
+[![Watchers](https://img.shields.io/github/watchers/dimpart/station-py)](https://github.com/dimpart/station-py/watchers)
+[![Forks](https://img.shields.io/github/forks/dimpart/station-py)](https://github.com/dimpart/station-py/forks)
+[![Stars](https://img.shields.io/github/stars/dimpart/station-py)](https://github.com/dimpart/station-py/stargazers)
+[![Followers](https://img.shields.io/github/followers/station)](https://github.com/orgs/station/followers)
 
-1. [DIM SDK (sdk-py)](https://github.com/dimchat/sdk-py)
-2. [DIM Protocol (core-py)](https://github.com/dimchat/core-py)
-3. [Message Module (dkd-py)](https://github.com/dimchat/dkd-py)
-4. [Account Module (mkm-py)](https://github.com/dimchat/mkm-py)
 
-## Usages
+Demo project for [pypi/dimp](https://pypi.org/project/dimp/).
 
-### 0. Install Requirements
+## Dependencies
+
+* Latest Versions
+
+| Name | Version | Description |
+|------|---------|-------------|
+| [Ming Ke Ming (名可名)](https://github.com/dimchat/mkm-py) | [![Version](https://img.shields.io/pypi/v/mkm)](https://pypi.org/project/mkm) | Decentralized User Identity Authentication |
+| [Dao Ke Dao (道可道)](https://github.com/dimchat/dkd-py) | [![Version](https://img.shields.io/pypi/v/dkd)](https://pypi.org/project/dkd) | Universal Message Module |
+| [DIMP (去中心化通讯协议)](https://github.com/dimchat/core-py) | [![Version](https://img.shields.io/pypi/v/dimp)](https://pypi.org/project/dimp) | Decentralized Instant Messaging Protocol |
+| [DIM SDK](https://github.com/dimchat/sdk-py) | [![Version](https://img.shields.io/pypi/v/dimsdk)](https://pypi.org/project/dimsdk) | Software Development Kit |
+| [DIM Plugins](https://github.com/dimchat/sdk-dart) | [![Version](https://img.shields.io/pypi/v/dimplugins)](https://pypi.org/project/dimplugins) | Cryptography & Account Plugins |
+
+## Installation
+
+### 0. Clone source codes & install requirements
 
 ```
-pip3 install -r requirements.txt
+$ cd ~/
+$ mkdir -p github.com/dimpart/
+$ cd github.com/dimpart/
+
+$ git clone https://github.com/dimpart/station-py.git
+$ cd station-py
+
+$ pip3 install -r requirements.txt
 ```
 
 ### 1. Create Accounts
 
-1.0. Usages
+#### 1.0. Usages
 
 ```
-tests/register.py help generate
-tests/register.py help modify
+$ tests/register.py --help
+or
+$ dimid --help
+
+    DIM account generate/modify
+
+usages:
+    dimid [--config=<FILE>] generate
+    dimid [--config=<FILE>] modify <ID>
+    dimid [-h|--help]
+
+actions:
+    generate        create new ID, meta & document
+    modify <ID>     edit document with ID
+
+optional arguments:
+    --config        config file path (default: "/etc/dim/config.ini")
+    --help, -h      show this help message and exit
 ```
 
-1.1. Create station account (define your ID.seed)
+#### 1.1. Create station account (define your ID.name)
+
+Input address type **2**: Station (Server Node)
 
 ```
-tests/register.py generate STATION --seed="gsp-s001"
+$ tests/register.py generate
+or
+$ dimid generate
+
+Generating DIM account...
+--- address type(s) ---
+    0: User
+    1: Group (User Group)
+    2: Station (Server Node)
+    3: ISP (Service Provider)
+    4: Bot (Business Node)
+    5: ICP (Content Provider)
+    6: Supervisor (Company President)
+    7: Company (Super Group for ISP/ICP)
+    8: User (Deprecated)
+   16: Group (Deprecated)
+  136: Station (Deprecated)
+  200: Bot (Deprecated)
+>>> please input address type: 2
+!!! address type: 2
+!!! meta type: 1
+>>> please input ID.name (default is "test_station"): 
+!!! ID.name (meta seed): test_station
+!!!
+!!! ========================================================================
+!!!   Editing document for: test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4
+!!! ------------------------------------------------------------------------
+!!!
+>>>   please input station name (default is "Base Station"): 
+<<<   name = Base Station;
+!!!
+>>>   please input station host (default is "127.0.0.1"): 193.123.232.100
+<<<   host = 193.123.232.100;
+!!!
+>>>   please input station port (default is 9394): 
+<<<   port = 9394;
+!!!
+!!! ------------------------------------------------------------------------
+!!!   Done!
+!!! ========================================================================
+!!!
+!!!
+!!! ID: test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4
+!!!
+!!! meta type: 1, document type: visa, name: "Base Station"
+!!!
+!!! private key: ECC, msg keys: ['RSA']
+!!!
 ```
 
-copy the new ID (e.g.: "gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC")
+copy the new ID (e.g.: ```test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4```)
+
+you can modify the station name, host & port later:
 
 ```
-tests/register.py modify {NewID} --name="Station1" --host="{WAN_IP}" --port=9394
+$ tests/register.py modify {NewID}
+or
+$ dimid modify {NewID}
+
+!!!
+!!! ========================================================================
+!!!   Editing document for: test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4
+!!! ------------------------------------------------------------------------
+!!!
+>>>   please input station name (default is "Base Station"): Relay Station
+<<<   name = Relay Station;
+!!!
+>>>   please input station host (default is "193.123.232.100"): 
+<<<   host = 193.123.232.100;
+!!!
+>>>   please input station port (default is 9394): 
+<<<   port = 9394;
+!!!
+!!! ------------------------------------------------------------------------
+!!!   Done!
+!!! ========================================================================
+!!!
+!!!
+!!! ID: test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4
+!!!
+!!! meta type: 1, document type: visa, name: "Relay Station"
+!!!
+!!! private key: ECC, msg keys: ['RSA']
+!!!
 ```
 
-1.2. Create group assistant
+#### 1.2. Create search bot
+
+Input address type **4**: Bot (Business Node)
 
 ```
-tests/register.py generate BOT --seed="assistant"
-tests/register.py modify {NewID} --name="GroupBot1"
+$ tests/register.py generate
+or
+$ dimid generate
+
+Generating DIM account...
+--- address type(s) ---
+    0: User
+    1: Group (User Group)
+    2: Station (Server Node)
+    3: ISP (Service Provider)
+    4: Bot (Business Node)
+    5: ICP (Content Provider)
+    6: Supervisor (Company President)
+    7: Company (Super Group for ISP/ICP)
+    8: User (Deprecated)
+   16: Group (Deprecated)
+  136: Station (Deprecated)
+  200: Bot (Deprecated)
+>>> please input address type: 4
+!!! address type: 4
+!!! meta type: 1
+>>> please input ID.name (default is "test_bot"): 
+!!! ID.name (meta seed): test_bot
+!!!
+!!! ========================================================================
+!!!   Editing document for: test_bot@31F21FEH634W8npUezzxQBPgj9hUUfuNuX
+!!! ------------------------------------------------------------------------
+!!!
+>>>   please input bot name (default is "Service Bot"): Search Engine
+<<<   name = Search Engine;
+!!!
+>>>   please input avatar url (default is ""): 
+<<<   avatar = ;
+!!!
+!!! ------------------------------------------------------------------------
+!!!   Done!
+!!! ========================================================================
+!!!
+!!!
+!!! ID: test_bot@31F21FEH634W8npUezzxQBPgj9hUUfuNuX
+!!!
+!!! meta type: 1, document type: visa, name: "Search Engine"
+!!!
+!!! private key: ECC, msg keys: ['RSA']
+!!!
 ```
 
-1.3. Create search bot
+### 2. Configuration
+
+Edit "config.ini"
 
 ```
-tests/register.py generate BOT --seed="archivist"
-tests/register.py modify {NewID} --name="SearchEngine1"
+$ mkdir -p /etc/dim/
+$ cp etc/config.ini /etc/dim/
+$ vi /etc/dim/config.ini
 ```
 
-### 2. Edit "etc/gsp.js" & "etc/config.py"
+modify config contents:
 
-```
-    "stations": [
-        //
-        //  2.1. Add your new station ID with host & port here
-        //
-        {"ID": "gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC", "host": "106.52.25.169", "port": 9394}
-    ],
-    "assistants": [
-        //
-        //  2.2. Add your new assistant ID here
-        //
-        "assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq"
-    ],
-    "archivists": [
-        //
-        //  2.3. Add your new archivist ID here
-        //
-        "archivist@2Ph6zsUBL8rbimRArb2f539j64JUJJQoDpZ"
-    ]
-```
-
-```
+```ini
 #
-#   2.3. Replace your new station ID here
+#   2.1. Replace your relay station ID here
 #
-station_id = 'gsp-s001@x5Zh9ixt8ECr59XLye1y5WWfaX4fcoaaSC'
+[station]
+host = 193.123.232.100
+port = 9394
+id   = test_station@285QzP9cXkXjk1Mx3cCLni4g4m6diDzqS4
 
 #
-#   2.4. Replace your new bots ID here
+#   2.2. Replace your search bot ID here
 #
-assistant_id = 'assistant@2PpB6iscuBjA15oTjAsiswoX9qis5V3c1Dq'
-archivist_id = 'archivist@2Ph6zsUBL8rbimRArb2f539j64JUJJQoDpZ'
+[ans]
+archivist = test_bot@31F21FEH634W8npUezzxQBPgj9hUUfuNuX
+```
 
-#
-#   2.5. Set to your data directory
-#
-base_dir = '/data/.dim'
+create links to ```config.ini``` in ```/etc/dim/```
+
+```
+$ ls -l /etc/dim/
+total 12
+-rw-rw-r--. 1 opc opc 1157 May 23 10:37 config.ini
+lrwxrwxrwx. 1 opc opc   10 May 23 10:39 edge.ini -> config.ini
+lrwxrwxrwx. 1 opc opc   10 May 23 10:39 station.ini -> config.ini
 ```
 
 ### 3. Run
@@ -98,12 +253,6 @@ base_dir = '/data/.dim'
 ```
 chmod a+x *.sh
 ./start_all.sh
-```
-
-### Test Client
-
-```
-python3 tests/client.py
 ```
 
 ## Architecture
@@ -143,3 +292,6 @@ python3 tests/client.py
                                (DKD, MKM)
     
 ```
+
+Copyright &copy; 2018-2025 Albert Moky
+[![Followers](https://img.shields.io/github/followers/moky)](https://github.com/moky?tab=followers)
